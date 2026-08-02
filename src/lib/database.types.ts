@@ -195,6 +195,7 @@ export type Database = {
           ext_token: string | null
           full_name: string | null
           handle: string | null
+          hidden_modules: string[]
           id: string
           revenue_goal: number
           vat_id: string | null
@@ -208,6 +209,7 @@ export type Database = {
           ext_token?: string | null
           full_name?: string | null
           handle?: string | null
+          hidden_modules?: string[]
           id: string
           revenue_goal?: number
           vat_id?: string | null
@@ -221,6 +223,7 @@ export type Database = {
           ext_token?: string | null
           full_name?: string | null
           handle?: string | null
+          hidden_modules?: string[]
           id?: string
           revenue_goal?: number
           vat_id?: string | null

@@ -21,6 +21,9 @@ secret that links the extension to your account.
   channel = `facebook`.
 - **Google Maps**: click a business to open its panel → click the icon. Takes the name, phone (if shown),
   whether it has a website, and the link (added to notes); channel = `google_maps`.
+- **Email (Gmail / Proton)**: open a reply in Gmail or Proton → click the icon → it captures the
+  **sender** (name + email) as a lead; channel = `email`. On any other site, it lists the emails found
+  on the page so you can pick one to save.
 
 The lead appears immediately in the app under **Leads**.
 

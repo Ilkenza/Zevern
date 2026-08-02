@@ -9,10 +9,12 @@ import type { NavCounts } from "@/lib/nav";
 export function AppShell({
   user,
   counts,
+  hidden = [],
   children,
 }: {
   user: ShellUser;
   counts: NavCounts;
+  hidden?: string[];
   children: React.ReactNode;
 }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -21,7 +23,7 @@ export function AppShell({
     <div className="min-h-screen bg-base lg:grid lg:grid-cols-[260px_1fr]">
       {/* Desktop sidebar */}
       <div className="hidden lg:block">
-        <Sidebar user={user} counts={counts} />
+        <Sidebar user={user} counts={counts} hidden={hidden} />
       </div>
 
       {/* Mobile drawer + overlay */}
@@ -36,6 +38,7 @@ export function AppShell({
             <Sidebar
               user={user}
               counts={counts}
+              hidden={hidden}
               onNavigate={() => setDrawerOpen(false)}
             />
           </div>
@@ -44,7 +47,7 @@ export function AppShell({
 
       {/* Main column */}
       <div className="flex min-h-screen flex-col">
-        <Topbar user={user} onMenu={() => setDrawerOpen(true)} />
+        <Topbar user={user} hidden={hidden} onMenu={() => setDrawerOpen(true)} />
         <main className="flex-1 px-5 py-6 lg:px-8">{children}</main>
       </div>
     </div>

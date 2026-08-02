@@ -11,6 +11,9 @@
     "https://www.facebook.com/*",
     "https://web.facebook.com/*",
     "https://m.facebook.com/*",
+    "https://mail.google.com/*",
+    "https://mail.proton.me/*",
+    "https://mail.protonmail.com/*",
     "https://*.supabase.co/*"
   ],
   "action": {

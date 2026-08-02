@@ -1,7 +1,7 @@
 // Sanity check for the pure helpers. Run: node test.mjs
 import { createRequire } from "node:module";
 const require = createRequire(import.meta.url);
-const { igToLead, fbToLead, mapsToLead, toRpcArgs } = require("./format.js");
+const { igToLead, fbToLead, mapsToLead, emailToLead, toRpcArgs } = require("./format.js");
 
 let failed = 0;
 const eq = (label, got, want) => {
@@ -38,6 +38,12 @@ eq("maps: notes has link + nema sajt", noSite.notes, "https://maps/x · nema saj
 const hasSite = mapsToLead({ name: "Cafe", phone: "", hasWebsite: true, link: "https://maps/y" });
 eq("maps: has site → empty service", hasSite.service, "");
 eq("maps: notes = link only", hasSite.notes, "https://maps/y");
+
+const em = emailToLead("ana@studio.rs", "Ana Petrović");
+eq("email: channel", em.channel, "email");
+eq("email: contact = email", em.contact, "ana@studio.rs");
+eq("email: name", em.name, "Ana Petrović");
+eq("email: name falls back to email", emailToLead("x@y.com", "").name, "x@y.com");
 
 const args = toRpcArgs({ name: "A", channel: "instagram", status: "new" }, "tok");
 eq("rpc: token", args.p_token, "tok");

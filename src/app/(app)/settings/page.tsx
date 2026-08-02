@@ -5,6 +5,7 @@ import { ProfileForm } from "@/components/settings/ProfileForm";
 import { BusinessForm } from "@/components/settings/BusinessForm";
 import { PasswordForm } from "@/components/settings/PasswordForm";
 import { ExtensionPanel } from "@/components/settings/ExtensionPanel";
+import { ModulesPanel } from "@/components/settings/ModulesPanel";
 import { DangerZone } from "@/components/settings/DangerZone";
 
 export default async function SettingsPage() {
@@ -26,6 +27,10 @@ export default async function SettingsPage() {
 
       <Panel title="Business details">
         <BusinessForm profile={profile} />
+      </Panel>
+
+      <Panel title="Modules">
+        <ModulesPanel hidden={profile?.hidden_modules ?? []} />
       </Panel>
 
       <Panel title="Browser extension (Lead Collector)">

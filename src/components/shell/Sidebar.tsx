@@ -17,13 +17,16 @@ function initialsOf(user: ShellUser) {
 export function Sidebar({
   user,
   counts,
+  hidden = [],
   onNavigate,
 }: {
   user: ShellUser;
   counts: NavCounts;
+  hidden?: string[];
   onNavigate?: () => void;
 }) {
   const pathname = usePathname();
+  const items = NAV_ITEMS.filter((item) => !item.moduleKey || !hidden.includes(item.moduleKey));
 
   return (
     <aside className="flex h-screen flex-col border-r border-line bg-sidebar lg:sticky lg:top-0">
@@ -38,7 +41,7 @@ export function Sidebar({
 
       {/* Nav */}
       <nav className="flex-1 space-y-0.5 px-3 py-2">
-        {NAV_ITEMS.map((item) => {
+        {items.map((item) => {
           const active =
             item.href === "/"
               ? pathname === "/"

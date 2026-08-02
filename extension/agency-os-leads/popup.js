@@ -85,6 +85,47 @@ function scrapeMapsPlace() {
   return { source: "maps", name, phone, hasWebsite, link: location.href };
 }
 
+function scrapeGmail() {
+  // Sender of the currently open message; Gmail puts the address in span[email].
+  const senders = [...document.querySelectorAll("span[email]")];
+  const s = senders[senders.length - 1];
+  if (!s) return { error: "Open an email in Gmail to capture the sender." };
+  const email = s.getAttribute("email") || "";
+  const name = (s.getAttribute("name") || s.textContent || "").trim();
+  if (!email) return { error: "Could not read the sender email." };
+  return { source: "email", email, name: name && name !== email ? name : "" };
+}
+
+function scrapeProton() {
+  // Proton marks the sender with data-testid and a title holding the address.
+  const el =
+    document.querySelector('[data-testid="message-header:from"] [title*="@"]') ||
+    document.querySelector('[data-testid="recipient:sender"] [title*="@"]') ||
+    document.querySelector('.message-header [title*="@"]');
+  if (!el) return { error: "Open an email in Proton to capture the sender." };
+  const email = (el.getAttribute("title") || el.textContent || "").trim();
+  const nameEl = el.closest("span, div")?.querySelector("bdi, .text-ellipsis");
+  const name = (nameEl?.textContent || "").trim();
+  if (!/@/.test(email)) return { error: "Could not read the sender email." };
+  return { source: "email", email, name: name && name !== email ? name : "" };
+}
+
+function scrapeEmails() {
+  // Any page: mailto links + a regex sweep. For picking one to save.
+  const out = new Set();
+  document.querySelectorAll('a[href^="mailto:"]').forEach((a) => {
+    const e = (a.getAttribute("href") || "").replace(/^mailto:/i, "").split("?")[0].trim();
+    if (e) out.add(e);
+  });
+  const text = document.body ? document.body.innerText : "";
+  (text.match(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g) || []).forEach((e) =>
+    out.add(e.trim()),
+  );
+  const emails = [...out].filter((e) => !/\.(png|jpg|jpeg|gif|webp)$/i.test(e)).slice(0, 25);
+  if (emails.length === 0) return { error: "No email addresses found on this page." };
+  return { source: "emails", emails, pageName: document.title || "" };
+}
+
 // ---------- Supabase RPC ----------
 
 async function rpc(fn, args) {
@@ -195,24 +236,29 @@ async function boot() {
   const tab = await activeTab();
   const url = tab?.url || "";
   draftKey = url;
-  if (/^https:\/\/www\.instagram\.com\//.test(url)) mode = "instagram";
-  else if (/^https:\/\/(www\.|web\.|m\.)?facebook\.com\//.test(url)) mode = "facebook";
-  else if (/^https:\/\/www\.google\.[^/]+\/maps/.test(url)) mode = "maps";
-  else {
-    notice(
-      "Open an <b>Instagram profile</b>, a <b>Facebook page</b>, or a <b>Google Maps business</b>.",
-    );
-    return;
+  let fn;
+  if (/^https:\/\/www\.instagram\.com\//.test(url)) {
+    mode = "instagram";
+    fn = scrapeIgProfile;
+  } else if (/^https:\/\/(www\.|web\.|m\.)?facebook\.com\//.test(url)) {
+    mode = "facebook";
+    fn = scrapeFbProfile;
+  } else if (/^https:\/\/www\.google\.[^/]+\/maps/.test(url)) {
+    mode = "maps";
+    fn = scrapeMapsPlace;
+  } else if (/^https:\/\/mail\.google\.com\//.test(url)) {
+    mode = "email";
+    fn = scrapeGmail;
+  } else if (/^https:\/\/mail\.proton(mail)?\.(me|com)\//.test(url)) {
+    mode = "email";
+    fn = scrapeProton;
+  } else {
+    mode = "emails";
+    fn = scrapeEmails;
   }
 
   let data;
   try {
-    const fn =
-      mode === "instagram"
-        ? scrapeIgProfile
-        : mode === "facebook"
-          ? scrapeFbProfile
-          : scrapeMapsPlace;
     const [r] = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: fn });
     data = r?.result;
   } catch (e) {
@@ -220,22 +266,58 @@ async function boot() {
     return;
   }
   if (!data || data.error) {
-    notice(data?.error || "Nothing found on the page.");
+    notice(
+      data?.error ||
+        "Open an <b>Instagram/Facebook profile</b>, a <b>Google Maps business</b>, or an <b>email</b> (Gmail/Proton).",
+    );
     return;
   }
 
-  els.notice.classList.add("hidden");
-  els.main.classList.remove("hidden");
+  // A page with several emails → let the user pick which one to save.
+  if (data.source === "emails") {
+    renderEmailPicker(data.emails, data.pageName);
+    return;
+  }
 
   const lead =
-    mode === "instagram" ? igToLead(data) : mode === "facebook" ? fbToLead(data) : mapsToLead(data);
+    mode === "instagram"
+      ? igToLead(data)
+      : mode === "facebook"
+        ? fbToLead(data)
+        : mode === "maps"
+          ? mapsToLead(data)
+          : emailToLead(data.email, data.name);
+  await loadLead(lead);
+}
+
+/** Show the form for a lead: fill, dedupe-check, then apply any unsaved draft. */
+async function loadLead(lead) {
+  els.notice.classList.add("hidden");
+  els.main.classList.remove("hidden");
   fillForm(lead);
-  // 1) saved lead from DB overrides scraped defaults; 2) unsaved draft wins over both.
   await syncExisting(lead.contact, lead.name);
   await applyDraft();
-
-  // Persist every edit so closing the popup doesn't lose unsaved input.
   els.form.addEventListener("input", saveDraft);
+}
+
+/** Fallback for ordinary sites: list found emails; clicking one opens the form. */
+function renderEmailPicker(emails, pageName) {
+  els.main.classList.add("hidden");
+  els.notice.classList.remove("hidden");
+  els.notice.innerHTML = `<div style="margin-bottom:8px">Emails on this page — pick one to save:</div>`;
+  const list = document.createElement("div");
+  list.style.display = "flex";
+  list.style.flexDirection = "column";
+  list.style.gap = "6px";
+  emails.forEach((email) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "btn";
+    b.textContent = email;
+    b.addEventListener("click", () => loadLead(emailToLead(email, pageName)));
+    list.appendChild(b);
+  });
+  els.notice.appendChild(list);
 }
 
 els.form.addEventListener("submit", async (e) => {

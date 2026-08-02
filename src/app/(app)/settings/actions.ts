@@ -74,6 +74,28 @@ export async function changePassword(
   return { ok: true };
 }
 
+/** Save which app modules are visible (unchecked → hidden from the sidebar). */
+export async function saveModules(_prev: SettingsState, formData: FormData): Promise<SettingsState> {
+  const { MODULE_OPTIONS } = await import("@/lib/nav");
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Not signed in." };
+
+  // Any module whose checkbox is not present in the form is hidden.
+  const hidden = MODULE_OPTIONS.filter((m) => formData.get(`mod_${m.key}`) == null).map((m) => m.key);
+
+  const { error } = await supabase
+    .from("profiles")
+    .update({ hidden_modules: hidden })
+    .eq("id", user.id);
+  if (error) return { error: error.message };
+
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
 /** Create/rotate the token the browser extension uses to add leads. */
 export async function generateExtToken(): Promise<SettingsState> {
   const supabase = await createSupabaseServerClient();

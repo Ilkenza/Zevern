@@ -10,6 +10,7 @@ import { getCheckCount } from "@/lib/data/seo";
 import { getActiveLeadCount } from "@/lib/data/leads";
 import { getQuoteCount } from "@/lib/data/quotes";
 import { getToolCount } from "@/lib/data/tools";
+import { getProfile } from "@/lib/data/profile";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
@@ -25,20 +26,23 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     email: user.email ?? "",
   };
 
-  const [clients, projects, tasks, invoices, seo, leads, quotes, tools] = await Promise.all([
-    getClientCount(),
-    getProjectCount(),
-    getOpenTaskCount(),
-    getInvoiceCount(),
-    getCheckCount(),
-    getActiveLeadCount(),
-    getQuoteCount(),
-    getToolCount(),
-  ]);
+  const [clients, projects, tasks, invoices, seo, leads, quotes, tools, profile] =
+    await Promise.all([
+      getClientCount(),
+      getProjectCount(),
+      getOpenTaskCount(),
+      getInvoiceCount(),
+      getCheckCount(),
+      getActiveLeadCount(),
+      getQuoteCount(),
+      getToolCount(),
+      getProfile(),
+    ]);
   const counts: NavCounts = { clients, projects, tasks, invoices, seo, leads, quotes, tools };
+  const hidden = profile?.hidden_modules ?? [];
 
   return (
-    <AppShell user={shellUser} counts={counts}>
+    <AppShell user={shellUser} counts={counts} hidden={hidden}>
       {children}
     </AppShell>
   );

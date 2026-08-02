@@ -29,6 +29,20 @@ function fbToLead(p) {
   };
 }
 
+// An email (from Gmail/Proton sender or a page) → default lead field values.
+function emailToLead(email, name) {
+  const e = (email || "").trim();
+  return {
+    name: (name || "").trim() || e,
+    company: "",
+    contact: e,
+    channel: "email",
+    service: "",
+    status: "new",
+    notes: "",
+  };
+}
+
 // Scraped Google Maps place → default lead field values.
 function mapsToLead(p) {
   return {
@@ -57,5 +71,5 @@ function toRpcArgs(lead, token) {
 }
 
 if (typeof module !== "undefined") {
-  module.exports = { igToLead, fbToLead, mapsToLead, toRpcArgs };
+  module.exports = { igToLead, fbToLead, mapsToLead, emailToLead, toRpcArgs };
 }

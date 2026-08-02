@@ -1,185 +1,650 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Agency OS — Style Guide</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;600;700;800&family=Manrope:wght@400;500;600;700;800&family=Spline+Sans+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<style>
-  :root{
-    --base:#14161B; --deep:#0C0E12; --surface:#1A1D24; --surface-2:#20242D;
-    --ink:#ECEEF2; --muted:#8A909E; --faint:#565C6B;
-    --gold:#D9A441; --gold-hi:#E6B457;
-    --ok:#5FB88A; --ok-bg:rgba(95,184,138,.14);
-    --active:#E6B457; --active-bg:rgba(217,164,65,.15);
-    --pending:#9AA0AE; --pending-bg:rgba(255,255,255,.06);
-    --danger:#DE6B5E; --danger-bg:rgba(222,107,94,.15);
-    --draft:#6B7185; --draft-bg:rgba(255,255,255,.045);
-    --line:rgba(255,255,255,.08); --line-soft:rgba(255,255,255,.05);
-    --r-card:12px; --r-ctrl:8px; --r-pill:999px;
-    --font-ui:"Manrope",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-    --font-display:"Bricolage Grotesque","Manrope",sans-serif;
-    --font-mono:"Spline Sans Mono",ui-monospace,Menlo,monospace;
-  }
-  *{box-sizing:border-box;margin:0;padding:0}
-  html{-webkit-text-size-adjust:100%}
-  body{font-family:var(--font-ui);background:var(--base);color:var(--ink);line-height:1.5;-webkit-font-smoothing:antialiased}
-  :focus-visible{outline:2px solid var(--gold);outline-offset:2px;border-radius:5px}
-  .mono{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
-  .wrap{max-width:940px;margin:0 auto;padding:40px 26px 70px}
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agency OS — Style Guide</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;600;700;800&family=Manrope:wght@400;500;600;700;800&family=Spline+Sans+Mono:wght@400;500;600&display=swap"
+    rel="stylesheet">
+  <style>
+    :root {
+      --base: #14161B;
+      --deep: #0C0E12;
+      --surface: #1A1D24;
+      --surface-2: #20242D;
+      --ink: #ECEEF2;
+      --muted: #8A909E;
+      --faint: #565C6B;
+      --gold: #D9A441;
+      --gold-hi: #E6B457;
+      --ok: #5FB88A;
+      --ok-bg: rgba(95, 184, 138, .14);
+      --active: #E6B457;
+      --active-bg: rgba(217, 164, 65, .15);
+      --pending: #9AA0AE;
+      --pending-bg: rgba(255, 255, 255, .06);
+      --danger: #DE6B5E;
+      --danger-bg: rgba(222, 107, 94, .15);
+      --draft: #6B7185;
+      --draft-bg: rgba(255, 255, 255, .045);
+      --line: rgba(255, 255, 255, .08);
+      --line-soft: rgba(255, 255, 255, .05);
+      --r-card: 12px;
+      --r-ctrl: 8px;
+      --r-pill: 999px;
+      --font-ui: "Manrope", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --font-display: "Bricolage Grotesque", "Manrope", sans-serif;
+      --font-mono: "Spline Sans Mono", ui-monospace, Menlo, monospace;
+    }
 
-  .head h1{font-family:var(--font-display);font-size:27px;font-weight:800;letter-spacing:-.7px}
-  .head .eyebrow{font-family:var(--font-mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);opacity:.85;margin-bottom:8px}
-  .head p{color:var(--muted);font-size:14px;margin-top:6px}
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0
+    }
 
-  .section-title{font-size:11.5px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin:40px 0 15px;display:flex;align-items:center;gap:12px}
-  .section-title::after{content:"";flex:1;height:1px;background:var(--line)}
-  .sub{font-size:12px;color:var(--muted);font-weight:600;margin:16px 0 11px}
+    html {
+      -webkit-text-size-adjust: 100%
+    }
 
-  .grid{display:grid;gap:13px}
-  .c4{grid-template-columns:repeat(4,1fr)} .c2{grid-template-columns:repeat(2,1fr)}
-  @media(max-width:680px){.c4{grid-template-columns:repeat(2,1fr)}.c2{grid-template-columns:1fr}}
+    body {
+      font-family: var(--font-ui);
+      background: var(--base);
+      color: var(--ink);
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased
+    }
 
-  .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-card);padding:18px}
-  .swatch{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-card);overflow:hidden}
-  .swatch .cc{height:60px} .swatch .m{padding:10px 12px}
-  .swatch .m b{font-size:12px;font-weight:700;display:block} .swatch .m code{font-family:var(--font-mono);font-size:10.5px;color:var(--muted)}
+    :focus-visible {
+      outline: 2px solid var(--gold);
+      outline-offset: 2px;
+      border-radius: 5px
+    }
 
-  .type-row{display:flex;align-items:baseline;gap:16px;padding:10px 0;border-bottom:1px dashed var(--line);flex-wrap:wrap}
-  .type-row:last-child{border-bottom:none}
-  .type-row .spec{font-family:var(--font-mono);font-size:10.5px;color:var(--muted);min-width:130px}
+    .mono {
+      font-family: var(--font-mono);
+      font-variant-numeric: tabular-nums
+    }
 
-  .badge{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:600;padding:4px 10px;border-radius:var(--r-pill);white-space:nowrap}
-  .badge::before{content:"";width:6px;height:6px;border-radius:50%}
-  .b-ok{color:var(--ok);background:var(--ok-bg)} .b-ok::before{background:var(--ok)}
-  .b-active{color:var(--active);background:var(--active-bg)} .b-active::before{background:var(--active)}
-  .b-pending{color:var(--pending);background:var(--pending-bg)} .b-pending::before{background:var(--pending)}
-  .b-danger{color:var(--danger);background:var(--danger-bg)} .b-danger::before{background:var(--danger)}
-  .b-draft{color:var(--draft);background:var(--draft-bg)} .b-draft::before{background:var(--draft)}
+    .wrap {
+      max-width: 940px;
+      margin: 0 auto;
+      padding: 40px 26px 70px
+    }
 
-  .row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
-  .btn{font-family:var(--font-ui);font-weight:600;font-size:13.5px;border-radius:var(--r-ctrl);padding:9px 16px;border:1px solid transparent;cursor:pointer;transition:background .15s,border-color .15s}
-  .btn-primary{background:var(--gold);color:#1B1710;font-weight:700} .btn-primary:hover{background:var(--gold-hi)}
-  .btn-secondary{background:rgba(255,255,255,.04);color:var(--ink);border-color:var(--line)} .btn-secondary:hover{background:rgba(255,255,255,.08)}
-  .btn-ghost{background:transparent;color:var(--gold-hi)} .btn-ghost:hover{background:var(--active-bg)}
-  .btn-danger{background:var(--danger);color:#1B1210} .btn-danger:hover{filter:brightness(1.08)}
+    .head h1 {
+      font-family: var(--font-display);
+      font-size: 27px;
+      font-weight: 800;
+      letter-spacing: -.7px
+    }
 
-  .field{margin-bottom:13px}
-  .field label{display:block;font-size:12px;font-weight:600;margin-bottom:6px;color:#C6CAD6}
-  .field input{width:100%;font-family:var(--font-ui);font-size:13.5px;padding:10px 12px;border:1px solid var(--line);border-radius:var(--r-ctrl);color:var(--ink);background:rgba(255,255,255,.035)}
-  .field input:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 3px rgba(217,164,65,.15)}
-  .field.err input{border-color:var(--danger);box-shadow:0 0 0 3px var(--danger-bg)}
-  .field .help{font-size:11.5px;color:var(--muted);margin-top:5px} .field.err .help{color:var(--danger)}
+    .head .eyebrow {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      color: var(--gold);
+      opacity: .85;
+      margin-bottom: 8px
+    }
 
-  /* KPI + table samples */
-  .kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-card);padding:15px}
-  .kpi .l{font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.05em}
-  .kpi .v{font-size:24px;font-weight:600;margin-top:8px;letter-spacing:-.5px}
-  .kpi .d{font-size:11.5px;font-weight:600;margin-top:5px;color:var(--ok)}
+    .head p {
+      color: var(--muted);
+      font-size: 14px;
+      margin-top: 6px
+    }
 
-  table{width:100%;border-collapse:collapse;font-size:13px}
-  thead th{text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:700;padding:11px 16px;border-bottom:1px solid var(--line-soft)}
-  tbody td{padding:12px 16px;border-bottom:1px solid var(--line-soft)} tbody tr:last-child td{border-bottom:none}
-  tbody tr:hover{background:rgba(255,255,255,.02)}
-  td.num{text-align:right} .panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-card);overflow:hidden}
+    .section-title {
+      font-size: 11.5px;
+      font-weight: 800;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin: 40px 0 15px;
+      display: flex;
+      align-items: center;
+      gap: 12px
+    }
 
-  .note{font-size:12px;color:var(--muted);line-height:1.6;margin-top:10px}
-  .note code{font-family:var(--font-mono);background:rgba(255,255,255,.06);padding:1px 5px;border-radius:4px;font-size:11px;color:var(--ink)}
-</style>
+    .section-title::after {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: var(--line)
+    }
+
+    .sub {
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 600;
+      margin: 16px 0 11px
+    }
+
+    .grid {
+      display: grid;
+      gap: 13px
+    }
+
+    .c4 {
+      grid-template-columns: repeat(4, 1fr)
+    }
+
+    .c2 {
+      grid-template-columns: repeat(2, 1fr)
+    }
+
+    @media(max-width:680px) {
+      .c4 {
+        grid-template-columns: repeat(2, 1fr)
+      }
+
+      .c2 {
+        grid-template-columns: 1fr
+      }
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--r-card);
+      padding: 18px
+    }
+
+    .swatch {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--r-card);
+      overflow: hidden
+    }
+
+    .swatch .cc {
+      height: 60px
+    }
+
+    .swatch .m {
+      padding: 10px 12px
+    }
+
+    .swatch .m b {
+      font-size: 12px;
+      font-weight: 700;
+      display: block
+    }
+
+    .swatch .m code {
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      color: var(--muted)
+    }
+
+    .type-row {
+      display: flex;
+      align-items: baseline;
+      gap: 16px;
+      padding: 10px 0;
+      border-bottom: 1px dashed var(--line);
+      flex-wrap: wrap
+    }
+
+    .type-row:last-child {
+      border-bottom: none
+    }
+
+    .type-row .spec {
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      color: var(--muted);
+      min-width: 130px
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11.5px;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: var(--r-pill);
+      white-space: nowrap
+    }
+
+    .badge::before {
+      content: "";
+      width: 6px;
+      height: 6px;
+      border-radius: 50%
+    }
+
+    .b-ok {
+      color: var(--ok);
+      background: var(--ok-bg)
+    }
+
+    .b-ok::before {
+      background: var(--ok)
+    }
+
+    .b-active {
+      color: var(--active);
+      background: var(--active-bg)
+    }
+
+    .b-active::before {
+      background: var(--active)
+    }
+
+    .b-pending {
+      color: var(--pending);
+      background: var(--pending-bg)
+    }
+
+    .b-pending::before {
+      background: var(--pending)
+    }
+
+    .b-danger {
+      color: var(--danger);
+      background: var(--danger-bg)
+    }
+
+    .b-danger::before {
+      background: var(--danger)
+    }
+
+    .b-draft {
+      color: var(--draft);
+      background: var(--draft-bg)
+    }
+
+    .b-draft::before {
+      background: var(--draft)
+    }
+
+    .row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center
+    }
+
+    .btn {
+      font-family: var(--font-ui);
+      font-weight: 600;
+      font-size: 13.5px;
+      border-radius: var(--r-ctrl);
+      padding: 9px 16px;
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: background .15s, border-color .15s
+    }
+
+    .btn-primary {
+      background: var(--gold);
+      color: #1B1710;
+      font-weight: 700
+    }
+
+    .btn-primary:hover {
+      background: var(--gold-hi)
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, .04);
+      color: var(--ink);
+      border-color: var(--line)
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, .08)
+    }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--gold-hi)
+    }
+
+    .btn-ghost:hover {
+      background: var(--active-bg)
+    }
+
+    .btn-danger {
+      background: var(--danger);
+      color: #1B1210
+    }
+
+    .btn-danger:hover {
+      filter: brightness(1.08)
+    }
+
+    .field {
+      margin-bottom: 13px
+    }
+
+    .field label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      margin-bottom: 6px;
+      color: #C6CAD6
+    }
+
+    .field input {
+      width: 100%;
+      font-family: var(--font-ui);
+      font-size: 13.5px;
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: var(--r-ctrl);
+      color: var(--ink);
+      background: rgba(255, 255, 255, .035)
+    }
+
+    .field input:focus {
+      outline: none;
+      border-color: var(--gold);
+      box-shadow: 0 0 0 3px rgba(217, 164, 65, .15)
+    }
+
+    .field.err input {
+      border-color: var(--danger);
+      box-shadow: 0 0 0 3px var(--danger-bg)
+    }
+
+    .field .help {
+      font-size: 11.5px;
+      color: var(--muted);
+      margin-top: 5px
+    }
+
+    .field.err .help {
+      color: var(--danger)
+    }
+
+    /* KPI + table samples */
+    .kpi {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--r-card);
+      padding: 15px
+    }
+
+    .kpi .l {
+      font-size: 11px;
+      color: var(--muted);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .05em
+    }
+
+    .kpi .v {
+      font-size: 24px;
+      font-weight: 600;
+      margin-top: 8px;
+      letter-spacing: -.5px
+    }
+
+    .kpi .d {
+      font-size: 11.5px;
+      font-weight: 600;
+      margin-top: 5px;
+      color: var(--ok)
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px
+    }
+
+    thead th {
+      text-align: left;
+      font-size: 10.5px;
+      text-transform: uppercase;
+      letter-spacing: .07em;
+      color: var(--muted);
+      font-weight: 700;
+      padding: 11px 16px;
+      border-bottom: 1px solid var(--line-soft)
+    }
+
+    tbody td {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--line-soft)
+    }
+
+    tbody tr:last-child td {
+      border-bottom: none
+    }
+
+    tbody tr:hover {
+      background: rgba(255, 255, 255, .02)
+    }
+
+    td.num {
+      text-align: right
+    }
+
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--r-card);
+      overflow: hidden
+    }
+
+    .note {
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.6;
+      margin-top: 10px
+    }
+
+    .note code {
+      font-family: var(--font-mono);
+      background: rgba(255, 255, 255, .06);
+      padding: 1px 5px;
+      border-radius: 4px;
+      font-size: 11px;
+      color: var(--ink)
+    }
+  </style>
 </head>
+
 <body>
-<div class="wrap">
-  <div class="head">
-    <div class="eyebrow">// design system</div>
-    <h1>Agency OS — Style Guide</h1>
-    <p>Dark palette: warm gold accent on cool graphite. Manrope for UI, Spline Sans Mono for figures.</p>
-  </div>
-
-  <div class="section-title">Color</div>
-  <div class="sub">Base</div>
-  <div class="grid c4">
-    <div class="swatch"><div class="cc" style="background:#14161B"></div><div class="m"><b>Canvas</b><code>#14161B</code></div></div>
-    <div class="swatch"><div class="cc" style="background:#1A1D24"></div><div class="m"><b>Surface</b><code>#1A1D24</code></div></div>
-    <div class="swatch"><div class="cc" style="background:#ECEEF2"></div><div class="m"><b>Ink</b><code>#ECEEF2</code></div></div>
-    <div class="swatch"><div class="cc" style="background:#8A909E"></div><div class="m"><b>Muted</b><code>#8A909E</code></div></div>
-  </div>
-  <div class="sub">Accent</div>
-  <div class="grid c4">
-    <div class="swatch"><div class="cc" style="background:#D9A441"></div><div class="m"><b>Gold</b><code>#D9A441</code></div></div>
-    <div class="swatch"><div class="cc" style="background:#E6B457"></div><div class="m"><b>Gold hover</b><code>#E6B457</code></div></div>
-    <div class="swatch"><div class="cc" style="background:#1B1710"></div><div class="m"><b>On-gold text</b><code>#1B1710</code></div></div>
-    <div class="swatch"><div class="cc" style="background:rgba(255,255,255,.08)"></div><div class="m"><b>Border</b><code>#FFF / 8%</code></div></div>
-  </div>
-  <div class="sub">Status</div>
-  <div class="grid c4">
-    <div class="swatch"><div class="cc" style="background:#5FB88A"></div><div class="m"><b>Paid / Done</b><code>#5FB88A</code></div></div>
-    <div class="swatch"><div class="cc" style="background:#E6B457"></div><div class="m"><b>In progress</b><code>#E6B457</code></div></div>
-    <div class="swatch"><div class="cc" style="background:#DE6B5E"></div><div class="m"><b>Overdue</b><code>#DE6B5E</code></div></div>
-    <div class="swatch"><div class="cc" style="background:#9AA0AE"></div><div class="m"><b>Pending</b><code>#9AA0AE</code></div></div>
-  </div>
-
-  <div class="section-title">Typography</div>
-  <div class="card">
-    <div class="type-row"><span class="spec">Display · Bricolage</span><span style="font-family:var(--font-display);font-weight:800;font-size:22px">Bricolage Grotesque</span></div>
-    <div class="type-row"><span class="spec">UI · Manrope</span><span style="font-weight:600;font-size:16px">Manrope — body &amp; tables</span></div>
-    <div class="type-row"><span class="spec">Mono · Spline Sans</span><span class="mono" style="font-size:15px">Spline Sans Mono 0123</span></div>
-    <div class="type-row"><span class="spec">Display 800 · 27px</span><span style="font-family:var(--font-display);font-weight:800;font-size:27px;letter-spacing:-.7px">Command center</span></div>
-    <div class="type-row"><span class="spec">Manrope 700 · 15px</span><span style="font-weight:700;font-size:15px">Panel heading</span></div>
-    <div class="type-row"><span class="spec">Manrope 500 · 13.5px</span><span style="font-weight:500;font-size:13.5px">Body & table rows — where you mostly live.</span></div>
-    <div class="type-row"><span class="spec">Mono · CAPS 11px</span><span style="font-family:var(--font-mono);font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--gold)">// system label</span></div>
-    <div class="type-row"><span class="spec">Spline Mono · figures</span><span class="mono" style="font-size:16px">€3,240.00 · 2026-014 · 07/18</span></div>
-    <p class="note"><code>Bricolage Grotesque</code> for display headings and the wordmark — the app's signature. <code>Manrope</code> for body and tables. Money, invoice numbers, dates and IDs in <code>Spline Sans Mono</code> with <code>tabular-nums</code> so columns align.</p>
-  </div>
-
-  <div class="section-title">Status badges</div>
-  <div class="card">
-    <div class="row">
-      <span class="badge b-ok">Paid</span>
-      <span class="badge b-active">In progress</span>
-      <span class="badge b-pending">Pending</span>
-      <span class="badge b-danger">Overdue</span>
-      <span class="badge b-draft">Draft</span>
+  <div class="wrap">
+    <div class="head">
+      <div class="eyebrow">// design system</div>
+      <h1>Agency OS — Style Guide</h1>
+      <p>Dark palette: warm gold accent on cool graphite. Manrope for UI, Spline Sans Mono for figures.</p>
     </div>
-    <p class="note">One component, five variants — the spine of the whole app. Gold = active work, tying status to the accent.</p>
+
+    <div class="section-title">Color</div>
+    <div class="sub">Base</div>
+    <div class="grid c4">
+      <div class="swatch">
+        <div class="cc" style="background:#14161B"></div>
+        <div class="m"><b>Canvas</b><code>#14161B</code></div>
+      </div>
+      <div class="swatch">
+        <div class="cc" style="background:#1A1D24"></div>
+        <div class="m"><b>Surface</b><code>#1A1D24</code></div>
+      </div>
+      <div class="swatch">
+        <div class="cc" style="background:#ECEEF2"></div>
+        <div class="m"><b>Ink</b><code>#ECEEF2</code></div>
+      </div>
+      <div class="swatch">
+        <div class="cc" style="background:#8A909E"></div>
+        <div class="m"><b>Muted</b><code>#8A909E</code></div>
+      </div>
+    </div>
+    <div class="sub">Accent</div>
+    <div class="grid c4">
+      <div class="swatch">
+        <div class="cc" style="background:#D9A441"></div>
+        <div class="m"><b>Gold</b><code>#D9A441</code></div>
+      </div>
+      <div class="swatch">
+        <div class="cc" style="background:#E6B457"></div>
+        <div class="m"><b>Gold hover</b><code>#E6B457</code></div>
+      </div>
+      <div class="swatch">
+        <div class="cc" style="background:#1B1710"></div>
+        <div class="m"><b>On-gold text</b><code>#1B1710</code></div>
+      </div>
+      <div class="swatch">
+        <div class="cc" style="background:rgba(255,255,255,.08)"></div>
+        <div class="m"><b>Border</b><code>#FFF / 8%</code></div>
+      </div>
+    </div>
+    <div class="sub">Status</div>
+    <div class="grid c4">
+      <div class="swatch">
+        <div class="cc" style="background:#5FB88A"></div>
+        <div class="m"><b>Paid / Done</b><code>#5FB88A</code></div>
+      </div>
+      <div class="swatch">
+        <div class="cc" style="background:#E6B457"></div>
+        <div class="m"><b>In progress</b><code>#E6B457</code></div>
+      </div>
+      <div class="swatch">
+        <div class="cc" style="background:#DE6B5E"></div>
+        <div class="m"><b>Overdue</b><code>#DE6B5E</code></div>
+      </div>
+      <div class="swatch">
+        <div class="cc" style="background:#9AA0AE"></div>
+        <div class="m"><b>Pending</b><code>#9AA0AE</code></div>
+      </div>
+    </div>
+
+    <div class="section-title">Typography</div>
+    <div class="card">
+      <div class="type-row"><span class="spec">Display · Bricolage</span><span
+          style="font-family:var(--font-display);font-weight:800;font-size:22px">Bricolage Grotesque</span></div>
+      <div class="type-row"><span class="spec">UI · Manrope</span><span style="font-weight:600;font-size:16px">Manrope —
+          body &amp; tables</span></div>
+      <div class="type-row"><span class="spec">Mono · Spline Sans</span><span class="mono" style="font-size:15px">Spline
+          Sans Mono 0123</span></div>
+      <div class="type-row"><span class="spec">Display 800 · 27px</span><span
+          style="font-family:var(--font-display);font-weight:800;font-size:27px;letter-spacing:-.7px">Command
+          center</span></div>
+      <div class="type-row"><span class="spec">Manrope 700 · 15px</span><span
+          style="font-weight:700;font-size:15px">Panel heading</span></div>
+      <div class="type-row"><span class="spec">Manrope 500 · 13.5px</span><span
+          style="font-weight:500;font-size:13.5px">Body & table rows — where you mostly live.</span></div>
+      <div class="type-row"><span class="spec">Mono · CAPS 11px</span><span
+          style="font-family:var(--font-mono);font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--gold)">//
+          system label</span></div>
+      <div class="type-row"><span class="spec">Spline Mono · figures</span><span class="mono"
+          style="font-size:16px">€3,240.00 · 2026-014 · 07/18</span></div>
+      <p class="note"><code>Bricolage Grotesque</code> for display headings and the wordmark — the app's signature.
+        <code>Manrope</code> for body and tables. Money, invoice numbers, dates and IDs in <code>Spline Sans Mono</code>
+        with <code>tabular-nums</code> so columns align.</p>
+    </div>
+
+    <div class="section-title">Status badges</div>
+    <div class="card">
+      <div class="row">
+        <span class="badge b-ok">Paid</span>
+        <span class="badge b-active">In progress</span>
+        <span class="badge b-pending">Pending</span>
+        <span class="badge b-danger">Overdue</span>
+        <span class="badge b-draft">Draft</span>
+      </div>
+      <p class="note">One component, five variants — the spine of the whole app. Gold = active work, tying status to the
+        accent.</p>
+    </div>
+
+    <div class="section-title">Buttons</div>
+    <div class="card">
+      <div class="row">
+        <button class="btn btn-primary">Primary</button>
+        <button class="btn btn-secondary">Secondary</button>
+        <button class="btn btn-ghost">Ghost</button>
+        <button class="btn btn-danger">Delete</button>
+      </div>
+    </div>
+
+    <div class="section-title">Inputs</div>
+    <div class="grid c2">
+      <div class="card">
+        <div class="field"><label>Client name</label><input type="text" value="Prestige Nekretnine">
+          <div class="help">Company or contact person.</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="field err"><label>Invoice amount</label><input type="text" value="—">
+          <div class="help">Enter an amount greater than 0.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-title">KPI card</div>
+    <div class="grid c4">
+      <div class="kpi">
+        <div class="l">Active projects</div>
+        <div class="v mono">7</div>
+        <div class="d">▲ 2 this month</div>
+      </div>
+      <div class="kpi">
+        <div class="l">Revenue</div>
+        <div class="v mono">€3,240</div>
+        <div class="d">▲ 18%</div>
+      </div>
+      <div class="kpi">
+        <div class="l">Outstanding</div>
+        <div class="v mono">€910</div>
+        <div class="d" style="color:var(--danger)">▼ 1 overdue</div>
+      </div>
+      <div class="kpi">
+        <div class="l">Tasks today</div>
+        <div class="v mono">12</div>
+        <div class="d">4 done</div>
+      </div>
+    </div>
+
+    <div class="section-title">Table</div>
+    <div class="panel">
+      <table>
+        <thead>
+          <tr>
+            <th>Client</th>
+            <th>Project</th>
+            <th>Status</th>
+            <th style="text-align:right">Value</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Prestige Nekretnine</td>
+            <td>Catalog site</td>
+            <td><span class="badge b-active">In progress</span></td>
+            <td class="num mono">€500</td>
+          </tr>
+          <tr>
+            <td>Team ProClean</td>
+            <td>Landing + booking</td>
+            <td><span class="badge b-ok">Delivered</span></td>
+            <td class="num mono">€420</td>
+          </tr>
+          <tr>
+            <td>R&amp;V Studio</td>
+            <td>Band page</td>
+            <td><span class="badge b-danger">Overdue</span></td>
+            <td class="num mono">€910</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p class="note" style="margin-top:26px;padding-top:16px;border-top:1px solid var(--line)">Radius: cards
+      <code>12px</code>, controls <code>8px</code>, badges <code>pill</code>. Border-first, minimal shadow. Spacing base
+      <code>4px</code>.</p>
   </div>
-
-  <div class="section-title">Buttons</div>
-  <div class="card"><div class="row">
-    <button class="btn btn-primary">Primary</button>
-    <button class="btn btn-secondary">Secondary</button>
-    <button class="btn btn-ghost">Ghost</button>
-    <button class="btn btn-danger">Delete</button>
-  </div></div>
-
-  <div class="section-title">Inputs</div>
-  <div class="grid c2">
-    <div class="card"><div class="field"><label>Client name</label><input type="text" value="Prestige Nekretnine"><div class="help">Company or contact person.</div></div></div>
-    <div class="card"><div class="field err"><label>Invoice amount</label><input type="text" value="—"><div class="help">Enter an amount greater than 0.</div></div></div>
-  </div>
-
-  <div class="section-title">KPI card</div>
-  <div class="grid c4">
-    <div class="kpi"><div class="l">Active projects</div><div class="v mono">7</div><div class="d">▲ 2 this month</div></div>
-    <div class="kpi"><div class="l">Revenue</div><div class="v mono">€3,240</div><div class="d">▲ 18%</div></div>
-    <div class="kpi"><div class="l">Outstanding</div><div class="v mono">€910</div><div class="d" style="color:var(--danger)">▼ 1 overdue</div></div>
-    <div class="kpi"><div class="l">Tasks today</div><div class="v mono">12</div><div class="d">4 done</div></div>
-  </div>
-
-  <div class="section-title">Table</div>
-  <div class="panel">
-    <table>
-      <thead><tr><th>Client</th><th>Project</th><th>Status</th><th style="text-align:right">Value</th></tr></thead>
-      <tbody>
-        <tr><td>Prestige Nekretnine</td><td>Catalog site</td><td><span class="badge b-active">In progress</span></td><td class="num mono">€500</td></tr>
-        <tr><td>Team ProClean</td><td>Landing + booking</td><td><span class="badge b-ok">Delivered</span></td><td class="num mono">€420</td></tr>
-        <tr><td>R&amp;V Studio</td><td>Band page</td><td><span class="badge b-danger">Overdue</span></td><td class="num mono">€910</td></tr>
-      </tbody>
-    </table>
-  </div>
-
-  <p class="note" style="margin-top:26px;padding-top:16px;border-top:1px solid var(--line)">Radius: cards <code>12px</code>, controls <code>8px</code>, badges <code>pill</code>. Border-first, minimal shadow. Spacing base <code>4px</code>.</p>
-</div>
 </body>
+
 </html>

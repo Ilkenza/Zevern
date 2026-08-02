@@ -17,13 +17,16 @@ function greeting() {
 
 export function Topbar({
   user,
+  hidden = [],
   onMenu,
 }: {
   user: ShellUser;
+  hidden?: string[];
   onMenu: () => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const firstName = user.fullName?.trim().split(/\s+/)[0] ?? null;
+  const newItems = NEW_ITEMS.filter((item) => !hidden.includes(item.moduleKey));
 
   return (
     <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-line bg-base/80 px-5 py-3 backdrop-blur lg:px-8">
@@ -79,7 +82,7 @@ export function Topbar({
               role="menu"
               className="absolute right-0 z-50 mt-2 w-44 rounded-card border border-line bg-surface p-1 shadow-[0_16px_40px_-12px_rgba(0,0,0,0.6)]"
             >
-              {NEW_ITEMS.map((item) => (
+              {newItems.map((item) => (
                 <Link
                   key={item.href}
                   href={item.href}
