@@ -22,15 +22,18 @@ export type ProjectOption = {
 export function TaskForm({
   task,
   projects,
+  workspace = "work",
 }: {
   task?: Task;
   projects: ProjectOption[];
+  workspace?: "work" | "personal";
 }) {
   const [state, formAction, pending] = useActionState<TaskFormState, FormData>(
     saveTask,
     undefined,
   );
 
+  const personal = workspace === "personal";
   const projectOptions = projects.map((p) => ({
     value: p.id,
     label: p.client ? `${p.client} · ${p.title}` : p.title,
@@ -47,23 +50,26 @@ export function TaskForm({
     <div className="flex h-full flex-col">
       <form action={formAction} className="flex-1">
         {task && <input type="hidden" name="id" value={task.id} />}
+        <input type="hidden" name="workspace" value={workspace} />
 
         <Field
           label="Title"
           name="title"
           defaultValue={task?.title ?? ""}
-          placeholder="Follow up with client"
+          placeholder={personal ? "Pay the electricity bill" : "Follow up with client"}
           autoFocus
           required
         />
 
-        <Select
-          label="Project"
-          name="project_id"
-          defaultValue={task?.project_id ?? ""}
-          placeholder={projectOptions.length ? "No project" : "No projects yet"}
-          options={projectOptions}
-        />
+        {!personal && (
+          <Select
+            label="Project"
+            name="project_id"
+            defaultValue={task?.project_id ?? ""}
+            placeholder={projectOptions.length ? "No project" : "No projects yet"}
+            options={projectOptions}
+          />
+        )}
 
         <Select
           label="Priority"
@@ -98,7 +104,7 @@ export function TaskForm({
       {task && (
         <div className="mt-4 border-t border-line pt-4">
           <DeleteButton
-            action={deleteTask.bind(null, task.id)}
+            action={deleteTask.bind(null, task.id, workspace)}
             label="Delete task"
             confirmText={`Delete "${task.title}"?`}
           />

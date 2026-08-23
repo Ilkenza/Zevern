@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Menu, Search, Plus } from "lucide-react";
+import { usePathname } from "next/navigation";
+import { Menu, Search, Plus, Zap } from "lucide-react";
 import { buttonClasses } from "@/components/ui/Button";
-import { NEW_ITEMS } from "@/lib/nav";
+import { NEW_ITEMS, PRIVATE_NEW_ITEMS, workspaceFor } from "@/lib/nav";
 import { cn } from "@/lib/utils";
 import type { ShellUser } from "./types";
 
@@ -25,8 +26,12 @@ export function Topbar({
   onMenu: () => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const pathname = usePathname();
+  const isPrivate = workspaceFor(pathname) === "private";
   const firstName = user.fullName?.trim().split(/\s+/)[0] ?? null;
-  const newItems = NEW_ITEMS.filter((item) => !hidden.includes(item.moduleKey));
+  const newItems = isPrivate
+    ? PRIVATE_NEW_ITEMS
+    : NEW_ITEMS.filter((item) => !hidden.includes(item.moduleKey));
 
   return (
     <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-line bg-base/80 px-5 py-3 backdrop-blur lg:px-8">
@@ -44,9 +49,21 @@ export function Topbar({
           {firstName ? `, ${firstName}` : ""}
         </div>
         <div className="hidden truncate text-[12px] text-muted sm:block">
-          You&apos;re all set — nothing due yet.
+          {isPrivate ? "Private — tasks and money." : "You're all set — nothing due yet."}
         </div>
       </div>
+
+      {/* Quick add — one tap to log a spend, phone-first */}
+      {isPrivate && (
+        <Link
+          href="/private/quick"
+          className={buttonClasses("secondary", "border")}
+          aria-label="Quick add"
+        >
+          <Zap className="h-4 w-4" />
+          <span className="hidden sm:inline">Quick add</span>
+        </Link>
+      )}
 
       {/* Search (visual placeholder in Phase 2) */}
       <div className="relative hidden md:block">

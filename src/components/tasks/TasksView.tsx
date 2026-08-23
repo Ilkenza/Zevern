@@ -16,8 +16,9 @@ import { TaskCheckbox } from "./TaskCheckbox";
 import { TaskForm, type ProjectOption } from "./TaskForm";
 
 export type TasksPanel = { mode: "new" } | { mode: "edit"; task: Task } | null;
+export type TaskWorkspace = "work" | "personal";
 
-function TaskRow({ task }: { task: TaskWithProject }) {
+function TaskRow({ task, basePath }: { task: TaskWithProject; basePath: string }) {
   const done = task.status === "done";
   const pb = priorityBadge(task.priority);
   return (
@@ -47,7 +48,7 @@ function TaskRow({ task }: { task: TaskWithProject }) {
         {formatDateTime(task.due_at)}
       </span>
       <Link
-        href={`/tasks?edit=${task.id}`}
+        href={`${basePath}?edit=${task.id}`}
         aria-label={`Edit ${task.title}`}
         className="inline-flex rounded-ctrl p-1.5 text-faint opacity-0 transition-opacity hover:bg-white/5 hover:text-ink group-hover:opacity-100"
       >
@@ -61,10 +62,12 @@ function Section({
   title,
   accent,
   tasks,
+  basePath,
 }: {
   title: string;
   accent: string;
   tasks: TaskWithProject[];
+  basePath: string;
 }) {
   if (tasks.length === 0) return null;
   return (
@@ -74,7 +77,7 @@ function Section({
         <span className="mono text-faint">{tasks.length}</span>
       </div>
       {tasks.map((t) => (
-        <TaskRow key={t.id} task={t} />
+        <TaskRow key={t.id} task={t} basePath={basePath} />
       ))}
     </div>
   );
@@ -84,13 +87,17 @@ export function TasksView({
   tasks,
   projects,
   panel,
+  workspace = "work",
 }: {
   tasks: TaskWithProject[];
   projects: ProjectOption[];
   panel: TasksPanel;
+  workspace?: TaskWorkspace;
 }) {
   const router = useRouter();
-  const close = () => router.push("/tasks");
+  const personal = workspace === "personal";
+  const basePath = personal ? "/private/tasks" : "/tasks";
+  const close = () => router.push(basePath);
 
   const open = tasks.filter((t) => t.status === "todo");
   const done = tasks.filter((t) => t.status === "done");
@@ -106,9 +113,9 @@ export function TasksView({
     <div className="mx-auto max-w-300">
       <div className="mb-4 flex items-center justify-between">
         <h1 className="font-display text-[22px] font-extrabold tracking-[-0.5px] text-ink">
-          Tasks
+          {personal ? "Personal tasks" : "Tasks"}
         </h1>
-        <Link href="/tasks?new=1" className={buttonClasses("primary")}>
+        <Link href={`${basePath}?new=1`} className={buttonClasses("primary")}>
           <Plus className="h-4 w-4" />
           New task
         </Link>
@@ -119,20 +126,24 @@ export function TasksView({
           <EmptyState
             icon={ListChecks}
             title="No tasks yet"
-            description="Add a task, set a priority and a due date to see it here."
+            description={
+              personal
+                ? "Everything outside work lives here — errands, appointments, the small stuff."
+                : "Add a task, set a priority and a due date to see it here."
+            }
             action={
-              <Link href="/tasks?new=1" className={buttonClasses("primary")}>
+              <Link href={`${basePath}?new=1`} className={buttonClasses("primary")}>
                 New task
               </Link>
             }
           />
         ) : (
           <div>
-            <Section title="Overdue" accent="text-danger" tasks={overdue} />
-            <Section title="Today" accent="text-gold" tasks={today} />
-            <Section title="Upcoming" accent="text-muted" tasks={upcoming} />
-            <Section title="No date" accent="text-muted" tasks={noDate} />
-            <Section title="Done" accent="text-faint" tasks={done} />
+            <Section title="Overdue" accent="text-danger" tasks={overdue} basePath={basePath} />
+            <Section title="Today" accent="text-gold" tasks={today} basePath={basePath} />
+            <Section title="Upcoming" accent="text-muted" tasks={upcoming} basePath={basePath} />
+            <Section title="No date" accent="text-muted" tasks={noDate} basePath={basePath} />
+            <Section title="Done" accent="text-faint" tasks={done} basePath={basePath} />
           </div>
         )}
       </Panel>
@@ -145,6 +156,7 @@ export function TasksView({
         <TaskForm
           task={panel?.mode === "edit" ? panel.task : undefined}
           projects={projects}
+          workspace={workspace}
         />
       </SlideOver>
     </div>

@@ -42,3 +42,32 @@ export type SeoCheckWithProject = Omit<SeoCheck, "results"> & {
   results: CheckResult[];
   project: { title: string } | null;
 };
+
+/* ------------------------------------------------------------- private */
+
+export type MoneyAccount = Tables<"money_accounts">;
+export type MoneyCategory = Tables<"money_categories">;
+export type MoneyGoal = Tables<"money_goals">;
+export type MoneyRecurring = Tables<"money_recurring">;
+export type MoneyBudget = Tables<"money_budgets">;
+export type MoneyTransaction = Tables<"money_transactions">;
+
+export type TransactionRow = MoneyTransaction & {
+  category: { name: string; color: string | null; kind: string } | null;
+  account: { name: string; currency: string } | null;
+  goal: { name: string } | null;
+};
+
+export type RecurringRow = MoneyRecurring & {
+  category: { name: string; color: string | null } | null;
+  account: { name: string } | null;
+};
+
+/** A category with its monthly limit and what has been spent against it. */
+export type BudgetLine = {
+  category: MoneyCategory;
+  limit: number;
+  spent: number;
+};
+
+export type GoalLine = MoneyGoal & { saved: number };

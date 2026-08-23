@@ -26,11 +26,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     email: user.email ?? "",
   };
 
-  const [clients, projects, tasks, invoices, seo, leads, quotes, tools, profile] =
+  const [clients, projects, tasks, privateTasks, invoices, seo, leads, quotes, tools, profile] =
     await Promise.all([
       getClientCount(),
       getProjectCount(),
-      getOpenTaskCount(),
+      getOpenTaskCount("work"),
+      getOpenTaskCount("personal"),
       getInvoiceCount(),
       getCheckCount(),
       getActiveLeadCount(),
@@ -38,7 +39,17 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       getToolCount(),
       getProfile(),
     ]);
-  const counts: NavCounts = { clients, projects, tasks, invoices, seo, leads, quotes, tools };
+  const counts: NavCounts = {
+    clients,
+    projects,
+    tasks,
+    privateTasks,
+    invoices,
+    seo,
+    leads,
+    quotes,
+    tools,
+  };
   const hidden = profile?.hidden_modules ?? [];
 
   return (

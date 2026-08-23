@@ -9,6 +9,11 @@ import {
   Sparkles,
   Wrench,
   Settings,
+  Wallet,
+  Target,
+  Repeat,
+  PiggyBank,
+  SlidersHorizontal,
   type LucideIcon,
 } from "lucide-react";
 
@@ -20,7 +25,8 @@ export type CountKey =
   | "seo"
   | "leads"
   | "quotes"
-  | "tools";
+  | "tools"
+  | "privateTasks";
 
 /** Toggleable module keys (Settings on/off). Overview + Settings are always shown. */
 export type ModuleKey =
@@ -41,6 +47,18 @@ export type NavItem = {
   moduleKey?: ModuleKey;
 };
 
+/** The two halves of the app. Freelance is the work side, Private is life. */
+export type Workspace = "work" | "private";
+
+export const WORKSPACES: { key: Workspace; label: string; href: string }[] = [
+  { key: "work", label: "Freelance", href: "/" },
+  { key: "private", label: "Private", href: "/private" },
+];
+
+export function workspaceFor(pathname: string): Workspace {
+  return pathname === "/private" || pathname.startsWith("/private/") ? "private" : "work";
+}
+
 export const NAV_ITEMS: NavItem[] = [
   { label: "Overview", href: "/", icon: LayoutDashboard },
   { label: "Leads", href: "/leads", icon: Send, countKey: "leads", moduleKey: "leads" },
@@ -54,6 +72,16 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Settings", href: "/settings", icon: Settings },
 ];
 
+export const PRIVATE_NAV_ITEMS: NavItem[] = [
+  { label: "Overview", href: "/private", icon: LayoutDashboard },
+  { label: "Tasks", href: "/private/tasks", icon: ListChecks, countKey: "privateTasks" },
+  { label: "Money", href: "/private/money", icon: Wallet },
+  { label: "Budgets", href: "/private/budgets", icon: Target },
+  { label: "Recurring", href: "/private/recurring", icon: Repeat },
+  { label: "Goals", href: "/private/goals", icon: PiggyBank },
+  { label: "Setup", href: "/private/setup", icon: SlidersHorizontal },
+];
+
 export type NavCounts = Partial<Record<CountKey, number>>;
 
 export const NEW_ITEMS: { label: string; href: string; moduleKey: ModuleKey }[] = [
@@ -64,6 +92,14 @@ export const NEW_ITEMS: { label: string; href: string; moduleKey: ModuleKey }[] 
   { label: "New invoice", href: "/invoices?new=1", moduleKey: "invoices" },
   { label: "New quote", href: "/quotes/new", moduleKey: "quotes" },
   { label: "New SEO check", href: "/seo?new=1", moduleKey: "seo" },
+];
+
+export const PRIVATE_NEW_ITEMS: { label: string; href: string }[] = [
+  { label: "New expense", href: "/private/money?new=expense" },
+  { label: "New income", href: "/private/money?new=income" },
+  { label: "New task", href: "/private/tasks?new=1" },
+  { label: "New goal", href: "/private/goals?new=1" },
+  { label: "New recurring", href: "/private/recurring?new=1" },
 ];
 
 /** For the Settings toggle UI. */

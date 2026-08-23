@@ -1,0 +1,233 @@
+import Link from "next/link";
+import { ListChecks, Wallet } from "lucide-react";
+import {
+  getAccountBalances,
+  getBudgetLines,
+  getDueRecurring,
+  getExpenseTrend,
+  getGoalLines,
+  getMonthSummary,
+  getTransactions,
+} from "@/lib/data/money";
+import { getTasksForToday } from "@/lib/data/tasks";
+import { Panel } from "@/components/ui/Panel";
+import { Kpi } from "@/components/ui/Kpi";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { buttonClasses } from "@/components/ui/Button";
+import { TaskCheckbox } from "@/components/tasks/TaskCheckbox";
+import { DueRecurringPanel } from "@/components/private/DueRecurringPanel";
+import { formatRsd, formatRsdShort, monthKey, monthLabel, monthProgress } from "@/lib/money";
+
+export default async function PrivateOverviewPage() {
+  const month = monthKey();
+  const [summary, lines, goals, due, recent, tasks, balances, trend] = await Promise.all([
+    getMonthSummary(month),
+    getBudgetLines(month),
+    getGoalLines(),
+    getDueRecurring(),
+    getTransactions({ month, limit: 6 }),
+    getTasksForToday("personal"),
+    getAccountBalances(),
+    getExpenseTrend(6),
+  ]);
+
+  const pace = monthProgress(month);
+  const budgeted = lines.filter((l) => l.limit > 0);
+  const watch = [...budgeted].sort((a, b) => b.spent / b.limit - a.spent / a.limit).slice(0, 5);
+  const totalBalance = balances.reduce((s, a) => s + a.balance, 0);
+  const peak = Math.max(1, ...trend.map((t) => t.expense));
+
+  return (
+    <div className="mx-auto max-w-300 space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="font-display text-[22px] font-extrabold tracking-[-0.5px] text-ink">
+            Private
+          </h1>
+          <p className="text-[12.5px] text-muted">{monthLabel(month)}</p>
+        </div>
+        <div className="flex gap-2">
+          <Link href="/private/quick" className={buttonClasses("primary")}>
+            Quick add
+          </Link>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <Kpi label="Spent this month" value={formatRsd(summary.expense)} />
+        <Kpi label="Income" value={formatRsd(summary.income)} />
+        <Kpi
+          label="Left over"
+          value={formatRsd(summary.net)}
+          hint={summary.net < 0 ? <span className="text-danger">In the red</span> : undefined}
+        />
+        <Kpi label="On accounts" value={formatRsd(totalBalance)} />
+      </div>
+
+      <DueRecurringPanel due={due} />
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Panel
+          title="Today"
+          action={
+            <Link href="/private/tasks" className="text-[12px] font-semibold text-gold-hi">
+              All tasks
+            </Link>
+          }
+        >
+          {tasks.length === 0 ? (
+            <EmptyState icon={ListChecks} title="Nothing due today" />
+          ) : (
+            <div>
+              {tasks.map((t) => (
+                <div
+                  key={t.id}
+                  className="flex items-center gap-3 border-b border-line-soft px-4 py-2.5 last:border-b-0"
+                >
+                  <TaskCheckbox id={t.id} done={t.status === "done"} />
+                  <span className="flex-1 truncate text-[13.5px] text-ink">{t.title}</span>
+                  <span className="mono text-[11.5px] text-muted">{t.due_at?.slice(0, 10)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </Panel>
+
+        <Panel
+          title="Budgets"
+          action={
+            <Link href="/private/budgets" className="text-[12px] font-semibold text-gold-hi">
+              Set limits
+            </Link>
+          }
+        >
+          {watch.length === 0 ? (
+            <EmptyState
+              icon={Wallet}
+              title="No limits set"
+              description="Put a monthly cap on the categories that tend to run away."
+            />
+          ) : (
+            <div className="space-y-3 px-4 py-3.5">
+              {watch.map((l) => {
+                const used = Math.min(l.spent / l.limit, 1);
+                const over = l.spent > l.limit;
+                return (
+                  <div key={l.category.id}>
+                    <div className="flex items-center justify-between text-[12.5px]">
+                      <span className="truncate font-semibold text-ink">{l.category.name}</span>
+                      <span className={`mono ${over ? "text-danger" : "text-muted"}`}>
+                        {formatRsdShort(l.spent)} / {formatRsdShort(l.limit)}
+                      </span>
+                    </div>
+                    <div className="mt-1.5 h-1.5 overflow-hidden rounded-pill bg-white/6">
+                      <div
+                        className={`h-full rounded-pill ${
+                          over ? "bg-danger" : used > pace + 0.15 ? "bg-gold" : "bg-ok"
+                        }`}
+                        style={{ width: `${used * 100}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </Panel>
+
+        <Panel
+          title="Last entries"
+          action={
+            <Link href="/private/money" className="text-[12px] font-semibold text-gold-hi">
+              See all
+            </Link>
+          }
+        >
+          {recent.length === 0 ? (
+            <EmptyState
+              icon={Wallet}
+              title="Nothing logged yet"
+              description="Log it the moment you spend it — that is the whole habit."
+              action={
+                <Link href="/private/quick" className={buttonClasses("primary")}>
+                  Add the first one
+                </Link>
+              }
+            />
+          ) : (
+            <div>
+              {recent.map((t) => (
+                <div
+                  key={t.id}
+                  className="flex items-center gap-3 border-b border-line-soft px-4 py-2.5 last:border-b-0"
+                >
+                  <span
+                    className="h-6 w-1 shrink-0 rounded-pill"
+                    style={{ background: t.category?.color ?? "#565c6b" }}
+                  />
+                  <span className="min-w-0 flex-1 truncate text-[13px] text-ink">
+                    {t.category?.name ?? t.goal?.name ?? t.note ?? "—"}
+                  </span>
+                  <span className="mono text-[12.5px] text-muted">
+                    {t.kind === "income" ? "+" : "−"} {formatRsd(Number(t.amount_rsd))}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </Panel>
+
+        <Panel
+          title="Goals"
+          action={
+            <Link href="/private/goals" className="text-[12px] font-semibold text-gold-hi">
+              Manage
+            </Link>
+          }
+        >
+          {goals.length === 0 ? (
+            <EmptyState icon={Wallet} title="No goals yet" />
+          ) : (
+            <div className="space-y-3 px-4 py-3.5">
+              {goals.slice(0, 4).map((g) => {
+                const pct = Number(g.target_rsd) > 0 ? Math.min(g.saved / Number(g.target_rsd), 1) : 0;
+                return (
+                  <div key={g.id}>
+                    <div className="flex items-center justify-between text-[12.5px]">
+                      <span className="truncate font-semibold text-ink">{g.name}</span>
+                      <span className="mono text-muted">
+                        {formatRsdShort(g.saved)}
+                        {Number(g.target_rsd) > 0 ? ` / ${formatRsdShort(Number(g.target_rsd))}` : ""}
+                      </span>
+                    </div>
+                    <div className="mt-1.5 h-1.5 overflow-hidden rounded-pill bg-white/6">
+                      <div
+                        className="h-full rounded-pill"
+                        style={{ width: `${pct * 100}%`, background: g.color ?? "#5fb88a" }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </Panel>
+      </div>
+
+      <Panel title="Last 6 months">
+        <div className="flex items-end gap-3 px-4 py-4">
+          {trend.map((t) => (
+            <div key={t.month} className="flex flex-1 flex-col items-center gap-1.5">
+              <span className="mono text-[10.5px] text-faint">{formatRsdShort(t.expense)}</span>
+              <div
+                className={`w-full rounded-t-[4px] ${t.month === month ? "bg-gold" : "bg-white/12"}`}
+                style={{ height: `${Math.max(4, (t.expense / peak) * 90)}px` }}
+              />
+              <span className="text-[10.5px] text-muted">{t.month.slice(5)}</span>
+            </div>
+          ))}
+        </div>
+      </Panel>
+    </div>
+  );
+}

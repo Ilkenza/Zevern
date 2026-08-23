@@ -185,6 +185,297 @@ export type Database = {
         }
         Relationships: []
       }
+      money_accounts: {
+        Row: {
+          archived: boolean
+          color: string | null
+          created_at: string
+          currency: string
+          id: string
+          kind: string
+          name: string
+          opening_balance: number
+          sort: number
+          user_id: string
+        }
+        Insert: {
+          archived?: boolean
+          color?: string | null
+          created_at?: string
+          currency?: string
+          id?: string
+          kind?: string
+          name: string
+          opening_balance?: number
+          sort?: number
+          user_id?: string
+        }
+        Update: {
+          archived?: boolean
+          color?: string | null
+          created_at?: string
+          currency?: string
+          id?: string
+          kind?: string
+          name?: string
+          opening_balance?: number
+          sort?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      money_budgets: {
+        Row: {
+          amount_rsd: number
+          category_id: string
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          amount_rsd?: number
+          category_id: string
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Update: {
+          amount_rsd?: number
+          category_id?: string
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "money_budgets_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "money_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      money_categories: {
+        Row: {
+          archived: boolean
+          color: string | null
+          created_at: string
+          icon: string | null
+          id: string
+          kind: string
+          name: string
+          sort: number
+          user_id: string
+        }
+        Insert: {
+          archived?: boolean
+          color?: string | null
+          created_at?: string
+          icon?: string | null
+          id?: string
+          kind?: string
+          name: string
+          sort?: number
+          user_id?: string
+        }
+        Update: {
+          archived?: boolean
+          color?: string | null
+          created_at?: string
+          icon?: string | null
+          id?: string
+          kind?: string
+          name?: string
+          sort?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      money_goals: {
+        Row: {
+          archived: boolean
+          color: string | null
+          created_at: string
+          id: string
+          name: string
+          target_date: string | null
+          target_rsd: number
+          user_id: string
+        }
+        Insert: {
+          archived?: boolean
+          color?: string | null
+          created_at?: string
+          id?: string
+          name: string
+          target_date?: string | null
+          target_rsd?: number
+          user_id?: string
+        }
+        Update: {
+          archived?: boolean
+          color?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          target_date?: string | null
+          target_rsd?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      money_recurring: {
+        Row: {
+          account_id: string | null
+          active: boolean
+          amount: number
+          category_id: string | null
+          created_at: string
+          currency: string
+          every: string
+          id: string
+          kind: string
+          name: string
+          next_on: string
+          user_id: string
+          variable: boolean
+        }
+        Insert: {
+          account_id?: string | null
+          active?: boolean
+          amount?: number
+          category_id?: string | null
+          created_at?: string
+          currency?: string
+          every?: string
+          id?: string
+          kind?: string
+          name: string
+          next_on?: string
+          user_id?: string
+          variable?: boolean
+        }
+        Update: {
+          account_id?: string | null
+          active?: boolean
+          amount?: number
+          category_id?: string | null
+          created_at?: string
+          currency?: string
+          every?: string
+          id?: string
+          kind?: string
+          name?: string
+          next_on?: string
+          user_id?: string
+          variable?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "money_recurring_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "money_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "money_recurring_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "money_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      money_transactions: {
+        Row: {
+          account_id: string | null
+          amount: number
+          amount_rsd: number
+          category_id: string | null
+          created_at: string
+          currency: string
+          goal_id: string | null
+          id: string
+          kind: string
+          note: string | null
+          occurred_on: string
+          rate: number
+          recurring_id: string | null
+          to_account_id: string | null
+          user_id: string
+        }
+        Insert: {
+          account_id?: string | null
+          amount: number
+          category_id?: string | null
+          created_at?: string
+          currency?: string
+          goal_id?: string | null
+          id?: string
+          kind?: string
+          note?: string | null
+          occurred_on?: string
+          rate?: number
+          recurring_id?: string | null
+          to_account_id?: string | null
+          user_id?: string
+        }
+        Update: {
+          account_id?: string | null
+          amount?: number
+          category_id?: string | null
+          created_at?: string
+          currency?: string
+          goal_id?: string | null
+          id?: string
+          kind?: string
+          note?: string | null
+          occurred_on?: string
+          rate?: number
+          recurring_id?: string | null
+          to_account_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "money_transactions_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "money_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "money_transactions_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "money_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "money_transactions_goal_id_fkey"
+            columns: ["goal_id"]
+            isOneToOne: false
+            referencedRelation: "money_goals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "money_transactions_recurring_id_fkey"
+            columns: ["recurring_id"]
+            isOneToOne: false
+            referencedRelation: "money_recurring"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "money_transactions_to_account_id_fkey"
+            columns: ["to_account_id"]
+            isOneToOne: false
+            referencedRelation: "money_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -197,6 +488,9 @@ export type Database = {
           handle: string | null
           hidden_modules: string[]
           id: string
+          rate_eur: number
+          rate_usd: number
+          rates_updated_on: string | null
           revenue_goal: number
           vat_id: string | null
         }
@@ -211,6 +505,9 @@ export type Database = {
           handle?: string | null
           hidden_modules?: string[]
           id: string
+          rate_eur?: number
+          rate_usd?: number
+          rates_updated_on?: string | null
           revenue_goal?: number
           vat_id?: string | null
         }
@@ -225,6 +522,9 @@ export type Database = {
           handle?: string | null
           hidden_modules?: string[]
           id?: string
+          rate_eur?: number
+          rate_usd?: number
+          rates_updated_on?: string | null
           revenue_goal?: number
           vat_id?: string | null
         }
@@ -418,6 +718,7 @@ export type Database = {
           status: string
           title: string
           user_id: string
+          workspace: string
         }
         Insert: {
           created_at?: string
@@ -428,6 +729,7 @@ export type Database = {
           status?: string
           title: string
           user_id?: string
+          workspace?: string
         }
         Update: {
           created_at?: string
@@ -438,6 +740,7 @@ export type Database = {
           status?: string
           title?: string
           user_id?: string
+          workspace?: string
         }
         Relationships: [
           {
