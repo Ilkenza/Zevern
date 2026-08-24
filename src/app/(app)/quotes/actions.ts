@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
-import { userId } from "@/lib/supabase/current-user";
+import { ownsRow, userId } from "@/lib/supabase/current-user";
+import { saveErrorMessage } from "@/lib/supabase/errors";
 import { nextInvoiceNumber } from "@/lib/data/invoices";
 import { quoteTotal } from "@/lib/quotes/total";
 import { todayISO } from "@/lib/format";
@@ -47,6 +48,9 @@ export async function saveQuote(_prev: QuoteFormState, formData: FormData): Prom
   const uid = await userId(supabase);
   if (!uid) return { error: "Not signed in." };
 
+  if (!(await ownsRow(supabase, "clients", clientId, uid)))
+    return { error: "That client is not on your account." };
+
   const payload = { title, client_id: clientId, currency, status, items };
 
   let quoteId = id;
@@ -56,10 +60,11 @@ export async function saveQuote(_prev: QuoteFormState, formData: FormData): Prom
       .update(payload)
       .eq("id", id)
       .eq("user_id", uid);
-    if (error) return { error: error.message };
+    if (error) return { error: saveErrorMessage(error) };
   } else {
     const { data, error } = await supabase.from("quotes").insert(payload).select("id").single();
-    if (error || !data) return { error: error?.message ?? "Could not save." };
+    if (error) return { error: saveErrorMessage(error) };
+    if (!data) return { error: "Could not save that. Try again." };
     quoteId = data.id;
   }
 
@@ -94,6 +99,13 @@ export async function convertQuoteToInvoice(id: string) {
     .maybeSingle();
   if (!quote) redirect("/quotes");
   if (quote.invoice_id) redirect(`/invoices/${quote.invoice_id}`);
+
+  // The quote is ours, but the client it points at only became ours after the check in
+  // saveQuote existed — an older row can still carry someone else's client_id.
+  if (!(await ownsRow(supabase, "clients", quote.client_id, uid))) {
+    console.error("convertQuoteToInvoice: quote points at a client outside the account");
+    redirect(`/quotes/${id}`);
+  }
 
   const items = (Array.isArray(quote.items) ? quote.items : []) as unknown as QuoteItem[];
   const total = quoteTotal(items);

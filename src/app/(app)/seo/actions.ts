@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
-import { userId } from "@/lib/supabase/current-user";
+import { ownsRow, userId } from "@/lib/supabase/current-user";
+import { saveErrorMessage } from "@/lib/supabase/errors";
 import { fetchAndAnalyze } from "@/lib/seo/analyze";
 
 export type CheckFormState = { error?: string } | undefined;
@@ -16,10 +17,20 @@ export async function runCheck(
   const projectId = String(formData.get("project_id") ?? "").trim() || null;
   if (!url) return { error: "Enter a URL." };
 
+  // Authenticate BEFORE fetching anything. Every exported server action is a
+  // callable endpoint regardless of which route it was imported from, so leaving
+  // the fetch above this check handed an anonymous caller an outbound request
+  // primitive pointed wherever they liked.
+  const supabase = await createSupabaseServerClient();
+  const uid = await userId(supabase);
+  if (!uid) return { error: "Not signed in." };
+
   const result = await fetchAndAnalyze(url);
   if (!result.ok) return { error: result.error };
 
-  const supabase = await createSupabaseServerClient();
+  if (!(await ownsRow(supabase, "projects", projectId, uid)))
+    return { error: "That project is not on your account." };
+
   const { data, error } = await supabase
     .from("seo_checks")
     .insert({
@@ -31,7 +42,7 @@ export async function runCheck(
     })
     .select("id")
     .single();
-  if (error) return { error: error.message };
+  if (error) return { error: saveErrorMessage(error) };
 
   revalidatePath("/seo");
   revalidatePath("/");

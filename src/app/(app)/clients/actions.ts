@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 import { userId } from "@/lib/supabase/current-user";
+import { saveErrorMessage } from "@/lib/supabase/errors";
 
 export type ClientFormState = { error?: string } | undefined;
 
@@ -44,10 +45,10 @@ export async function saveClient(
       .update(payload)
       .eq("id", id)
       .eq("user_id", uid);
-    if (error) return { error: error.message };
+    if (error) return { error: saveErrorMessage(error) };
   } else {
     const { error } = await supabase.from("clients").insert(payload);
-    if (error) return { error: error.message };
+    if (error) return { error: saveErrorMessage(error) };
   }
 
   revalidatePath("/clients");

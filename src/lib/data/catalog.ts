@@ -4,9 +4,12 @@ import type { ServiceItem } from "@/lib/types";
 
 export async function getServiceItems(): Promise<ServiceItem[]> {
   const supabase = await createClient();
+  const uid = await userId(supabase);
+  if (!uid) return [];
   const { data } = await supabase
     .from("service_items")
     .select("*")
+    .eq("user_id", uid)
     .order("created_at", { ascending: true });
   return data ?? [];
 }

@@ -25,6 +25,11 @@ export async function authenticate(
   const supabase = await createClient();
 
   if (mode === "signup") {
+    // Only checked on the way in. An existing account with a shorter password has
+    // to stay able to sign in, and then change it.
+    if (password.length < 10) {
+      return { error: "Password must be at least 10 characters." };
+    }
     const fullName = String(formData.get("fullName") ?? "").trim();
     const { data, error } = await supabase.auth.signUp({
       email,
@@ -76,7 +81,8 @@ export async function updatePassword(
   const password = String(formData.get("password") ?? "");
   const confirm = String(formData.get("confirm") ?? "");
 
-  if (password.length < 6) return { error: "Password must be at least 6 characters." };
+  if (password.length < 10)
+    return { error: "Password must be at least 10 characters." };
   if (password !== confirm) return { error: "Passwords don't match." };
 
   const supabase = await createClient();

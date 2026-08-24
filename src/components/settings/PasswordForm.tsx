@@ -21,12 +21,20 @@ export function PasswordForm({ email }: { email: string }) {
       </p>
 
       <Field
+        label="Current password"
+        name="current"
+        type="password"
+        placeholder="••••••••"
+        autoComplete="current-password"
+        required
+      />
+      <Field
         label="New password"
         name="password"
         type="password"
         placeholder="••••••••"
         autoComplete="new-password"
-        minLength={6}
+        minLength={10}
         required
       />
       <Field
@@ -35,7 +43,7 @@ export function PasswordForm({ email }: { email: string }) {
         type="password"
         placeholder="••••••••"
         autoComplete="new-password"
-        minLength={6}
+        minLength={10}
         required
       />
 

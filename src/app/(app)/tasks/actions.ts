@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
-import { userId } from "@/lib/supabase/current-user";
+import { ownsRow, userId } from "@/lib/supabase/current-user";
+import { saveErrorMessage } from "@/lib/supabase/errors";
 import { TASK_PRIORITIES, type TaskPriority } from "@/lib/status";
 
 export type TaskFormState = { error?: string } | undefined;
@@ -31,8 +32,13 @@ export async function saveTask(
   const uid = await userId(supabase);
   if (!uid) return { error: "Not signed in." };
 
+  // A personal task never belongs to a project, so whatever the form sent is dropped.
+  const linkedProjectId = workspace === "personal" ? null : projectId;
+  if (!(await ownsRow(supabase, "projects", linkedProjectId, uid)))
+    return { error: "That project is not on your account." };
+
   const payload = {
-    project_id: workspace === "personal" ? null : projectId,
+    project_id: linkedProjectId,
     title,
     priority,
     due_at: dueAt,
@@ -41,10 +47,10 @@ export async function saveTask(
 
   if (id) {
     const { error } = await supabase.from("tasks").update(payload).eq("id", id).eq("user_id", uid);
-    if (error) return { error: error.message };
+    if (error) return { error: saveErrorMessage(error) };
   } else {
     const { error } = await supabase.from("tasks").insert(payload);
-    if (error) return { error: error.message };
+    if (error) return { error: saveErrorMessage(error) };
   }
 
   revalidatePath(listPath(workspace));

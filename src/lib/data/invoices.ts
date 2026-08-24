@@ -8,9 +8,12 @@ const WITH_CLIENT = "*, client:clients(name)";
 
 export async function getInvoices(): Promise<InvoiceWithClient[]> {
   const supabase = await createClient();
+  const uid = await userId(supabase);
+  if (!uid) return [];
   const { data } = await supabase
     .from("invoices")
     .select(WITH_CLIENT)
+    .eq("user_id", uid)
     .order("issued_at", { ascending: false, nullsFirst: false })
     .order("created_at", { ascending: false });
   return (data ?? []) as InvoiceWithClient[];
@@ -18,9 +21,12 @@ export async function getInvoices(): Promise<InvoiceWithClient[]> {
 
 export async function getRecentInvoices(limit = 5): Promise<InvoiceWithClient[]> {
   const supabase = await createClient();
+  const uid = await userId(supabase);
+  if (!uid) return [];
   const { data } = await supabase
     .from("invoices")
     .select(WITH_CLIENT)
+    .eq("user_id", uid)
     .order("issued_at", { ascending: false, nullsFirst: false })
     .order("created_at", { ascending: false })
     .limit(limit);
@@ -43,7 +49,12 @@ export async function getInvoice(id: string): Promise<InvoiceWithClient | null> 
 
 export async function getInvoiceCount(): Promise<number> {
   const supabase = await createClient();
-  const { count } = await supabase.from("invoices").select("*", { count: "exact", head: true });
+  const uid = await userId(supabase);
+  if (!uid) return 0;
+  const { count } = await supabase
+    .from("invoices")
+    .select("*", { count: "exact", head: true })
+    .eq("user_id", uid);
   return count ?? 0;
 }
 
@@ -60,9 +71,14 @@ export async function nextInvoiceNumber(): Promise<string> {
   const year = new Date().getFullYear();
   const prefix = `${year}-`;
 
+  const uid = await userId(supabase);
+  // Same answer this returns when no numbered invoice exists yet.
+  if (!uid) return `${prefix}001`;
+
   const { data } = await supabase
     .from("invoices")
     .select("number")
+    .eq("user_id", uid)
     .like("number", `${prefix}%`);
 
   let highest = 0;
@@ -85,7 +101,13 @@ export type InvoiceStats = {
 
 export async function getInvoiceStats(): Promise<InvoiceStats> {
   const supabase = await createClient();
-  const { data } = await supabase.from("invoices").select("amount, status, issued_at, due_date");
+  const uid = await userId(supabase);
+  if (!uid) return { revenueThisMonth: 0, outstanding: 0, overdueCount: 0 };
+
+  const { data } = await supabase
+    .from("invoices")
+    .select("amount, status, issued_at, due_date")
+    .eq("user_id", uid);
   const rows = data ?? [];
   const month = todayISO().slice(0, 7);
 

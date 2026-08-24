@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { supabaseAnonKey, supabaseUrl } from "@/lib/env";
 import { getProfile } from "@/lib/data/profile";
 import { Panel } from "@/components/ui/Panel";
 import { ProfileForm } from "@/components/settings/ProfileForm";
@@ -36,8 +37,8 @@ export default async function SettingsPage() {
       <Panel title="Browser extension (Lead Collector)">
         <ExtensionPanel
           hasToken={Boolean(profile?.ext_token_hash)}
-          url={process.env.NEXT_PUBLIC_SUPABASE_URL ?? ""}
-          anonKey={process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ""}
+          url={supabaseUrl()}
+          anonKey={supabaseAnonKey()}
         />
       </Panel>
 

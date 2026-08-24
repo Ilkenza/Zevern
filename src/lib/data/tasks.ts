@@ -10,9 +10,12 @@ export type Workspace = "work" | "personal";
 
 export async function getTasks(workspace: Workspace = "work"): Promise<TaskWithProject[]> {
   const supabase = await createClient();
+  const uid = await userId(supabase);
+  if (!uid) return [];
   const { data } = await supabase
     .from("tasks")
     .select(WITH_PROJECT)
+    .eq("user_id", uid)
     .eq("workspace", workspace)
     .order("due_at", { ascending: true, nullsFirst: false })
     .order("created_at", { ascending: false });
@@ -35,9 +38,12 @@ export async function getTask(id: string): Promise<TaskWithProject | null> {
 /** Open tasks that are due today or overdue (for the Overview "Today" checklist). */
 export async function getTasksForToday(workspace: Workspace = "work"): Promise<TaskWithProject[]> {
   const supabase = await createClient();
+  const uid = await userId(supabase);
+  if (!uid) return [];
   const { data } = await supabase
     .from("tasks")
     .select(WITH_PROJECT)
+    .eq("user_id", uid)
     .eq("workspace", workspace)
     .eq("status", "todo")
     .lte("due_at", `${todayISO()}T23:59:59`)
@@ -47,9 +53,12 @@ export async function getTasksForToday(workspace: Workspace = "work"): Promise<T
 
 export async function getTodayOpenCount(workspace: Workspace = "work"): Promise<number> {
   const supabase = await createClient();
+  const uid = await userId(supabase);
+  if (!uid) return 0;
   const { count } = await supabase
     .from("tasks")
     .select("*", { count: "exact", head: true })
+    .eq("user_id", uid)
     .eq("workspace", workspace)
     .eq("status", "todo")
     .lte("due_at", `${todayISO()}T23:59:59`);
@@ -59,9 +68,12 @@ export async function getTodayOpenCount(workspace: Workspace = "work"): Promise<
 /** All open tasks in a workspace — powers the sidebar badge. */
 export async function getOpenTaskCount(workspace: Workspace = "work"): Promise<number> {
   const supabase = await createClient();
+  const uid = await userId(supabase);
+  if (!uid) return 0;
   const { count } = await supabase
     .from("tasks")
     .select("*", { count: "exact", head: true })
+    .eq("user_id", uid)
     .eq("workspace", workspace)
     .eq("status", "todo");
   return count ?? 0;

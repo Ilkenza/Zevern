@@ -4,6 +4,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
+import { saveErrorMessage } from "@/lib/supabase/errors";
 
 export type SettingsState = { ok?: boolean; error?: string } | undefined;
 
@@ -29,7 +30,9 @@ export async function saveProfile(
     .from("profiles")
     .update({ full_name: fullName, handle })
     .eq("id", user.id);
-  if (error) return { error: error.message };
+  // The handle is unique across every account, so a collision is with a stranger's.
+  if (error)
+    return { error: saveErrorMessage(error, { unique: "That handle is already taken." }) };
 
   // Keep auth user_metadata in sync — the shell (greeting, sidebar) reads it.
   await supabase.auth.updateUser({ data: { full_name: fullName } });
@@ -57,7 +60,7 @@ export async function saveBusiness(
     .from("profiles")
     .update({ business_name, business_email, business_address, vat_id })
     .eq("id", user.id);
-  if (error) return { error: error.message };
+  if (error) return { error: saveErrorMessage(error) };
 
   revalidatePath("/");
   return { ok: true };
@@ -67,13 +70,30 @@ export async function changePassword(
   _prev: SettingsState,
   formData: FormData,
 ): Promise<SettingsState> {
+  const current = String(formData.get("current") ?? "");
   const password = String(formData.get("password") ?? "");
   const confirm = String(formData.get("confirm") ?? "");
 
-  if (password.length < 6) return { error: "Password must be at least 6 characters." };
+  if (password.length < 10)
+    return { error: "Password must be at least 10 characters." };
   if (password !== confirm) return { error: "Passwords don't match." };
 
   const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user?.email) return { error: "Not signed in." };
+
+  // Prove the current password before changing it. Without this, a session someone
+  // else got hold of — a borrowed laptop, a stolen cookie — turns into permanent
+  // ownership of the account in one request, because the new password locks the
+  // real owner out.
+  const { error: reauth } = await supabase.auth.signInWithPassword({
+    email: user.email,
+    password: current,
+  });
+  if (reauth) return { error: "That is not your current password." };
+
   const { error } = await supabase.auth.updateUser({ password });
   if (error) return { error: error.message };
 
@@ -96,7 +116,7 @@ export async function saveModules(_prev: SettingsState, formData: FormData): Pro
     .from("profiles")
     .update({ hidden_modules: hidden })
     .eq("id", user.id);
-  if (error) return { error: error.message };
+  if (error) return { error: saveErrorMessage(error) };
 
   revalidatePath("/", "layout");
   return { ok: true };
@@ -121,7 +141,7 @@ export async function generateExtToken(): Promise<TokenState> {
     .from("profiles")
     .update({ ext_token_hash: hashToken(token) })
     .eq("id", user.id);
-  if (error) return { error: error.message };
+  if (error) return { error: saveErrorMessage(error) };
 
   revalidatePath("/settings");
   return { token };
@@ -139,7 +159,7 @@ export async function deleteAccount(confirm: string): Promise<SettingsState> {
   if (error) {
     return error.message.includes("confirmation does not match")
       ? { error: "That is not the email address on this account." }
-      : { error: error.message };
+      : { error: saveErrorMessage(error) };
   }
 
   await supabase.auth.signOut();

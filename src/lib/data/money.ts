@@ -40,7 +40,14 @@ export async function getRates(): Promise<Rates> {
 
 export async function getAccounts(includeArchived = false): Promise<MoneyAccount[]> {
   const supabase = await createClient();
-  let q = supabase.from("money_accounts").select("*").order("sort").order("created_at");
+  const uid = await userId(supabase);
+  if (!uid) return [];
+  let q = supabase
+    .from("money_accounts")
+    .select("*")
+    .eq("user_id", uid)
+    .order("sort")
+    .order("created_at");
   if (!includeArchived) q = q.eq("archived", false);
   const { data } = await q;
   return data ?? [];
@@ -48,7 +55,15 @@ export async function getAccounts(includeArchived = false): Promise<MoneyAccount
 
 export async function getCategories(includeArchived = false): Promise<MoneyCategory[]> {
   const supabase = await createClient();
-  let q = supabase.from("money_categories").select("*").order("kind").order("sort").order("name");
+  const uid = await userId(supabase);
+  if (!uid) return [];
+  let q = supabase
+    .from("money_categories")
+    .select("*")
+    .eq("user_id", uid)
+    .order("kind")
+    .order("sort")
+    .order("name");
   if (!includeArchived) q = q.eq("archived", false);
   const { data } = await q;
   return data ?? [];
@@ -56,15 +71,20 @@ export async function getCategories(includeArchived = false): Promise<MoneyCateg
 
 export async function getBudgets(): Promise<MoneyBudget[]> {
   const supabase = await createClient();
-  const { data } = await supabase.from("money_budgets").select("*");
+  const uid = await userId(supabase);
+  if (!uid) return [];
+  const { data } = await supabase.from("money_budgets").select("*").eq("user_id", uid);
   return data ?? [];
 }
 
 export async function getRecurring(): Promise<RecurringRow[]> {
   const supabase = await createClient();
+  const uid = await userId(supabase);
+  if (!uid) return [];
   const { data, error } = await supabase
     .from("money_recurring")
     .select("*, category:money_categories(name, color), account:money_accounts!money_recurring_account_id_fkey(name)")
+    .eq("user_id", uid)
     .order("next_on");
   if (error) console.error("getRecurring:", error.message);
   return (data ?? []) as RecurringRow[];
@@ -170,12 +190,36 @@ export function occurrencesFor(
  */
 export async function getRecurringTotals(): Promise<RecurringTotals> {
   const supabase = await createClient();
+
+  const now = new Date();
+  const horizon = new Date(
+    Date.UTC(now.getUTCFullYear() + 1, now.getUTCMonth(), now.getUTCDate()),
+  )
+    .toISOString()
+    .slice(0, 10);
+
+  const uid = await userId(supabase);
+  if (!uid) {
+    return {
+      expense: 0,
+      income: 0,
+      net: 0,
+      estimated: 0,
+      unknown: 0,
+      yearExpense: 0,
+      yearIncome: 0,
+      yearCount: 0,
+      yearHorizon: horizon,
+    };
+  }
+
   const [items, rates, { data: history }] = await Promise.all([
     getRecurring(),
     getRates(),
     supabase
       .from("money_transactions")
       .select("recurring_id, amount_rsd, occurred_on")
+      .eq("user_id", uid)
       .not("recurring_id", "is", null)
       .order("occurred_on", { ascending: false }),
   ]);
@@ -197,13 +241,6 @@ export async function getRecurringTotals(): Promise<RecurringTotals> {
   let yearExpense = 0;
   let yearIncome = 0;
   let yearCount = 0;
-
-  const now = new Date();
-  const horizon = new Date(
-    Date.UTC(now.getUTCFullYear() + 1, now.getUTCMonth(), now.getUTCDate()),
-  )
-    .toISOString()
-    .slice(0, 10);
 
   for (const item of items) {
     if (!item.active) continue;
@@ -283,6 +320,30 @@ export type Forecast = {
  */
 export async function getForecast(windows: number[] = [30, 60, 90]): Promise<Forecast> {
   const supabase = await createClient();
+
+  const longest = Math.max(...windows);
+  const now = new Date();
+  const today = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+  const from = today.toISOString().slice(0, 10);
+  const horizonDate = new Date(today);
+  horizonDate.setUTCDate(horizonDate.getUTCDate() + longest);
+  const horizon = horizonDate.toISOString().slice(0, 10);
+
+  const uid = await userId(supabase);
+  if (!uid) {
+    return {
+      from,
+      startingBalance: 0,
+      windows: windows
+        .slice()
+        .sort((a, b) => a - b)
+        .map((days) => ({ days, expense: 0, income: 0, net: 0, count: 0 })),
+      lines: [],
+      estimated: 0,
+      unknown: 0,
+    };
+  }
+
   const [items, rates, balances, { data: history }] = await Promise.all([
     getRecurring(),
     getRates(),
@@ -290,6 +351,7 @@ export async function getForecast(windows: number[] = [30, 60, 90]): Promise<For
     supabase
       .from("money_transactions")
       .select("recurring_id, amount_rsd, occurred_on")
+      .eq("user_id", uid)
       .not("recurring_id", "is", null)
       .order("occurred_on", { ascending: false }),
   ]);
@@ -303,14 +365,6 @@ export async function getForecast(windows: number[] = [30, 60, 90]): Promise<For
       past.set(row.recurring_id, seen);
     }
   }
-
-  const longest = Math.max(...windows);
-  const now = new Date();
-  const today = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
-  const from = today.toISOString().slice(0, 10);
-  const horizonDate = new Date(today);
-  horizonDate.setUTCDate(horizonDate.getUTCDate() + longest);
-  const horizon = horizonDate.toISOString().slice(0, 10);
 
   const dayOf = (iso: string) =>
     Math.round((Date.parse(`${iso}T00:00:00Z`) - today.getTime()) / 86_400_000);
@@ -377,7 +431,9 @@ export type TxFilter = {
 
 export async function getTransactions(filter: TxFilter = {}): Promise<TransactionRow[]> {
   const supabase = await createClient();
-  let q = supabase.from("money_transactions").select(TX_SELECT);
+  const uid = await userId(supabase);
+  if (!uid) return [];
+  let q = supabase.from("money_transactions").select(TX_SELECT).eq("user_id", uid);
 
   if (filter.month) {
     const { from, to } = monthRange(filter.month);
@@ -420,10 +476,16 @@ export type MonthSummary = {
 
 export async function getMonthSummary(month = monthKey()): Promise<MonthSummary> {
   const supabase = await createClient();
+  const uid = await userId(supabase);
+  if (!uid) {
+    return { month, expense: 0, income: 0, saved: 0, net: 0, byCategory: [] };
+  }
+
   const { from, to } = monthRange(month);
   const { data } = await supabase
     .from("money_transactions")
     .select("kind, amount_rsd, category_id")
+    .eq("user_id", uid)
     .gte("occurred_on", from)
     .lte("occurred_on", to);
 
@@ -476,9 +538,20 @@ export async function getBudgetLines(month = monthKey()): Promise<BudgetLine[]> 
 
 export async function getGoalLines(): Promise<GoalLine[]> {
   const supabase = await createClient();
+  const uid = await userId(supabase);
+  if (!uid) return [];
   const [{ data: goals }, { data: contributions }] = await Promise.all([
-    supabase.from("money_goals").select("*").eq("archived", false).order("created_at"),
-    supabase.from("money_transactions").select("goal_id, amount_rsd").eq("kind", "saving"),
+    supabase
+      .from("money_goals")
+      .select("*")
+      .eq("user_id", uid)
+      .eq("archived", false)
+      .order("created_at"),
+    supabase
+      .from("money_transactions")
+      .select("goal_id, amount_rsd")
+      .eq("user_id", uid)
+      .eq("kind", "saving"),
   ]);
 
   const savedBy = new Map<string, number>();
@@ -495,10 +568,15 @@ export type AccountBalance = MoneyAccount & { balance: number };
 /** Balances in RSD: opening balance converted at today's rate, then every movement. */
 export async function getAccountBalances(): Promise<AccountBalance[]> {
   const supabase = await createClient();
+  const uid = await userId(supabase);
+  if (!uid) return [];
   const [accounts, rates, { data: rows }] = await Promise.all([
     getAccounts(),
     getRates(),
-    supabase.from("money_transactions").select("kind, amount_rsd, account_id, to_account_id"),
+    supabase
+      .from("money_transactions")
+      .select("kind, amount_rsd, account_id, to_account_id")
+      .eq("user_id", uid),
   ]);
 
   const delta = new Map<string, number>();
@@ -530,17 +608,23 @@ export async function getExpenseTrend(months = 6): Promise<{ month: string; expe
     .toISOString()
     .slice(0, 10);
 
-  const { data } = await supabase
-    .from("money_transactions")
-    .select("occurred_on, amount_rsd, kind")
-    .gte("occurred_on", start)
-    .eq("kind", "expense");
-
   const totals = new Map<string, number>();
   for (let i = months - 1; i >= 0; i--) {
     const d = new Date(Date.UTC(now.getFullYear(), now.getMonth() - i, 1));
     totals.set(`${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`, 0);
   }
+
+  const uid = await userId(supabase);
+  // Same shape this returns when the window holds no expenses: every month at zero.
+  if (!uid) return [...totals].map(([month, expense]) => ({ month, expense }));
+
+  const { data } = await supabase
+    .from("money_transactions")
+    .select("occurred_on, amount_rsd, kind")
+    .eq("user_id", uid)
+    .gte("occurred_on", start)
+    .eq("kind", "expense");
+
   for (const r of data ?? []) {
     const key = String(r.occurred_on).slice(0, 7);
     if (totals.has(key)) totals.set(key, (totals.get(key) ?? 0) + (Number(r.amount_rsd) || 0));
@@ -550,9 +634,12 @@ export async function getExpenseTrend(months = 6): Promise<{ month: string; expe
 
 export async function getGoals(): Promise<MoneyGoal[]> {
   const supabase = await createClient();
+  const uid = await userId(supabase);
+  if (!uid) return [];
   const { data } = await supabase
     .from("money_goals")
     .select("*")
+    .eq("user_id", uid)
     .eq("archived", false)
     .order("created_at");
   return data ?? [];

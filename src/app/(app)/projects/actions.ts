@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
-import { userId } from "@/lib/supabase/current-user";
+import { ownsRow, userId } from "@/lib/supabase/current-user";
+import { saveErrorMessage } from "@/lib/supabase/errors";
 import { PROJECT_STATUSES, type ProjectStatus } from "@/lib/status";
 
 export type ProjectFormState = { error?: string } | undefined;
@@ -32,6 +33,9 @@ export async function saveProject(
   const uid = await userId(supabase);
   if (!uid) return { error: "Not signed in." };
 
+  if (!(await ownsRow(supabase, "clients", clientId, uid)))
+    return { error: "That client is not on your account." };
+
   const payload = {
     client_id: clientId,
     title,
@@ -48,10 +52,10 @@ export async function saveProject(
       .update(payload)
       .eq("id", id)
       .eq("user_id", uid);
-    if (error) return { error: error.message };
+    if (error) return { error: saveErrorMessage(error) };
   } else {
     const { error } = await supabase.from("projects").insert(payload);
-    if (error) return { error: error.message };
+    if (error) return { error: saveErrorMessage(error) };
   }
 
   revalidatePath("/projects");

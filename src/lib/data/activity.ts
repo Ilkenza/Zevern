@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { userId } from "@/lib/supabase/current-user";
 
 export type ActivityType = "client" | "project" | "task" | "invoice" | "lead";
 
@@ -12,12 +13,15 @@ export type ActivityItem = {
 
 export async function getRecentActivity(limit = 6): Promise<ActivityItem[]> {
   const supabase = await createClient();
+  const uid = await userId(supabase);
+  if (!uid) return [];
+
   const [clients, projects, tasks, invoices, leads] = await Promise.all([
-    supabase.from("clients").select("id, name, created_at").order("created_at", { ascending: false }).limit(limit),
-    supabase.from("projects").select("id, title, created_at").order("created_at", { ascending: false }).limit(limit),
-    supabase.from("tasks").select("id, title, created_at").order("created_at", { ascending: false }).limit(limit),
-    supabase.from("invoices").select("id, number, created_at").order("created_at", { ascending: false }).limit(limit),
-    supabase.from("leads").select("id, name, created_at").order("created_at", { ascending: false }).limit(limit),
+    supabase.from("clients").select("id, name, created_at").eq("user_id", uid).order("created_at", { ascending: false }).limit(limit),
+    supabase.from("projects").select("id, title, created_at").eq("user_id", uid).order("created_at", { ascending: false }).limit(limit),
+    supabase.from("tasks").select("id, title, created_at").eq("user_id", uid).order("created_at", { ascending: false }).limit(limit),
+    supabase.from("invoices").select("id, number, created_at").eq("user_id", uid).order("created_at", { ascending: false }).limit(limit),
+    supabase.from("leads").select("id, name, created_at").eq("user_id", uid).order("created_at", { ascending: false }).limit(limit),
   ]);
 
   const items: ActivityItem[] = [];

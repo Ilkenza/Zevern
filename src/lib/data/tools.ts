@@ -4,9 +4,12 @@ import type { Tool } from "@/lib/types";
 
 export async function getTools(): Promise<Tool[]> {
   const supabase = await createClient();
+  const uid = await userId(supabase);
+  if (!uid) return [];
   const { data } = await supabase
     .from("tools")
     .select("*")
+    .eq("user_id", uid)
     .order("category", { ascending: true, nullsFirst: false })
     .order("name", { ascending: true });
   return data ?? [];
@@ -27,14 +30,21 @@ export async function getTool(id: string): Promise<Tool | null> {
 
 export async function getToolCount(): Promise<number> {
   const supabase = await createClient();
-  const { count } = await supabase.from("tools").select("*", { count: "exact", head: true });
+  const uid = await userId(supabase);
+  if (!uid) return 0;
+  const { count } = await supabase
+    .from("tools")
+    .select("*", { count: "exact", head: true })
+    .eq("user_id", uid);
   return count ?? 0;
 }
 
 /** Distinct categories in canonical casing (for the form datalist + normalization). */
 export async function getCategories(): Promise<string[]> {
   const supabase = await createClient();
-  const { data } = await supabase.from("tools").select("category");
+  const uid = await userId(supabase);
+  if (!uid) return [];
+  const { data } = await supabase.from("tools").select("category").eq("user_id", uid);
   const set = new Map<string, string>();
   for (const row of data ?? []) {
     const c = row.category?.trim();

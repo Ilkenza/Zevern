@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 import { userId } from "@/lib/supabase/current-user";
+import { saveErrorMessage } from "@/lib/supabase/errors";
 import { getCategories } from "@/lib/data/tools";
 
 export type ToolFormState = { error?: string } | undefined;
@@ -37,10 +38,10 @@ export async function saveTool(_prev: ToolFormState, formData: FormData): Promis
 
   if (id) {
     const { error } = await supabase.from("tools").update(payload).eq("id", id).eq("user_id", uid);
-    if (error) return { error: error.message };
+    if (error) return { error: saveErrorMessage(error) };
   } else {
     const { error } = await supabase.from("tools").insert(payload);
-    if (error) return { error: error.message };
+    if (error) return { error: saveErrorMessage(error) };
   }
 
   revalidatePath("/toolbox");
@@ -79,7 +80,7 @@ export async function renameCategory(
     .update({ category: next })
     .eq("category", oldName)
     .eq("user_id", uid);
-  if (error) return { error: error.message };
+  if (error) return { error: saveErrorMessage(error) };
 
   revalidatePath("/toolbox");
   redirect("/toolbox");
@@ -117,9 +118,13 @@ const STARTER = [
 
 export async function addStarterTools() {
   const supabase = await createSupabaseServerClient();
-  await supabase
+  const uid = await userId(supabase);
+  if (!uid) return;
+
+  const { error } = await supabase
     .from("tools")
-    .insert(STARTER.map((t) => ({ name: t.name, url: t.url, category: t.category })));
+    .insert(STARTER.map((t) => ({ name: t.name, url: t.url, category: t.category, user_id: uid })));
+  if (error) console.error("addStarterTools:", error.message);
   revalidatePath("/toolbox");
   redirect("/toolbox");
 }

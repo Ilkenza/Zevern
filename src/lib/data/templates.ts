@@ -4,9 +4,12 @@ import type { OutreachTemplate } from "@/lib/types";
 
 export async function getTemplates(): Promise<OutreachTemplate[]> {
   const supabase = await createClient();
+  const uid = await userId(supabase);
+  if (!uid) return [];
   const { data } = await supabase
     .from("outreach_templates")
     .select("*")
+    .eq("user_id", uid)
     .order("created_at", { ascending: false });
   return data ?? [];
 }

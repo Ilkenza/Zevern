@@ -3,12 +3,16 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
-import { userId } from "@/lib/supabase/current-user";
+import { ownsRow, userId } from "@/lib/supabase/current-user";
+import { saveErrorMessage } from "@/lib/supabase/errors";
 import { INVOICE_STATUSES, type InvoiceStatus } from "@/lib/status";
 import { quoteTotal } from "@/lib/quotes/total";
 import type { QuoteItem } from "@/lib/types";
 
 export type InvoiceFormState = { error?: string } | undefined;
+
+/** The only unique constraint on an invoice is (user_id, number). */
+const NUMBER_TAKEN = "You already have an invoice with that number.";
 
 function parseItems(raw: string): QuoteItem[] {
   try {
@@ -51,6 +55,9 @@ export async function saveInvoice(
   const uid = await userId(supabase);
   if (!uid) return { error: "Not signed in." };
 
+  if (!(await ownsRow(supabase, "clients", clientId, uid)))
+    return { error: "That client is not on your account." };
+
   const payload = {
     client_id: clientId,
     number,
@@ -68,10 +75,10 @@ export async function saveInvoice(
       .update(payload)
       .eq("id", id)
       .eq("user_id", uid);
-    if (error) return { error: error.message };
+    if (error) return { error: saveErrorMessage(error, { unique: NUMBER_TAKEN }) };
   } else {
     const { error } = await supabase.from("invoices").insert(payload);
-    if (error) return { error: error.message };
+    if (error) return { error: saveErrorMessage(error, { unique: NUMBER_TAKEN }) };
   }
 
   revalidatePath("/invoices");

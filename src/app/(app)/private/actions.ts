@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 import { userId } from "@/lib/supabase/current-user";
+import { saveErrorMessage } from "@/lib/supabase/errors";
 import { getRates } from "@/lib/data/money";
 import { fetchNbsRates } from "@/lib/rates/nbs";
 import { CURRENCIES, DEFAULT_CATEGORIES, nextDate, rateFor, type Currency } from "@/lib/money";
@@ -35,6 +36,39 @@ function currencyOf(value: FormDataEntryValue | null): Currency {
   return (CURRENCIES as readonly string[]).includes(c) ? (c as Currency) : "RSD";
 }
 
+/**
+ * True when `id` names a row of `table` that belongs to `uid` — or when `id` is null,
+ * because "no account attached" is a legitimate answer.
+ *
+ * The same hole as elsewhere: these ids arrive from a select in a form, and RLS only
+ * checks the transaction being written, never the account or category it points at.
+ * Without this, a crafted request books your expense against someone else's account,
+ * and the list then reads that account's name across the tenant boundary.
+ *
+ * `ownsRow` in `@/lib/supabase/current-user` does this for the agency tables; the
+ * money tables are private to this workspace and stay with it.
+ */
+async function ownsMoneyRow(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  table: "money_accounts" | "money_categories" | "money_goals" | "money_recurring",
+  id: string | null,
+  uid: string,
+): Promise<boolean> {
+  if (!id) return true;
+
+  const { count, error } = await supabase
+    .from(table)
+    .select("id", { count: "exact", head: true })
+    .eq("id", id)
+    .eq("user_id", uid);
+
+  if (error) {
+    console.error("ownsMoneyRow:", error.message);
+    return false;
+  }
+  return (count ?? 0) > 0;
+}
+
 /* ------------------------------------------------------------ transactions */
 
 export async function saveTransaction(_prev: MoneyState, formData: FormData): Promise<MoneyState> {
@@ -64,15 +98,30 @@ export async function saveTransaction(_prev: MoneyState, formData: FormData): Pr
   const uid = await userId(supabase);
   if (!uid) return { error: "Not signed in." };
 
+  // Only the links the kind actually keeps are worth checking — the rest are dropped.
+  const toAccount = kind === "transfer" ? toAccountId : null;
+  const category = kind === "expense" || kind === "income" ? categoryId : null;
+  const goal = kind === "saving" ? goalId : null;
+
+  const [ownsAccount, ownsToAccount, ownsCategory, ownsGoal] = await Promise.all([
+    ownsMoneyRow(supabase, "money_accounts", accountId, uid),
+    ownsMoneyRow(supabase, "money_accounts", toAccount, uid),
+    ownsMoneyRow(supabase, "money_categories", category, uid),
+    ownsMoneyRow(supabase, "money_goals", goal, uid),
+  ]);
+  if (!ownsAccount || !ownsToAccount) return { error: "That account is not on your profile." };
+  if (!ownsCategory) return { error: "That category is not on your profile." };
+  if (!ownsGoal) return { error: "That goal is not on your profile." };
+
   const payload = {
     kind,
     amount,
     currency,
     rate,
     account_id: accountId,
-    to_account_id: kind === "transfer" ? toAccountId : null,
-    category_id: kind === "expense" || kind === "income" ? categoryId : null,
-    goal_id: kind === "saving" ? goalId : null,
+    to_account_id: toAccount,
+    category_id: category,
+    goal_id: goal,
     note,
     occurred_on: occurredOn,
   };
@@ -83,10 +132,10 @@ export async function saveTransaction(_prev: MoneyState, formData: FormData): Pr
       .update(payload)
       .eq("id", id)
       .eq("user_id", uid);
-    if (error) return { error: error.message };
+    if (error) return { error: saveErrorMessage(error) };
   } else {
     const { error } = await supabase.from("money_transactions").insert(payload);
-    if (error) return { error: error.message };
+    if (error) return { error: saveErrorMessage(error) };
   }
 
   refresh();
@@ -120,7 +169,7 @@ export async function removeTransaction(id: string): Promise<MoneyState> {
     .delete()
     .eq("id", id)
     .eq("user_id", uid);
-  if (error) return { error: error.message };
+  if (error) return { error: saveErrorMessage(error) };
   refresh();
   return { ok: true };
 }
@@ -146,7 +195,7 @@ export async function saveAccount(_prev: MoneyState, formData: FormData): Promis
   const { error } = id
     ? await supabase.from("money_accounts").update(payload).eq("id", id).eq("user_id", uid)
     : await supabase.from("money_accounts").insert(payload);
-  if (error) return { error: error.message };
+  if (error) return { error: saveErrorMessage(error) };
 
   refresh();
   return { ok: true };
@@ -185,7 +234,7 @@ export async function saveCategory(_prev: MoneyState, formData: FormData): Promi
   const { error } = id
     ? await supabase.from("money_categories").update(payload).eq("id", id).eq("user_id", uid)
     : await supabase.from("money_categories").insert(payload);
-  if (error) return { error: error.message };
+  if (error) return { error: saveErrorMessage(error) };
 
   refresh();
   return { ok: true };
@@ -254,10 +303,18 @@ export async function saveBudgets(_prev: MoneyState, formData: FormData): Promis
   }
 
   if (upserts.length) {
+    // The category ids ride in on the field names, so they need the same check as any
+    // other foreign key from a form. The clears do not: that delete is already fenced
+    // by user_id, so a foreign id there matches nothing.
+    const owned = await Promise.all(
+      upserts.map((u) => ownsMoneyRow(supabase, "money_categories", u.category_id, uid)),
+    );
+    if (owned.some((ok) => !ok)) return { error: "That category is not on your profile." };
+
     const { error } = await supabase
       .from("money_budgets")
       .upsert(upserts, { onConflict: "user_id,category_id" });
-    if (error) return { error: error.message };
+    if (error) return { error: saveErrorMessage(error) };
   }
   if (clears.length) {
     const { error } = await supabase
@@ -265,7 +322,7 @@ export async function saveBudgets(_prev: MoneyState, formData: FormData): Promis
       .delete()
       .eq("user_id", uid)
       .in("category_id", clears);
-    if (error) return { error: error.message };
+    if (error) return { error: saveErrorMessage(error) };
   }
 
   refresh();
@@ -292,7 +349,7 @@ export async function saveGoal(_prev: MoneyState, formData: FormData): Promise<M
   const { error } = id
     ? await supabase.from("money_goals").update(payload).eq("id", id).eq("user_id", uid)
     : await supabase.from("money_goals").insert(payload);
-  if (error) return { error: error.message };
+  if (error) return { error: saveErrorMessage(error) };
 
   refresh();
   redirect("/private/goals");
@@ -343,6 +400,13 @@ export async function saveRecurring(_prev: MoneyState, formData: FormData): Prom
   const uid = await userId(supabase);
   if (!uid) return { error: "Not signed in." };
 
+  const [ownsAccount, ownsCategory] = await Promise.all([
+    ownsMoneyRow(supabase, "money_accounts", accountId, uid),
+    ownsMoneyRow(supabase, "money_categories", categoryId, uid),
+  ]);
+  if (!ownsAccount) return { error: "That account is not on your profile." };
+  if (!ownsCategory) return { error: "That category is not on your profile." };
+
   const payload = {
     name,
     kind,
@@ -362,7 +426,7 @@ export async function saveRecurring(_prev: MoneyState, formData: FormData): Prom
   const { error } = id
     ? await supabase.from("money_recurring").update(payload).eq("id", id).eq("user_id", uid)
     : await supabase.from("money_recurring").insert(payload);
-  if (error) return { error: error.message };
+  if (error) return { error: saveErrorMessage(error) };
 
   refresh();
   redirect("/private/recurring");
@@ -394,7 +458,7 @@ export async function removeRecurring(id: string): Promise<MoneyState> {
     .delete()
     .eq("id", id)
     .eq("user_id", uid);
-  if (error) return { error: error.message };
+  if (error) return { error: saveErrorMessage(error) };
   refresh();
   return { ok: true };
 }
@@ -410,7 +474,7 @@ export async function toggleRecurring(id: string, active: boolean): Promise<Mone
     .update({ active })
     .eq("id", id)
     .eq("user_id", uid);
-  if (error) return { error: error.message };
+  if (error) return { error: saveErrorMessage(error) };
   refresh();
   return { ok: true };
 }
@@ -435,6 +499,16 @@ export async function postRecurring(id: string, amountOverride?: number): Promis
   const amount = amountOverride != null && amountOverride > 0 ? amountOverride : Number(item.amount);
   if (!(amount > 0)) return { error: "This one needs an amount before it can be booked." };
 
+  // The item is ours, but its links only became ours after the check in saveRecurring
+  // existed — an item saved before that can still point somewhere else. Copying those
+  // ids onto a transaction would carry the bad link forward.
+  const [ownsAccount, ownsCategory] = await Promise.all([
+    ownsMoneyRow(supabase, "money_accounts", item.account_id, uid),
+    ownsMoneyRow(supabase, "money_categories", item.category_id, uid),
+  ]);
+  if (!ownsAccount || !ownsCategory)
+    return { error: "This item points at an account or category that is not on your profile." };
+
   const rates = await getRates();
   const { error } = await supabase.from("money_transactions").insert({
     kind: item.kind,
@@ -447,7 +521,7 @@ export async function postRecurring(id: string, amountOverride?: number): Promis
     note: item.name,
     occurred_on: item.next_on,
   });
-  if (error) return { error: error.message };
+  if (error) return { error: saveErrorMessage(error) };
 
   // One installment down. Whichever limit is reached first — the count or the end
   // date — pauses the item; the entries already booked stay untouched.
@@ -466,7 +540,7 @@ export async function postRecurring(id: string, amountOverride?: number): Promis
     })
     .eq("id", id)
     .eq("user_id", uid);
-  if (bumpErr) return { error: bumpErr.message };
+  if (bumpErr) return { error: saveErrorMessage(bumpErr) };
 
   refresh();
   return { ok: true };
@@ -495,7 +569,7 @@ export async function skipRecurring(id: string): Promise<MoneyState> {
     })
     .eq("id", id)
     .eq("user_id", uid);
-  if (error) return { error: error.message };
+  if (error) return { error: saveErrorMessage(error) };
   refresh();
   return { ok: true };
 }
@@ -503,10 +577,14 @@ export async function skipRecurring(id: string): Promise<MoneyState> {
 /** Every due fixed-amount item, booked in one go. Variable ones are left alone. */
 export async function postAllDueFixed(): Promise<MoneyState> {
   const supabase = await createSupabaseServerClient();
+  const uid = await userId(supabase);
+  if (!uid) return { error: "Not signed in." };
+
   const today = new Date().toISOString().slice(0, 10);
   const { data: due } = await supabase
     .from("money_recurring")
     .select("id, next_on, created_at")
+    .eq("user_id", uid)
     .eq("active", true)
     .eq("variable", false)
     .gt("amount", 0)
@@ -548,7 +626,7 @@ export async function refreshRatesFromNbs(): Promise<MoneyState> {
       rates_updated_on: rates.eur.date || new Date().toISOString().slice(0, 10),
     })
     .eq("id", uid);
-  if (error) return { error: error.message };
+  if (error) return { error: saveErrorMessage(error) };
 
   refresh();
   return { ok: true };
@@ -571,7 +649,7 @@ export async function saveRates(_prev: MoneyState, formData: FormData): Promise<
       rates_updated_on: new Date().toISOString().slice(0, 10),
     })
     .eq("id", uid);
-  if (error) return { error: error.message };
+  if (error) return { error: saveErrorMessage(error) };
 
   refresh();
   return { ok: true };

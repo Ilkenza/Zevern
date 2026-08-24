@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
+import { saveErrorMessage } from "@/lib/supabase/errors";
 
 export type GoalState = { ok?: boolean; error?: string } | undefined;
 
@@ -23,7 +24,7 @@ export async function saveRevenueGoal(
     .from("profiles")
     .update({ revenue_goal: goal })
     .eq("id", user.id);
-  if (error) return { error: error.message };
+  if (error) return { error: saveErrorMessage(error) };
 
   revalidatePath("/");
   return { ok: true };
@@ -41,7 +42,7 @@ export async function hideOnboarding(): Promise<GoalState> {
     .from("profiles")
     .update({ onboarding_hidden: true })
     .eq("id", user.id);
-  if (error) return { error: error.message };
+  if (error) return { error: saveErrorMessage(error) };
 
   revalidatePath("/");
   return { ok: true };

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 import { userId } from "@/lib/supabase/current-user";
+import { saveErrorMessage } from "@/lib/supabase/errors";
 import { LEAD_STATUSES, type LeadStatus } from "@/lib/status";
 import { parseLeadsImport } from "@/lib/leads/parse-import";
 import { computeImportPlan, type ImportChange } from "@/lib/leads/diff-import";
@@ -26,7 +27,12 @@ export async function previewLeadsImport(text: string): Promise<ImportPreview> {
   if (rows.length === 0) return { error: "No valid rows found — check the header and data." };
 
   const supabase = await createSupabaseServerClient();
-  const { data: existing } = await supabase.from("leads").select("*");
+  // Every exported server action is a callable endpoint, so the check belongs here
+  // and not in whichever page happened to import it.
+  const uid = await userId(supabase);
+  if (!uid) return { error: "Not signed in." };
+
+  const { data: existing } = await supabase.from("leads").select("*").eq("user_id", uid);
   const plan = computeImportPlan(rows, existing ?? []);
 
   return {
@@ -56,7 +62,7 @@ export async function commitLeadsImport(
 
   if (plan.newRows.length > 0) {
     const { error: insErr } = await supabase.from("leads").insert(plan.newRows);
-    if (insErr) return { imported: 0, updated: 0, error: insErr.message };
+    if (insErr) return { imported: 0, updated: 0, error: saveErrorMessage(insErr) };
   }
 
   let updated = 0;
@@ -114,10 +120,10 @@ export async function saveLead(_prev: LeadFormState, formData: FormData): Promis
 
   if (id) {
     const { error } = await supabase.from("leads").update(payload).eq("id", id).eq("user_id", uid);
-    if (error) return { error: error.message };
+    if (error) return { error: saveErrorMessage(error) };
   } else {
     const { error } = await supabase.from("leads").insert(payload);
-    if (error) return { error: error.message };
+    if (error) return { error: saveErrorMessage(error) };
   }
 
   revalidatePath("/leads");
