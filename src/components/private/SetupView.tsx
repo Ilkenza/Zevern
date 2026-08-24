@@ -95,7 +95,7 @@ function AccountRow({ account }: { account?: AccountBalance }) {
     <form
       action={formAction}
       className={cn(
-        "px-4",
+        "setup-row-premium px-4",
         isNew
           ? "rounded-b-card border-t border-line bg-white/[0.02] py-3.5"
           : "border-b border-line-soft py-2.5 last:border-b-0",
@@ -176,7 +176,7 @@ function AccountRow({ account }: { account?: AccountBalance }) {
             <Button
               type="submit"
               variant="primary"
-              className="w-full px-3 py-1.5 text-[12.5px]"
+              className="money-premium-button w-full px-3 py-1.5 text-[12.5px]"
               disabled={pending}
             >
               {pending ? "Adding…" : "Add"}
@@ -187,7 +187,7 @@ function AccountRow({ account }: { account?: AccountBalance }) {
             <Button
               type="submit"
               variant="secondary"
-              className="w-21 px-3 py-1.5 text-[12.5px]"
+              className="money-premium-button w-21 px-3 py-1.5 text-[12.5px]"
               disabled={pending}
             >
               {pending ? "Saving…" : "Save"}
@@ -241,7 +241,7 @@ function CategoryRow({
     <form
       action={formAction}
       className={cn(
-        "px-4",
+        "setup-row-premium px-4",
         isNew
           ? "rounded-b-card border-t border-line bg-white/[0.02] py-3.5"
           : "border-b border-line-soft py-2.5 last:border-b-0",
@@ -273,7 +273,7 @@ function CategoryRow({
           <Button
             type="submit"
             variant="primary"
-            className="w-full px-3 py-1.5 text-[12.5px]"
+            className="money-premium-button w-full px-3 py-1.5 text-[12.5px]"
             disabled={pending}
           >
             {pending ? "Adding…" : "Add"}
@@ -283,7 +283,7 @@ function CategoryRow({
             <Button
               type="submit"
               variant="secondary"
-              className="w-21 px-3 py-1.5 text-[12.5px]"
+            className="money-premium-button w-21 px-3 py-1.5 text-[12.5px]"
               disabled={pending}
             >
               {pending ? "Saving…" : "Save"}
@@ -306,7 +306,7 @@ function CategoryRow({
 /** A rate is a figure first: big, mono, and editable in place. */
 function RateTile({ code, name, value }: { code: string; name: string; value: number }) {
   return (
-    <label className="block rounded-card border border-line bg-surface-2 px-3.5 py-3">
+    <label className="setup-rate-tile block rounded-card border border-line bg-surface-2 px-3.5 py-3">
       <span className={caps}>1 {code} in dinars</span>
       <input
         name={name}
@@ -339,6 +339,7 @@ function RatesPanel({ eur, usd, updatedOn }: { eur: number; usd: number; updated
 
   return (
     <Panel
+      className="setup-panel setup-rates-panel"
       title="Exchange rates"
       action={
         <Badge status={stale ? "draft" : "ok"}>
@@ -368,12 +369,12 @@ function RatesPanel({ eur, usd, updatedOn }: { eur: number; usd: number; updated
             type="button"
             onClick={pull}
             disabled={fetching || pending}
-            className={buttonClasses("secondary")}
+            className={buttonClasses("secondary", "money-premium-button")}
           >
             <RefreshCw className={`h-4 w-4 ${fetching ? "animate-spin" : ""}`} />
             {fetching ? "Fetching…" : "Today's NBS rate"}
           </button>
-          <Button type="submit" variant="primary" disabled={pending || fetching}>
+          <Button type="submit" variant="primary" className="money-premium-button" disabled={pending || fetching}>
             {pending ? "Saving…" : "Save rates"}
           </Button>
           {state?.ok && <span className="text-[12px] text-ok">Saved.</span>}
@@ -404,7 +405,7 @@ function SeedButton() {
           router.refresh();
         })
       }
-      className={buttonClasses("primary")}
+      className={buttonClasses("primary", "money-premium-button")}
     >
       <Sparkles className="h-4 w-4" />
       {pending ? "Setting up…" : "Start me off with the basics"}
@@ -431,18 +432,26 @@ export function SetupView({
   const onHand = accounts.reduce((sum, a) => sum + a.balance, 0);
 
   return (
-    <div className="mx-auto max-w-220 space-y-5">
-      <div>
-        <h1 className="font-display text-[22px] font-extrabold tracking-[-0.5px] text-ink">
+    <div className="setup-premium money-premium mx-auto max-w-220 space-y-5">
+      <header className="money-page-head setup-page-head flex flex-wrap items-end justify-between gap-5">
+        <div className="min-w-0">
+          <span className="money-page-kicker">Financial foundation</span>
+          <h1 className="mt-2 font-display text-[32px] font-extrabold tracking-[-1.2px] text-ink sm:text-[38px]">
           Setup
-        </h1>
-        <p className="text-[12.5px] text-muted">
-          Where your money sits, what you call your spending, and what a euro is worth today.
-        </p>
-      </div>
+          </h1>
+          <p className="mt-1 max-w-lg text-[13px] leading-5 text-muted">
+            Build the structure once — accounts, categories and rates keep every money view accurate.
+          </p>
+        </div>
+        <div className="setup-head-stats" aria-label="Setup summary">
+          <span><small>Accounts</small><b>{accounts.length}</b></span>
+          <span><small>Categories</small><b>{categories.length}</b></span>
+          <span><small>On hand</small><b className="mono">{formatRsd(onHand)}</b></span>
+        </div>
+      </header>
 
       {empty && (
-        <div className="flex flex-col gap-3 rounded-card border border-gold/25 bg-active-bg px-4 py-3.5 min-[560px]:flex-row min-[560px]:items-center min-[560px]:justify-between">
+        <div className="setup-seed-card flex flex-col gap-3 rounded-card border border-gold/25 bg-active-bg px-4 py-4 min-[560px]:flex-row min-[560px]:items-center min-[560px]:justify-between">
           <div className="min-w-0">
             <h2 className="text-[13.5px] font-bold text-ink">Nothing set up yet</h2>
             <p className="mt-0.5 text-[12.5px] text-muted">
@@ -459,6 +468,7 @@ export function SetupView({
       <RatesPanel eur={rates.EUR} usd={rates.USD} updatedOn={ratesUpdatedOn} />
 
       <Panel
+        className="setup-panel"
         title="Accounts"
         action={
           accounts.length > 0 ? (
@@ -489,7 +499,7 @@ export function SetupView({
       </Panel>
 
       <Panel
-        className="overflow-visible"
+        className="setup-panel overflow-visible"
         title="Expense categories"
         action={
           expense.length > 0 ? (
@@ -516,7 +526,7 @@ export function SetupView({
       </Panel>
 
       <Panel
-        className="overflow-visible"
+        className="setup-panel overflow-visible"
         title="Income categories"
         action={
           income.length > 0 ? (
