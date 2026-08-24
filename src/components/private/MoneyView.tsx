@@ -7,7 +7,9 @@ import { SlideOver } from "@/components/ui/SlideOver";
 import { Panel } from "@/components/ui/Panel";
 import { Kpi } from "@/components/ui/Kpi";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { DeleteButton } from "@/components/ui/DeleteButton";
 import { buttonClasses } from "@/components/ui/Button";
+import { removeTransaction } from "@/app/(app)/private/actions";
 import { formatAmount, formatRsd, monthLabel, monthKey, shiftMonth } from "@/lib/money";
 import { cn } from "@/lib/utils";
 import type { MoneyCategory, TransactionRow } from "@/lib/types";
@@ -28,6 +30,7 @@ const TONE: Record<string, string> = {
 };
 
 function Row({ tx, month }: { tx: TransactionRow; month: string }) {
+  const router = useRouter();
   const label = tx.category?.name ?? (tx.kind === "saving" ? tx.goal?.name : null) ?? tx.note ?? "—";
   return (
     <div className="group flex items-center gap-3 border-b border-line-soft px-4 py-2.5 last:border-b-0 hover:bg-white/2">
@@ -52,13 +55,25 @@ function Row({ tx, month }: { tx: TransactionRow; month: string }) {
           </div>
         )}
       </div>
-      <Link
-        href={`/private/money?month=${month}&edit=${tx.id}`}
-        aria-label="Edit entry"
-        className="inline-flex rounded-ctrl p-1.5 text-faint opacity-0 transition-opacity hover:bg-white/5 hover:text-ink group-hover:opacity-100"
-      >
-        <Pencil className="h-3.75 w-3.75" />
-      </Link>
+      <div className="flex shrink-0 items-center gap-0.5">
+        <Link
+          href={`/private/money?month=${month}&edit=${tx.id}`}
+          aria-label="Edit entry"
+          title="Edit entry"
+          className="inline-flex rounded-ctrl p-1.5 text-faint transition-colors hover:bg-white/5 hover:text-ink"
+        >
+          <Pencil className="h-3.75 w-3.75" />
+        </Link>
+        <DeleteButton
+          compact
+          label="Delete entry"
+          confirmText="Delete this entry? Balances and this month's totals are recalculated without it."
+          action={async () => {
+            await removeTransaction(tx.id);
+            router.refresh();
+          }}
+        />
+      </div>
     </div>
   );
 }

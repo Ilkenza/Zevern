@@ -98,6 +98,15 @@ export async function deleteTransaction(id: string) {
   redirect("/private/money");
 }
 
+/** Same delete, but called from a row — no redirect, the caller refreshes in place. */
+export async function removeTransaction(id: string): Promise<MoneyState> {
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.from("money_transactions").delete().eq("id", id);
+  if (error) return { error: error.message };
+  refresh();
+  return { ok: true };
+}
+
 /* ---------------------------------------------------------------- accounts */
 
 export async function saveAccount(_prev: MoneyState, formData: FormData): Promise<MoneyState> {
@@ -298,6 +307,24 @@ export async function deleteRecurring(id: string) {
   redirect("/private/recurring");
 }
 
+/** Row delete — no redirect. Already booked entries stay; only the repeat stops. */
+export async function removeRecurring(id: string): Promise<MoneyState> {
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.from("money_recurring").delete().eq("id", id);
+  if (error) return { error: error.message };
+  refresh();
+  return { ok: true };
+}
+
+/** Pause or resume a recurring item straight from the list. */
+export async function toggleRecurring(id: string, active: boolean): Promise<MoneyState> {
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.from("money_recurring").update({ active }).eq("id", id);
+  if (error) return { error: error.message };
+  refresh();
+  return { ok: true };
+}
+
 /**
  * Book one occurrence of a recurring item and move it to its next date.
  * `amountOverride` carries the number for variable items (struja is never the same twice).
@@ -357,13 +384,15 @@ export async function postAllDueFixed(): Promise<MoneyState> {
   const today = new Date().toISOString().slice(0, 10);
   const { data: due } = await supabase
     .from("money_recurring")
-    .select("id")
+    .select("id, next_on, created_at")
     .eq("active", true)
     .eq("variable", false)
     .gt("amount", 0)
     .lte("next_on", today);
 
   for (const item of due ?? []) {
+    // An item entered today with today's date must not book itself the moment it is saved.
+    if (String(item.created_at).slice(0, 10) >= item.next_on) continue;
     await postRecurring(item.id);
   }
   refresh();
