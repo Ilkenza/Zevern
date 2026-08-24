@@ -46,7 +46,13 @@ function DueRow({ item }: { item: RecurringRow }) {
       <div className="min-w-0 flex-1">
         <div className="truncate text-[13.5px] font-semibold text-ink">{item.name}</div>
         <div className="mono text-[11.5px] text-muted">
-          due {item.next_on} · {item.category?.name ?? "No category"} ·{" "}
+          due {item.next_on} ·{" "}
+          {item.goal ? (
+            <span className="text-info">into {item.goal.name}</span>
+          ) : (
+            (item.category?.name ?? "No category")
+          )}{" "}
+          ·{" "}
           {hasDefault
             ? `usually ${formatAmount(Number(item.amount), item.currency)}`
             : "amount changes"}

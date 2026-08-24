@@ -1,7 +1,10 @@
-import { getForecast } from "@/lib/data/money";
-import { ForecastView } from "@/components/private/ForecastView";
+import { redirect } from "next/navigation";
 
-export default async function ForecastPage() {
-  const forecast = await getForecast([30, 60, 90]);
-  return <ForecastView forecast={forecast} />;
+/**
+ * The forecast is now the default view of /private/upcoming — one screen answers both
+ * "what is coming" and "what repeats". The old address keeps working for anything that
+ * still points at it.
+ */
+export default function ForecastPage(): never {
+  redirect("/private/upcoming");
 }

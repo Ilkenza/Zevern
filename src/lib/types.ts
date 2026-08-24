@@ -61,6 +61,8 @@ export type TransactionRow = MoneyTransaction & {
 export type RecurringRow = MoneyRecurring & {
   category: { name: string; color: string | null } | null;
   account: { name: string } | null;
+  /** Set when the rule is a standing order into a goal rather than a bill. */
+  goal: { name: string; color: string | null } | null;
 };
 
 /** A category with its monthly limit and what has been spent against it. */
@@ -70,4 +72,37 @@ export type BudgetLine = {
   spent: number;
 };
 
-export type GoalLine = MoneyGoal & { saved: number };
+/** One movement between an account and a goal — the goal's own history. */
+export type GoalEntry = {
+  id: string;
+  /** "saving" or "withdraw". */
+  kind: string;
+  /** RSD, always positive; the kind carries the direction. */
+  amount: number;
+  occurred_on: string;
+  note: string | null;
+  account: string | null;
+  /** Set when the entry was booked by a standing order rather than typed by hand. */
+  recurring: boolean;
+};
+
+/**
+ * A goal with everything derived from its own movements.
+ *
+ * `saved` is what it holds right now — deposits less withdrawals. `deposited` is what
+ * ever went in, which is what a closed goal has to show, since closing empties it.
+ * `peak` is the most it ever held, which is the only honest test of whether the target
+ * was actually reached: putting in 100 twice with a withdrawal in between is not the
+ * same as holding 200.
+ */
+export type GoalLine = MoneyGoal & {
+  saved: number;
+  deposited: number;
+  withdrawn: number;
+  peak: number;
+  /** How many movements there are in total — `entries` only carries the newest few. */
+  movements: number;
+  entries: GoalEntry[];
+  /** The account the last movement used — what the deposit box should offer first. */
+  lastAccountId: string | null;
+};

@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChevronLeft, ChevronRight, Plus, Wallet, Pencil } from "lucide-react";
@@ -10,7 +11,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { DeleteButton } from "@/components/ui/DeleteButton";
 import { buttonClasses } from "@/components/ui/Button";
 import { removeTransaction } from "@/app/(app)/private/actions";
-import { formatAmount, formatRsd, monthLabel, monthKey, shiftMonth } from "@/lib/money";
+import { formatAmount, formatRsd, isGoalKind, monthLabel, monthKey, shiftMonth } from "@/lib/money";
 import { cn } from "@/lib/utils";
 import type { MoneyCategory, TransactionRow } from "@/lib/types";
 import { TransactionForm, type TxFormData } from "./TransactionForm";
@@ -21,59 +22,73 @@ export type MoneyPanel =
   | { mode: "edit"; tx: TransactionRow }
   | null;
 
-const SIGN: Record<string, string> = { expense: "−", income: "+", saving: "→", transfer: "⇄" };
+/** → into a goal, ← back out of one: the arrow says which way, not whether. */
+const SIGN: Record<string, string> = {
+  expense: "−",
+  income: "+",
+  saving: "→",
+  withdraw: "←",
+  transfer: "⇄",
+};
 const TONE: Record<string, string> = {
   expense: "text-ink",
   income: "text-ok",
   saving: "text-info",
+  withdraw: "text-muted",
   transfer: "text-muted",
 };
 
 function Row({ tx, month }: { tx: TransactionRow; month: string }) {
   const router = useRouter();
-  const label = tx.category?.name ?? (tx.kind === "saving" ? tx.goal?.name : null) ?? tx.note ?? "—";
+  const [error, setError] = useState<string | null>(null);
+  const label =
+    tx.category?.name ?? (isGoalKind(tx.kind) ? tx.goal?.name : null) ?? tx.note ?? "—";
   return (
-    <div className="group flex items-center gap-3 border-b border-line-soft px-4 py-2.5 last:border-b-0 hover:bg-white/2">
-      <span
-        className="h-7 w-1 shrink-0 rounded-pill"
-        style={{ background: tx.category?.color ?? "#565c6b" }}
-      />
-      <div className="min-w-0 flex-1">
-        <div className="truncate text-[13.5px] font-medium text-ink">{label}</div>
-        <div className="truncate text-[11.5px] text-muted">
-          {tx.account?.name ?? "No account"}
-          {tx.note && label !== tx.note ? ` · ${tx.note}` : ""}
-        </div>
-      </div>
-      <div className="shrink-0 text-right">
-        <div className={cn("mono text-[13.5px] font-semibold", TONE[tx.kind])}>
-          {SIGN[tx.kind]} {formatRsd(Number(tx.amount_rsd))}
-        </div>
-        {tx.currency !== "RSD" && (
-          <div className="mono text-[11px] text-faint">
-            {formatAmount(Number(tx.amount), tx.currency)}
-          </div>
-        )}
-      </div>
-      <div className="flex shrink-0 items-center gap-0.5">
-        <Link
-          href={`/private/money?month=${month}&edit=${tx.id}`}
-          aria-label="Edit entry"
-          title="Edit entry"
-          className="inline-flex rounded-ctrl p-1.5 text-faint transition-colors hover:bg-white/5 hover:text-ink"
-        >
-          <Pencil className="h-3.75 w-3.75" />
-        </Link>
-        <DeleteButton
-          compact
-          label="Delete entry"
-          confirmText="Delete this entry? Balances and this month's totals are recalculated without it."
-          action={async () => {
-            await removeTransaction(tx.id);
-            router.refresh();
-          }}
+    <div className="group border-b border-line-soft last:border-b-0 hover:bg-white/2">
+      <div className="flex items-center gap-3 px-4 py-2.5">
+        <span
+          className="h-7 w-1 shrink-0 rounded-pill"
+          style={{ background: tx.category?.color ?? "var(--color-faint)" }}
         />
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-[13.5px] font-medium text-ink">{label}</div>
+          <div className="truncate text-[11.5px] text-muted">
+            {tx.account?.name ?? "No account"}
+            {tx.note && label !== tx.note ? ` · ${tx.note}` : ""}
+          </div>
+        </div>
+        <div className="shrink-0 text-right">
+          <div className={cn("mono text-[13.5px] font-semibold", TONE[tx.kind])}>
+            {SIGN[tx.kind]} {formatRsd(Number(tx.amount_rsd))}
+          </div>
+          {tx.currency !== "RSD" && (
+            <div className="mono text-[11px] text-faint">
+              {formatAmount(Number(tx.amount), tx.currency)}
+            </div>
+          )}
+        </div>
+        <div className="flex shrink-0 items-center gap-0.5">
+          <Link
+            href={`/private/money?month=${month}&edit=${tx.id}`}
+            aria-label="Edit entry"
+            title="Edit entry"
+            className="inline-flex rounded-ctrl p-1.5 text-faint transition-colors hover:bg-white/5 hover:text-ink"
+          >
+            <Pencil className="h-3.75 w-3.75" />
+          </Link>
+          <DeleteButton
+            compact
+            label="Delete entry"
+            confirmText="Delete this entry? Balances and this month's totals are recalculated without it."
+            action={async () => {
+              const result = await removeTransaction(tx.id);
+              if (result?.error) setError(result.error);
+              else router.refresh();
+            }}
+          />
+        </div>
       </div>
+      {error && <p className="px-4 pb-2 text-[11px] text-danger">{error}</p>}
     </div>
   );
 }
@@ -142,7 +157,15 @@ export function MoneyView({
       <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Kpi label="Spent" value={formatRsd(summary.expense)} />
         <Kpi label="Income" value={formatRsd(summary.income)} />
-        <Kpi label="Put aside" value={formatRsd(summary.saved)} />
+        <Kpi
+          label="Put aside"
+          value={formatRsd(summary.saved)}
+          hint={
+            summary.withdrawn > 0
+              ? `After ${formatRsd(summary.withdrawn)} taken back out`
+              : undefined
+          }
+        />
         <Kpi
           label="Left over"
           value={formatRsd(summary.net)}

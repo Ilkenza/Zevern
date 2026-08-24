@@ -7,7 +7,15 @@ import { userId } from "@/lib/supabase/current-user";
 import { saveErrorMessage } from "@/lib/supabase/errors";
 import { getRates } from "@/lib/data/money";
 import { fetchNbsRates } from "@/lib/rates/nbs";
-import { CURRENCIES, DEFAULT_CATEGORIES, nextDate, rateFor, type Currency } from "@/lib/money";
+import {
+  CURRENCIES,
+  DEFAULT_CATEGORIES,
+  formatRsd,
+  isTxKind,
+  nextDate,
+  rateFor,
+  type Currency,
+} from "@/lib/money";
 
 export type MoneyState = { ok?: boolean; error?: string } | undefined;
 
@@ -16,6 +24,9 @@ const PATHS = [
   "/private/money",
   "/private/budgets",
   "/private/goals",
+  "/private/upcoming",
+  // The two addresses /private/upcoming replaced. They only redirect now, but they
+  // are still linked from elsewhere, so their cache entries have to go too.
   "/private/recurring",
   "/private/forecast",
   "/private/setup",
@@ -69,6 +80,47 @@ async function ownsMoneyRow(
   return (count ?? 0) > 0;
 }
 
+/** Today, read in UTC — the same reading every screen uses, so nothing disagrees. */
+function today(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+/**
+ * What a goal holds right now, in RSD: what went in, less what came back out.
+ *
+ * `exclude` drops one entry, which is what an edit needs — otherwise changing an
+ * existing withdrawal is measured against a balance that still contains it. Null on a
+ * read failure rather than 0, so a caller can refuse instead of guessing.
+ */
+async function goalBalance(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  uid: string,
+  goalId: string,
+  exclude: string | null = null,
+): Promise<number | null> {
+  const { data, error } = await supabase
+    .from("money_transactions")
+    .select("id, kind, amount_rsd")
+    .eq("user_id", uid)
+    .eq("goal_id", goalId)
+    .in("kind", ["saving", "withdraw"]);
+
+  if (error) {
+    console.error("goalBalance:", error.message);
+    return null;
+  }
+
+  let held = 0;
+  for (const row of data ?? []) {
+    if (exclude && row.id === exclude) continue;
+    held += (row.kind === "saving" ? 1 : -1) * (Number(row.amount_rsd) || 0);
+  }
+  return held;
+}
+
+/** Rounding leaves ragged tenths of a dinar behind; do not fail a withdrawal over one. */
+const PENNY = 0.01;
+
 /* ------------------------------------------------------------ transactions */
 
 export async function saveTransaction(_prev: MoneyState, formData: FormData): Promise<MoneyState> {
@@ -81,14 +133,22 @@ export async function saveTransaction(_prev: MoneyState, formData: FormData): Pr
   const categoryId = String(formData.get("category_id") ?? "").trim() || null;
   const goalId = String(formData.get("goal_id") ?? "").trim() || null;
   const note = String(formData.get("note") ?? "").trim() || null;
-  const occurredOn = String(formData.get("occurred_on") ?? "").trim() || new Date().toISOString().slice(0, 10);
+  const occurredOn = String(formData.get("occurred_on") ?? "").trim() || today();
   const returnTo = String(formData.get("return_to") ?? "").trim();
 
-  if (!["expense", "income", "transfer", "saving"].includes(kind)) return { error: "Unknown kind." };
+  if (!isTxKind(kind)) return { error: "Unknown kind." };
   if (!(amount > 0)) return { error: "Amount has to be greater than zero." };
   if (kind === "transfer" && (!accountId || !toAccountId || accountId === toAccountId))
     return { error: "A transfer needs two different accounts." };
   if (kind === "saving" && !goalId) return { error: "Pick the goal this saving belongs to." };
+  if (kind === "withdraw" && !goalId) return { error: "Pick the goal this money comes out of." };
+  // Both directions name an account, because that is the account the money is being
+  // held back from or handed back to. Without one, a goal would claim dinars that no
+  // account has set aside, and the two screens would stop adding up.
+  if (kind === "saving" && !accountId)
+    return { error: "Pick the account this money is being set aside on." };
+  if (kind === "withdraw" && !accountId)
+    return { error: "Pick the account this money goes back to." };
 
   const rates = await getRates();
   const manualRate = num(formData.get("rate"), 0);
@@ -101,7 +161,7 @@ export async function saveTransaction(_prev: MoneyState, formData: FormData): Pr
   // Only the links the kind actually keeps are worth checking — the rest are dropped.
   const toAccount = kind === "transfer" ? toAccountId : null;
   const category = kind === "expense" || kind === "income" ? categoryId : null;
-  const goal = kind === "saving" ? goalId : null;
+  const goal = kind === "saving" || kind === "withdraw" ? goalId : null;
 
   const [ownsAccount, ownsToAccount, ownsCategory, ownsGoal] = await Promise.all([
     ownsMoneyRow(supabase, "money_accounts", accountId, uid),
@@ -112,6 +172,45 @@ export async function saveTransaction(_prev: MoneyState, formData: FormData): Pr
   if (!ownsAccount || !ownsToAccount) return { error: "That account is not on your profile." };
   if (!ownsCategory) return { error: "That category is not on your profile." };
   if (!ownsGoal) return { error: "That goal is not on your profile." };
+
+  if (goal) {
+    // A closed goal has already handed its money back. Letting an entry land on one
+    // would put dinars somewhere no account is reserving them.
+    const { data: goalRow } = await supabase
+      .from("money_goals")
+      .select("completed_at")
+      .eq("id", goal)
+      .eq("user_id", uid)
+      .maybeSingle();
+    if (goalRow?.completed_at)
+      return { error: "That goal is closed. Reopen it before moving money in or out." };
+  }
+
+  // amount_rsd is generated in the database as round(amount * rate, 2); worked out the
+  // same way here so the check and the stored figure cannot disagree.
+  const amountRsd = Math.round(amount * rate * 100) / 100;
+
+  if (goal) {
+    // A goal can never hold less than nothing, in either direction: you cannot take
+    // out more than is there, and editing an old deposit downwards must not leave the
+    // withdrawals against it dangling. Either would turn `reserved` negative and hand
+    // the accounts free money that does not exist.
+    const others = await goalBalance(supabase, uid, goal, id || null);
+    if (others === null) return { error: "Could not read what that goal holds. Try again." };
+
+    if (kind === "withdraw" && amountRsd > others + PENNY)
+      return {
+        error:
+          others > 0
+            ? `That goal only holds ${formatRsd(others)}.`
+            : "That goal is empty — there is nothing to take out.",
+      };
+
+    if (kind === "saving" && others + amountRsd < -PENNY)
+      return {
+        error: `${formatRsd(-others)} has already been taken out of that goal, so this deposit cannot be smaller than that.`,
+      };
+  }
 
   const payload = {
     kind,
@@ -144,17 +243,8 @@ export async function saveTransaction(_prev: MoneyState, formData: FormData): Pr
 }
 
 export async function deleteTransaction(id: string) {
-  const supabase = await createSupabaseServerClient();
-  const uid = await userId(supabase);
-  if (!uid) return;
-
-  const { error } = await supabase
-    .from("money_transactions")
-    .delete()
-    .eq("id", id)
-    .eq("user_id", uid);
-  if (error) console.error("deleteTransaction:", error.message);
-  refresh();
+  const result = await removeTransaction(id);
+  if (result?.error) console.error("deleteTransaction:", result.error);
   redirect("/private/money");
 }
 
@@ -163,6 +253,24 @@ export async function removeTransaction(id: string): Promise<MoneyState> {
   const supabase = await createSupabaseServerClient();
   const uid = await userId(supabase);
   if (!uid) return { error: "Not signed in." };
+
+  const { data: row } = await supabase
+    .from("money_transactions")
+    .select("kind, goal_id, amount_rsd")
+    .eq("id", id)
+    .eq("user_id", uid)
+    .maybeSingle();
+
+  // Removing a deposit that has since been partly taken back out would leave the goal
+  // holding less than nothing, and the accounts would count the difference as free.
+  if (row?.kind === "saving" && row.goal_id) {
+    const others = await goalBalance(supabase, uid, row.goal_id, id);
+    if (others === null) return { error: "Could not read what that goal holds. Try again." };
+    if (others < -PENNY)
+      return {
+        error: `Take the ${formatRsd(-others)} out of that goal back first — without this deposit there is nothing for it to have come out of.`,
+      };
+  }
 
   const { error } = await supabase
     .from("money_transactions")
@@ -346,9 +454,28 @@ export async function saveGoal(_prev: MoneyState, formData: FormData): Promise<M
 
   const payload = { name, target_rsd: targetRsd, target_date: targetDate, color };
 
-  const { error } = id
-    ? await supabase.from("money_goals").update(payload).eq("id", id).eq("user_id", uid)
-    : await supabase.from("money_goals").insert(payload);
+  let error;
+  if (id) {
+    ({ error } = await supabase
+      .from("money_goals")
+      .update(payload)
+      .eq("id", id)
+      .eq("user_id", uid));
+  } else {
+    // A new goal joins at the bottom of the list rather than jumping the queue. The
+    // default is 0 for every goal, so without this the order would be creation order
+    // again the moment anything is added.
+    const { data: last } = await supabase
+      .from("money_goals")
+      .select("sort")
+      .eq("user_id", uid)
+      .order("sort", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    ({ error } = await supabase
+      .from("money_goals")
+      .insert({ ...payload, sort: (last?.sort ?? -1) + 1 }));
+  }
   if (error) return { error: saveErrorMessage(error) };
 
   refresh();
@@ -370,21 +497,195 @@ export async function deleteGoal(id: string) {
   redirect("/private/goals");
 }
 
+/**
+ * Close a goal: it stops collecting and stops holding money back.
+ *
+ * Whatever it still holds is handed back to a real account first, as a withdrawal, so
+ * the ledger says where the money went and the reserved figure falls by exactly that
+ * much. Reached and spent, or given up on — the accounting is the same act, and the
+ * purchase itself is an ordinary expense logged in Money.
+ */
+export async function closeGoal(_prev: MoneyState, formData: FormData): Promise<MoneyState> {
+  const goalId = String(formData.get("goal_id") ?? "").trim();
+  const accountId = String(formData.get("account_id") ?? "").trim() || null;
+  const on = String(formData.get("completed_at") ?? "").trim() || today();
+
+  if (!goalId) return { error: "No goal to close." };
+
+  const supabase = await createSupabaseServerClient();
+  const uid = await userId(supabase);
+  if (!uid) return { error: "Not signed in." };
+
+  const [ownsGoal, ownsAccount] = await Promise.all([
+    ownsMoneyRow(supabase, "money_goals", goalId, uid),
+    ownsMoneyRow(supabase, "money_accounts", accountId, uid),
+  ]);
+  if (!ownsGoal) return { error: "That goal is not on your profile." };
+  if (!ownsAccount) return { error: "That account is not on your profile." };
+
+  const { data: goal } = await supabase
+    .from("money_goals")
+    .select("name, completed_at")
+    .eq("id", goalId)
+    .eq("user_id", uid)
+    .maybeSingle();
+  if (!goal) return { error: "That goal is not on your profile." };
+  if (goal.completed_at) return { error: "That goal is already closed." };
+
+  const held = await goalBalance(supabase, uid, goalId);
+  if (held === null) return { error: "Could not read what that goal holds. Try again." };
+
+  if (held > PENNY) {
+    if (!accountId) return { error: "Say which account the money that is left goes back to." };
+    const { error } = await supabase.from("money_transactions").insert({
+      kind: "withdraw",
+      amount: held,
+      currency: "RSD",
+      rate: 1,
+      account_id: accountId,
+      goal_id: goalId,
+      note: "Closed the goal",
+      occurred_on: on,
+    });
+    if (error) return { error: saveErrorMessage(error) };
+  }
+
+  const { error } = await supabase
+    .from("money_goals")
+    .update({ completed_at: on })
+    .eq("id", goalId)
+    .eq("user_id", uid);
+  if (error) return { error: saveErrorMessage(error) };
+
+  refresh();
+  return { ok: true };
+}
+
+/** Put a closed goal back to work. It comes out of the archive with it. */
+export async function reopenGoal(id: string): Promise<MoneyState> {
+  const supabase = await createSupabaseServerClient();
+  const uid = await userId(supabase);
+  if (!uid) return { error: "Not signed in." };
+  if (!(await ownsMoneyRow(supabase, "money_goals", id, uid)))
+    return { error: "That goal is not on your profile." };
+
+  const { error } = await supabase
+    .from("money_goals")
+    .update({ completed_at: null, archived: false })
+    .eq("id", id)
+    .eq("user_id", uid);
+  if (error) return { error: saveErrorMessage(error) };
+
+  refresh();
+  return { ok: true };
+}
+
+/**
+ * Archive is tidying, not accounting: it only decides what the screen shows.
+ *
+ * Which is why it is offered on a closed goal and nothing else. An open goal still has
+ * a claim on the money in an account, and hiding one would take that claim out of
+ * sight while it went on quietly shrinking what is free to spend.
+ */
+export async function archiveGoal(id: string, archived: boolean): Promise<MoneyState> {
+  const supabase = await createSupabaseServerClient();
+  const uid = await userId(supabase);
+  if (!uid) return { error: "Not signed in." };
+  if (!(await ownsMoneyRow(supabase, "money_goals", id, uid)))
+    return { error: "That goal is not on your profile." };
+
+  if (archived) {
+    const { data: goal } = await supabase
+      .from("money_goals")
+      .select("completed_at")
+      .eq("id", id)
+      .eq("user_id", uid)
+      .maybeSingle();
+    if (!goal) return { error: "That goal is not on your profile." };
+    if (!goal.completed_at)
+      return { error: "Close the goal first — an open one is still holding money aside." };
+  }
+
+  const { error } = await supabase
+    .from("money_goals")
+    .update({ archived })
+    .eq("id", id)
+    .eq("user_id", uid);
+  if (error) return { error: saveErrorMessage(error) };
+
+  refresh();
+  return { ok: true };
+}
+
+/**
+ * Move a goal one place up or down the list.
+ *
+ * The whole open list is renumbered from its current order rather than two rows being
+ * swapped: `sort` defaults to 0 for everything, and swapping two zeroes moves nothing.
+ * A personal list of goals is short enough that writing all of them is the cheap way
+ * to be certain the order is exactly what the screen just showed.
+ */
+export async function moveGoal(id: string, direction: "up" | "down"): Promise<MoneyState> {
+  const supabase = await createSupabaseServerClient();
+  const uid = await userId(supabase);
+  if (!uid) return { error: "Not signed in." };
+  if (!(await ownsMoneyRow(supabase, "money_goals", id, uid)))
+    return { error: "That goal is not on your profile." };
+
+  const { data: goals, error: readErr } = await supabase
+    .from("money_goals")
+    .select("id")
+    .eq("user_id", uid)
+    .eq("archived", false)
+    .is("completed_at", null)
+    .order("sort")
+    .order("created_at");
+  if (readErr) return { error: saveErrorMessage(readErr) };
+
+  const order = (goals ?? []).map((g) => g.id);
+  const from = order.indexOf(id);
+  if (from < 0) return { error: "That goal is not on the list." };
+
+  const to = direction === "up" ? from - 1 : from + 1;
+  if (to < 0 || to >= order.length) return { ok: true }; // already at the end of the list
+
+  [order[from], order[to]] = [order[to], order[from]];
+
+  for (const [i, goalId] of order.entries()) {
+    const { error } = await supabase
+      .from("money_goals")
+      .update({ sort: i })
+      .eq("id", goalId)
+      .eq("user_id", uid);
+    if (error) return { error: saveErrorMessage(error) };
+  }
+
+  refresh();
+  return { ok: true };
+}
+
 /* --------------------------------------------------------------- recurring */
 
 export async function saveRecurring(_prev: MoneyState, formData: FormData): Promise<MoneyState> {
   const id = String(formData.get("id") ?? "").trim();
   const name = String(formData.get("name") ?? "").trim();
-  const kind = String(formData.get("kind") ?? "expense") === "income" ? "income" : "expense";
-  const variable = formData.get("variable") != null;
+  const goalId = String(formData.get("goal_id") ?? "").trim() || null;
+  // A standing order into a goal is money put aside, never money coming in, and it
+  // belongs to a goal rather than to a spending category.
+  const kind = goalId
+    ? "expense"
+    : String(formData.get("kind") ?? "expense") === "income"
+      ? "income"
+      : "expense";
+  const variable = goalId ? false : formData.get("variable") != null;
   const amount = variable ? 0 : num(formData.get("amount"));
   const currency = currencyOf(formData.get("currency"));
   const every = ["week", "month", "year"].includes(String(formData.get("every")))
     ? String(formData.get("every"))
     : "month";
-  const nextOn = String(formData.get("next_on") ?? "").trim() || new Date().toISOString().slice(0, 10);
+  const nextOn = String(formData.get("next_on") ?? "").trim() || today();
   const accountId = String(formData.get("account_id") ?? "").trim() || null;
-  const categoryId = String(formData.get("category_id") ?? "").trim() || null;
+  const categoryId = goalId ? null : String(formData.get("category_id") ?? "").trim() || null;
   const active = formData.get("active") != null;
   const installmentsRaw = String(formData.get("installments_total") ?? "").trim();
   const installmentsTotal = installmentsRaw ? Math.trunc(num(installmentsRaw)) : null;
@@ -395,17 +696,32 @@ export async function saveRecurring(_prev: MoneyState, formData: FormData): Prom
   if (installmentsTotal != null && !(installmentsTotal > 0))
     return { error: "Number of payments has to be at least 1, or left empty." };
   if (endsOn && endsOn < nextOn) return { error: "The end date cannot fall before the next due date." };
+  // The account is what the money is set aside on, so a goal rule cannot do without one.
+  if (goalId && !accountId) return { error: "Pick the account this comes off every time." };
 
   const supabase = await createSupabaseServerClient();
   const uid = await userId(supabase);
   if (!uid) return { error: "Not signed in." };
 
-  const [ownsAccount, ownsCategory] = await Promise.all([
+  const [ownsAccount, ownsCategory, ownsGoal] = await Promise.all([
     ownsMoneyRow(supabase, "money_accounts", accountId, uid),
     ownsMoneyRow(supabase, "money_categories", categoryId, uid),
+    ownsMoneyRow(supabase, "money_goals", goalId, uid),
   ]);
   if (!ownsAccount) return { error: "That account is not on your profile." };
   if (!ownsCategory) return { error: "That category is not on your profile." };
+  if (!ownsGoal) return { error: "That goal is not on your profile." };
+
+  if (goalId) {
+    const { data: goal } = await supabase
+      .from("money_goals")
+      .select("completed_at")
+      .eq("id", goalId)
+      .eq("user_id", uid)
+      .maybeSingle();
+    if (goal?.completed_at)
+      return { error: "That goal is closed. Reopen it before setting money to go in." };
+  }
 
   const payload = {
     name,
@@ -417,6 +733,7 @@ export async function saveRecurring(_prev: MoneyState, formData: FormData): Prom
     next_on: nextOn,
     account_id: accountId,
     category_id: categoryId,
+    goal_id: goalId,
     active,
     installments_total: installmentsTotal,
     ends_on: endsOn,
@@ -482,6 +799,9 @@ export async function toggleRecurring(id: string, active: boolean): Promise<Mone
 /**
  * Book one occurrence of a recurring item and move it to its next date.
  * `amountOverride` carries the number for variable items (struja is never the same twice).
+ *
+ * A rule pointing at a goal books a saving against that goal instead of an expense —
+ * same countdown, same end date, but the money is set aside rather than spent.
  */
 export async function postRecurring(id: string, amountOverride?: number): Promise<MoneyState> {
   const supabase = await createSupabaseServerClient();
@@ -502,21 +822,52 @@ export async function postRecurring(id: string, amountOverride?: number): Promis
   // The item is ours, but its links only became ours after the check in saveRecurring
   // existed — an item saved before that can still point somewhere else. Copying those
   // ids onto a transaction would carry the bad link forward.
-  const [ownsAccount, ownsCategory] = await Promise.all([
+  const [ownsAccount, ownsCategory, ownsGoal] = await Promise.all([
     ownsMoneyRow(supabase, "money_accounts", item.account_id, uid),
     ownsMoneyRow(supabase, "money_categories", item.category_id, uid),
+    ownsMoneyRow(supabase, "money_goals", item.goal_id, uid),
   ]);
-  if (!ownsAccount || !ownsCategory)
-    return { error: "This item points at an account or category that is not on your profile." };
+  if (!ownsAccount || !ownsCategory || !ownsGoal)
+    return {
+      error: "This item points at an account, category or goal that is not on your profile.",
+    };
+
+  const toGoal = item.goal_id != null;
+
+  if (toGoal) {
+    // A goal rule needs somewhere to set the money aside from, or the goal would claim
+    // dinars no account is holding back.
+    if (!item.account_id)
+      return { error: "Give this one an account before it can put money aside." };
+
+    // Nothing should keep feeding a goal that has been closed. Pause it rather than
+    // failing again every time the page is opened.
+    const { data: goal } = await supabase
+      .from("money_goals")
+      .select("name, completed_at")
+      .eq("id", item.goal_id as string)
+      .eq("user_id", uid)
+      .maybeSingle();
+    if (goal?.completed_at) {
+      await supabase
+        .from("money_recurring")
+        .update({ active: false })
+        .eq("id", id)
+        .eq("user_id", uid);
+      refresh();
+      return { error: `${goal.name} is closed, so this rule has been paused.` };
+    }
+  }
 
   const rates = await getRates();
   const { error } = await supabase.from("money_transactions").insert({
-    kind: item.kind,
+    kind: toGoal ? "saving" : item.kind,
     amount,
     currency: item.currency,
     rate: rateFor(item.currency, rates),
     account_id: item.account_id,
-    category_id: item.category_id,
+    category_id: toGoal ? null : item.category_id,
+    goal_id: item.goal_id,
     recurring_id: item.id,
     note: item.name,
     occurred_on: item.next_on,

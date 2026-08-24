@@ -1,27 +1,53 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { PiggyBank, Plus, Pencil } from "lucide-react";
-import { saveTransaction, type MoneyState } from "@/app/(app)/private/actions";
+import {
+  Archive,
+  ArchiveRestore,
+  ChevronDown,
+  ChevronUp,
+  History,
+  PiggyBank,
+  Plus,
+  Pencil,
+  RotateCcw,
+} from "lucide-react";
+import {
+  archiveGoal,
+  moveGoal,
+  removeTransaction,
+  reopenGoal,
+  saveTransaction,
+  type MoneyState,
+} from "@/app/(app)/private/actions";
 import { SlideOver } from "@/components/ui/SlideOver";
 import { Panel } from "@/components/ui/Panel";
 import { Badge, type BadgeStatus } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { DeleteButton } from "@/components/ui/DeleteButton";
 import { Button, buttonClasses } from "@/components/ui/Button";
 import { formatRsd } from "@/lib/money";
 import { cn } from "@/lib/utils";
-import type { GoalLine, MoneyAccount, MoneyGoal } from "@/lib/types";
+import type { OnHand } from "@/lib/data/money";
+import type { GoalEntry, GoalLine, MoneyAccount } from "@/lib/types";
 import { GoalForm } from "./GoalForm";
 
-export type GoalsPanel = { mode: "new" } | { mode: "edit"; goal: MoneyGoal } | null;
+export type GoalsPanel = { mode: "new" } | { mode: "edit"; goal: GoalLine } | null;
 
 /** Small caps label — panel captions and composer headings, same as Setup. */
 const caps = "text-[10.5px] font-semibold uppercase tracking-wider text-faint";
 
 /** A goal with no colour of its own falls back to the muted token, never a stray hex. */
 const NO_COLOUR = "var(--color-muted)";
+
+/** Bare controls inside a card, measured the same way Setup measures its own. */
+const field =
+  "rounded-ctrl border border-line bg-white/[0.035] px-2 py-1.5 text-[12px] text-ink placeholder:text-faint focus:border-gold focus:shadow-ring";
+
+const GOALS_HREF = "/private/goals";
+const ARCHIVE_HREF = `${GOALS_HREF}?archived=1`;
 
 /** The line beside a panel title: how many of the thing there are. */
 function PanelMeta({ children }: { children: React.ReactNode }) {
@@ -50,6 +76,11 @@ const DAYS_PER_MONTH = 30.44;
 /** With less history than this there is nothing honest to say about pace. */
 const MIN_HISTORY_DAYS = 14;
 
+/** A goal is open while it has not been closed — the same test the accounts apply. */
+function isOpen(goal: GoalLine): boolean {
+  return goal.completed_at === null;
+}
+
 type Reading = {
   /** null when no target is set — there is no progress then, only a running total. */
   pct: number | null;
@@ -62,8 +93,9 @@ type Reading = {
 };
 
 /**
- * Everything a card says about one goal, derived from the four facts a goal actually
- * carries: what is saved, the target, the target date and when it started.
+ * Everything a card says about one goal, derived from the facts a goal actually
+ * carries: what it holds now, what ever went in, the target, the target date and when
+ * it started.
  *
  * The pace verdict is deliberately shy. It shows up only once there is a fortnight of
  * history and something actually put aside — before that, a rate worked out from two
@@ -148,11 +180,111 @@ function read(goal: GoalLine, today: string): Reading {
 }
 
 /**
- * The one deliberate act on this screen: money leaving an account and landing on a
- * goal. It gets its own footer, its own caption and its own ground, so it never reads
- * as one more box in a row.
+ * One movement, in the goal's own words. The account is named because that is the
+ * question the run of deposits is usually asked to settle — which pocket it came from.
  */
-function AddToGoal({
+function EntryRow({ entry, goalName }: { entry: GoalEntry; goalName: string }) {
+  const router = useRouter();
+  const [error, setError] = useState<string | null>(null);
+  const out = entry.kind === "withdraw";
+
+  return (
+    <div className="border-b border-line-soft py-1.5 last:border-b-0">
+      <div className="flex items-center gap-2">
+        <span className="mono shrink-0 text-[11px] text-faint">{entry.occurred_on}</span>
+        <span className="min-w-0 flex-1 truncate text-[11.5px] text-muted">
+          {entry.account ?? "No account"}
+          {entry.note ? ` · ${entry.note}` : ""}
+          {entry.recurring && !entry.note ? " · standing order" : ""}
+        </span>
+        <span
+          className={cn("mono shrink-0 text-[12px] font-semibold", out ? "text-muted" : "text-ink")}
+        >
+          {out ? "−" : "+"} {formatRsd(entry.amount)}
+        </span>
+        <DeleteButton
+          compact
+          label={`Delete this ${out ? "withdrawal" : "deposit"}`}
+          confirmText={`Remove ${formatRsd(entry.amount)} of ${entry.occurred_on} from ${goalName}? The entry leaves the ledger and every balance is worked out without it.`}
+          action={async () => {
+            const result = await removeTransaction(entry.id);
+            if (result?.error) setError(result.error);
+            else router.refresh();
+          }}
+        />
+      </div>
+      {error && <p className="pb-1 text-[11px] text-danger">{error}</p>}
+    </div>
+  );
+}
+
+/**
+ * The run of deposits — the thing that actually makes saving feel like something.
+ * Folded away by default, because the card's job is the figure at the top; opened, it
+ * is also the only place a fat-fingered 50.000 can be found and taken back out.
+ */
+function GoalHistory({ goal }: { goal: GoalLine }) {
+  const [open, setOpen] = useState(false);
+
+  if (goal.movements === 0) return null;
+
+  const deposits = goal.entries.filter((e) => e.kind === "saving").length;
+  const shown = goal.entries.length;
+
+  return (
+    <div className="border-t border-line-soft px-5 py-2">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="flex w-full items-center gap-1.5 text-left text-[11.5px] font-semibold text-muted transition-colors hover:text-ink"
+      >
+        <History className="h-3.25 w-3.25 shrink-0" />
+        <span className="min-w-0 flex-1 truncate">
+          {goal.movements} {goal.movements === 1 ? "movement" : "movements"}
+          {goal.withdrawn > 0 && (
+            <span className="font-normal text-faint">
+              {" "}
+              · {formatRsd(goal.withdrawn)} taken back out
+            </span>
+          )}
+        </span>
+        {open ? (
+          <ChevronUp className="h-3.5 w-3.5 shrink-0" />
+        ) : (
+          <ChevronDown className="h-3.5 w-3.5 shrink-0" />
+        )}
+      </button>
+
+      {open && (
+        <div className="mt-1">
+          {goal.entries.map((entry) => (
+            <EntryRow key={entry.id} entry={entry} goalName={goal.name} />
+          ))}
+          <p className="pt-2 text-[11px] text-faint">
+            {shown < goal.movements
+              ? `The last ${shown} of ${goal.movements}. `
+              : deposits > 1
+                ? `${deposits} deposits, ${formatRsd(goal.deposited)} in total. `
+                : ""}
+            Every one of these is an entry in Money.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * The one deliberate act on this screen: money moving between an account and a goal.
+ * It gets its own footer, its own caption and its own ground, so it never reads as one
+ * more box in a row.
+ *
+ * Both directions live here, because taking money back out is the same decision made
+ * the other way round — and hiding it somewhere else is what left a goal claiming
+ * dinars that had already been spent.
+ */
+function MoveMoney({
   goal,
   accounts,
   done,
@@ -165,28 +297,70 @@ function AddToGoal({
     saveTransaction,
     undefined,
   );
-  const from = accounts[0]?.name ?? null;
+  const [out, setOut] = useState(false);
+
+  const canTakeOut = goal.saved > 0;
+  const taking = out && canTakeOut;
+  // The account this goal used last is the one it will almost certainly use again.
+  const preferred = goal.lastAccountId ?? accounts[0]?.id ?? "";
+  const only = accounts.length === 1 ? accounts[0] : null;
 
   // The amount is left uncontrolled on purpose: React empties an uncontrolled field
   // once its form action settles, so the box clears itself and the same figure cannot
   // go in twice by accident. Holding it in state was what kept the old amount sitting
   // there after a save.
   return (
-    <form action={formAction} className="border-t border-line-soft bg-white/[0.02] py-3 pr-4 pl-5">
-      <input type="hidden" name="kind" value="saving" />
+    <form
+      action={formAction}
+      className="border-t border-line-soft bg-white/[0.02] py-3 pr-4 pl-5"
+    >
+      <input type="hidden" name="kind" value={taking ? "withdraw" : "saving"} />
       <input type="hidden" name="goal_id" value={goal.id} />
       <input type="hidden" name="currency" value="RSD" />
       <input type="hidden" name="return_to" value="stay" />
-      <input type="hidden" name="account_id" value={accounts[0]?.id ?? ""} />
 
       <div className="mb-2 flex items-center justify-between gap-2">
-        <span className="flex min-w-0 items-center gap-1.5">
-          <Plus className="h-3.5 w-3.5 shrink-0 text-gold" />
-          <span className={cn(caps, "truncate")}>{done ? "Add more" : "Put money aside"}</span>
-        </span>
-        <span className="min-w-0 truncate text-[11px] text-faint">
-          {from ? `from ${from}` : "no account yet"}
-        </span>
+        {/* With nothing in the goal yet there is only one thing to do here, so the
+            caption stays a caption rather than pretending to be a choice. */}
+        {canTakeOut ? (
+          <div className="flex min-w-0 items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setOut(false)}
+              aria-pressed={!taking}
+              className={cn(
+                "rounded-pill px-2 py-0.5 text-[10.5px] font-semibold uppercase tracking-wider transition-colors",
+                taking ? "text-faint hover:text-muted" : "bg-active-bg text-gold-hi",
+              )}
+            >
+              Put aside
+            </button>
+            <button
+              type="button"
+              onClick={() => setOut(true)}
+              aria-pressed={taking}
+              className={cn(
+                "rounded-pill px-2 py-0.5 text-[10.5px] font-semibold uppercase tracking-wider transition-colors",
+                taking ? "bg-active-bg text-gold-hi" : "text-faint hover:text-muted",
+              )}
+            >
+              Take out
+            </button>
+          </div>
+        ) : (
+          <span className="flex min-w-0 items-center gap-1.5">
+            <Plus className="h-3.5 w-3.5 shrink-0 text-gold" />
+            <span className={cn(caps, "truncate")}>{done ? "Add more" : "Put money aside"}</span>
+          </span>
+        )}
+
+        {only ? (
+          <span className="min-w-0 truncate text-[11px] text-faint">
+            {taking ? "back to" : "from"} {only.name}
+          </span>
+        ) : accounts.length === 0 ? (
+          <span className="text-[11px] text-faint">no account yet</span>
+        ) : null}
       </div>
 
       <div className="flex items-center gap-2">
@@ -196,7 +370,7 @@ function AddToGoal({
             name="amount"
             inputMode="decimal"
             placeholder="0"
-            aria-label={`Add money to ${goal.name}`}
+            aria-label={taking ? `Take money out of ${goal.name}` : `Add money to ${goal.name}`}
             className="mono min-w-0 flex-1 bg-transparent px-2.5 py-2 text-right text-[14px] text-ink placeholder:text-faint"
           />
           <span className="mono border-l border-line-soft px-2 py-2 text-[11.5px] font-semibold text-muted">
@@ -210,12 +384,73 @@ function AddToGoal({
           className="w-24 shrink-0 px-2 py-2 text-[12.5px]"
           disabled={pending}
         >
-          {pending ? "Adding…" : "Put aside"}
+          {pending ? "Saving…" : taking ? "Take out" : "Put aside"}
         </Button>
       </div>
 
+      {only || accounts.length === 0 ? (
+        <input type="hidden" name="account_id" value={only?.id ?? ""} />
+      ) : (
+        <select
+          name="account_id"
+          defaultValue={preferred}
+          aria-label={taking ? "Account the money goes back to" : "Account the money comes off"}
+          className={cn(field, "mt-2 w-full scheme-dark")}
+        >
+          {accounts.map((a) => (
+            <option key={a.id} value={a.id} className="bg-surface">
+              {taking ? "Back to" : "From"} {a.name}
+            </option>
+          ))}
+        </select>
+      )}
+
+      {taking && (
+        <p className="mt-2 text-[11px] text-faint">
+          Holds {formatRsd(goal.saved)}. Taking it out frees it to spend again.
+        </p>
+      )}
+
       {state?.error && <p className="mt-2 text-[11px] text-danger">{state.error}</p>}
     </form>
+  );
+}
+
+/** Move a goal up or down the list — priority the owner chose, not creation order. */
+function Reorder({ goal, first, last }: { goal: GoalLine; first: boolean; last: boolean }) {
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+
+  const move = (direction: "up" | "down") => {
+    startTransition(async () => {
+      await moveGoal(goal.id, direction);
+      router.refresh();
+    });
+  };
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => move("up")}
+        disabled={pending || first}
+        aria-label={`Move ${goal.name} up`}
+        title="Higher priority"
+        className="rounded-ctrl p-1 text-faint transition-colors hover:bg-white/5 hover:text-ink disabled:opacity-30"
+      >
+        <ChevronUp className="h-3.5 w-3.5" />
+      </button>
+      <button
+        type="button"
+        onClick={() => move("down")}
+        disabled={pending || last}
+        aria-label={`Move ${goal.name} down`}
+        title="Lower priority"
+        className="rounded-ctrl p-1 text-faint transition-colors hover:bg-white/5 hover:text-ink disabled:opacity-30"
+      >
+        <ChevronDown className="h-3.5 w-3.5" />
+      </button>
+    </>
   );
 }
 
@@ -223,10 +458,16 @@ function GoalCard({
   goal,
   accounts,
   today,
+  first,
+  last,
+  reorderable,
 }: {
   goal: GoalLine;
   accounts: MoneyAccount[];
   today: string;
+  first: boolean;
+  last: boolean;
+  reorderable: boolean;
 }) {
   const r = read(goal, today);
   const colour = goal.color ?? NO_COLOUR;
@@ -251,14 +492,17 @@ function GoalCard({
       <div className="flex-1 py-3.5 pr-4 pl-5">
         <div className="flex items-start gap-2">
           <h3 className="min-w-0 flex-1 truncate text-[14px] font-bold text-ink">{goal.name}</h3>
-          <Link
-            href={`/private/goals?edit=${goal.id}`}
-            aria-label={`Edit ${goal.name}`}
-            title={`Edit ${goal.name}`}
-            className="-mt-1 -mr-1.5 shrink-0 rounded-ctrl p-1.5 text-faint transition-colors hover:bg-white/5 hover:text-ink"
-          >
-            <Pencil className="h-3.75 w-3.75" />
-          </Link>
+          <div className="-mt-1 -mr-1.5 flex shrink-0 items-center">
+            {reorderable && <Reorder goal={goal} first={first} last={last} />}
+            <Link
+              href={`${GOALS_HREF}?edit=${goal.id}`}
+              aria-label={`Edit ${goal.name}`}
+              title={`Edit ${goal.name}`}
+              className="rounded-ctrl p-1.5 text-faint transition-colors hover:bg-white/5 hover:text-ink"
+            >
+              <Pencil className="h-3.75 w-3.75" />
+            </Link>
+          </div>
         </div>
 
         <div className="mt-2 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1.5">
@@ -301,17 +545,130 @@ function GoalCard({
         )}
       </div>
 
-      <AddToGoal goal={goal} accounts={accounts} done={r.done} />
+      <GoalHistory goal={goal} />
+      <MoveMoney goal={goal} accounts={accounts} done={r.done} />
     </article>
+  );
+}
+
+/** One closed goal: what passed through it, and the two ways back. */
+function ClosedRow({ goal }: { goal: GoalLine }) {
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+
+  const target = Number(goal.target_rsd) || 0;
+  // Reached means it actually held the whole amount at once, which is not the same as
+  // the sum of everything that ever went in.
+  const reached = target > 0 && goal.peak >= target;
+
+  const run = (fn: () => Promise<MoneyState>) => {
+    setError(null);
+    startTransition(async () => {
+      const result = await fn();
+      if (result?.error) setError(result.error);
+      else router.refresh();
+    });
+  };
+
+  return (
+    <div className="border-b border-line-soft last:border-b-0">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-2.5">
+        <span
+          aria-hidden="true"
+          className="h-7 w-1 shrink-0 rounded-pill opacity-60"
+          style={{ background: goal.color ?? NO_COLOUR }}
+        />
+        <div className="min-w-0 flex-1">
+          <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+            <span className="min-w-0 truncate text-[13px] font-semibold text-muted">
+              {goal.name}
+            </span>
+            <Badge status={reached ? "ok" : "draft"}>{reached ? "Reached" : "Closed"}</Badge>
+          </div>
+          <div className="mt-0.5 text-[11.5px] text-faint">
+            <span className="mono">{formatRsd(goal.deposited)}</span> went in
+            {target > 0 && (
+              <>
+                {" "}
+                of <span className="mono">{formatRsd(target)}</span>
+              </>
+            )}
+            {goal.completed_at && (
+              <>
+                {" "}
+                · closed <span className="mono">{goal.completed_at}</span>
+              </>
+            )}
+          </div>
+        </div>
+
+        <div className="flex shrink-0 items-center gap-1">
+          <button
+            type="button"
+            onClick={() => run(() => reopenGoal(goal.id))}
+            disabled={pending}
+            className={buttonClasses("secondary", "px-2.5 py-1 text-[12px] disabled:opacity-50")}
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+            Reopen
+          </button>
+          <button
+            type="button"
+            onClick={() => run(() => archiveGoal(goal.id, !goal.archived))}
+            disabled={pending}
+            aria-label={goal.archived ? `Bring ${goal.name} back` : `Archive ${goal.name}`}
+            title={goal.archived ? "Bring it back to the closed list" : "Put it in the archive"}
+            className="rounded-ctrl p-1.5 text-faint transition-colors hover:bg-white/5 hover:text-ink disabled:opacity-50"
+          >
+            {goal.archived ? (
+              <ArchiveRestore className="h-3.75 w-3.75" />
+            ) : (
+              <Archive className="h-3.75 w-3.75" />
+            )}
+          </button>
+        </div>
+      </div>
+      {error && <p className="px-4 pb-2.5 text-[11px] text-danger">{error}</p>}
+      {/* The run of deposits is worth more once the thing is finished, not less. */}
+      <GoalHistory goal={goal} />
+    </div>
+  );
+}
+
+/** One figure of the reconciliation strip. The operator lives in the label. */
+function Figure({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: number;
+  tone?: "info" | "danger";
+}) {
+  return (
+    <div className="bg-surface px-3 py-2.5">
+      <div className={caps}>{label}</div>
+      <div
+        className={cn(
+          "mono mt-1 text-[15px] font-semibold",
+          tone === "info" ? "text-info" : tone === "danger" ? "text-danger" : "text-ink",
+        )}
+      >
+        {formatRsd(value)}
+      </div>
+    </div>
   );
 }
 
 /**
  * The whole picture, first: everything put aside against everything being aimed at,
- * with every goal's colour taking its own share of the bar. Skipped when there is a
- * single goal, because then the card below already is the whole picture.
+ * with every goal's colour taking its own share of the bar — and then the three
+ * figures that have to agree with every other screen. What is on the accounts, what
+ * these goals have a claim on, and what is left to spend. They add up because the
+ * middle one is read straight off the goals above it.
  */
-function Overall({ goals }: { goals: GoalLine[] }) {
+function Overall({ goals, onHand }: { goals: GoalLine[]; onHand: OnHand }) {
   const targeted = goals.filter((g) => Number(g.target_rsd) > 0);
   const totalTarget = targeted.reduce((s, g) => s + Number(g.target_rsd), 0);
   const totalSaved = goals.reduce((s, g) => s + g.saved, 0);
@@ -322,10 +679,13 @@ function Overall({ goals }: { goals: GoalLine[] }) {
   const untargeted = goals.length - targeted.length;
   const left = Math.max(totalTarget - towards, 0);
   const pct = totalTarget > 0 ? towards / totalTarget : null;
+  const many = goals.length > 1;
 
   return (
     <Panel
-      title="Put aside so far"
+      // With one goal the card below is already the whole picture, so the panel drops
+      // back to the only thing the card cannot say: how this sits against the accounts.
+      title={many ? "Put aside so far" : "Where this money is"}
       className="money-summary-panel"
       action={
         <PanelMeta>
@@ -335,57 +695,81 @@ function Overall({ goals }: { goals: GoalLine[] }) {
       }
     >
       <div className="px-4 py-4">
-        <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
-          <span className="mono text-[28px] font-semibold tracking-[-0.5px] text-ink">
-            {formatRsd(totalSaved)}
-          </span>
-          {totalTarget > 0 && (
-            <span className="text-[12.5px] text-muted">
-              of <span className="mono">{formatRsd(totalTarget)}</span> aimed at
-            </span>
-          )}
-        </div>
-
-        {pct === null ? (
-          <p className="mt-2.5 text-[12px] text-muted">
-            No targets set yet — put one on a goal and this turns into progress.
-          </p>
-        ) : (
+        {many && (
           <>
-            <div
-              aria-hidden="true"
-              className="mt-3 flex h-2.5 gap-px overflow-hidden rounded-pill bg-white/6"
-            >
-              {targeted.map((g) => {
-                const share = (Math.min(g.saved, Number(g.target_rsd)) / totalTarget) * 100;
-                if (share <= 0) return null;
-                return (
-                  <span
-                    key={g.id}
-                    className="money-progress-segment h-full shrink-0"
-                    style={{
-                      width: `${share}%`,
-                      minWidth: "3px",
-                      background: g.color ?? NO_COLOUR,
-                    }}
-                  />
-                );
-              })}
-            </div>
-            <p className="mt-2 text-[12px] text-muted">
-              {left === 0 ? (
-                "Every target reached."
-              ) : (
-                <>
-                  {Math.min(Math.floor(pct * 100), 99)}% of the way there ·{" "}
-                  <span className="mono">{formatRsd(left)}</span> still to find
-                </>
+            <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
+              <span className="mono text-[28px] font-semibold tracking-[-0.5px] text-ink">
+                {formatRsd(totalSaved)}
+              </span>
+              {totalTarget > 0 && (
+                <span className="text-[12.5px] text-muted">
+                  of <span className="mono">{formatRsd(totalTarget)}</span> aimed at
+                </span>
               )}
-              {untargeted > 0 &&
-                ` · ${untargeted} ${untargeted === 1 ? "goal has" : "goals have"} no target`}
-            </p>
+            </div>
+
+            {pct === null ? (
+              <p className="mt-2.5 text-[12px] text-muted">
+                No targets set yet — put one on a goal and this turns into progress.
+              </p>
+            ) : (
+              <>
+                <div
+                  aria-hidden="true"
+                  className="mt-3 flex h-2.5 gap-px overflow-hidden rounded-pill bg-white/6"
+                >
+                  {targeted.map((g) => {
+                    const share = (Math.min(g.saved, Number(g.target_rsd)) / totalTarget) * 100;
+                    if (share <= 0) return null;
+                    return (
+                      <span
+                        key={g.id}
+                        className="money-progress-segment h-full shrink-0"
+                        style={{
+                          width: `${share}%`,
+                          minWidth: "3px",
+                          background: g.color ?? NO_COLOUR,
+                        }}
+                      />
+                    );
+                  })}
+                </div>
+                <p className="mt-2 text-[12px] text-muted">
+                  {left === 0 ? (
+                    "Every target reached."
+                  ) : (
+                    <>
+                      {Math.min(Math.floor(pct * 100), 99)}% of the way there ·{" "}
+                      <span className="mono">{formatRsd(left)}</span> still to find
+                    </>
+                  )}
+                  {untargeted > 0 &&
+                    ` · ${untargeted} ${untargeted === 1 ? "goal has" : "goals have"} no target`}
+                </p>
+              </>
+            )}
           </>
         )}
+
+        <div
+          className={cn(
+            "grid grid-cols-1 gap-px overflow-hidden rounded-ctrl border border-line-soft bg-line-soft min-[440px]:grid-cols-3",
+            many && "mt-3.5",
+          )}
+        >
+          <Figure label="On accounts" value={onHand.total} />
+          <Figure label="− Set aside" value={onHand.reserved} tone="info" />
+          <Figure
+            label="= Free to spend"
+            value={onHand.free}
+            tone={onHand.free < 0 ? "danger" : undefined}
+          />
+        </div>
+        <p className="mt-2 text-[11.5px] leading-relaxed text-muted">
+          Money put aside has not left the accounts — it is still there, it is just
+          spoken for. Upcoming plans from what is free, so a goal can never be spent
+          twice.
+        </p>
       </div>
     </Panel>
   );
@@ -395,8 +779,9 @@ function Overall({ goals }: { goals: GoalLine[] }) {
 function NoGoals() {
   const steps = [
     "Name what the money is for, and set the amount you are aiming at.",
-    "Put money aside against it — that comes off the account it came from and lands here.",
+    "Put money aside against it — the dinars stay on the account, they just stop counting as free to spend.",
     "Give it a date and the goal tells you what each month has to look like to make it.",
+    "Buy the thing, or change your mind: take the money back out, or close the goal and it lets go of what is left.",
   ];
 
   return (
@@ -406,7 +791,7 @@ function NoGoals() {
         title="Nothing being saved for yet"
         description="A goal is a name, an amount and — if you know it — a date. A laptop, a deposit, three months of rent in reserve."
         action={
-          <Link href="/private/goals?new=1" className={buttonClasses("primary")}>
+          <Link href={`${GOALS_HREF}?new=1`} className={buttonClasses("primary")}>
             New goal
           </Link>
         }
@@ -429,19 +814,29 @@ function NoGoals() {
 export function GoalsView({
   goals,
   accounts,
+  onHand,
   panel,
   customColors,
+  showArchived,
 }: {
   goals: GoalLine[];
   accounts: MoneyAccount[];
+  onHand: OnHand;
   panel: GoalsPanel;
   customColors: string[];
+  showArchived: boolean;
 }) {
   const router = useRouter();
-  const close = () => router.push("/private/goals");
+  const close = () => router.push(GOALS_HREF);
 
   // Read the same way Setup reads today — UTC on both sides, so nothing disagrees.
   const today = new Date().toISOString().slice(0, 10);
+
+  // Open is measured by completed_at alone, never by the archive flag: a goal still
+  // holding money back has to stay visible, whatever else has been done to it.
+  const open = goals.filter(isOpen);
+  const closed = goals.filter((g) => !isOpen(g) && !g.archived);
+  const archived = goals.filter((g) => !isOpen(g) && g.archived);
 
   return (
     <div className="money-premium money-goals mx-auto max-w-220 space-y-5">
@@ -455,7 +850,7 @@ export function GoalsView({
             Give every saved dinar a destination and watch the distance close.
           </p>
         </div>
-        <Link href="/private/goals?new=1" className={buttonClasses("primary", "money-premium-button shrink-0")}>
+        <Link href={`${GOALS_HREF}?new=1`} className={buttonClasses("primary", "money-premium-button shrink-0")}>
           <Plus className="h-4 w-4" />
           New goal
         </Link>
@@ -465,12 +860,75 @@ export function GoalsView({
         <NoGoals />
       ) : (
         <>
-          {goals.length > 1 && <Overall goals={goals} />}
+          {open.length > 0 && <Overall goals={open} onHand={onHand} />}
+
           <div className="money-card-grid grid gap-3 sm:grid-cols-2">
-            {goals.map((goal) => (
-              <GoalCard key={goal.id} goal={goal} accounts={accounts} today={today} />
+            {open.map((goal, i) => (
+              <GoalCard
+                key={goal.id}
+                goal={goal}
+                accounts={accounts}
+                today={today}
+                first={i === 0}
+                last={i === open.length - 1}
+                reorderable={open.length > 1}
+              />
             ))}
           </div>
+
+          {open.length === 0 && (
+            <Panel>
+              <EmptyState
+                icon={PiggyBank}
+                title="Nothing being saved for right now"
+                description="Every goal has been closed. Start another one, or reopen one below."
+                action={
+                  <Link href={`${GOALS_HREF}?new=1`} className={buttonClasses("primary")}>
+                    New goal
+                  </Link>
+                }
+              />
+            </Panel>
+          )}
+
+          {closed.length > 0 && (
+            <Panel
+              title="Closed"
+              action={
+                <PanelMeta>
+                  {closed.length} {closed.length === 1 ? "goal" : "goals"} · holding nothing back
+                </PanelMeta>
+              }
+            >
+              {closed.map((goal) => (
+                <ClosedRow key={goal.id} goal={goal} />
+              ))}
+            </Panel>
+          )}
+
+          {archived.length > 0 &&
+            (showArchived ? (
+              <Panel
+                title="Archived"
+                action={
+                  <Link href={GOALS_HREF} className="text-[12px] font-semibold text-gold-hi">
+                    Hide
+                  </Link>
+                }
+              >
+                {archived.map((goal) => (
+                  <ClosedRow key={goal.id} goal={goal} />
+                ))}
+              </Panel>
+            ) : (
+              <Link
+                href={ARCHIVE_HREF}
+                className="flex items-center justify-center gap-1.5 rounded-card border border-line bg-surface px-4 py-2.5 text-[12px] font-semibold text-muted transition-colors hover:text-ink"
+              >
+                <Archive className="h-3.5 w-3.5" />
+                Show {archived.length} archived {archived.length === 1 ? "goal" : "goals"}
+              </Link>
+            ))}
         </>
       )}
 
@@ -481,7 +939,9 @@ export function GoalsView({
       >
         <GoalForm
           goal={panel?.mode === "edit" ? panel.goal : undefined}
+          accounts={accounts}
           customColors={customColors}
+          onDone={close}
         />
       </SlideOver>
     </div>

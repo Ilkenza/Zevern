@@ -102,13 +102,28 @@ export function monthProgress(key: string): number {
 
 /* ------------------------------------------------------------- vocabulary */
 
-export const TX_KINDS = ["expense", "income", "transfer", "saving"] as const;
+/**
+ * Every kind an entry can be. `saving` earmarks money that is already sitting on an
+ * account — it does not leave, it stops being spendable. `withdraw` is the way back:
+ * the goal gives the money up and it is free on that account again.
+ */
+export const TX_KINDS = ["expense", "income", "transfer", "saving", "withdraw"] as const;
 export type TxKind = (typeof TX_KINDS)[number];
 
-export const TX_KIND_OPTIONS = [
+export function isTxKind(value: string): value is TxKind {
+  return (TX_KINDS as readonly string[]).includes(value);
+}
+
+/** The two kinds that move money between an account and a goal. */
+export function isGoalKind(kind: string): boolean {
+  return kind === "saving" || kind === "withdraw";
+}
+
+export const TX_KIND_OPTIONS: { value: TxKind; label: string }[] = [
   { value: "expense", label: "Expense" },
   { value: "income", label: "Income" },
-  { value: "saving", label: "Saving" },
+  { value: "saving", label: "Put aside" },
+  { value: "withdraw", label: "Take out" },
   { value: "transfer", label: "Transfer" },
 ];
 

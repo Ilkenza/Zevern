@@ -44,7 +44,100 @@ const accountCols =
 const categoryCols =
   "grid grid-cols-2 items-center gap-2 min-[480px]:grid-cols-[minmax(0,1fr)_auto_7.5rem] min-[480px]:gap-3";
 
-function RowDelete({ onDelete, label }: { onDelete: () => Promise<void>; label: string }) {
+/**
+ * How a row leaves: it fades and drifts a little towards the trash it was sent
+ * to, so the gap that opens a moment later reads as a row that left rather than
+ * a row that vanished. `translate` and not `transform`, because that is the
+ * property Tailwind's translate utilities set. `relative` is here for the save
+ * confirmation, which is an overlay on the row.
+ */
+const rowMotion =
+  "relative transition-[opacity,translate] duration-150 ease-out motion-reduce:transition-none";
+
+const NONE: ReadonlySet<string> = new Set();
+
+type Arrivals = { key: string; ids: ReadonlySet<string>; fresh: ReadonlySet<string> };
+
+/**
+ * The ids that turned up after the first render — the rows the user just added.
+ * Whatever was already on screen when the page loaded is never "new", so
+ * arriving at Setup animates nothing; only adding something does.
+ *
+ * The comparison happens during render, not in an effect: the new row has to
+ * carry the class the very first time it paints, or it would sit there for a
+ * frame and then start fading in from nothing.
+ */
+function useArrived(ids: string[]): ReadonlySet<string> {
+  const key = ids.join(",");
+  const [seen, setSeen] = useState<Arrivals>(() => ({ key, ids: new Set(ids), fresh: NONE }));
+
+  if (seen.key !== key) {
+    setSeen({
+      key,
+      ids: new Set(ids),
+      fresh: new Set(ids.filter((id) => !seen.ids.has(id))),
+    });
+  }
+
+  return seen.fresh;
+}
+
+/**
+ * Counts the saves a row has reported. The count is the key on the confirmation,
+ * so saving the same row twice replays it instead of leaving a finished
+ * animation on screen. A new result from the action is a new object, which is
+ * what makes a second identical save countable at all.
+ */
+function useSavedPulse(state: MoneyState): number {
+  const [seen, setSeen] = useState<{ state: MoneyState; pulse: number }>({ state, pulse: 0 });
+
+  if (seen.state !== state) {
+    setSeen({ state, pulse: state?.ok ? seen.pulse + 1 : seen.pulse });
+  }
+
+  return seen.pulse;
+}
+
+/** The receipt for a save: a tint over the row, held long enough to read, then gone. */
+function SavedFlash() {
+  return (
+    <span
+      aria-hidden="true"
+      className="zv-row-saved pointer-events-none absolute inset-0 bg-active-bg"
+    />
+  );
+}
+
+/**
+ * The two faces of a button that can be busy, stacked in one grid cell. The
+ * button is therefore as wide as the longer label from the start, so "Save"
+ * turning into "Saving…" never moves anything next to it. The faces cross-fade;
+ * under reduced motion they simply swap.
+ */
+function SwapLabel({ pending, idle, busy }: { pending: boolean; idle: string; busy: string }) {
+  const face =
+    "col-start-1 row-start-1 transition-opacity duration-150 ease-out motion-reduce:transition-none";
+  return (
+    <span className="grid text-center whitespace-nowrap">
+      <span aria-hidden={pending} className={cn(face, pending && "opacity-0")}>
+        {idle}
+      </span>
+      <span aria-hidden={!pending} className={cn(face, !pending && "opacity-0")}>
+        {busy}
+      </span>
+    </span>
+  );
+}
+
+function RowDelete({
+  onDelete,
+  label,
+  onLeaving,
+}: {
+  onDelete: () => Promise<void>;
+  label: string;
+  onLeaving?: (leaving: boolean) => void;
+}) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   return (
@@ -52,12 +145,21 @@ function RowDelete({ onDelete, label }: { onDelete: () => Promise<void>; label: 
       type="button"
       aria-label={label}
       disabled={pending}
-      onClick={() =>
+      onClick={() => {
+        // The row starts leaving on the click rather than on the answer, so the
+        // gap that opens when the data comes back reads as "that one left"
+        // instead of as a row that blinked out of existence.
+        onLeaving?.(true);
         startTransition(async () => {
-          await onDelete();
+          try {
+            await onDelete();
+          } catch (error) {
+            onLeaving?.(false); // it did not leave after all
+            throw error;
+          }
           router.refresh();
-        })
-      }
+        });
+      }}
       className="rounded-ctrl p-1.5 text-faint transition-colors hover:bg-white/5 hover:text-danger disabled:opacity-50"
     >
       <Trash2 className="h-3.75 w-3.75" />
@@ -87,18 +189,24 @@ function RowError({ message }: { message?: string }) {
   return <p className="mt-2 text-[11px] text-danger">{message}</p>;
 }
 
-function AccountRow({ account }: { account?: AccountBalance }) {
+function AccountRow({ account, arrived }: { account?: AccountBalance; arrived?: boolean }) {
   const [state, formAction, pending] = useActionState<MoneyState, FormData>(saveAccount, undefined);
   const isNew = !account;
+  const [leaving, setLeaving] = useState(false);
+  // The composer confirms by producing a row, not by lighting itself up.
+  const saved = useSavedPulse(account ? state : undefined);
 
   return (
     <form
       action={formAction}
       className={cn(
         "setup-row-premium px-4",
+        rowMotion,
         isNew
           ? "rounded-b-card border-t border-line bg-white/[0.02] py-3.5"
           : "border-b border-line-soft py-2.5 last:border-b-0",
+        arrived && "zv-row-in",
+        leaving && "translate-x-1 opacity-0",
       )}
     >
       {isNew && <AddCaption>Add an account</AddCaption>}
@@ -179,7 +287,7 @@ function AccountRow({ account }: { account?: AccountBalance }) {
               className="money-premium-button w-full px-3 py-1.5 text-[12.5px]"
               disabled={pending}
             >
-              {pending ? "Adding…" : "Add"}
+              <SwapLabel pending={pending} idle="Add" busy="Adding…" />
             </Button>
           </div>
         ) : (
@@ -190,19 +298,21 @@ function AccountRow({ account }: { account?: AccountBalance }) {
               className="money-premium-button w-21 px-3 py-1.5 text-[12.5px]"
               disabled={pending}
             >
-              {pending ? "Saving…" : "Save"}
+              <SwapLabel pending={pending} idle="Save" busy="Saving…" />
             </Button>
             <RowDelete
               onDelete={async () => {
                 await deleteAccount(account.id);
               }}
               label={`Delete ${account.name}`}
+              onLeaving={setLeaving}
             />
           </div>
         )}
       </div>
 
       <RowError message={state?.error} />
+      {saved > 0 && <SavedFlash key={saved} />}
     </form>
   );
 }
@@ -229,22 +339,29 @@ function CategoryRow({
   category,
   kind,
   custom,
+  arrived,
 }: {
   category?: MoneyCategory;
   kind: "expense" | "income";
   custom: string[];
+  arrived?: boolean;
 }) {
   const [state, formAction, pending] = useActionState<MoneyState, FormData>(saveCategory, undefined);
   const isNew = !category;
+  const [leaving, setLeaving] = useState(false);
+  const saved = useSavedPulse(category ? state : undefined);
 
   return (
     <form
       action={formAction}
       className={cn(
         "setup-row-premium px-4",
+        rowMotion,
         isNew
           ? "rounded-b-card border-t border-line bg-white/[0.02] py-3.5"
           : "border-b border-line-soft py-2.5 last:border-b-0",
+        arrived && "zv-row-in",
+        leaving && "translate-x-1 opacity-0",
       )}
     >
       {isNew && (
@@ -265,7 +382,8 @@ function CategoryRow({
           className={cn(field, "col-span-2 w-full min-w-0 font-medium min-[480px]:col-span-1")}
         />
 
-        <div className="justify-self-start">
+        {/* zv-picker: the popover inside grows out of this swatch (globals.css). */}
+        <div className="zv-picker justify-self-start">
           <ColorPicker name="color" value={category?.color ?? SWATCHES[0]} custom={custom} />
         </div>
 
@@ -276,7 +394,7 @@ function CategoryRow({
             className="money-premium-button w-full px-3 py-1.5 text-[12.5px]"
             disabled={pending}
           >
-            {pending ? "Adding…" : "Add"}
+            <SwapLabel pending={pending} idle="Add" busy="Adding…" />
           </Button>
         ) : (
           <div className="flex items-center justify-end gap-1">
@@ -286,25 +404,37 @@ function CategoryRow({
             className="money-premium-button w-21 px-3 py-1.5 text-[12.5px]"
               disabled={pending}
             >
-              {pending ? "Saving…" : "Save"}
+              <SwapLabel pending={pending} idle="Save" busy="Saving…" />
             </Button>
             <RowDelete
               onDelete={async () => {
                 await deleteCategory(category.id);
               }}
               label={`Delete ${category.name}`}
+              onLeaving={setLeaving}
             />
           </div>
         )}
       </div>
 
       <RowError message={state?.error} />
+      {saved > 0 && <SavedFlash key={saved} />}
     </form>
   );
 }
 
 /** A rate is a figure first: big, mono, and editable in place. */
 function RateTile({ code, name, value }: { code: string; name: string; value: number }) {
+  // Pulling the NBS rate changes this figure while the reader is looking at it.
+  // That change is the entire answer to the button they pressed, so the new
+  // figure arrives rather than replacing the old one between two frames. It
+  // clears itself when the animation ends, so the next pull animates too.
+  const [shown, setShown] = useState<{ value: number; landed: boolean }>({ value, landed: false });
+
+  if (shown.value !== value) {
+    setShown({ value, landed: true });
+  }
+
   return (
     <label className="setup-rate-tile block rounded-card border border-line bg-surface-2 px-3.5 py-3">
       <span className={caps}>1 {code} in dinars</span>
@@ -313,7 +443,11 @@ function RateTile({ code, name, value }: { code: string; name: string; value: nu
         defaultValue={String(value)}
         inputMode="decimal"
         aria-label={`Dinars for one ${code}`}
-        className="mono mt-1 w-full rounded-ctrl border border-transparent bg-transparent px-1 py-0.5 text-[22px] font-semibold tracking-[-0.5px] text-ink hover:border-line focus:border-gold focus:shadow-ring"
+        onAnimationEnd={() => setShown({ value, landed: false })}
+        className={cn(
+          "mono mt-1 w-full rounded-ctrl border border-transparent bg-transparent px-1 py-0.5 text-[22px] font-semibold tracking-[-0.5px] text-ink hover:border-line focus:border-gold focus:shadow-ring",
+          shown.landed && "zv-figure-in",
+        )}
       />
     </label>
   );
@@ -372,10 +506,10 @@ function RatesPanel({ eur, usd, updatedOn }: { eur: number; usd: number; updated
             className={buttonClasses("secondary", "money-premium-button")}
           >
             <RefreshCw className={`h-4 w-4 ${fetching ? "animate-spin" : ""}`} />
-            {fetching ? "Fetching…" : "Today's NBS rate"}
+            <SwapLabel pending={fetching} idle="Today's NBS rate" busy="Fetching…" />
           </button>
           <Button type="submit" variant="primary" className="money-premium-button" disabled={pending || fetching}>
-            {pending ? "Saving…" : "Save rates"}
+            <SwapLabel pending={pending} idle="Save rates" busy="Saving…" />
           </Button>
           {state?.ok && <span className="text-[12px] text-ok">Saved.</span>}
           {state?.error && <span className="text-[12px] text-danger">{state.error}</span>}
@@ -408,7 +542,7 @@ function SeedButton() {
       className={buttonClasses("primary", "money-premium-button")}
     >
       <Sparkles className="h-4 w-4" />
-      {pending ? "Setting up…" : "Start me off with the basics"}
+      <SwapLabel pending={pending} idle="Start me off with the basics" busy="Setting up…" />
     </button>
   );
 }
@@ -430,6 +564,12 @@ export function SetupView({
   const income = categories.filter((c) => c.kind === "income");
   const empty = accounts.length === 0 && categories.length === 0;
   const onHand = accounts.reduce((sum, a) => sum + a.balance, 0);
+
+  // Rows the composer has just produced, per panel. Nothing on this page moves
+  // until one of these lists gains something.
+  const newAccounts = useArrived(accounts.map((a) => a.id));
+  const newExpense = useArrived(expense.map((c) => c.id));
+  const newIncome = useArrived(income.map((c) => c.id));
 
   return (
     <div className="setup-premium money-premium mx-auto max-w-220 space-y-5">
@@ -491,7 +631,7 @@ export function SetupView({
           <div>
             <AccountHead />
             {accounts.map((a) => (
-              <AccountRow key={a.id} account={a} />
+              <AccountRow key={a.id} account={a} arrived={newAccounts.has(a.id)} />
             ))}
           </div>
         )}
@@ -518,7 +658,13 @@ export function SetupView({
         ) : (
           <div>
             {expense.map((c) => (
-              <CategoryRow key={c.id} category={c} kind="expense" custom={customColors} />
+              <CategoryRow
+                key={c.id}
+                category={c}
+                kind="expense"
+                custom={customColors}
+                arrived={newExpense.has(c.id)}
+              />
             ))}
           </div>
         )}
@@ -545,7 +691,13 @@ export function SetupView({
         ) : (
           <div>
             {income.map((c) => (
-              <CategoryRow key={c.id} category={c} kind="income" custom={customColors} />
+              <CategoryRow
+                key={c.id}
+                category={c}
+                kind="income"
+                custom={customColors}
+                arrived={newIncome.has(c.id)}
+              />
             ))}
           </div>
         )}

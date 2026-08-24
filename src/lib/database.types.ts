@@ -297,6 +297,8 @@ export type Database = {
           archived: boolean
           color: string | null
           created_at: string
+          completed_at: string | null
+          sort: number
           id: string
           name: string
           target_date: string | null
@@ -307,6 +309,8 @@ export type Database = {
           archived?: boolean
           color?: string | null
           created_at?: string
+          completed_at?: string | null
+          sort?: number
           id?: string
           name: string
           target_date?: string | null
@@ -317,6 +321,8 @@ export type Database = {
           archived?: boolean
           color?: string | null
           created_at?: string
+          completed_at?: string | null
+          sort?: number
           id?: string
           name?: string
           target_date?: string | null
@@ -335,6 +341,7 @@ export type Database = {
           currency: string
           ends_on: string | null
           every: string
+          goal_id: string | null
           id: string
           installments_done: number
           installments_total: number | null
@@ -353,6 +360,7 @@ export type Database = {
           currency?: string
           ends_on?: string | null
           every?: string
+          goal_id?: string | null
           id?: string
           installments_done?: number
           installments_total?: number | null
@@ -371,6 +379,7 @@ export type Database = {
           currency?: string
           ends_on?: string | null
           every?: string
+          goal_id?: string | null
           id?: string
           installments_done?: number
           installments_total?: number | null

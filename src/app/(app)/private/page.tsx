@@ -1,13 +1,14 @@
 import Link from "next/link";
 import { ListChecks, Wallet } from "lucide-react";
 import {
-  getAccountBalances,
   getBudgetLines,
   getDueRecurring,
   getExpenseTrend,
   getGoalLines,
   getMonthSummary,
+  getOnHand,
   getTransactions,
+  isGoalOpen,
 } from "@/lib/data/money";
 import { getTasksForToday } from "@/lib/data/tasks";
 import { Panel } from "@/components/ui/Panel";
@@ -20,21 +21,22 @@ import { formatRsd, formatRsdShort, monthKey, monthLabel, monthProgress } from "
 
 export default async function PrivateOverviewPage() {
   const month = monthKey();
-  const [summary, lines, goals, due, recent, tasks, balances, trend] = await Promise.all([
+  const [summary, lines, allGoals, due, recent, tasks, onHand, trend] = await Promise.all([
     getMonthSummary(month),
     getBudgetLines(month),
     getGoalLines(),
     getDueRecurring(),
     getTransactions({ month, limit: 6 }),
     getTasksForToday("personal"),
-    getAccountBalances(),
+    getOnHand(),
     getExpenseTrend(6),
   ]);
 
   const pace = monthProgress(month);
   const budgeted = lines.filter((l) => l.limit > 0);
   const watch = [...budgeted].sort((a, b) => b.spent / b.limit - a.spent / a.limit).slice(0, 5);
-  const totalBalance = balances.reduce((s, a) => s + a.balance, 0);
+  // Closed goals are history and hold nothing back — the panel is about what is live.
+  const goals = allGoals.filter(isGoalOpen);
   const peak = Math.max(1, ...trend.map((t) => t.expense));
 
   return (
@@ -61,7 +63,23 @@ export default async function PrivateOverviewPage() {
           value={formatRsd(summary.net)}
           hint={summary.net < 0 ? <span className="text-danger">In the red</span> : undefined}
         />
-        <Kpi label="On accounts" value={formatRsd(totalBalance)} />
+        {/* The total is what the bank says. What can actually be spent is the total
+            less whatever the open goals have a claim on — said here rather than left
+            for the goals screen to contradict later. */}
+        <Kpi
+          label="On accounts"
+          value={formatRsd(onHand.total)}
+          hint={
+            onHand.reserved > 0 ? (
+              <>
+                <span className={onHand.free < 0 ? "text-danger" : undefined}>
+                  {formatRsd(onHand.free)} free
+                </span>{" "}
+                · {formatRsd(onHand.reserved)} set aside
+              </>
+            ) : undefined
+          }
+        />
       </div>
 
       <DueRecurringPanel due={due} />
@@ -163,13 +181,16 @@ export default async function PrivateOverviewPage() {
                 >
                   <span
                     className="h-6 w-1 shrink-0 rounded-pill"
-                    style={{ background: t.category?.color ?? "#565c6b" }}
+                    style={{ background: t.category?.color ?? "var(--color-faint)" }}
                   />
                   <span className="min-w-0 flex-1 truncate text-[13px] text-ink">
                     {t.category?.name ?? t.goal?.name ?? t.note ?? "—"}
                   </span>
+                  {/* Money coming back out of a goal is not money arriving, and not
+                      money leaving either — it only stops being spoken for. */}
                   <span className="mono text-[12.5px] text-muted">
-                    {t.kind === "income" ? "+" : "−"} {formatRsd(Number(t.amount_rsd))}
+                    {t.kind === "income" ? "+" : t.kind === "withdraw" ? "←" : "−"}{" "}
+                    {formatRsd(Number(t.amount_rsd))}
                   </span>
                 </div>
               ))}
@@ -203,7 +224,7 @@ export default async function PrivateOverviewPage() {
                     <div className="mt-1.5 h-1.5 overflow-hidden rounded-pill bg-white/6">
                       <div
                         className="h-full rounded-pill"
-                        style={{ width: `${pct * 100}%`, background: g.color ?? "#5fb88a" }}
+                        style={{ width: `${pct * 100}%`, background: g.color ?? "var(--color-muted)" }}
                       />
                     </div>
                   </div>

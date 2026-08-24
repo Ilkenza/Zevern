@@ -1,18 +1,137 @@
 "use client";
 
-import { useActionState } from "react";
-import { saveGoal, deleteGoal, type MoneyState } from "@/app/(app)/private/actions";
+import { useActionState, useEffect, useState } from "react";
+import { CheckCircle2 } from "lucide-react";
+import { saveGoal, closeGoal, deleteGoal, type MoneyState } from "@/app/(app)/private/actions";
 import { Field } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
 import { DeleteButton } from "@/components/ui/DeleteButton";
-import { SWATCHES } from "@/lib/money";
+import { SWATCHES, formatRsd } from "@/lib/money";
 import { ColorPicker } from "@/components/ui/ColorPicker";
-import type { MoneyGoal } from "@/lib/types";
+import { cn } from "@/lib/utils";
+import type { GoalLine, MoneyAccount } from "@/lib/types";
 
 /** Same label treatment the Field component uses, so the colour row lines up with it. */
 const label = "mb-1.5 block text-xs font-semibold text-[#C6CAD6]";
 
-export function GoalForm({ goal, customColors }: { goal?: MoneyGoal; customColors: string[] }) {
+/**
+ * Closing a goal, said once and honestly.
+ *
+ * Whatever the goal still holds goes back to a real account as a withdrawal, so the
+ * ledger records where it went and the money is free to spend again from that moment.
+ * Bought the thing or gave up on it, the accounting is the same act — the purchase
+ * itself is an ordinary expense, logged in Money like everything else.
+ */
+function CloseGoal({
+  goal,
+  accounts,
+  onDone,
+}: {
+  goal: GoalLine;
+  accounts: MoneyAccount[];
+  onDone?: () => void;
+}) {
+  const [state, formAction, pending] = useActionState<MoneyState, FormData>(closeGoal, undefined);
+  const [open, setOpen] = useState(false);
+
+  const held = goal.saved;
+  const preferred = goal.lastAccountId ?? accounts[0]?.id ?? "";
+
+  useEffect(() => {
+    if (state?.ok) onDone?.();
+  }, [state, onDone]);
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="flex w-full items-center gap-2 rounded-ctrl border border-line bg-white/[0.03] px-3 py-2.5 text-left text-[13px] font-semibold text-ink transition-colors hover:bg-white/[0.06]"
+      >
+        <CheckCircle2 className="h-4 w-4 shrink-0 text-ok" />
+        Close this goal
+      </button>
+    );
+  }
+
+  return (
+    <form action={formAction} className="rounded-ctrl border border-line bg-white/[0.03] p-3">
+      <input type="hidden" name="goal_id" value={goal.id} />
+
+      <div className="text-[13px] font-semibold text-ink">Close this goal</div>
+      <p className="mt-1 text-[11.5px] leading-relaxed text-muted">
+        {held > 0 ? (
+          <>
+            The <span className="mono text-ink">{formatRsd(held)}</span> it still holds goes back
+            to an account and is free to spend again. If you spent it on the thing itself, log
+            that purchase in Money — this only stops the goal claiming it.
+          </>
+        ) : (
+          <>
+            It holds nothing, so there is nothing to hand back. It moves to the closed list and
+            stops taking up room here.
+          </>
+        )}
+      </p>
+
+      {held > 0 && (
+        <select
+          name="account_id"
+          defaultValue={preferred}
+          aria-label="Account the money goes back to"
+          className={cn(
+            "mt-2.5 w-full rounded-ctrl border border-line bg-white/[0.035] px-2.5 py-2 text-[13px] text-ink scheme-dark",
+            "focus:border-gold focus:shadow-ring",
+          )}
+        >
+          {accounts.length === 0 && <option value="">No accounts yet</option>}
+          {accounts.map((a) => (
+            <option key={a.id} value={a.id} className="bg-surface">
+              Back to {a.name}
+            </option>
+          ))}
+        </select>
+      )}
+
+      <Field
+        className="mt-2.5 mb-0 scheme-dark"
+        label="Closed on"
+        name="completed_at"
+        type="date"
+        defaultValue={new Date().toISOString().slice(0, 10)}
+      />
+
+      {state?.error && <p className="mt-2 text-[11.5px] text-danger">{state.error}</p>}
+
+      <div className="mt-3 flex gap-2">
+        <Button type="submit" variant="primary" className="flex-1 py-2 text-[12.5px]" disabled={pending}>
+          {pending ? "Closing…" : held > 0 ? `Close and free ${formatRsd(held)}` : "Close it"}
+        </Button>
+        <Button
+          type="button"
+          variant="secondary"
+          className="px-3 py-2 text-[12.5px]"
+          onClick={() => setOpen(false)}
+          disabled={pending}
+        >
+          Cancel
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+export function GoalForm({
+  goal,
+  accounts,
+  customColors,
+  onDone,
+}: {
+  goal?: GoalLine;
+  accounts: MoneyAccount[];
+  customColors: string[];
+  onDone?: () => void;
+}) {
   const [state, formAction, pending] = useActionState<MoneyState, FormData>(saveGoal, undefined);
 
   return (
@@ -78,6 +197,16 @@ export function GoalForm({ goal, customColors }: { goal?: MoneyGoal; customColor
         </Button>
       </form>
 
+      {goal && goal.completed_at === null && (
+        <div className="mt-4 border-t border-line pt-4">
+          <CloseGoal goal={goal} accounts={accounts} onDone={onDone} />
+          <p className="mt-2.5 text-[11.5px] leading-relaxed text-muted">
+            Closing is the end of the goal, not the end of its record. It keeps every deposit it
+            ever took and moves to the closed list, where it can be reopened or archived.
+          </p>
+        </div>
+      )}
+
       {goal && (
         <div className="mt-4 border-t border-line pt-4">
           <DeleteButton
@@ -87,7 +216,8 @@ export function GoalForm({ goal, customColors }: { goal?: MoneyGoal; customColor
           />
           <p className="mt-2.5 text-[11.5px] text-muted">
             Deleting removes the target, not the money. Everything you put aside stays in the
-            ledger — those entries just stop pointing at anything.
+            ledger — those entries just stop pointing at anything, and the money counts as free
+            again. To keep the record, close it instead.
           </p>
         </div>
       )}

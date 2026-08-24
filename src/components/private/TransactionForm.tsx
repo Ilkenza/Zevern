@@ -6,7 +6,14 @@ import { Field } from "@/components/ui/Field";
 import { Select } from "@/components/ui/Select";
 import { Button } from "@/components/ui/Button";
 import { DeleteButton } from "@/components/ui/DeleteButton";
-import { CURRENCY_OPTIONS, formatRsd, rateFor, type Rates } from "@/lib/money";
+import {
+  CURRENCY_OPTIONS,
+  TX_KIND_OPTIONS,
+  formatRsd,
+  isGoalKind,
+  rateFor,
+  type Rates,
+} from "@/lib/money";
 import { cn } from "@/lib/utils";
 import type { MoneyAccount, MoneyCategory, MoneyGoal, TransactionRow } from "@/lib/types";
 
@@ -16,13 +23,6 @@ export type TxFormData = {
   goals: MoneyGoal[];
   rates: Rates;
 };
-
-const KINDS = [
-  { value: "expense", label: "Expense" },
-  { value: "income", label: "Income" },
-  { value: "saving", label: "Saving" },
-  { value: "transfer", label: "Transfer" },
-];
 
 export function TransactionForm({
   tx,
@@ -53,7 +53,13 @@ export function TransactionForm({
   const categoryOptions = categories
     .filter((c) => (kind === "income" ? c.kind === "income" : c.kind === "expense"))
     .map((c) => ({ value: c.id, label: c.name }));
+  // A goal that has since been closed is no longer offered, but an entry already
+  // pointing at one still has to be able to name it — otherwise editing that entry
+  // would quietly move the money to whatever sat at the top of the list.
   const goalOptions = goals.map((g) => ({ value: g.id, label: g.name }));
+  if (tx?.goal_id && !goals.some((g) => g.id === tx.goal_id)) {
+    goalOptions.unshift({ value: tx.goal_id, label: `${tx.goal?.name ?? "Goal"} (closed)` });
+  }
 
   useEffect(() => {
     if (state?.ok) onSaved?.();
@@ -66,9 +72,9 @@ export function TransactionForm({
         {returnTo && <input type="hidden" name="return_to" value={returnTo} />}
         <input type="hidden" name="kind" value={kind} />
 
-        {/* Kind — four taps, no dropdown */}
-        <div className="mb-3.25 grid grid-cols-4 gap-1 rounded-ctrl border border-line bg-white/[0.03] p-1">
-          {KINDS.map((k) => (
+        {/* Kind — one tap, no dropdown. Three to a row until there is room for all five. */}
+        <div className="mb-3.25 grid grid-cols-3 gap-1 rounded-ctrl border border-line bg-white/[0.03] p-1 min-[400px]:grid-cols-5">
+          {TX_KIND_OPTIONS.map((k) => (
             <button
               key={k.value}
               type="button"
@@ -114,11 +120,26 @@ export function TransactionForm({
         )}
 
         <Select
-          label={kind === "transfer" ? "From account" : "Account"}
+          label={
+            kind === "transfer"
+              ? "From account"
+              : kind === "saving"
+                ? "Set aside on"
+                : kind === "withdraw"
+                  ? "Back to account"
+                  : "Account"
+          }
           name="account_id"
           defaultValue={tx?.account_id ?? accounts[0]?.id ?? ""}
           placeholder={accountOptions.length ? "No account" : "No accounts yet"}
           options={accountOptions}
+          help={
+            isGoalKind(kind)
+              ? kind === "saving"
+                ? "The money stays here. It only stops counting as free to spend."
+                : "The goal lets this money go and it is free to spend again."
+              : undefined
+          }
         />
 
         {kind === "transfer" && (
@@ -141,9 +162,9 @@ export function TransactionForm({
           />
         )}
 
-        {kind === "saving" && (
+        {isGoalKind(kind) && (
           <Select
-            label="Goal"
+            label={kind === "withdraw" ? "Out of goal" : "Goal"}
             name="goal_id"
             defaultValue={tx?.goal_id ?? goals[0]?.id ?? ""}
             placeholder={goalOptions.length ? "Pick a goal" : "No goals yet"}

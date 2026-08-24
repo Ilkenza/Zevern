@@ -11,7 +11,6 @@ import {
   Settings,
   Wallet,
   Target,
-  Repeat,
   CalendarClock,
   PiggyBank,
   SlidersHorizontal,
@@ -78,8 +77,10 @@ export const PRIVATE_NAV_ITEMS: NavItem[] = [
   { label: "Tasks", href: "/private/tasks", icon: ListChecks, countKey: "privateTasks" },
   { label: "Money", href: "/private/money", icon: Wallet },
   { label: "Budgets", href: "/private/budgets", icon: Target },
-  { label: "Recurring", href: "/private/recurring", icon: Repeat },
-  { label: "Forecast", href: "/private/forecast", icon: CalendarClock },
+  // One screen, two views: the timeline leads because "what is coming" is asked
+  // before every real spending decision, while "what repeats" is asked only when
+  // something changes. /private/recurring still works and opens the Rules view.
+  { label: "Upcoming", href: "/private/upcoming", icon: CalendarClock },
   { label: "Goals", href: "/private/goals", icon: PiggyBank },
   { label: "Setup", href: "/private/setup", icon: SlidersHorizontal },
 ];
@@ -101,7 +102,7 @@ export const PRIVATE_NEW_ITEMS: { label: string; href: string }[] = [
   { label: "New income", href: "/private/money?new=income" },
   { label: "New task", href: "/private/tasks?new=1" },
   { label: "New goal", href: "/private/goals?new=1" },
-  { label: "New recurring", href: "/private/recurring?new=1" },
+  { label: "New recurring", href: "/private/upcoming?view=rules&new=1" },
 ];
 
 /** For the Settings toggle UI. */

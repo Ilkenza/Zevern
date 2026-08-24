@@ -7,16 +7,18 @@ import { Select } from "@/components/ui/Select";
 import { Button } from "@/components/ui/Button";
 import { DeleteButton } from "@/components/ui/DeleteButton";
 import { CURRENCY_OPTIONS, EVERY_OPTIONS, CATEGORY_KIND_OPTIONS } from "@/lib/money";
-import type { MoneyAccount, MoneyCategory, MoneyRecurring } from "@/lib/types";
+import type { MoneyAccount, MoneyCategory, MoneyGoal, MoneyRecurring } from "@/lib/types";
 
 export function RecurringForm({
   item,
   accounts,
   categories,
+  goals,
 }: {
   item?: MoneyRecurring;
   accounts: MoneyAccount[];
   categories: MoneyCategory[];
+  goals: MoneyGoal[];
 }) {
   const [state, formAction, pending] = useActionState<MoneyState, FormData>(
     saveRecurring,
@@ -24,11 +26,17 @@ export function RecurringForm({
   );
   const [variable, setVariable] = useState(item?.variable ?? false);
   const [kind, setKind] = useState(item?.kind ?? "expense");
+  const [goalId, setGoalId] = useState(item?.goal_id ?? "");
+
+  // A standing order into a goal is not a bill: it has no category, it is never
+  // income, and its amount is decided by you rather than by a meter reading.
+  const toGoal = goalId !== "";
 
   const accountOptions = accounts.map((a) => ({ value: a.id, label: `${a.name} · ${a.currency}` }));
   const categoryOptions = categories
     .filter((c) => c.kind === kind)
     .map((c) => ({ value: c.id, label: c.name }));
+  const goalOptions = goals.map((g) => ({ value: g.id, label: g.name }));
 
   return (
     <div className="flex h-full flex-col">
@@ -39,31 +47,51 @@ export function RecurringForm({
           label="Name"
           name="name"
           defaultValue={item?.name ?? ""}
-          placeholder="Claude subscription"
+          placeholder={toGoal ? "Rent fund, every month" : "Claude subscription"}
           autoFocus
           required
         />
 
-        <Select
-          label="Type"
-          name="kind"
-          value={kind}
-          onChange={(e) => setKind(e.target.value)}
-          options={CATEGORY_KIND_OPTIONS}
-        />
-
-        <label className="mb-3.25 flex items-center gap-2.5 rounded-ctrl border border-line px-3 py-2.5 text-[13px] text-ink">
-          <input
-            type="checkbox"
-            name="variable"
-            checked={variable}
-            onChange={(e) => setVariable(e.target.checked)}
-            className="h-4 w-4 accent-gold"
+        {goalOptions.length > 0 && (
+          <Select
+            label="Puts money into"
+            name="goal_id"
+            value={goalId}
+            onChange={(e) => setGoalId(e.target.value)}
+            placeholder="Nothing — this is a bill"
+            options={goalOptions}
+            help={
+              toGoal
+                ? "Every time this books, that amount is set aside on the account below. It stays on the account; it just stops counting as free to spend."
+                : "Pick a goal to turn this into a standing order instead of a bill."
+            }
           />
-          Amount changes every time (electricity, water)
-        </label>
+        )}
 
-        {!variable && (
+        {!toGoal && (
+          <>
+            <Select
+              label="Type"
+              name="kind"
+              value={kind}
+              onChange={(e) => setKind(e.target.value)}
+              options={CATEGORY_KIND_OPTIONS}
+            />
+
+            <label className="mb-3.25 flex items-center gap-2.5 rounded-ctrl border border-line px-3 py-2.5 text-[13px] text-ink">
+              <input
+                type="checkbox"
+                name="variable"
+                checked={variable}
+                onChange={(e) => setVariable(e.target.checked)}
+                className="h-4 w-4 accent-gold"
+              />
+              Amount changes every time (electricity, water)
+            </label>
+          </>
+        )}
+
+        {(!variable || toGoal) && (
           <div className="grid grid-cols-[1fr_110px] gap-2">
             <Field
               label="Amount"
@@ -80,7 +108,7 @@ export function RecurringForm({
             />
           </div>
         )}
-        {variable && (
+        {variable && !toGoal && (
           <Select
             label="Currency"
             name="currency"
@@ -119,9 +147,9 @@ export function RecurringForm({
           />
         </div>
         <p className="mb-3.25 -mt-2 text-[11.5px] text-muted">
-          For something paid off in instalments — 4 months of a phone, say. Whichever comes
-          first, the count or the date, pauses it. Leave both empty and it repeats until you
-          stop it.
+          {toGoal
+            ? "Twelve payments to fill the goal by next summer, say. Whichever comes first, the count or the date, stops it. Leave both empty and it keeps going until you stop it."
+            : "For something paid off in instalments — 4 months of a phone, say. Whichever comes first, the count or the date, pauses it. Leave both empty and it repeats until you stop it."}
           {item && (item.installments_done ?? 0) > 0 && (
             <>
               {" "}
@@ -137,15 +165,18 @@ export function RecurringForm({
           defaultValue={item?.account_id ?? accounts[0]?.id ?? ""}
           placeholder={accountOptions.length ? "No account" : "No accounts yet"}
           options={accountOptions}
+          help={toGoal ? "The account the money is set aside on. A goal rule needs one." : undefined}
         />
 
-        <Select
-          label="Category"
-          name="category_id"
-          defaultValue={item?.category_id ?? ""}
-          placeholder={categoryOptions.length ? "No category" : "No categories yet"}
-          options={categoryOptions}
-        />
+        {!toGoal && (
+          <Select
+            label="Category"
+            name="category_id"
+            defaultValue={item?.category_id ?? ""}
+            placeholder={categoryOptions.length ? "No category" : "No categories yet"}
+            options={categoryOptions}
+          />
+        )}
 
         <label className="mb-3.25 flex items-center gap-2.5 rounded-ctrl border border-line px-3 py-2.5 text-[13px] text-ink">
           <input

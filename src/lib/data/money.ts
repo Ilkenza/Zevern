@@ -3,6 +3,7 @@ import { userId } from "@/lib/supabase/current-user";
 import { DEFAULT_RATES, monthKey, monthRange, nextDate, toRsd, type Rates } from "@/lib/money";
 import type {
   BudgetLine,
+  GoalEntry,
   GoalLine,
   MoneyAccount,
   MoneyBudget,
@@ -81,13 +82,31 @@ export async function getRecurring(): Promise<RecurringRow[]> {
   const supabase = await createClient();
   const uid = await userId(supabase);
   if (!uid) return [];
-  const { data, error } = await supabase
-    .from("money_recurring")
-    .select("*, category:money_categories(name, color), account:money_accounts!money_recurring_account_id_fkey(name)")
-    .eq("user_id", uid)
-    .order("next_on");
+  // money_recurring.goal_id has no declared relationship in the generated types, so the
+  // goal is looked up separately rather than embedded — an embed the types do not know
+  // about is what makes PostgREST hand back an error object instead of rows.
+  const [{ data, error }, { data: goals }] = await Promise.all([
+    supabase
+      .from("money_recurring")
+      .select(
+        "*, category:money_categories(name, color), account:money_accounts!money_recurring_account_id_fkey(name)",
+      )
+      .eq("user_id", uid)
+      .order("next_on"),
+    supabase.from("money_goals").select("id, name, color").eq("user_id", uid),
+  ]);
   if (error) console.error("getRecurring:", error.message);
-  return (data ?? []) as RecurringRow[];
+
+  const goalBy = new Map((goals ?? []).map((g) => [g.id, { name: g.name, color: g.color }]));
+  return (data ?? []).map((row) => ({
+    ...row,
+    goal: row.goal_id ? (goalBy.get(row.goal_id) ?? null) : null,
+  })) as RecurringRow[];
+}
+
+/** True when this rule puts money aside rather than paying a bill. */
+export function feedsGoal(item: { goal_id: string | null }): boolean {
+  return item.goal_id != null;
 }
 
 /** Active recurring items that are due today or overdue — and not past their end date. */
@@ -104,9 +123,15 @@ export async function getDueRecurring(): Promise<RecurringRow[]> {
 }
 
 export type RecurringTotals = {
-  /** RSD in an average month — weekly and yearly items normalised. */
+  /** RSD in an average month — weekly and yearly items normalised. Bills only. */
   expense: number;
   income: number;
+  /**
+   * Standing orders into goals, per average month. Kept apart from `expense` because
+   * this money is not spent — it stops being spendable, which is a different sentence.
+   * It still comes off what is free, so `net` counts it.
+   */
+  saving: number;
   net: number;
   /** Variable items counted from their own past bookings rather than a set amount. */
   estimated: number;
@@ -115,6 +140,7 @@ export type RecurringTotals = {
   /** RSD actually falling due in the next 12 months, occurrence by occurrence. */
   yearExpense: number;
   yearIncome: number;
+  yearSaving: number;
   yearCount: number;
   /** The date that window closes on — computed server-side so the UI never disagrees. */
   yearHorizon: string;
@@ -126,6 +152,7 @@ const PER_MONTH: Record<string, number> = { week: 52 / 12, month: 1, year: 1 / 1
 export type Occurrence = {
   id: string;
   name: string;
+  /** "expense" or "income" — what the rule books. A goal rule books a saving. */
   kind: string;
   on: string;
   /** RSD. */
@@ -134,6 +161,8 @@ export type Occurrence = {
   estimated: boolean;
   category: string | null;
   color: string | null;
+  /** The goal this one feeds, when it is a standing order rather than a bill. */
+  goal: string | null;
 };
 
 /** Guard against a runaway walk if an item ever ends up with a nonsense date. */
@@ -171,7 +200,10 @@ export function occurrencesFor(
       amount,
       estimated,
       category: item.category?.name ?? null,
-      color: item.category?.color ?? null,
+      // A goal rule has no category — its colour is the goal's, so it reads on the
+      // timeline the same way it reads on the goals screen.
+      color: item.goal?.color ?? item.category?.color ?? null,
+      goal: item.goal?.name ?? null,
     });
     on = nextDate(on, item.every);
   }
@@ -203,11 +235,13 @@ export async function getRecurringTotals(): Promise<RecurringTotals> {
     return {
       expense: 0,
       income: 0,
+      saving: 0,
       net: 0,
       estimated: 0,
       unknown: 0,
       yearExpense: 0,
       yearIncome: 0,
+      yearSaving: 0,
       yearCount: 0,
       yearHorizon: horizon,
     };
@@ -236,10 +270,12 @@ export async function getRecurringTotals(): Promise<RecurringTotals> {
 
   let expense = 0;
   let income = 0;
+  let saving = 0;
   let estimated = 0;
   let unknown = 0;
   let yearExpense = 0;
   let yearIncome = 0;
+  let yearSaving = 0;
   let yearCount = 0;
 
   for (const item of items) {
@@ -265,7 +301,9 @@ export async function getRecurringTotals(): Promise<RecurringTotals> {
     }
 
     const monthly = each * factor;
+    const toGoal = feedsGoal(item);
     if (item.kind === "income") income += monthly;
+    else if (toGoal) saving += monthly;
     else expense += monthly;
 
     // The same item walked date by date — this is where a four-instalment credit
@@ -274,17 +312,22 @@ export async function getRecurringTotals(): Promise<RecurringTotals> {
     yearCount += dates.length;
     const sum = each * dates.length;
     if (item.kind === "income") yearIncome += sum;
+    else if (toGoal) yearSaving += sum;
     else yearExpense += sum;
   }
 
   return {
     expense,
     income,
-    net: income - expense,
+    saving,
+    // Money put aside is not spent, but it is not available either — so it comes off
+    // what is left over, the same as a bill does.
+    net: income - expense - saving,
     estimated,
     unknown,
     yearExpense,
     yearIncome,
+    yearSaving,
     yearCount,
     yearHorizon: horizon,
   };
@@ -292,20 +335,31 @@ export async function getRecurringTotals(): Promise<RecurringTotals> {
 
 export type ForecastWindow = {
   days: number;
+  /** Bills only. What goes into goals is counted on its own. */
   expense: number;
   income: number;
+  saving: number;
+  /** What the window does to the free balance: income less bills less savings. */
   net: number;
   count: number;
 };
 
 export type ForecastLine = Occurrence & {
-  /** What the accounts hold after this one is paid, starting from today's balance. */
+  /** What is left free after this one lands, starting from today's free balance. */
   balance: number;
 };
 
 export type Forecast = {
   from: string;
+  /**
+   * Where the running balance starts: the free money, not the total. Money already
+   * put aside for a goal cannot pay a bill, so a forecast that started from the total
+   * would promise headroom that is spoken for.
+   */
   startingBalance: number;
+  /** The two halves of that, so the screen can show the split and have it add up. */
+  onAccounts: number;
+  reserved: number;
   windows: ForecastWindow[];
   lines: ForecastLine[];
   estimated: number;
@@ -314,9 +368,13 @@ export type Forecast = {
 
 /**
  * What is coming and what it leaves behind. Every recurring item is walked date by
- * date over the longest window, sorted into one timeline, and the account balance is
+ * date over the longest window, sorted into one timeline, and the free balance is
  * carried down it — the point being to see the week where the credit, the electricity
  * and the hosting all land together, before it happens rather than after.
+ *
+ * A standing order into a goal counts as an outflow here even though the money stays
+ * on the account: from the day it books, it is reserved, and this line is about what
+ * can still be spent.
  */
 export async function getForecast(windows: number[] = [30, 60, 90]): Promise<Forecast> {
   const supabase = await createClient();
@@ -334,20 +392,22 @@ export async function getForecast(windows: number[] = [30, 60, 90]): Promise<For
     return {
       from,
       startingBalance: 0,
+      onAccounts: 0,
+      reserved: 0,
       windows: windows
         .slice()
         .sort((a, b) => a - b)
-        .map((days) => ({ days, expense: 0, income: 0, net: 0, count: 0 })),
+        .map((days) => ({ days, expense: 0, income: 0, saving: 0, net: 0, count: 0 })),
       lines: [],
       estimated: 0,
       unknown: 0,
     };
   }
 
-  const [items, rates, balances, { data: history }] = await Promise.all([
+  const [items, rates, onHand, { data: history }] = await Promise.all([
     getRecurring(),
     getRates(),
-    getAccountBalances(),
+    getOnHand(),
     supabase
       .from("money_transactions")
       .select("recurring_id, amount_rsd, occurred_on")
@@ -397,7 +457,7 @@ export async function getForecast(windows: number[] = [30, 60, 90]): Promise<For
 
   all.sort((a, b) => (a.on < b.on ? -1 : a.on > b.on ? 1 : a.name.localeCompare(b.name)));
 
-  const startingBalance = balances.reduce((sum, a) => sum + a.balance, 0);
+  const startingBalance = onHand.free;
   let running = startingBalance;
   const lines: ForecastLine[] = all.map((o) => {
     running += o.kind === "income" ? o.amount : -o.amount;
@@ -410,15 +470,34 @@ export async function getForecast(windows: number[] = [30, 60, 90]): Promise<For
     .map((days) => {
       const inWindow = all.filter((o) => dayOf(o.on) <= days);
       const expense = inWindow
-        .filter((o) => o.kind !== "income")
+        .filter((o) => o.kind !== "income" && o.goal === null)
         .reduce((sum, o) => sum + o.amount, 0);
       const income = inWindow
         .filter((o) => o.kind === "income")
         .reduce((sum, o) => sum + o.amount, 0);
-      return { days, expense, income, net: income - expense, count: inWindow.length };
+      const saving = inWindow
+        .filter((o) => o.goal !== null)
+        .reduce((sum, o) => sum + o.amount, 0);
+      return {
+        days,
+        expense,
+        income,
+        saving,
+        net: income - expense - saving,
+        count: inWindow.length,
+      };
     });
 
-  return { from, startingBalance, windows: totals, lines, estimated, unknown };
+  return {
+    from,
+    startingBalance,
+    onAccounts: onHand.total,
+    reserved: onHand.reserved,
+    windows: totals,
+    lines,
+    estimated,
+    unknown,
+  };
 }
 
 export type TxFilter = {
@@ -469,7 +548,10 @@ export type MonthSummary = {
   month: string;
   expense: number;
   income: number;
+  /** What went into goals this month, less what came back out — the net earmarked. */
   saved: number;
+  /** The gross of what came back out, so "put aside" can explain a small figure. */
+  withdrawn: number;
   net: number;
   byCategory: { id: string; spent: number }[];
 };
@@ -478,7 +560,7 @@ export async function getMonthSummary(month = monthKey()): Promise<MonthSummary>
   const supabase = await createClient();
   const uid = await userId(supabase);
   if (!uid) {
-    return { month, expense: 0, income: 0, saved: 0, net: 0, byCategory: [] };
+    return { month, expense: 0, income: 0, saved: 0, withdrawn: 0, net: 0, byCategory: [] };
   }
 
   const { from, to } = monthRange(month);
@@ -493,7 +575,8 @@ export async function getMonthSummary(month = monthKey()): Promise<MonthSummary>
   const spentBy = new Map<string, number>();
   let expense = 0;
   let income = 0;
-  let saved = 0;
+  let putIn = 0;
+  let withdrawn = 0;
 
   for (const r of rows) {
     const value = Number(r.amount_rsd) || 0;
@@ -503,15 +586,22 @@ export async function getMonthSummary(month = monthKey()): Promise<MonthSummary>
     } else if (r.kind === "income") {
       income += value;
     } else if (r.kind === "saving") {
-      saved += value;
+      putIn += value;
+    } else if (r.kind === "withdraw") {
+      // Money coming back out of a goal was never spent, so it is not income — it
+      // simply undoes part of what this month put aside.
+      withdrawn += value;
     }
   }
+
+  const saved = putIn - withdrawn;
 
   return {
     month,
     expense,
     income,
     saved,
+    withdrawn,
     net: income - expense - saved,
     byCategory: [...spentBy].map(([id, spent]) => ({ id, spent })),
   };
@@ -536,68 +626,180 @@ export async function getBudgetLines(month = monthKey()): Promise<BudgetLine[]> 
     }));
 }
 
+/** How many movements a goal card shows before it starts saying "and N more". */
+const GOAL_HISTORY_LIMIT = 30;
+
+/**
+ * Every goal with its own movements attached — deposits and withdrawals, newest first.
+ *
+ * Archived and closed goals come back too; which ones a screen shows is the screen's
+ * decision, and the Overview and the Goals page want different answers. The order is
+ * the one the owner chose: `sort` first, `created_at` to break a tie.
+ */
 export async function getGoalLines(): Promise<GoalLine[]> {
   const supabase = await createClient();
   const uid = await userId(supabase);
   if (!uid) return [];
-  const [{ data: goals }, { data: contributions }] = await Promise.all([
+  const [{ data: goals }, { data: movements }, accounts] = await Promise.all([
     supabase
       .from("money_goals")
       .select("*")
       .eq("user_id", uid)
-      .eq("archived", false)
+      .order("sort")
       .order("created_at"),
     supabase
       .from("money_transactions")
-      .select("goal_id, amount_rsd")
+      .select("id, goal_id, kind, amount_rsd, occurred_on, note, account_id, recurring_id")
       .eq("user_id", uid)
-      .eq("kind", "saving"),
+      .in("kind", ["saving", "withdraw"])
+      .order("occurred_on", { ascending: true })
+      .order("created_at", { ascending: true }),
+    // Archived accounts still name the money that came off them, so include them.
+    getAccounts(true),
   ]);
 
-  const savedBy = new Map<string, number>();
-  for (const c of contributions ?? []) {
-    if (!c.goal_id) continue;
-    savedBy.set(c.goal_id, (savedBy.get(c.goal_id) ?? 0) + (Number(c.amount_rsd) || 0));
+  const accountName = new Map(accounts.map((a) => [a.id, a.name]));
+  const byGoal = new Map<string, GoalEntry[]>();
+  const lastAccount = new Map<string, string>();
+
+  // The rows arrive oldest first, so the last account seen for a goal is the one it
+  // last used — that is what the deposit box should offer without being asked.
+  for (const m of movements ?? []) {
+    if (!m.goal_id) continue; // the goal was deleted; the entry stays in the ledger
+    const list = byGoal.get(m.goal_id) ?? [];
+    list.push({
+      id: m.id,
+      kind: m.kind,
+      amount: Number(m.amount_rsd) || 0,
+      occurred_on: m.occurred_on,
+      note: m.note,
+      account: m.account_id ? (accountName.get(m.account_id) ?? null) : null,
+      recurring: m.recurring_id != null,
+    });
+    byGoal.set(m.goal_id, list);
+    if (m.account_id) lastAccount.set(m.goal_id, m.account_id);
   }
 
-  return (goals ?? []).map((g: MoneyGoal) => ({ ...g, saved: savedBy.get(g.id) ?? 0 }));
+  return (goals ?? []).map((g: MoneyGoal) => {
+    // Walked oldest first, so `peak` is the most the goal ever actually held rather
+    // than the sum of everything that ever went in.
+    const ordered = byGoal.get(g.id) ?? [];
+    let saved = 0;
+    let peak = 0;
+    let deposited = 0;
+    let withdrawn = 0;
+
+    for (const e of ordered) {
+      if (e.kind === "saving") {
+        saved += e.amount;
+        deposited += e.amount;
+      } else {
+        saved -= e.amount;
+        withdrawn += e.amount;
+      }
+      if (saved > peak) peak = saved;
+    }
+
+    return {
+      ...g,
+      saved,
+      deposited,
+      withdrawn,
+      peak,
+      movements: ordered.length,
+      // Newest first for reading; the walk above needed the other order.
+      entries: ordered.slice().reverse().slice(0, GOAL_HISTORY_LIMIT),
+      lastAccountId: lastAccount.get(g.id) ?? null,
+    };
+  });
 }
 
-export type AccountBalance = MoneyAccount & { balance: number };
+export type AccountBalance = MoneyAccount & {
+  /** Everything on the account, whether it is spoken for or not. */
+  balance: number;
+  /** The part of `balance` an open goal has a claim on. */
+  reserved: number;
+  /** What is left to spend: `balance` less `reserved`. */
+  free: number;
+};
 
-/** Balances in RSD: opening balance converted at today's rate, then every movement. */
+/** The three figures for the accounts taken together. They always add up. */
+export type OnHand = { total: number; reserved: number; free: number };
+
+/**
+ * Balances in RSD: opening balance converted at today's rate, then every movement.
+ *
+ * Putting money aside is not spending it. The dinars are still in the account — what
+ * changes is that a goal has a claim on them, so they leave `free` and show up under
+ * `reserved` instead, and `balance` still matches what the bank says. A withdrawal
+ * hands the claim back: the total does not move, the free part goes up.
+ *
+ * Only goals that are still open reserve anything. Close a goal, delete it, and the
+ * money it was holding is spendable again — which is exactly what closing means.
+ *
+ * A withdrawal that names a different account from the deposits shifts `reserved`
+ * between the two accounts, so one of them can read as a small negative. The figures
+ * for the accounts taken together are unaffected, and that is what the screens show.
+ */
 export async function getAccountBalances(): Promise<AccountBalance[]> {
   const supabase = await createClient();
   const uid = await userId(supabase);
   if (!uid) return [];
-  const [accounts, rates, { data: rows }] = await Promise.all([
+  const [accounts, rates, { data: rows }, { data: openGoals }] = await Promise.all([
     getAccounts(),
     getRates(),
     supabase
       .from("money_transactions")
-      .select("kind, amount_rsd, account_id, to_account_id")
+      .select("kind, amount_rsd, account_id, to_account_id, goal_id")
       .eq("user_id", uid),
+    supabase.from("money_goals").select("id").eq("user_id", uid).is("completed_at", null),
   ]);
 
+  const open = new Set((openGoals ?? []).map((g) => g.id));
+
   const delta = new Map<string, number>();
-  const bump = (id: string | null, value: number) => {
+  const claimed = new Map<string, number>();
+  const add = (map: Map<string, number>, id: string | null, value: number) => {
     if (!id) return;
-    delta.set(id, (delta.get(id) ?? 0) + value);
+    map.set(id, (map.get(id) ?? 0) + value);
   };
 
   for (const r of rows ?? []) {
     const value = Number(r.amount_rsd) || 0;
-    if (r.kind === "income") bump(r.account_id, value);
+    if (r.kind === "income") add(delta, r.account_id, value);
     else if (r.kind === "transfer") {
-      bump(r.account_id, -value);
-      bump(r.to_account_id, value);
-    } else bump(r.account_id, -value); // expense, saving
+      add(delta, r.account_id, -value);
+      add(delta, r.to_account_id, value);
+    } else if (r.kind === "saving") {
+      if (r.goal_id && open.has(r.goal_id)) add(claimed, r.account_id, value);
+    } else if (r.kind === "withdraw") {
+      if (r.goal_id && open.has(r.goal_id)) add(claimed, r.account_id, -value);
+    } else add(delta, r.account_id, -value); // expense
   }
 
-  return accounts.map((a) => ({
-    ...a,
-    balance: toRsd(Number(a.opening_balance) || 0, a.currency, rates) + (delta.get(a.id) ?? 0),
-  }));
+  return accounts.map((a) => {
+    const balance =
+      toRsd(Number(a.opening_balance) || 0, a.currency, rates) + (delta.get(a.id) ?? 0);
+    const reserved = claimed.get(a.id) ?? 0;
+    return { ...a, balance, reserved, free: balance - reserved };
+  });
+}
+
+/**
+ * The one sentence every screen has to agree on: this much money exists, this much of
+ * it is spoken for, this much can actually be spent. Total less reserved is free, by
+ * construction — there is no arrangement of the data that makes these three disagree.
+ *
+ * `reserved` is read off the goals rather than added up from the accounts. Both routes
+ * give the same answer for anything entered now, since an entry against a goal has to
+ * name an account; taking it from the goals means an older entry that never named one
+ * still holds its money back instead of quietly becoming spendable.
+ */
+export async function getOnHand(): Promise<OnHand> {
+  const [accounts, goals] = await Promise.all([getAccountBalances(), getGoalLines()]);
+  const total = accounts.reduce((sum, a) => sum + a.balance, 0);
+  const reserved = goals.filter(isGoalOpen).reduce((sum, g) => sum + g.saved, 0);
+  return { total, reserved, free: total - reserved };
 }
 
 /** Last 6 months of expense totals — the little trend bar on the overview. */
@@ -632,6 +834,11 @@ export async function getExpenseTrend(months = 6): Promise<{ month: string; expe
   return [...totals].map(([month, expense]) => ({ month, expense }));
 }
 
+/**
+ * The goals money can still be moved into — open, not archived, in the owner's order.
+ * A closed goal is history: it no longer reserves anything, so letting an entry land
+ * on one would put money somewhere nothing is watching.
+ */
 export async function getGoals(): Promise<MoneyGoal[]> {
   const supabase = await createClient();
   const uid = await userId(supabase);
@@ -641,6 +848,18 @@ export async function getGoals(): Promise<MoneyGoal[]> {
     .select("*")
     .eq("user_id", uid)
     .eq("archived", false)
+    .is("completed_at", null)
+    .order("sort")
     .order("created_at");
   return data ?? [];
+}
+
+/**
+ * Open means: still collecting, and still holding a claim on the money. Exactly the
+ * test `getAccountBalances` applies, so what the goals screen calls open and what the
+ * accounts call reserved can never drift apart. Archiving is only offered once a goal
+ * is closed, which is what keeps a reservation from being tidied out of sight.
+ */
+export function isGoalOpen(goal: { completed_at: string | null }): boolean {
+  return goal.completed_at === null;
 }
