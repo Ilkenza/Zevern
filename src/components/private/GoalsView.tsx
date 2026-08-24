@@ -237,7 +237,7 @@ function GoalCard({
   return (
     <article
       className={cn(
-        "relative flex flex-col overflow-hidden rounded-card border",
+        "money-card-premium goal-card-premium relative flex flex-col overflow-hidden rounded-card border",
         r.done ? "border-ok/35 bg-ok-bg" : "border-line bg-surface",
       )}
     >
@@ -280,7 +280,7 @@ function GoalCard({
             >
               {/* A first deposit that rounds to nothing still deserves to be visible. */}
               <div
-                className="h-full rounded-pill transition-[width] duration-500 motion-reduce:transition-none"
+                className="money-progress-fill h-full rounded-pill transition-[width] duration-700 motion-reduce:transition-none"
                 style={{
                   width: `${goal.saved > 0 ? Math.max(r.pct * 100, 2) : 0}%`,
                   background: colour,
@@ -326,6 +326,7 @@ function Overall({ goals }: { goals: GoalLine[] }) {
   return (
     <Panel
       title="Put aside so far"
+      className="money-summary-panel"
       action={
         <PanelMeta>
           {goals.length} {goals.length === 1 ? "goal" : "goals"}
@@ -361,7 +362,7 @@ function Overall({ goals }: { goals: GoalLine[] }) {
                 return (
                   <span
                     key={g.id}
-                    className="h-full shrink-0"
+                    className="money-progress-segment h-full shrink-0"
                     style={{
                       width: `${share}%`,
                       minWidth: "3px",
@@ -399,7 +400,7 @@ function NoGoals() {
   ];
 
   return (
-    <Panel>
+    <Panel className="money-empty-panel">
       <EmptyState
         icon={PiggyBank}
         title="Nothing being saved for yet"
@@ -443,15 +444,18 @@ export function GoalsView({
   const today = new Date().toISOString().slice(0, 10);
 
   return (
-    <div className="mx-auto max-w-220 space-y-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+    <div className="money-premium money-goals mx-auto max-w-220 space-y-5">
+      <div className="money-page-head flex flex-wrap items-end justify-between gap-5">
         <div className="min-w-0">
-          <h1 className="font-display text-[22px] font-extrabold tracking-[-0.5px] text-ink">
+          <span className="money-page-kicker">Private wealth</span>
+          <h1 className="mt-2 font-display text-[32px] font-extrabold tracking-[-1.2px] text-ink sm:text-[38px]">
             Goals
           </h1>
-          <p className="text-[12.5px] text-muted">What the money is being kept for.</p>
+          <p className="mt-1 max-w-md text-[13px] leading-5 text-muted">
+            Give every saved dinar a destination and watch the distance close.
+          </p>
         </div>
-        <Link href="/private/goals?new=1" className={buttonClasses("primary", "shrink-0")}>
+        <Link href="/private/goals?new=1" className={buttonClasses("primary", "money-premium-button shrink-0")}>
           <Plus className="h-4 w-4" />
           New goal
         </Link>
@@ -462,7 +466,7 @@ export function GoalsView({
       ) : (
         <>
           {goals.length > 1 && <Overall goals={goals} />}
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="money-card-grid grid gap-3 sm:grid-cols-2">
             {goals.map((goal) => (
               <GoalCard key={goal.id} goal={goal} accounts={accounts} today={today} />
             ))}

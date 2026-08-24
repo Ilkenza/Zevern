@@ -26,25 +26,27 @@ export function BudgetsView({ month, lines }: { month: string; lines: BudgetLine
 
   const totalLimit = lines.reduce((s, l) => s + l.limit, 0);
   const totalSpent = lines.reduce((s, l) => s + l.spent, 0);
+  const totalUsed = totalLimit > 0 ? Math.round((totalSpent / totalLimit) * 100) : 0;
 
   return (
-    <div className="mx-auto max-w-220">
-      <div className="mb-4 flex items-center justify-between">
-        <div>
-          <h1 className="font-display text-[22px] font-extrabold tracking-[-0.5px] text-ink">
+    <div className="money-premium money-budgets mx-auto max-w-220">
+      <div className="money-page-head mb-5 flex flex-wrap items-end justify-between gap-5">
+        <div className="min-w-0">
+          <span className="money-page-kicker">Monthly control</span>
+          <h1 className="mt-2 font-display text-[32px] font-extrabold tracking-[-1.2px] text-ink sm:text-[38px]">
             Budgets
           </h1>
-          <p className="text-[12.5px] text-muted">
-            Monthly limit per category · {monthLabel(month)}
+          <p className="mt-1 text-[13px] text-muted">
+            Set the guardrails, then let every category show its pace · {monthLabel(month)}
           </p>
         </div>
-        <Link href="/private/money" className={buttonClasses("secondary", "border")}>
+        <Link href="/private/money" className={buttonClasses("secondary", "money-premium-button border")}>
           See entries
         </Link>
       </div>
 
       {lines.length === 0 ? (
-        <Panel>
+        <Panel className="money-empty-panel">
           <EmptyState
             icon={Target}
             title="No categories yet"
@@ -59,21 +61,44 @@ export function BudgetsView({ month, lines }: { month: string; lines: BudgetLine
       ) : (
         <form action={formAction}>
           <Panel
+            className="money-summary-panel budget-panel-premium"
             title={`Total ${formatRsd(totalSpent)} of ${formatRsd(totalLimit)}`}
             action={
-              <Button type="submit" variant="primary" disabled={pending}>
+              <Button type="submit" variant="primary" className="money-premium-button" disabled={pending}>
                 {pending ? "Saving…" : "Save limits"}
               </Button>
             }
           >
+            {totalLimit > 0 && (
+              <div className="budget-overview border-b border-line-soft px-4 py-4">
+                <div className="mb-2.5 flex items-end justify-between gap-4">
+                  <div>
+                    <span className="money-page-kicker">Month used</span>
+                    <p className="mono mt-1 text-[25px] font-semibold tracking-[-0.8px] text-ink">
+                      {totalUsed}%
+                    </p>
+                  </div>
+                  <p className="text-right text-[11.5px] text-muted">
+                    {formatRsd(Math.max(totalLimit - totalSpent, 0))} available
+                  </p>
+                </div>
+                <div className="h-2 overflow-hidden rounded-pill bg-white/6">
+                  <div
+                    className={cn("money-progress-fill h-full rounded-pill", tone(totalSpent, totalLimit, pace))}
+                    style={{ width: `${Math.min(totalUsed, 100)}%` }}
+                  />
+                </div>
+              </div>
+            )}
             <div>
-              {lines.map((line) => {
+              {lines.map((line, index) => {
                 const used = line.limit > 0 ? Math.min(line.spent / line.limit, 1) : 0;
                 const left = line.limit - line.spent;
                 return (
                   <div
                     key={line.category.id}
-                    className="border-b border-line-soft px-4 py-3 last:border-b-0"
+                    className="budget-row-premium border-b border-line-soft px-4 py-3.5 last:border-b-0"
+                    style={{ animationDelay: `${150 + index * 55}ms` }}
                   >
                     <div className="flex items-center gap-3">
                       <span
@@ -100,7 +125,7 @@ export function BudgetsView({ month, lines }: { month: string; lines: BudgetLine
                       <div className="mt-2 flex items-center gap-3">
                         <div className="h-1.5 flex-1 overflow-hidden rounded-pill bg-white/6">
                           <div
-                            className={cn("h-full rounded-pill", tone(line.spent, line.limit, pace))}
+                            className={cn("money-progress-fill h-full rounded-pill", tone(line.spent, line.limit, pace))}
                             style={{ width: `${used * 100}%` }}
                           />
                         </div>

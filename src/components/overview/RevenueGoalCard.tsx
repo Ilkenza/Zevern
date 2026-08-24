@@ -43,6 +43,7 @@ export function RevenueGoalCard({
 
   return (
     <Panel
+      className="overview-panel overview-goal-card"
       title="Revenue goal"
       action={
         goal > 0 ? (
@@ -69,7 +70,7 @@ export function RevenueGoalCard({
             </div>
             <div className="h-2 w-full overflow-hidden rounded-pill bg-white/5">
               <div
-                className="h-full rounded-pill bg-gold transition-all"
+                className="overview-progress-fill h-full rounded-pill bg-gold transition-all"
                 style={{ width: `${pct}%` }}
               />
             </div>
@@ -86,7 +87,7 @@ export function RevenueGoalCard({
             </p>
             <button
               onClick={() => setOpen(true)}
-              className={cn(buttonClasses("secondary"), "mt-3")}
+              className={cn(buttonClasses("secondary"), "money-premium-button mt-3")}
             >
               Set goal
             </button>

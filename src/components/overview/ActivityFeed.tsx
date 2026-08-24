@@ -31,15 +31,16 @@ const META: Record<
 
 export function ActivityFeed({ items }: { items: ActivityItem[] }) {
   return (
-    <div>
-      {items.map((it) => {
+    <div className="overview-feed">
+      {items.map((it, index) => {
         const m = META[it.type];
         const Icon = m.icon;
         return (
           <Link
             key={`${it.type}-${it.id}`}
             href={m.href(it.id)}
-            className="flex items-center gap-3 border-b border-line-soft px-4 py-2.5 transition-colors last:border-b-0 hover:bg-white/2"
+            className="overview-list-row flex items-center gap-3 border-b border-line-soft px-4 py-2.5 transition-colors last:border-b-0 hover:bg-white/2"
+            style={{ animationDelay: `${220 + index * 55}ms` }}
           >
             <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/3 text-faint">
               <Icon className="h-3.5 w-3.5" />

@@ -8,7 +8,7 @@ export function Kpi({
   hint?: React.ReactNode;
 }) {
   return (
-    <div className="rounded-card border border-line bg-surface p-3.75">
+    <div className="overview-kpi rounded-card border border-line bg-surface p-4">
       <div className="text-[11px] font-semibold uppercase tracking-wider text-muted">
         {label}
       </div>

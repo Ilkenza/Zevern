@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { FolderKanban, ReceiptText, ListChecks, Activity } from "lucide-react";
+import { FolderKanban, ReceiptText, ListChecks, Activity, Plus, ArrowUpRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { Landing } from "@/components/marketing/Landing";
 import { GettingStarted } from "@/components/onboarding/GettingStarted";
@@ -60,11 +60,31 @@ export default async function OverviewPage() {
   ]);
 
   return (
-    <div className="mx-auto max-w-300 space-y-6">
-      {!onboarding.hidden && <GettingStarted onboarding={onboarding} />}
+    <div className="overview-premium mx-auto max-w-300 space-y-6">
+      <header className="overview-hero">
+        <div className="min-w-0">
+          <span className="overview-eyebrow"><i /> Command center</span>
+          <h1 className="mt-3 font-display text-[34px] font-extrabold tracking-[-1.4px] text-ink sm:text-[44px]">
+            Your business, at a glance.
+          </h1>
+          <p className="mt-2 max-w-xl text-[13px] leading-5 text-muted">
+            The work moving forward, the money coming in, and what needs your attention next.
+          </p>
+        </div>
+        <div className="overview-actions">
+          <Link href="/projects?new=1" className={buttonClasses("primary", "money-premium-button")}>
+            <Plus className="h-4 w-4" /> New project
+          </Link>
+          <Link href="/invoices?new=1" className={buttonClasses("secondary", "money-premium-button border")}>
+            New invoice <ArrowUpRight className="h-3.5 w-3.5" />
+          </Link>
+        </div>
+      </header>
+
+      {!onboarding.hidden && <div className="overview-onboarding"><GettingStarted onboarding={onboarding} /></div>}
 
       {/* KPI row */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="overview-kpi-grid grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Kpi
           label="Active projects"
           value={String(activeProjects)}
@@ -93,8 +113,9 @@ export default async function OverviewPage() {
 
       {/* Main + right column */}
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
-        <div className="space-y-6">
+        <div className="overview-main-column space-y-6">
           <Panel
+            className="overview-panel"
             title="Projects"
             action={
               <Link
@@ -144,7 +165,7 @@ export default async function OverviewPage() {
                       return (
                         <tr
                           key={p.id}
-                          className="transition-colors hover:bg-white/2"
+                          className="overview-table-row transition-colors hover:bg-white/2"
                         >
                           <td className="border-b border-line-soft px-4 py-3 font-semibold text-ink">
                             <Link
@@ -173,6 +194,7 @@ export default async function OverviewPage() {
           </Panel>
 
           <Panel
+            className="overview-panel"
             title="Invoices"
             action={
               <Link
@@ -224,7 +246,7 @@ export default async function OverviewPage() {
                       return (
                         <tr
                           key={inv.id}
-                          className="transition-colors hover:bg-white/2"
+                          className="overview-table-row transition-colors hover:bg-white/2"
                         >
                           <td className="mono border-b border-line-soft px-4 py-3 font-semibold text-ink">
                             <Link
@@ -253,8 +275,8 @@ export default async function OverviewPage() {
           </Panel>
         </div>
 
-        <div className="space-y-6">
-          <Panel title="Today">
+        <div className="overview-side-column space-y-6">
+          <Panel title="Today" className="overview-panel">
             {todayTasks.length === 0 ? (
               <EmptyState
                 icon={ListChecks}
@@ -266,7 +288,7 @@ export default async function OverviewPage() {
                 {todayTasks.map((t) => (
                   <div
                     key={t.id}
-                    className="flex items-center gap-3 border-b border-line-soft px-4 py-2.5 last:border-b-0"
+                    className="overview-list-row flex items-center gap-3 border-b border-line-soft px-4 py-2.5 last:border-b-0"
                   >
                     <TaskCheckbox id={t.id} done={false} />
                     <span className="min-w-0 flex-1 truncate text-[13px] text-ink">
@@ -281,7 +303,7 @@ export default async function OverviewPage() {
             )}
           </Panel>
 
-          <Panel title="Follow-ups">
+          <Panel title="Follow-ups" className="overview-panel">
             {followups.length === 0 ? (
               <EmptyState
                 icon={Send}
@@ -294,7 +316,7 @@ export default async function OverviewPage() {
                   <Link
                     key={l.id}
                     href={`/leads/${l.id}`}
-                    className="flex items-center gap-3 border-b border-line-soft px-4 py-2.5 transition-colors last:border-b-0 hover:bg-white/2"
+                    className="overview-list-row flex items-center gap-3 border-b border-line-soft px-4 py-2.5 transition-colors last:border-b-0 hover:bg-white/2"
                   >
                     <span className="min-w-0 flex-1 truncate text-[13px] text-ink">
                       {l.name}
@@ -313,7 +335,7 @@ export default async function OverviewPage() {
             revenue={stats.revenueThisMonth}
           />
 
-          <Panel title="Recent activity">
+          <Panel title="Recent activity" className="overview-panel">
             {activity.length === 0 ? (
               <EmptyState
                 icon={Activity}
