@@ -1,4 +1,10 @@
-import { getAccounts, getCategories, getDueRecurring, getRecurring } from "@/lib/data/money";
+import {
+  getAccounts,
+  getCategories,
+  getDueRecurring,
+  getRecurring,
+  getRecurringTotals,
+} from "@/lib/data/money";
 import { RecurringView, type RecurringPanel } from "@/components/private/RecurringView";
 
 export default async function RecurringPage({
@@ -7,11 +13,12 @@ export default async function RecurringPage({
   searchParams: Promise<{ new?: string; edit?: string }>;
 }) {
   const params = await searchParams;
-  const [items, due, accounts, categories] = await Promise.all([
+  const [items, due, accounts, categories, totals] = await Promise.all([
     getRecurring(),
     getDueRecurring(),
     getAccounts(),
     getCategories(),
+    getRecurringTotals(),
   ]);
 
   let panel: RecurringPanel = null;
@@ -28,6 +35,7 @@ export default async function RecurringPage({
       due={due}
       accounts={accounts}
       categories={categories}
+      totals={totals}
       panel={panel}
     />
   );

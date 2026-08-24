@@ -8,10 +8,12 @@ import { SlideOver } from "@/components/ui/SlideOver";
 import { Panel } from "@/components/ui/Panel";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Badge } from "@/components/ui/Badge";
+import { Kpi } from "@/components/ui/Kpi";
 import { DeleteButton } from "@/components/ui/DeleteButton";
 import { buttonClasses } from "@/components/ui/Button";
 import { removeRecurring, toggleRecurring } from "@/app/(app)/private/actions";
-import { formatAmount } from "@/lib/money";
+import { formatAmount, formatRsd } from "@/lib/money";
+import type { RecurringTotals } from "@/lib/data/money";
 import type { MoneyAccount, MoneyCategory, MoneyRecurring, RecurringRow } from "@/lib/types";
 import { RecurringForm } from "./RecurringForm";
 import { DueRecurringPanel } from "./DueRecurringPanel";
@@ -100,12 +102,14 @@ export function RecurringView({
   due,
   accounts,
   categories,
+  totals,
   panel,
 }: {
   items: RecurringRow[];
   due: RecurringRow[];
   accounts: MoneyAccount[];
   categories: MoneyCategory[];
+  totals: RecurringTotals;
   panel: RecurringPanel;
 }) {
   const router = useRouter();
@@ -127,6 +131,39 @@ export function RecurringView({
           New
         </Link>
       </div>
+
+      {items.length > 0 && (
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+          <Kpi
+            label="Per month"
+            value={formatRsd(totals.expense)}
+            hint={
+              totals.estimated > 0 || totals.unknown > 0 ? (
+                <>
+                  {totals.estimated > 0 &&
+                    `${totals.estimated} estimated from past bills`}
+                  {totals.estimated > 0 && totals.unknown > 0 && " · "}
+                  {totals.unknown > 0 && (
+                    <span className="text-draft">
+                      {totals.unknown} variable, no history yet
+                    </span>
+                  )}
+                </>
+              ) : (
+                "Active items only"
+              )
+            }
+          />
+          <Kpi label="Per year" value={formatRsd(totals.expense * 12)} />
+          {totals.income > 0 && (
+            <Kpi
+              label="Net per month"
+              value={formatRsd(totals.net)}
+              hint={`Income ${formatRsd(totals.income)}`}
+            />
+          )}
+        </div>
+      )}
 
       <DueRecurringPanel due={due} />
 

@@ -82,6 +82,79 @@ export async function getDueRecurring(): Promise<RecurringRow[]> {
   );
 }
 
+export type RecurringTotals = {
+  /** Everything below is RSD per month. */
+  expense: number;
+  income: number;
+  net: number;
+  /** Variable items counted from their own past bookings rather than a set amount. */
+  estimated: number;
+  /** Variable items with no history yet — nothing to estimate from, so they are left out. */
+  unknown: number;
+};
+
+/** Weekly and yearly items normalised to a month so one number can be compared. */
+const PER_MONTH: Record<string, number> = { week: 52 / 12, month: 1, year: 1 / 12 };
+
+/**
+ * What the recurring list costs in an average month. Fixed items contribute their
+ * amount; variable ones (struja) contribute the average of their last six bookings,
+ * which is the only honest guess available.
+ */
+export async function getRecurringTotals(): Promise<RecurringTotals> {
+  const supabase = await createClient();
+  const [items, rates, { data: history }] = await Promise.all([
+    getRecurring(),
+    getRates(),
+    supabase
+      .from("money_transactions")
+      .select("recurring_id, amount_rsd, occurred_on")
+      .not("recurring_id", "is", null)
+      .order("occurred_on", { ascending: false }),
+  ]);
+
+  const past = new Map<string, number[]>();
+  for (const row of history ?? []) {
+    if (!row.recurring_id) continue;
+    const seen = past.get(row.recurring_id) ?? [];
+    if (seen.length < 6) {
+      seen.push(Number(row.amount_rsd) || 0);
+      past.set(row.recurring_id, seen);
+    }
+  }
+
+  let expense = 0;
+  let income = 0;
+  let estimated = 0;
+  let unknown = 0;
+
+  for (const item of items) {
+    if (!item.active) continue;
+    if (item.installments_total != null && item.installments_done >= item.installments_total) continue;
+    if (item.ends_on != null && item.next_on > item.ends_on) continue;
+
+    const factor = PER_MONTH[item.every] ?? 1;
+    let monthly: number;
+
+    if (item.variable || !(Number(item.amount) > 0)) {
+      const seen = past.get(item.id) ?? [];
+      if (seen.length === 0) {
+        unknown++;
+        continue;
+      }
+      estimated++;
+      monthly = (seen.reduce((sum, n) => sum + n, 0) / seen.length) * factor;
+    } else {
+      monthly = toRsd(Number(item.amount), item.currency, rates) * factor;
+    }
+
+    if (item.kind === "income") income += monthly;
+    else expense += monthly;
+  }
+
+  return { expense, income, net: income - expense, estimated, unknown };
+}
+
 export type TxFilter = {
   month?: string;
   categoryId?: string;
