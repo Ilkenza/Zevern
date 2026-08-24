@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { userId } from "@/lib/supabase/current-user";
 import { todayISO } from "@/lib/format";
 import { effectiveInvoiceStatus } from "@/lib/status";
 import type { InvoiceWithClient } from "@/lib/types";
@@ -28,7 +29,15 @@ export async function getRecentInvoices(limit = 5): Promise<InvoiceWithClient[]>
 
 export async function getInvoice(id: string): Promise<InvoiceWithClient | null> {
   const supabase = await createClient();
-  const { data } = await supabase.from("invoices").select(WITH_CLIENT).eq("id", id).maybeSingle();
+  const uid = await userId(supabase);
+  if (!uid) return null;
+
+  const { data } = await supabase
+    .from("invoices")
+    .select(WITH_CLIENT)
+    .eq("id", id)
+    .eq("user_id", uid)
+    .maybeSingle();
   return (data as InvoiceWithClient | null) ?? null;
 }
 
@@ -38,10 +47,34 @@ export async function getInvoiceCount(): Promise<number> {
   return count ?? 0;
 }
 
-/** Suggests `YYYY-NNN` for the next invoice. */
+/**
+ * Suggests `YYYY-NNN` for the next invoice.
+ *
+ * Counting rows was wrong: delete one invoice and the count drops, so the next
+ * invoice reissues a number that has already gone to a client. Read the highest
+ * number actually used this year instead — a number, once issued, is never reused
+ * even if the invoice carrying it is gone.
+ */
 export async function nextInvoiceNumber(): Promise<string> {
-  const count = await getInvoiceCount();
-  return `${new Date().getFullYear()}-${String(count + 1).padStart(3, "0")}`;
+  const supabase = await createClient();
+  const year = new Date().getFullYear();
+  const prefix = `${year}-`;
+
+  const { data } = await supabase
+    .from("invoices")
+    .select("number")
+    .like("number", `${prefix}%`);
+
+  let highest = 0;
+  for (const row of data ?? []) {
+    // Take the digits straight after the prefix, so a manually suffixed number
+    // like 2026-014-2 still counts as 14 rather than resetting the sequence.
+    const match = /^\d{4}-(\d+)/.exec(String(row.number ?? ""));
+    const n = match ? Number(match[1]) : 0;
+    if (n > highest) highest = n;
+  }
+
+  return `${prefix}${String(highest + 1).padStart(3, "0")}`;
 }
 
 export type InvoiceStats = {

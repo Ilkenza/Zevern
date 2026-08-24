@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
+import { userId } from "@/lib/supabase/current-user";
 
 export type ServiceItemState = { error?: string } | undefined;
 
@@ -29,6 +30,9 @@ export async function saveServiceItem(
     return { error: "Cene moraju biti pozitivni brojevi." };
 
   const supabase = await createSupabaseServerClient();
+  const uid = await userId(supabase);
+  if (!uid) return { error: "Not signed in." };
+
   const payload = {
     label,
     category,
@@ -38,7 +42,11 @@ export async function saveServiceItem(
   };
 
   if (id) {
-    const { error } = await supabase.from("service_items").update(payload).eq("id", id);
+    const { error } = await supabase
+      .from("service_items")
+      .update(payload)
+      .eq("id", id)
+      .eq("user_id", uid);
     if (error) return { error: error.message };
   } else {
     const { error } = await supabase.from("service_items").insert(payload);
@@ -51,7 +59,15 @@ export async function saveServiceItem(
 
 export async function deleteServiceItem(id: string) {
   const supabase = await createSupabaseServerClient();
-  await supabase.from("service_items").delete().eq("id", id);
+  const uid = await userId(supabase);
+  if (!uid) return;
+
+  const { error } = await supabase
+    .from("service_items")
+    .delete()
+    .eq("id", id)
+    .eq("user_id", uid);
+  if (error) console.error("deleteServiceItem:", error.message);
   revalidatePath("/quotes/catalog");
   redirect("/quotes/catalog");
 }
@@ -86,14 +102,29 @@ const roundTo = (value: number, step: number) => Math.round(value / step) * step
 
 export async function addStarterFeatures() {
   const supabase = await createSupabaseServerClient();
+  const uid = await userId(supabase);
+  if (!uid) return;
+
   // Clear previous seed batches (all versions) so re-running doesn't create duplicates.
-  await supabase
+  const { error: clearErr } = await supabase
     .from("service_items")
     .delete()
+    .eq("user_id", uid)
     .in("category", ["Website", "Basic", "Standard", "Premium"]);
+  if (clearErr) console.error("addStarterFeatures:", clearErr.message);
   // cSpell:ignore Local International
-  await supabase.from("service_items").delete().like("category", "Local — %");
-  await supabase.from("service_items").delete().like("category", "International — %");
+  const { error: localErr } = await supabase
+    .from("service_items")
+    .delete()
+    .eq("user_id", uid)
+    .like("category", "Local — %");
+  if (localErr) console.error("addStarterFeatures:", localErr.message);
+  const { error: intlErr } = await supabase
+    .from("service_items")
+    .delete()
+    .eq("user_id", uid)
+    .like("category", "International — %");
+  if (intlErr) console.error("addStarterFeatures:", intlErr.message);
 
   const rows = STARTER.flatMap((s) =>
     TIERS.map((t) => ({

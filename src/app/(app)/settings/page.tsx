@@ -35,7 +35,7 @@ export default async function SettingsPage() {
 
       <Panel title="Browser extension (Lead Collector)">
         <ExtensionPanel
-          token={profile?.ext_token ?? null}
+          hasToken={Boolean(profile?.ext_token_hash)}
           url={process.env.NEXT_PUBLIC_SUPABASE_URL ?? ""}
           anonKey={process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ""}
         />
@@ -46,7 +46,7 @@ export default async function SettingsPage() {
       </Panel>
 
       <Panel title="Danger zone">
-        <DangerZone />
+        <DangerZone email={user?.email ?? ""} />
       </Panel>
     </div>
   );

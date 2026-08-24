@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { userId } from "@/lib/supabase/current-user";
 import { todayISO } from "@/lib/format";
 import type { TaskWithProject } from "@/lib/types";
 
@@ -20,7 +21,14 @@ export async function getTasks(workspace: Workspace = "work"): Promise<TaskWithP
 
 export async function getTask(id: string): Promise<TaskWithProject | null> {
   const supabase = await createClient();
-  const { data } = await supabase.from("tasks").select(WITH_PROJECT).eq("id", id).maybeSingle();
+  const uid = await userId(supabase);
+  if (!uid) return null;
+  const { data } = await supabase
+    .from("tasks")
+    .select(WITH_PROJECT)
+    .eq("id", id)
+    .eq("user_id", uid)
+    .maybeSingle();
   return (data as TaskWithProject | null) ?? null;
 }
 

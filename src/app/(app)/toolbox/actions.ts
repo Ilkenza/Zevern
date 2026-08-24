@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
+import { userId } from "@/lib/supabase/current-user";
 import { getCategories } from "@/lib/data/tools";
 
 export type ToolFormState = { error?: string } | undefined;
@@ -29,10 +30,13 @@ export async function saveTool(_prev: ToolFormState, formData: FormData): Promis
   const category = normalizeCategory(String(formData.get("category") ?? ""), existing);
 
   const supabase = await createSupabaseServerClient();
+  const uid = await userId(supabase);
+  if (!uid) return { error: "Not signed in." };
+
   const payload = { name, url, category, notes };
 
   if (id) {
-    const { error } = await supabase.from("tools").update(payload).eq("id", id);
+    const { error } = await supabase.from("tools").update(payload).eq("id", id).eq("user_id", uid);
     if (error) return { error: error.message };
   } else {
     const { error } = await supabase.from("tools").insert(payload);
@@ -45,7 +49,11 @@ export async function saveTool(_prev: ToolFormState, formData: FormData): Promis
 
 export async function deleteTool(id: string) {
   const supabase = await createSupabaseServerClient();
-  await supabase.from("tools").delete().eq("id", id);
+  const uid = await userId(supabase);
+  if (!uid) return;
+
+  const { error } = await supabase.from("tools").delete().eq("id", id).eq("user_id", uid);
+  if (error) console.error("deleteTool:", error.message);
   revalidatePath("/toolbox");
   redirect("/toolbox");
 }
@@ -63,10 +71,14 @@ export async function renameCategory(
   const next = nextRaw.charAt(0).toUpperCase() + nextRaw.slice(1);
 
   const supabase = await createSupabaseServerClient();
+  const uid = await userId(supabase);
+  if (!uid) return { error: "Not signed in." };
+
   const { error } = await supabase
     .from("tools")
     .update({ category: next })
-    .eq("category", oldName);
+    .eq("category", oldName)
+    .eq("user_id", uid);
   if (error) return { error: error.message };
 
   revalidatePath("/toolbox");
@@ -76,7 +88,15 @@ export async function renameCategory(
 /** Remove a category — its tools fall back to "uncategorised" (null). */
 export async function deleteCategory(name: string) {
   const supabase = await createSupabaseServerClient();
-  await supabase.from("tools").update({ category: null }).eq("category", name);
+  const uid = await userId(supabase);
+  if (!uid) return;
+
+  const { error } = await supabase
+    .from("tools")
+    .update({ category: null })
+    .eq("category", name)
+    .eq("user_id", uid);
+  if (error) console.error("deleteCategory:", error.message);
   revalidatePath("/toolbox");
   redirect("/toolbox");
 }

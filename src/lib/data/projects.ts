@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { userId } from "@/lib/supabase/current-user";
 import type { Project, ProjectWithClient } from "@/lib/types";
 
 const WITH_CLIENT = "*, client:clients(name)";
@@ -24,7 +25,14 @@ export async function getRecentProjects(limit = 5): Promise<ProjectWithClient[]>
 
 export async function getProject(id: string): Promise<ProjectWithClient | null> {
   const supabase = await createClient();
-  const { data } = await supabase.from("projects").select(WITH_CLIENT).eq("id", id).maybeSingle();
+  const uid = await userId(supabase);
+  if (!uid) return null;
+  const { data } = await supabase
+    .from("projects")
+    .select(WITH_CLIENT)
+    .eq("id", id)
+    .eq("user_id", uid)
+    .maybeSingle();
   return (data as ProjectWithClient | null) ?? null;
 }
 

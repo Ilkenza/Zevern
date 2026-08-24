@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
+import { userId } from "@/lib/supabase/current-user";
 
 export type TemplateFormState = { error?: string } | undefined;
 
@@ -18,9 +19,15 @@ export async function saveTemplate(
   if (!body) return { error: "Message body is required." };
 
   const supabase = await createSupabaseServerClient();
+  const uid = await userId(supabase);
+  if (!uid) return { error: "Not signed in." };
 
   if (id) {
-    const { error } = await supabase.from("outreach_templates").update({ title, body }).eq("id", id);
+    const { error } = await supabase
+      .from("outreach_templates")
+      .update({ title, body })
+      .eq("id", id)
+      .eq("user_id", uid);
     if (error) return { error: error.message };
   } else {
     const { error } = await supabase.from("outreach_templates").insert({ title, body });
@@ -33,7 +40,15 @@ export async function saveTemplate(
 
 export async function deleteTemplate(id: string) {
   const supabase = await createSupabaseServerClient();
-  await supabase.from("outreach_templates").delete().eq("id", id);
+  const uid = await userId(supabase);
+  if (!uid) return;
+
+  const { error } = await supabase
+    .from("outreach_templates")
+    .delete()
+    .eq("id", id)
+    .eq("user_id", uid);
+  if (error) console.error("deleteTemplate:", error.message);
   revalidatePath("/leads/templates");
   redirect("/leads/templates");
 }

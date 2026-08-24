@@ -1,10 +1,16 @@
 "use server";
 
+import { createHash, randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 
 export type SettingsState = { ok?: boolean; error?: string } | undefined;
+
+/** The database stores this, never the token itself. */
+function hashToken(token: string): string {
+  return createHash("sha256").update(token).digest("hex");
+}
 
 export async function saveProfile(
   _prev: SettingsState,
@@ -96,28 +102,47 @@ export async function saveModules(_prev: SettingsState, formData: FormData): Pro
   return { ok: true };
 }
 
-/** Create/rotate the token the browser extension uses to add leads. */
-export async function generateExtToken(): Promise<SettingsState> {
+export type TokenState = { token?: string; error?: string } | undefined;
+
+/**
+ * Create or rotate the token the browser extension uses. Only the hash is stored,
+ * so this is the one and only moment the token can be shown — regenerating is the
+ * only way back if it is lost, and that revokes the old one.
+ */
+export async function generateExtToken(): Promise<TokenState> {
   const supabase = await createSupabaseServerClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { error: "Not signed in." };
 
-  const token = crypto.randomUUID();
-  const { error } = await supabase.from("profiles").update({ ext_token: token }).eq("id", user.id);
+  const token = randomUUID();
+  const { error } = await supabase
+    .from("profiles")
+    .update({ ext_token_hash: hashToken(token) })
+    .eq("id", user.id);
   if (error) return { error: error.message };
 
   revalidatePath("/settings");
-  return { ok: true };
+  return { token };
 }
 
-export async function deleteAccount() {
+/**
+ * Deleting the account needs the owner to retype their email. The check lives in
+ * the `delete_user` function, so a crafted request cannot skip it the way it could
+ * skip the checkbox this used to rely on.
+ */
+export async function deleteAccount(confirm: string): Promise<SettingsState> {
   const supabase = await createSupabaseServerClient();
-  const { error } = await supabase.rpc("delete_user");
-  if (!error) {
-    await supabase.auth.signOut();
+  const { error } = await supabase.rpc("delete_user", { p_confirm: confirm });
+
+  if (error) {
+    return error.message.includes("confirmation does not match")
+      ? { error: "That is not the email address on this account." }
+      : { error: error.message };
   }
+
+  await supabase.auth.signOut();
   revalidatePath("/", "layout");
   redirect("/login");
 }

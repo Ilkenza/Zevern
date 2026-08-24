@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
+import { userId } from "@/lib/supabase/current-user";
 
 export type ClientFormState = { error?: string } | undefined;
 
@@ -24,6 +25,9 @@ export async function saveClient(
   if (!name) return { error: "Name is required." };
 
   const supabase = await createSupabaseServerClient();
+  const uid = await userId(supabase);
+  if (!uid) return { error: "Not signed in." };
+
   const payload = {
     name,
     contact,
@@ -35,7 +39,11 @@ export async function saveClient(
   };
 
   if (id) {
-    const { error } = await supabase.from("clients").update(payload).eq("id", id);
+    const { error } = await supabase
+      .from("clients")
+      .update(payload)
+      .eq("id", id)
+      .eq("user_id", uid);
     if (error) return { error: error.message };
   } else {
     const { error } = await supabase.from("clients").insert(payload);
@@ -49,7 +57,11 @@ export async function saveClient(
 
 export async function deleteClient(id: string) {
   const supabase = await createSupabaseServerClient();
-  await supabase.from("clients").delete().eq("id", id);
+  const uid = await userId(supabase);
+  if (!uid) return;
+
+  const { error } = await supabase.from("clients").delete().eq("id", id).eq("user_id", uid);
+  if (error) console.error("deleteClient:", error.message);
   revalidatePath("/clients");
   revalidatePath("/projects");
   revalidatePath("/");

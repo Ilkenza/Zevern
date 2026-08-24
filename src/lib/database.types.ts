@@ -492,7 +492,7 @@ export type Database = {
           business_email: string | null
           business_name: string | null
           created_at: string
-          ext_token: string | null
+          ext_token_hash: string | null
           full_name: string | null
           handle: string | null
           hidden_modules: string[]
@@ -509,7 +509,7 @@ export type Database = {
           business_email?: string | null
           business_name?: string | null
           created_at?: string
-          ext_token?: string | null
+          ext_token_hash?: string | null
           full_name?: string | null
           handle?: string | null
           hidden_modules?: string[]
@@ -526,7 +526,7 @@ export type Database = {
           business_email?: string | null
           business_name?: string | null
           created_at?: string
-          ext_token?: string | null
+          ext_token_hash?: string | null
           full_name?: string | null
           handle?: string | null
           hidden_modules?: string[]

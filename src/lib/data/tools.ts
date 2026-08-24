@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { userId } from "@/lib/supabase/current-user";
 import type { Tool } from "@/lib/types";
 
 export async function getTools(): Promise<Tool[]> {
@@ -13,7 +14,14 @@ export async function getTools(): Promise<Tool[]> {
 
 export async function getTool(id: string): Promise<Tool | null> {
   const supabase = await createClient();
-  const { data } = await supabase.from("tools").select("*").eq("id", id).maybeSingle();
+  const uid = await userId(supabase);
+  if (!uid) return null;
+  const { data } = await supabase
+    .from("tools")
+    .select("*")
+    .eq("id", id)
+    .eq("user_id", uid)
+    .maybeSingle();
   return data ?? null;
 }
 

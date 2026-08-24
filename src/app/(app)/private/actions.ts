@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
+import { userId } from "@/lib/supabase/current-user";
 import { getRates } from "@/lib/data/money";
 import { fetchNbsRates } from "@/lib/rates/nbs";
 import { CURRENCIES, DEFAULT_CATEGORIES, nextDate, rateFor, type Currency } from "@/lib/money";
@@ -34,13 +35,6 @@ function currencyOf(value: FormDataEntryValue | null): Currency {
   return (CURRENCIES as readonly string[]).includes(c) ? (c as Currency) : "RSD";
 }
 
-async function userId(supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>) {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  return user?.id ?? null;
-}
-
 /* ------------------------------------------------------------ transactions */
 
 export async function saveTransaction(_prev: MoneyState, formData: FormData): Promise<MoneyState> {
@@ -67,6 +61,9 @@ export async function saveTransaction(_prev: MoneyState, formData: FormData): Pr
   const rate = currency === "RSD" ? 1 : manualRate > 0 ? manualRate : rateFor(currency, rates);
 
   const supabase = await createSupabaseServerClient();
+  const uid = await userId(supabase);
+  if (!uid) return { error: "Not signed in." };
+
   const payload = {
     kind,
     amount,
@@ -81,7 +78,11 @@ export async function saveTransaction(_prev: MoneyState, formData: FormData): Pr
   };
 
   if (id) {
-    const { error } = await supabase.from("money_transactions").update(payload).eq("id", id);
+    const { error } = await supabase
+      .from("money_transactions")
+      .update(payload)
+      .eq("id", id)
+      .eq("user_id", uid);
     if (error) return { error: error.message };
   } else {
     const { error } = await supabase.from("money_transactions").insert(payload);
@@ -95,7 +96,15 @@ export async function saveTransaction(_prev: MoneyState, formData: FormData): Pr
 
 export async function deleteTransaction(id: string) {
   const supabase = await createSupabaseServerClient();
-  await supabase.from("money_transactions").delete().eq("id", id);
+  const uid = await userId(supabase);
+  if (!uid) return;
+
+  const { error } = await supabase
+    .from("money_transactions")
+    .delete()
+    .eq("id", id)
+    .eq("user_id", uid);
+  if (error) console.error("deleteTransaction:", error.message);
   refresh();
   redirect("/private/money");
 }
@@ -103,7 +112,14 @@ export async function deleteTransaction(id: string) {
 /** Same delete, but called from a row — no redirect, the caller refreshes in place. */
 export async function removeTransaction(id: string): Promise<MoneyState> {
   const supabase = await createSupabaseServerClient();
-  const { error } = await supabase.from("money_transactions").delete().eq("id", id);
+  const uid = await userId(supabase);
+  if (!uid) return { error: "Not signed in." };
+
+  const { error } = await supabase
+    .from("money_transactions")
+    .delete()
+    .eq("id", id)
+    .eq("user_id", uid);
   if (error) return { error: error.message };
   refresh();
   return { ok: true };
@@ -122,10 +138,13 @@ export async function saveAccount(_prev: MoneyState, formData: FormData): Promis
   if (!name) return { error: "Name is required." };
 
   const supabase = await createSupabaseServerClient();
+  const uid = await userId(supabase);
+  if (!uid) return { error: "Not signed in." };
+
   const payload = { name, kind, currency, opening_balance: openingBalance, color };
 
   const { error } = id
-    ? await supabase.from("money_accounts").update(payload).eq("id", id)
+    ? await supabase.from("money_accounts").update(payload).eq("id", id).eq("user_id", uid)
     : await supabase.from("money_accounts").insert(payload);
   if (error) return { error: error.message };
 
@@ -135,7 +154,15 @@ export async function saveAccount(_prev: MoneyState, formData: FormData): Promis
 
 export async function deleteAccount(id: string) {
   const supabase = await createSupabaseServerClient();
-  await supabase.from("money_accounts").delete().eq("id", id);
+  const uid = await userId(supabase);
+  if (!uid) return;
+
+  const { error } = await supabase
+    .from("money_accounts")
+    .delete()
+    .eq("id", id)
+    .eq("user_id", uid);
+  if (error) console.error("deleteAccount:", error.message);
   refresh();
 }
 
@@ -150,10 +177,13 @@ export async function saveCategory(_prev: MoneyState, formData: FormData): Promi
   if (!name) return { error: "Name is required." };
 
   const supabase = await createSupabaseServerClient();
+  const uid = await userId(supabase);
+  if (!uid) return { error: "Not signed in." };
+
   const payload = { name, kind, color };
 
   const { error } = id
-    ? await supabase.from("money_categories").update(payload).eq("id", id)
+    ? await supabase.from("money_categories").update(payload).eq("id", id).eq("user_id", uid)
     : await supabase.from("money_categories").insert(payload);
   if (error) return { error: error.message };
 
@@ -163,7 +193,15 @@ export async function saveCategory(_prev: MoneyState, formData: FormData): Promi
 
 export async function deleteCategory(id: string) {
   const supabase = await createSupabaseServerClient();
-  await supabase.from("money_categories").delete().eq("id", id);
+  const uid = await userId(supabase);
+  if (!uid) return;
+
+  const { error } = await supabase
+    .from("money_categories")
+    .delete()
+    .eq("id", id)
+    .eq("user_id", uid);
+  if (error) console.error("deleteCategory:", error.message);
   refresh();
 }
 
@@ -222,7 +260,12 @@ export async function saveBudgets(_prev: MoneyState, formData: FormData): Promis
     if (error) return { error: error.message };
   }
   if (clears.length) {
-    await supabase.from("money_budgets").delete().in("category_id", clears);
+    const { error } = await supabase
+      .from("money_budgets")
+      .delete()
+      .eq("user_id", uid)
+      .in("category_id", clears);
+    if (error) return { error: error.message };
   }
 
   refresh();
@@ -241,10 +284,13 @@ export async function saveGoal(_prev: MoneyState, formData: FormData): Promise<M
   if (!name) return { error: "Name is required." };
 
   const supabase = await createSupabaseServerClient();
+  const uid = await userId(supabase);
+  if (!uid) return { error: "Not signed in." };
+
   const payload = { name, target_rsd: targetRsd, target_date: targetDate, color };
 
   const { error } = id
-    ? await supabase.from("money_goals").update(payload).eq("id", id)
+    ? await supabase.from("money_goals").update(payload).eq("id", id).eq("user_id", uid)
     : await supabase.from("money_goals").insert(payload);
   if (error) return { error: error.message };
 
@@ -254,7 +300,15 @@ export async function saveGoal(_prev: MoneyState, formData: FormData): Promise<M
 
 export async function deleteGoal(id: string) {
   const supabase = await createSupabaseServerClient();
-  await supabase.from("money_goals").delete().eq("id", id);
+  const uid = await userId(supabase);
+  if (!uid) return;
+
+  const { error } = await supabase
+    .from("money_goals")
+    .delete()
+    .eq("id", id)
+    .eq("user_id", uid);
+  if (error) console.error("deleteGoal:", error.message);
   refresh();
   redirect("/private/goals");
 }
@@ -286,6 +340,9 @@ export async function saveRecurring(_prev: MoneyState, formData: FormData): Prom
   if (endsOn && endsOn < nextOn) return { error: "The end date cannot fall before the next due date." };
 
   const supabase = await createSupabaseServerClient();
+  const uid = await userId(supabase);
+  if (!uid) return { error: "Not signed in." };
+
   const payload = {
     name,
     kind,
@@ -303,7 +360,7 @@ export async function saveRecurring(_prev: MoneyState, formData: FormData): Prom
 
   // installments_done is never touched here — editing an item must not rewrite its history.
   const { error } = id
-    ? await supabase.from("money_recurring").update(payload).eq("id", id)
+    ? await supabase.from("money_recurring").update(payload).eq("id", id).eq("user_id", uid)
     : await supabase.from("money_recurring").insert(payload);
   if (error) return { error: error.message };
 
@@ -313,7 +370,15 @@ export async function saveRecurring(_prev: MoneyState, formData: FormData): Prom
 
 export async function deleteRecurring(id: string) {
   const supabase = await createSupabaseServerClient();
-  await supabase.from("money_recurring").delete().eq("id", id);
+  const uid = await userId(supabase);
+  if (!uid) return;
+
+  const { error } = await supabase
+    .from("money_recurring")
+    .delete()
+    .eq("id", id)
+    .eq("user_id", uid);
+  if (error) console.error("deleteRecurring:", error.message);
   refresh();
   redirect("/private/recurring");
 }
@@ -321,7 +386,14 @@ export async function deleteRecurring(id: string) {
 /** Row delete — no redirect. Already booked entries stay; only the repeat stops. */
 export async function removeRecurring(id: string): Promise<MoneyState> {
   const supabase = await createSupabaseServerClient();
-  const { error } = await supabase.from("money_recurring").delete().eq("id", id);
+  const uid = await userId(supabase);
+  if (!uid) return { error: "Not signed in." };
+
+  const { error } = await supabase
+    .from("money_recurring")
+    .delete()
+    .eq("id", id)
+    .eq("user_id", uid);
   if (error) return { error: error.message };
   refresh();
   return { ok: true };
@@ -330,7 +402,14 @@ export async function removeRecurring(id: string): Promise<MoneyState> {
 /** Pause or resume a recurring item straight from the list. */
 export async function toggleRecurring(id: string, active: boolean): Promise<MoneyState> {
   const supabase = await createSupabaseServerClient();
-  const { error } = await supabase.from("money_recurring").update({ active }).eq("id", id);
+  const uid = await userId(supabase);
+  if (!uid) return { error: "Not signed in." };
+
+  const { error } = await supabase
+    .from("money_recurring")
+    .update({ active })
+    .eq("id", id)
+    .eq("user_id", uid);
   if (error) return { error: error.message };
   refresh();
   return { ok: true };
@@ -342,7 +421,15 @@ export async function toggleRecurring(id: string, active: boolean): Promise<Mone
  */
 export async function postRecurring(id: string, amountOverride?: number): Promise<MoneyState> {
   const supabase = await createSupabaseServerClient();
-  const { data: item } = await supabase.from("money_recurring").select("*").eq("id", id).maybeSingle();
+  const uid = await userId(supabase);
+  if (!uid) return { error: "Not signed in." };
+
+  const { data: item } = await supabase
+    .from("money_recurring")
+    .select("*")
+    .eq("id", id)
+    .eq("user_id", uid)
+    .maybeSingle();
   if (!item) return { error: "Recurring item not found." };
 
   const amount = amountOverride != null && amountOverride > 0 ? amountOverride : Number(item.amount);
@@ -370,14 +457,16 @@ export async function postRecurring(id: string, amountOverride?: number): Promis
     (item.installments_total != null && done >= item.installments_total) ||
     (item.ends_on != null && next > item.ends_on);
 
-  await supabase
+  const { error: bumpErr } = await supabase
     .from("money_recurring")
     .update({
       next_on: next,
       installments_done: done,
       ...(finished ? { active: false } : {}),
     })
-    .eq("id", id);
+    .eq("id", id)
+    .eq("user_id", uid);
+  if (bumpErr) return { error: bumpErr.message };
 
   refresh();
   return { ok: true };
@@ -386,21 +475,27 @@ export async function postRecurring(id: string, amountOverride?: number): Promis
 /** Skip an occurrence without booking it — a skip is not an installment paid. */
 export async function skipRecurring(id: string): Promise<MoneyState> {
   const supabase = await createSupabaseServerClient();
+  const uid = await userId(supabase);
+  if (!uid) return { error: "Not signed in." };
+
   const { data: item } = await supabase
     .from("money_recurring")
     .select("id, next_on, every, ends_on")
     .eq("id", id)
+    .eq("user_id", uid)
     .maybeSingle();
   if (!item) return { error: "Recurring item not found." };
 
   const next = nextDate(item.next_on, item.every);
-  await supabase
+  const { error } = await supabase
     .from("money_recurring")
     .update({
       next_on: next,
       ...(item.ends_on != null && next > item.ends_on ? { active: false } : {}),
     })
-    .eq("id", id);
+    .eq("id", id)
+    .eq("user_id", uid);
+  if (error) return { error: error.message };
   refresh();
   return { ok: true };
 }

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
+import { userId } from "@/lib/supabase/current-user";
 import { INVOICE_STATUSES, type InvoiceStatus } from "@/lib/status";
 import { quoteTotal } from "@/lib/quotes/total";
 import type { QuoteItem } from "@/lib/types";
@@ -47,6 +48,9 @@ export async function saveInvoice(
   if (Number.isNaN(amount) || amount < 0) return { error: "Amount must be a positive number." };
 
   const supabase = await createSupabaseServerClient();
+  const uid = await userId(supabase);
+  if (!uid) return { error: "Not signed in." };
+
   const payload = {
     client_id: clientId,
     number,
@@ -59,7 +63,11 @@ export async function saveInvoice(
   };
 
   if (id) {
-    const { error } = await supabase.from("invoices").update(payload).eq("id", id);
+    const { error } = await supabase
+      .from("invoices")
+      .update(payload)
+      .eq("id", id)
+      .eq("user_id", uid);
     if (error) return { error: error.message };
   } else {
     const { error } = await supabase.from("invoices").insert(payload);
@@ -73,7 +81,11 @@ export async function saveInvoice(
 
 export async function deleteInvoice(id: string) {
   const supabase = await createSupabaseServerClient();
-  await supabase.from("invoices").delete().eq("id", id);
+  const uid = await userId(supabase);
+  if (!uid) return;
+
+  const { error } = await supabase.from("invoices").delete().eq("id", id).eq("user_id", uid);
+  if (error) console.error("deleteInvoice:", error.message);
   revalidatePath("/invoices");
   revalidatePath("/");
   redirect("/invoices");

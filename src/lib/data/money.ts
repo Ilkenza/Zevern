@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { userId } from "@/lib/supabase/current-user";
 import { DEFAULT_RATES, monthKey, monthRange, nextDate, toRsd, type Rates } from "@/lib/money";
 import type {
   BudgetLine,
@@ -396,10 +397,13 @@ export async function getTransactions(filter: TxFilter = {}): Promise<Transactio
 
 export async function getTransaction(id: string): Promise<TransactionRow | null> {
   const supabase = await createClient();
+  const uid = await userId(supabase);
+  if (!uid) return null;
   const { data, error } = await supabase
     .from("money_transactions")
     .select(TX_SELECT)
     .eq("id", id)
+    .eq("user_id", uid)
     .maybeSingle();
   if (error) console.error("getTransaction:", error.message);
   return (data as TransactionRow | null) ?? null;

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
+import { userId } from "@/lib/supabase/current-user";
 import { TASK_PRIORITIES, type TaskPriority } from "@/lib/status";
 
 export type TaskFormState = { error?: string } | undefined;
@@ -27,6 +28,9 @@ export async function saveTask(
   if (!TASK_PRIORITIES.includes(priority as TaskPriority)) return { error: "Invalid priority." };
 
   const supabase = await createSupabaseServerClient();
+  const uid = await userId(supabase);
+  if (!uid) return { error: "Not signed in." };
+
   const payload = {
     project_id: workspace === "personal" ? null : projectId,
     title,
@@ -36,7 +40,7 @@ export async function saveTask(
   };
 
   if (id) {
-    const { error } = await supabase.from("tasks").update(payload).eq("id", id);
+    const { error } = await supabase.from("tasks").update(payload).eq("id", id).eq("user_id", uid);
     if (error) return { error: error.message };
   } else {
     const { error } = await supabase.from("tasks").insert(payload);
@@ -50,7 +54,11 @@ export async function saveTask(
 
 export async function deleteTask(id: string, workspace = "work") {
   const supabase = await createSupabaseServerClient();
-  await supabase.from("tasks").delete().eq("id", id);
+  const uid = await userId(supabase);
+  if (!uid) return;
+
+  const { error } = await supabase.from("tasks").delete().eq("id", id).eq("user_id", uid);
+  if (error) console.error("deleteTask:", error.message);
   revalidatePath(listPath(workspace));
   revalidatePath("/");
   redirect(listPath(workspace));
@@ -59,10 +67,15 @@ export async function deleteTask(id: string, workspace = "work") {
 /** Toggle done/todo without navigating — the client refreshes after this resolves. */
 export async function toggleTask(id: string, done: boolean) {
   const supabase = await createSupabaseServerClient();
-  await supabase
+  const uid = await userId(supabase);
+  if (!uid) return;
+
+  const { error } = await supabase
     .from("tasks")
     .update({ status: done ? "done" : "todo" })
-    .eq("id", id);
+    .eq("id", id)
+    .eq("user_id", uid);
+  if (error) console.error("toggleTask:", error.message);
   revalidatePath("/tasks");
   revalidatePath("/private/tasks");
   revalidatePath("/private");

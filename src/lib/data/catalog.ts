@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { userId } from "@/lib/supabase/current-user";
 import type { ServiceItem } from "@/lib/types";
 
 export async function getServiceItems(): Promise<ServiceItem[]> {
@@ -12,6 +13,13 @@ export async function getServiceItems(): Promise<ServiceItem[]> {
 
 export async function getServiceItem(id: string): Promise<ServiceItem | null> {
   const supabase = await createClient();
-  const { data } = await supabase.from("service_items").select("*").eq("id", id).maybeSingle();
+  const uid = await userId(supabase);
+  if (!uid) return null;
+  const { data } = await supabase
+    .from("service_items")
+    .select("*")
+    .eq("id", id)
+    .eq("user_id", uid)
+    .maybeSingle();
   return data ?? null;
 }

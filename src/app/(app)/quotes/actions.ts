@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
+import { userId } from "@/lib/supabase/current-user";
 import { nextInvoiceNumber } from "@/lib/data/invoices";
 import { quoteTotal } from "@/lib/quotes/total";
 import { todayISO } from "@/lib/format";
@@ -43,11 +44,18 @@ export async function saveQuote(_prev: QuoteFormState, formData: FormData): Prom
   if (items.length === 0) return { error: "Add at least one line item." };
 
   const supabase = await createSupabaseServerClient();
+  const uid = await userId(supabase);
+  if (!uid) return { error: "Not signed in." };
+
   const payload = { title, client_id: clientId, currency, status, items };
 
   let quoteId = id;
   if (id) {
-    const { error } = await supabase.from("quotes").update(payload).eq("id", id);
+    const { error } = await supabase
+      .from("quotes")
+      .update(payload)
+      .eq("id", id)
+      .eq("user_id", uid);
     if (error) return { error: error.message };
   } else {
     const { data, error } = await supabase.from("quotes").insert(payload).select("id").single();
@@ -62,7 +70,11 @@ export async function saveQuote(_prev: QuoteFormState, formData: FormData): Prom
 
 export async function deleteQuote(id: string) {
   const supabase = await createSupabaseServerClient();
-  await supabase.from("quotes").delete().eq("id", id);
+  const uid = await userId(supabase);
+  if (!uid) return;
+
+  const { error } = await supabase.from("quotes").delete().eq("id", id).eq("user_id", uid);
+  if (error) console.error("deleteQuote:", error.message);
   revalidatePath("/quotes");
   revalidatePath("/");
   redirect("/quotes");
@@ -71,7 +83,15 @@ export async function deleteQuote(id: string) {
 /** Create a draft invoice from a quote's total + currency; link it back. */
 export async function convertQuoteToInvoice(id: string) {
   const supabase = await createSupabaseServerClient();
-  const { data: quote } = await supabase.from("quotes").select("*").eq("id", id).maybeSingle();
+  const uid = await userId(supabase);
+  if (!uid) return;
+
+  const { data: quote } = await supabase
+    .from("quotes")
+    .select("*")
+    .eq("id", id)
+    .eq("user_id", uid)
+    .maybeSingle();
   if (!quote) redirect("/quotes");
   if (quote.invoice_id) redirect(`/invoices/${quote.invoice_id}`);
 
@@ -94,7 +114,12 @@ export async function convertQuoteToInvoice(id: string) {
     .single();
   if (error || !inv) redirect("/quotes");
 
-  await supabase.from("quotes").update({ invoice_id: inv.id, status: "accepted" }).eq("id", id);
+  const { error: quoteErr } = await supabase
+    .from("quotes")
+    .update({ invoice_id: inv.id, status: "accepted" })
+    .eq("id", id)
+    .eq("user_id", uid);
+  if (quoteErr) console.error("convertQuoteToInvoice:", quoteErr.message);
 
   revalidatePath("/quotes");
   revalidatePath("/invoices");

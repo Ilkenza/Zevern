@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
+import { userId } from "@/lib/supabase/current-user";
 import { LEAD_STATUSES, type LeadStatus } from "@/lib/status";
 import { parseLeadsImport } from "@/lib/leads/parse-import";
 import { computeImportPlan, type ImportChange } from "@/lib/leads/diff-import";
@@ -47,6 +48,9 @@ export async function commitLeadsImport(
   if (error) return { imported: 0, updated: 0, error };
 
   const supabase = await createSupabaseServerClient();
+  const uid = await userId(supabase);
+  if (!uid) return { imported: 0, updated: 0, error: "Not signed in." };
+
   const { data: existing } = await supabase.from("leads").select("*");
   const plan = computeImportPlan(rows, existing ?? []);
 
@@ -58,7 +62,11 @@ export async function commitLeadsImport(
   let updated = 0;
   if (updateExisting) {
     for (const u of plan.updates) {
-      const { error: upErr } = await supabase.from("leads").update(u.payload).eq("id", u.id);
+      const { error: upErr } = await supabase
+        .from("leads")
+        .update(u.payload)
+        .eq("id", u.id)
+        .eq("user_id", uid);
       if (!upErr) updated++;
     }
   }
@@ -88,6 +96,9 @@ export async function saveLead(_prev: LeadFormState, formData: FormData): Promis
   if (Number.isNaN(value) || value < 0) return { error: "Value must be a positive number." };
 
   const supabase = await createSupabaseServerClient();
+  const uid = await userId(supabase);
+  if (!uid) return { error: "Not signed in." };
+
   const payload = {
     name,
     company,
@@ -102,7 +113,7 @@ export async function saveLead(_prev: LeadFormState, formData: FormData): Promis
   };
 
   if (id) {
-    const { error } = await supabase.from("leads").update(payload).eq("id", id);
+    const { error } = await supabase.from("leads").update(payload).eq("id", id).eq("user_id", uid);
     if (error) return { error: error.message };
   } else {
     const { error } = await supabase.from("leads").insert(payload);
@@ -116,7 +127,11 @@ export async function saveLead(_prev: LeadFormState, formData: FormData): Promis
 
 export async function deleteLead(id: string) {
   const supabase = await createSupabaseServerClient();
-  await supabase.from("leads").delete().eq("id", id);
+  const uid = await userId(supabase);
+  if (!uid) return;
+
+  const { error } = await supabase.from("leads").delete().eq("id", id).eq("user_id", uid);
+  if (error) console.error("deleteLead:", error.message);
   revalidatePath("/leads");
   revalidatePath("/");
   redirect("/leads");
@@ -125,7 +140,15 @@ export async function deleteLead(id: string) {
 /** Create a client from a won lead (or jump to the existing one), then mark the lead Won. */
 export async function convertLeadToClient(id: string) {
   const supabase = await createSupabaseServerClient();
-  const { data: lead } = await supabase.from("leads").select("*").eq("id", id).maybeSingle();
+  const uid = await userId(supabase);
+  if (!uid) return;
+
+  const { data: lead } = await supabase
+    .from("leads")
+    .select("*")
+    .eq("id", id)
+    .eq("user_id", uid)
+    .maybeSingle();
   if (!lead) redirect("/leads");
 
   if (lead.client_id) {
@@ -150,7 +173,12 @@ export async function convertLeadToClient(id: string) {
     .from("projects")
     .insert({ client_id: client.id, title: clientName, status: "draft" });
 
-  await supabase.from("leads").update({ client_id: client.id, status: "won" }).eq("id", id);
+  const { error: leadErr } = await supabase
+    .from("leads")
+    .update({ client_id: client.id, status: "won" })
+    .eq("id", id)
+    .eq("user_id", uid);
+  if (leadErr) console.error("convertLeadToClient:", leadErr.message);
 
   revalidatePath("/leads");
   revalidatePath("/clients");
