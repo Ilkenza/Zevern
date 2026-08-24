@@ -8,10 +8,13 @@ export function DeleteButton({
   action,
   label = "Delete",
   confirmText = "Delete this permanently? This cannot be undone.",
+  compact = false,
 }: {
   action: () => void | Promise<void>;
   label?: string;
   confirmText?: string;
+  /** Row variant: just the bin icon, no button chrome. The confirm modal stays the same. */
+  compact?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -34,14 +37,26 @@ export function DeleteButton({
 
   return (
     <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className={buttonClasses("danger")}
-      >
-        <Trash2 className="h-4 w-4" />
-        {label}
-      </button>
+      {compact ? (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          aria-label={label}
+          title={label}
+          className="inline-flex cursor-pointer rounded-ctrl p-1.5 text-faint transition-colors hover:bg-white/5 hover:text-danger"
+        >
+          <Trash2 className="h-3.75 w-3.75" />
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className={buttonClasses("danger")}
+        >
+          <Trash2 className="h-4 w-4" />
+          {label}
+        </button>
+      )}
 
       {open && (
         <div

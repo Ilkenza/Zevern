@@ -11,8 +11,14 @@ import type {
   TransactionRow,
 } from "@/lib/types";
 
+/**
+ * money_transactions points at money_accounts twice (account_id and to_account_id),
+ * so the embed has to name the constraint or PostgREST refuses the whole query.
+ * Keep this as ONE string literal — split it and the generated types stop parsing it
+ * (tsc then fails with TS2352 / GenericStringError).
+ */
 const TX_SELECT =
-  "*, category:money_categories(name, color, kind), account:money_accounts(name, currency), goal:money_goals(name)";
+  "*, category:money_categories(name, color, kind), account:money_accounts!money_transactions_account_id_fkey(name, currency), goal:money_goals(name)";
 
 export async function getRates(): Promise<Rates> {
   const supabase = await createClient();
@@ -55,10 +61,11 @@ export async function getBudgets(): Promise<MoneyBudget[]> {
 
 export async function getRecurring(): Promise<RecurringRow[]> {
   const supabase = await createClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("money_recurring")
-    .select("*, category:money_categories(name, color), account:money_accounts(name)")
+    .select("*, category:money_categories(name, color), account:money_accounts!money_recurring_account_id_fkey(name)")
     .order("next_on");
+  if (error) console.error("getRecurring:", error.message);
   return (data ?? []) as RecurringRow[];
 }
 
@@ -92,13 +99,19 @@ export async function getTransactions(filter: TxFilter = {}): Promise<Transactio
   q = q.order("occurred_on", { ascending: false }).order("created_at", { ascending: false });
   if (filter.limit) q = q.limit(filter.limit);
 
-  const { data } = await q;
+  const { data, error } = await q;
+  if (error) console.error("getTransactions:", error.message);
   return (data ?? []) as TransactionRow[];
 }
 
 export async function getTransaction(id: string): Promise<TransactionRow | null> {
   const supabase = await createClient();
-  const { data } = await supabase.from("money_transactions").select(TX_SELECT).eq("id", id).maybeSingle();
+  const { data, error } = await supabase
+    .from("money_transactions")
+    .select(TX_SELECT)
+    .eq("id", id)
+    .maybeSingle();
+  if (error) console.error("getTransaction:", error.message);
   return (data as TransactionRow | null) ?? null;
 }
 
