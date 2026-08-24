@@ -28,3 +28,21 @@ export async function saveRevenueGoal(
   revalidatePath("/");
   return { ok: true };
 }
+
+/** Put the getting-started checklist away. Progress itself is derived, never stored. */
+export async function hideOnboarding(): Promise<GoalState> {
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Not signed in." };
+
+  const { error } = await supabase
+    .from("profiles")
+    .update({ onboarding_hidden: true })
+    .eq("id", user.id);
+  if (error) return { error: error.message };
+
+  revalidatePath("/");
+  return { ok: true };
+}

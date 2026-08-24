@@ -1,4 +1,3 @@
-import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { AppShell } from "@/components/shell/AppShell";
 import type { NavCounts } from "@/lib/nav";
@@ -18,8 +17,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     data: { user },
   } = await supabase.auth.getUser();
 
-  // proxy.ts already guards this; belt-and-suspenders for the user block below.
-  if (!user) redirect("/login");
+  // "/" is the only route reachable without a session, and there the page renders
+  // the marketing page — which must not be wrapped in the app shell. Every other
+  // route in this group is closed by proxy.ts before it gets here.
+  if (!user) return <>{children}</>;
 
   const shellUser = {
     fullName: (user.user_metadata?.full_name as string | undefined) ?? null,

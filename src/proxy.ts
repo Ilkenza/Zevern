@@ -1,7 +1,12 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const PUBLIC_ROUTES = ["/login", "/forgot-password", "/reset-password"];
+/**
+ * "/" is public because it serves two pages: the marketing page to a visitor and
+ * the dashboard to a signed-in user. The page decides which, so the guard here only
+ * has to let the anonymous request through — every other app route stays closed.
+ */
+const PUBLIC_ROUTES = ["/", "/login", "/forgot-password", "/reset-password"];
 /** Signed-in users are bounced away from these to the dashboard. */
 const BOUNCE_ROUTES = ["/login", "/forgot-password"];
 

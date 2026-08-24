@@ -49,7 +49,7 @@ export function Topbar({
           {firstName ? `, ${firstName}` : ""}
         </div>
         <div className="hidden truncate text-[12px] text-muted sm:block">
-          {isPrivate ? "Private — tasks and money." : "You're all set — nothing due yet."}
+          {isPrivate ? "Private — tasks and money." : "Freelance — leads, work and invoices."}
         </div>
       </div>
 

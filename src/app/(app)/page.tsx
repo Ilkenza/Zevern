@@ -1,5 +1,9 @@
 import Link from "next/link";
 import { FolderKanban, ReceiptText, ListChecks, Activity } from "lucide-react";
+import { createClient } from "@/lib/supabase/server";
+import { Landing } from "@/components/marketing/Landing";
+import { GettingStarted } from "@/components/onboarding/GettingStarted";
+import { getOnboarding } from "@/lib/data/onboarding";
 import { Kpi } from "@/components/ui/Kpi";
 import { Panel } from "@/components/ui/Panel";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -23,6 +27,14 @@ import { RevenueGoalCard } from "@/components/overview/RevenueGoalCard";
 import { ActivityFeed } from "@/components/overview/ActivityFeed";
 
 export default async function OverviewPage() {
+  // "/" is the only route a visitor can reach without signing in, and there it is
+  // the marketing page rather than the dashboard.
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return <Landing />;
+
   const [
     activeProjects,
     recentProjects,
@@ -33,6 +45,7 @@ export default async function OverviewPage() {
     revenueGoal,
     activity,
     followups,
+    onboarding,
   ] = await Promise.all([
     getActiveProjectCount(),
     getRecentProjects(5),
@@ -43,10 +56,13 @@ export default async function OverviewPage() {
     getRevenueGoal(),
     getRecentActivity(6),
     getLeadsForFollowup(5),
+    getOnboarding(),
   ]);
 
   return (
     <div className="mx-auto max-w-300 space-y-6">
+      {!onboarding.hidden && <GettingStarted onboarding={onboarding} />}
+
       {/* KPI row */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Kpi

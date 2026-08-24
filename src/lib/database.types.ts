@@ -493,6 +493,7 @@ export type Database = {
           business_name: string | null
           created_at: string
           ext_token_hash: string | null
+          onboarding_hidden: boolean
           full_name: string | null
           handle: string | null
           hidden_modules: string[]
@@ -510,6 +511,7 @@ export type Database = {
           business_name?: string | null
           created_at?: string
           ext_token_hash?: string | null
+          onboarding_hidden?: boolean
           full_name?: string | null
           handle?: string | null
           hidden_modules?: string[]
@@ -527,6 +529,7 @@ export type Database = {
           business_name?: string | null
           created_at?: string
           ext_token_hash?: string | null
+          onboarding_hidden?: boolean
           full_name?: string | null
           handle?: string | null
           hidden_modules?: string[]
