@@ -131,13 +131,35 @@ export const EVERY_OPTIONS = [
   { value: "year", label: "Every year" },
 ];
 
-/** Advance a recurring item to its next date. */
+/**
+ * Advance a recurring item to its next date, without the month-end trap: plain
+ * date arithmetic turns 31 August into 1 October and silently skips September.
+ * Two rules instead — a date sitting on the last day of its month stays on the
+ * last day of the next one, which is how bills anchored to month-end behave, and
+ * any other day is clamped so the 31st lands on the 30th or the 28th.
+ */
 export function nextDate(from: string, every: string): string {
   const d = new Date(`${from}T00:00:00Z`);
-  if (every === "week") d.setUTCDate(d.getUTCDate() + 7);
-  else if (every === "year") d.setUTCFullYear(d.getUTCFullYear() + 1);
-  else d.setUTCMonth(d.getUTCMonth() + 1);
-  return d.toISOString().slice(0, 10);
+  if (every === "week") {
+    d.setUTCDate(d.getUTCDate() + 7);
+    return d.toISOString().slice(0, 10);
+  }
+
+  const year = d.getUTCFullYear();
+  const month = d.getUTCMonth();
+  const day = d.getUTCDate();
+  const step = every === "year" ? 12 : 1;
+
+  const lastOfThis = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+  const target = new Date(Date.UTC(year, month + step, 1));
+  const lastOfTarget = new Date(
+    Date.UTC(target.getUTCFullYear(), target.getUTCMonth() + 1, 0),
+  ).getUTCDate();
+
+  const nextDay = day === lastOfThis ? lastOfTarget : Math.min(day, lastOfTarget);
+  return new Date(Date.UTC(target.getUTCFullYear(), target.getUTCMonth(), nextDay))
+    .toISOString()
+    .slice(0, 10);
 }
 
 /** Palette used for categories, goals and accounts. */
