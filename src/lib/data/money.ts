@@ -69,11 +69,17 @@ export async function getRecurring(): Promise<RecurringRow[]> {
   return (data ?? []) as RecurringRow[];
 }
 
-/** Active recurring items that are due today or overdue. */
+/** Active recurring items that are due today or overdue — and not past their end date. */
 export async function getDueRecurring(): Promise<RecurringRow[]> {
   const today = new Date().toISOString().slice(0, 10);
   const all = await getRecurring();
-  return all.filter((r) => r.active && r.next_on <= today);
+  return all.filter(
+    (r) =>
+      r.active &&
+      r.next_on <= today &&
+      (r.ends_on == null || r.next_on <= r.ends_on) &&
+      (r.installments_total == null || r.installments_done < r.installments_total),
+  );
 }
 
 export type TxFilter = {

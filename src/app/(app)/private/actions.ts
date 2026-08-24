@@ -273,9 +273,15 @@ export async function saveRecurring(_prev: MoneyState, formData: FormData): Prom
   const accountId = String(formData.get("account_id") ?? "").trim() || null;
   const categoryId = String(formData.get("category_id") ?? "").trim() || null;
   const active = formData.get("active") != null;
+  const installmentsRaw = String(formData.get("installments_total") ?? "").trim();
+  const installmentsTotal = installmentsRaw ? Math.trunc(num(installmentsRaw)) : null;
+  const endsOn = String(formData.get("ends_on") ?? "").trim() || null;
 
   if (!name) return { error: "Name is required." };
   if (!variable && !(amount > 0)) return { error: "Set an amount, or mark it as variable." };
+  if (installmentsTotal != null && !(installmentsTotal > 0))
+    return { error: "Number of payments has to be at least 1, or left empty." };
+  if (endsOn && endsOn < nextOn) return { error: "The end date cannot fall before the next due date." };
 
   const supabase = await createSupabaseServerClient();
   const payload = {
@@ -289,8 +295,11 @@ export async function saveRecurring(_prev: MoneyState, formData: FormData): Prom
     account_id: accountId,
     category_id: categoryId,
     active,
+    installments_total: installmentsTotal,
+    ends_on: endsOn,
   };
 
+  // installments_done is never touched here — editing an item must not rewrite its history.
   const { error } = id
     ? await supabase.from("money_recurring").update(payload).eq("id", id)
     : await supabase.from("money_recurring").insert(payload);
@@ -351,28 +360,44 @@ export async function postRecurring(id: string, amountOverride?: number): Promis
   });
   if (error) return { error: error.message };
 
+  // One installment down. Whichever limit is reached first — the count or the end
+  // date — pauses the item; the entries already booked stay untouched.
+  const done = (item.installments_done ?? 0) + 1;
+  const next = nextDate(item.next_on, item.every);
+  const finished =
+    (item.installments_total != null && done >= item.installments_total) ||
+    (item.ends_on != null && next > item.ends_on);
+
   await supabase
     .from("money_recurring")
-    .update({ next_on: nextDate(item.next_on, item.every) })
+    .update({
+      next_on: next,
+      installments_done: done,
+      ...(finished ? { active: false } : {}),
+    })
     .eq("id", id);
 
   refresh();
   return { ok: true };
 }
 
-/** Skip an occurrence without booking it. */
+/** Skip an occurrence without booking it — a skip is not an installment paid. */
 export async function skipRecurring(id: string): Promise<MoneyState> {
   const supabase = await createSupabaseServerClient();
   const { data: item } = await supabase
     .from("money_recurring")
-    .select("id, next_on, every")
+    .select("id, next_on, every, ends_on")
     .eq("id", id)
     .maybeSingle();
   if (!item) return { error: "Recurring item not found." };
 
+  const next = nextDate(item.next_on, item.every);
   await supabase
     .from("money_recurring")
-    .update({ next_on: nextDate(item.next_on, item.every) })
+    .update({
+      next_on: next,
+      ...(item.ends_on != null && next > item.ends_on ? { active: false } : {}),
+    })
     .eq("id", id);
   refresh();
   return { ok: true };

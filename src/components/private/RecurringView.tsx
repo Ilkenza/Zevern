@@ -32,6 +32,10 @@ function ItemRow({ item }: { item: RecurringRow }) {
     });
   };
 
+  const total = item.installments_total;
+  const done = item.installments_done ?? 0;
+  const settled = total != null && done >= total;
+
   return (
     <div className="flex items-center gap-3 border-b border-line-soft px-4 py-3 last:border-b-0 hover:bg-white/2">
       <span
@@ -42,8 +46,14 @@ function ItemRow({ item }: { item: RecurringRow }) {
         <div className="truncate text-[13.5px] font-semibold text-ink">{item.name}</div>
         <div className="mono truncate text-[11.5px] text-muted">
           next {item.next_on} · {item.every} · {item.account?.name ?? "No account"}
+          {item.ends_on ? ` · until ${item.ends_on}` : ""}
         </div>
       </div>
+      {total != null && (
+        <Badge status={settled ? "ok" : "draft"}>
+          {settled ? `Paid off · ${total}/${total}` : `${done}/${total}`}
+        </Badge>
+      )}
       {item.variable ? (
         <Badge status="info">Variable</Badge>
       ) : (
@@ -51,7 +61,7 @@ function ItemRow({ item }: { item: RecurringRow }) {
           {formatAmount(Number(item.amount), item.currency)}
         </span>
       )}
-      {!item.active && <Badge status="draft">Paused</Badge>}
+      {!item.active && !settled && <Badge status="draft">Paused</Badge>}
       <div className="flex shrink-0 items-center gap-0.5">
         <button
           type="button"

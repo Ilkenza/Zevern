@@ -333,8 +333,11 @@ export type Database = {
           category_id: string | null
           created_at: string
           currency: string
+          ends_on: string | null
           every: string
           id: string
+          installments_done: number
+          installments_total: number | null
           kind: string
           name: string
           next_on: string
@@ -348,8 +351,11 @@ export type Database = {
           category_id?: string | null
           created_at?: string
           currency?: string
+          ends_on?: string | null
           every?: string
           id?: string
+          installments_done?: number
+          installments_total?: number | null
           kind?: string
           name: string
           next_on?: string
@@ -363,8 +369,11 @@ export type Database = {
           category_id?: string | null
           created_at?: string
           currency?: string
+          ends_on?: string | null
           every?: string
           id?: string
+          installments_done?: number
+          installments_total?: number | null
           kind?: string
           name?: string
           next_on?: string

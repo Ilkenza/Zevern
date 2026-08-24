@@ -103,6 +103,34 @@ export function RecurringForm({
           defaultValue={item?.next_on ?? new Date().toISOString().slice(0, 10)}
         />
 
+        <div className="grid grid-cols-2 gap-2">
+          <Field
+            label="Number of payments"
+            name="installments_total"
+            inputMode="numeric"
+            defaultValue={item?.installments_total ? String(item.installments_total) : ""}
+            placeholder="Leave empty = forever"
+          />
+          <Field
+            label="Stop after"
+            name="ends_on"
+            type="date"
+            defaultValue={item?.ends_on ?? ""}
+          />
+        </div>
+        <p className="mb-3.25 -mt-2 text-[11.5px] text-muted">
+          For something paid off in instalments — 4 months of a phone, say. Whichever comes
+          first, the count or the date, pauses it. Leave both empty and it repeats until you
+          stop it.
+          {item && (item.installments_done ?? 0) > 0 && (
+            <>
+              {" "}
+              Booked so far: <span className="mono text-ink">{item.installments_done}</span>
+              {item.installments_total ? ` of ${item.installments_total}` : ""}.
+            </>
+          )}
+        </p>
+
         <Select
           label="Account"
           name="account_id"
