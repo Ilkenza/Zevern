@@ -23,6 +23,7 @@ export type RecurringPanel =
   | { mode: "edit"; item: MoneyRecurring }
   | null;
 
+
 function ItemRow({ item }: { item: RecurringRow }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -154,7 +155,11 @@ export function RecurringView({
               )
             }
           />
-          <Kpi label="Per year" value={formatRsd(totals.expense * 12)} />
+          <Kpi
+            label="Next 12 months"
+            value={formatRsd(totals.yearExpense)}
+            hint={`${totals.yearCount} ${totals.yearCount === 1 ? "payment" : "payments"} due by ${totals.yearHorizon}`}
+          />
           {totals.income > 0 && (
             <Kpi
               label="Net per month"

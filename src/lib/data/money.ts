@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { DEFAULT_RATES, monthKey, monthRange, toRsd, type Rates } from "@/lib/money";
+import { DEFAULT_RATES, monthKey, monthRange, nextDate, toRsd, type Rates } from "@/lib/money";
 import type {
   BudgetLine,
   GoalLine,
@@ -83,7 +83,7 @@ export async function getDueRecurring(): Promise<RecurringRow[]> {
 }
 
 export type RecurringTotals = {
-  /** Everything below is RSD per month. */
+  /** RSD in an average month — weekly and yearly items normalised. */
   expense: number;
   income: number;
   net: number;
@@ -91,15 +91,81 @@ export type RecurringTotals = {
   estimated: number;
   /** Variable items with no history yet — nothing to estimate from, so they are left out. */
   unknown: number;
+  /** RSD actually falling due in the next 12 months, occurrence by occurrence. */
+  yearExpense: number;
+  yearIncome: number;
+  yearCount: number;
+  /** The date that window closes on — computed server-side so the UI never disagrees. */
+  yearHorizon: string;
 };
 
 /** Weekly and yearly items normalised to a month so one number can be compared. */
 const PER_MONTH: Record<string, number> = { week: 52 / 12, month: 1, year: 1 / 12 };
 
+export type Occurrence = {
+  id: string;
+  name: string;
+  kind: string;
+  on: string;
+  /** RSD. */
+  amount: number;
+  /** True when the amount is the average of past bookings rather than a set figure. */
+  estimated: boolean;
+  category: string | null;
+  color: string | null;
+};
+
+/** Guard against a runaway walk if an item ever ends up with a nonsense date. */
+const MAX_STEPS = 400;
+
 /**
- * What the recurring list costs in an average month. Fixed items contribute their
- * amount; variable ones (struja) contribute the average of their last six bookings,
- * which is the only honest guess available.
+ * Every date a recurring item actually falls due between today and `days` ahead,
+ * respecting the instalments left and the end date. This is what makes a four-month
+ * credit count four times in a yearly total instead of twelve.
+ */
+export function occurrencesFor(
+  item: RecurringRow,
+  amount: number,
+  estimated: boolean,
+  horizon: string,
+): Occurrence[] {
+  if (!item.active) return [];
+
+  const left =
+    item.installments_total == null
+      ? Infinity
+      : Math.max(0, item.installments_total - (item.installments_done ?? 0));
+  if (left === 0) return [];
+
+  const out: Occurrence[] = [];
+  let on = item.next_on;
+
+  for (let step = 0; step < MAX_STEPS && out.length < left && on <= horizon; step++) {
+    if (item.ends_on != null && on > item.ends_on) break;
+    out.push({
+      id: item.id,
+      name: item.name,
+      kind: item.kind,
+      on,
+      amount,
+      estimated,
+      category: item.category?.name ?? null,
+      color: item.category?.color ?? null,
+    });
+    on = nextDate(on, item.every);
+  }
+
+  return out;
+}
+
+/**
+ * Two answers about the same list. The monthly figure is a run rate — weekly and
+ * yearly items spread evenly so one number can be compared month to month. The
+ * yearly figure is the opposite: the real dates walked one by one from today, so a
+ * four-instalment credit counts four times and an annual domain counts once.
+ *
+ * Fixed items contribute their amount; variable ones (struja) contribute the average
+ * of their last six bookings, which is the only honest guess available.
  */
 export async function getRecurringTotals(): Promise<RecurringTotals> {
   const supabase = await createClient();
@@ -127,6 +193,16 @@ export async function getRecurringTotals(): Promise<RecurringTotals> {
   let income = 0;
   let estimated = 0;
   let unknown = 0;
+  let yearExpense = 0;
+  let yearIncome = 0;
+  let yearCount = 0;
+
+  const now = new Date();
+  const horizon = new Date(
+    Date.UTC(now.getUTCFullYear() + 1, now.getUTCMonth(), now.getUTCDate()),
+  )
+    .toISOString()
+    .slice(0, 10);
 
   for (const item of items) {
     if (!item.active) continue;
@@ -134,7 +210,8 @@ export async function getRecurringTotals(): Promise<RecurringTotals> {
     if (item.ends_on != null && item.next_on > item.ends_on) continue;
 
     const factor = PER_MONTH[item.every] ?? 1;
-    let monthly: number;
+    let each: number;
+    let isEstimate = false;
 
     if (item.variable || !(Number(item.amount) > 0)) {
       const seen = past.get(item.id) ?? [];
@@ -143,16 +220,36 @@ export async function getRecurringTotals(): Promise<RecurringTotals> {
         continue;
       }
       estimated++;
-      monthly = (seen.reduce((sum, n) => sum + n, 0) / seen.length) * factor;
+      isEstimate = true;
+      each = seen.reduce((sum, n) => sum + n, 0) / seen.length;
     } else {
-      monthly = toRsd(Number(item.amount), item.currency, rates) * factor;
+      each = toRsd(Number(item.amount), item.currency, rates);
     }
 
+    const monthly = each * factor;
     if (item.kind === "income") income += monthly;
     else expense += monthly;
+
+    // The same item walked date by date — this is where a four-instalment credit
+    // stops pretending it runs all year.
+    const dates = occurrencesFor(item, each, isEstimate, horizon);
+    yearCount += dates.length;
+    const sum = each * dates.length;
+    if (item.kind === "income") yearIncome += sum;
+    else yearExpense += sum;
   }
 
-  return { expense, income, net: income - expense, estimated, unknown };
+  return {
+    expense,
+    income,
+    net: income - expense,
+    estimated,
+    unknown,
+    yearExpense,
+    yearIncome,
+    yearCount,
+    yearHorizon: horizon,
+  };
 }
 
 export type TxFilter = {
