@@ -632,6 +632,44 @@ export async function refreshRatesFromNbs(): Promise<MoneyState> {
   return { ok: true };
 }
 
+/* ------------------------------------------------------------------ colours */
+
+/** How many saved colours are worth keeping before the list stops being a shortlist. */
+const MAX_CUSTOM_COLORS = 16;
+
+/**
+ * Keep a colour the owner mixed on the wheel. Newest first, no duplicates, and the
+ * oldest fall off the end — a palette, not a history.
+ */
+export async function saveCustomColor(hex: string): Promise<MoneyState> {
+  const clean = hex.trim().toLowerCase();
+  if (!/^#[0-9a-f]{6}$/.test(clean)) return { error: "That is not a colour." };
+
+  const supabase = await createSupabaseServerClient();
+  const uid = await userId(supabase);
+  if (!uid) return { error: "Not signed in." };
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("custom_colors")
+    .eq("id", uid)
+    .maybeSingle();
+
+  const existing = ((profile?.custom_colors ?? []) as string[]).filter((c) => c !== clean);
+  const next = [clean, ...existing].slice(0, MAX_CUSTOM_COLORS);
+
+  const { error } = await supabase
+    .from("profiles")
+    .update({ custom_colors: next })
+    .eq("id", uid);
+  if (error) return { error: saveErrorMessage(error) };
+
+  refresh();
+  return { ok: true };
+}
+
+/* -------------------------------------------------------------------- rates */
+
 export async function saveRates(_prev: MoneyState, formData: FormData): Promise<MoneyState> {
   const eur = num(formData.get("rate_eur"));
   const usd = num(formData.get("rate_usd"));

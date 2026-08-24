@@ -123,7 +123,7 @@ export function Sidebar({
               type="submit"
               title="Sign out"
               aria-label="Sign out"
-              className="rounded-ctrl p-1.5 text-muted transition-colors hover:bg-white/[0.04] hover:text-danger"
+              className="cursor-pointer rounded-ctrl p-1.5 text-muted transition-colors hover:bg-white/[0.04] hover:text-danger"
             >
               <LogOut className="h-[16px] w-[16px]" />
             </button>

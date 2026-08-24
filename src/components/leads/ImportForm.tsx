@@ -140,7 +140,7 @@ export function ImportForm() {
         placeholder={
           "name,company,contact,channel,service,status,value,next_followup,notes\n…"
         }
-        className="mono w-full resize-y rounded-ctrl border border-line bg-white/[0.035] px-3 py-2.5 text-[12px] text-ink placeholder:text-faint focus:border-gold focus:outline-none"
+        className="mono w-full resize-y rounded-ctrl border border-line bg-white/[0.035] px-3 py-2.5 text-[12px] text-ink placeholder:text-faint focus:border-gold focus:shadow-ring focus:outline-none"
       />
 
       {error && (

@@ -101,7 +101,7 @@ export function QuickAdd({
           autoFocus
           required
           aria-label="Amount"
-          className="mono w-full rounded-ctrl border border-line bg-white/[0.035] px-4 py-4 text-center text-[34px] font-semibold text-ink placeholder:text-faint focus:border-gold focus:outline-none"
+          className="mono w-full rounded-ctrl border border-line bg-white/[0.035] px-4 py-4 text-center text-[34px] font-semibold text-ink placeholder:text-faint focus:border-gold focus:shadow-ring focus:outline-none"
         />
 
         <div className="mt-2 flex items-center justify-center gap-1">

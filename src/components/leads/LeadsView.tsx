@@ -190,7 +190,7 @@ export function LeadsView({
   });
 
   const selectClass =
-    "rounded-ctrl border border-line bg-white/[0.035] px-2.5 py-2 text-[12.5px] text-ink [color-scheme:dark] focus:border-gold focus:outline-none";
+    "rounded-ctrl border border-line bg-white/[0.035] px-2.5 py-2 text-[12.5px] text-ink [color-scheme:dark] focus:border-gold focus:shadow-ring focus:outline-none";
   const optClass = "bg-[#1A1D24] text-[#ECEEF2]";
 
   return (
@@ -214,7 +214,7 @@ export function LeadsView({
               type="search"
               placeholder="Search leads…"
               aria-label="Search leads"
-              className="w-full rounded-ctrl border border-line bg-white/[0.035] py-2 pl-9 pr-3 text-[13px] text-ink placeholder:text-faint focus:border-gold focus:outline-none"
+              className="w-full rounded-ctrl border border-line bg-white/[0.035] py-2 pl-9 pr-3 text-[13px] text-ink placeholder:text-faint focus:border-gold focus:shadow-ring focus:outline-none"
             />
           </div>
           <Link

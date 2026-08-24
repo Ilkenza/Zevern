@@ -93,7 +93,7 @@ export function BudgetsView({ month, lines }: { month: string; lines: BudgetLine
                         inputMode="numeric"
                         placeholder="—"
                         aria-label={`Monthly limit for ${line.category.name}`}
-                        className="w-24 rounded-ctrl border border-line bg-white/[0.035] px-2 py-1.5 text-right text-[12.5px] text-ink placeholder:text-faint focus:border-gold focus:outline-none"
+                        className="w-24 rounded-ctrl border border-line bg-white/[0.035] px-2 py-1.5 text-right text-[12.5px] text-ink placeholder:text-faint focus:border-gold focus:shadow-ring focus:outline-none"
                       />
                     </div>
                     {line.limit > 0 && (

@@ -163,9 +163,16 @@ export function nextDate(from: string, every: string): string {
 }
 
 /** Palette used for categories, goals and accounts. */
+/**
+ * The built-in palette, laid out as a warm-to-cool sweep so the picker reads as a
+ * spectrum rather than a bag of colours. Every value is muted to roughly the same
+ * lightness, which is what keeps a wall of category dots looking like one system
+ * instead of a highlighter set — the eye should find the shape, not the loudest hue.
+ */
 export const SWATCHES = [
-  "#d9a441", "#5fb88a", "#5b8fd6", "#de6b5e", "#a98bd6",
-  "#4fb3b8", "#d6885b", "#8a909e",
+  "#de6b5e", "#d6885b", "#d9a441", "#c2b24a", "#8fb85f", "#5fb88a",
+  "#4fb3b8", "#5b8fd6", "#7a86d6", "#a98bd6", "#c97fc0", "#d6759b",
+  "#b08968", "#8a909e", "#6b7185", "#c9c4bb",
 ];
 
 export const DEFAULT_CATEGORIES: { name: string; kind: "expense" | "income"; color: string }[] = [

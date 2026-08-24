@@ -1,4 +1,5 @@
 import { getAccounts, getGoalLines } from "@/lib/data/money";
+import { getProfile } from "@/lib/data/profile";
 import { GoalsView, type GoalsPanel } from "@/components/private/GoalsView";
 
 export default async function GoalsPage({
@@ -7,7 +8,11 @@ export default async function GoalsPage({
   searchParams: Promise<{ new?: string; edit?: string }>;
 }) {
   const params = await searchParams;
-  const [goals, accounts] = await Promise.all([getGoalLines(), getAccounts()]);
+  const [goals, accounts, profile] = await Promise.all([
+    getGoalLines(),
+    getAccounts(),
+    getProfile(),
+  ]);
 
   let panel: GoalsPanel = null;
   if (params.new) {
@@ -17,5 +22,12 @@ export default async function GoalsPage({
     if (goal) panel = { mode: "edit", goal };
   }
 
-  return <GoalsView goals={goals} accounts={accounts} panel={panel} />;
+  return (
+    <GoalsView
+      goals={goals}
+      accounts={accounts}
+      panel={panel}
+      customColors={profile?.custom_colors ?? []}
+    />
+  );
 }

@@ -50,7 +50,7 @@ export function InvoiceForm({
   const hasItems = items.length > 0;
   const clientOptions = clients.map((c) => ({ value: c.id, label: c.name }));
   const cellInput =
-    "rounded-ctrl border border-line bg-white/[0.035] px-2.5 py-1.5 text-[13px] text-ink focus:border-gold focus:outline-none";
+    "rounded-ctrl border border-line bg-white/[0.035] px-2.5 py-1.5 text-[13px] text-ink focus:border-gold focus:shadow-ring focus:outline-none";
 
   return (
     <div className="flex h-full flex-col">
@@ -139,7 +139,7 @@ export function InvoiceForm({
                     type="button"
                     onClick={() => remove(i)}
                     aria-label="Remove line"
-                    className="text-faint hover:text-danger"
+                    className="cursor-pointer text-faint transition-colors hover:text-danger"
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>

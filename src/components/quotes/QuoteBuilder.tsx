@@ -56,7 +56,7 @@ export function QuoteBuilder({
   const total = quoteTotal(items);
   const clientOptions = clients.map((c) => ({ value: c.id, label: c.name }));
   const cellInput =
-    "rounded-ctrl border border-line bg-white/[0.035] px-2.5 py-1.5 text-[13px] text-ink focus:border-gold focus:outline-none";
+    "rounded-ctrl border border-line bg-white/[0.035] px-2.5 py-1.5 text-[13px] text-ink focus:border-gold focus:shadow-ring focus:outline-none";
 
   return (
     <form action={formAction} className="mx-auto max-w-225 space-y-5">
@@ -140,7 +140,7 @@ export function QuoteBuilder({
                 type="button"
                 onClick={() => remove(i)}
                 aria-label="Remove line"
-                className="w-6 text-faint hover:text-danger"
+                className="w-6 cursor-pointer text-faint transition-colors hover:text-danger"
               >
                 <Trash2 className="h-4 w-4" />
               </button>
@@ -159,7 +159,7 @@ export function QuoteBuilder({
               }
             }}
             aria-label="Add from catalog"
-            className="rounded-ctrl border border-line bg-white/[0.035] px-2.5 py-2 text-[12.5px] text-ink scheme-dark focus:border-gold focus:outline-none"
+            className="rounded-ctrl border border-line bg-white/[0.035] px-2.5 py-2 text-[12.5px] text-ink scheme-dark focus:border-gold focus:shadow-ring focus:outline-none"
           >
             <option value="" className="bg-[#1A1D24] text-[#ECEEF2]">
               + Add from catalog ({currency})…

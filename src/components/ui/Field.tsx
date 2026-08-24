@@ -30,8 +30,8 @@ export function Field({
           "w-full rounded-ctrl border bg-white/[0.035] px-3 py-2.5 text-[13.5px] text-ink",
           "placeholder:text-faint focus:outline-none",
           error
-            ? "border-danger focus:shadow-[0_0_0_3px_var(--color-danger-bg)]"
-            : "border-line focus:border-gold focus:shadow-[0_0_0_3px_rgba(217,164,65,0.15)]",
+            ? "border-danger focus:shadow-ring-danger"
+            : "border-line focus:border-gold focus:shadow-ring",
         )}
         {...props}
       />

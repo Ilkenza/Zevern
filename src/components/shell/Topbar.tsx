@@ -72,7 +72,7 @@ export function Topbar({
           type="search"
           placeholder="Search…"
           aria-label="Search"
-          className="w-55 rounded-ctrl border border-line bg-white/[0.035] py-2 pl-9 pr-3 text-[13px] text-ink placeholder:text-faint focus:border-gold focus:outline-none"
+          className="w-55 rounded-ctrl border border-line bg-white/[0.035] py-2 pl-9 pr-3 text-[13px] text-ink placeholder:text-faint focus:border-gold focus:shadow-ring focus:outline-none"
         />
       </div>
 

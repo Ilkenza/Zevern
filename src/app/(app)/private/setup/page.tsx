@@ -16,6 +16,7 @@ export default async function PrivateSetupPage() {
       categories={categories}
       rates={rates}
       ratesUpdatedOn={profile?.rates_updated_on ?? null}
+      customColors={profile?.custom_colors ?? []}
     />
   );
 }

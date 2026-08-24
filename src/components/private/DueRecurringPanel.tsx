@@ -58,7 +58,7 @@ function DueRow({ item }: { item: RecurringRow }) {
         inputMode="decimal"
         placeholder={hasDefault ? "Different amount?" : `Amount ${item.currency}`}
         aria-label={`Amount for ${item.name}`}
-        className="w-36 rounded-ctrl border border-line bg-white/[0.035] px-3 py-1.5 text-[13px] text-ink placeholder:text-faint focus:border-gold focus:outline-none"
+        className="w-36 rounded-ctrl border border-line bg-white/[0.035] px-3 py-1.5 text-[13px] text-ink placeholder:text-faint focus:border-gold focus:shadow-ring focus:outline-none"
       />
       <button
         type="button"
