@@ -252,6 +252,120 @@ export async function getRecurringTotals(): Promise<RecurringTotals> {
   };
 }
 
+export type ForecastWindow = {
+  days: number;
+  expense: number;
+  income: number;
+  net: number;
+  count: number;
+};
+
+export type ForecastLine = Occurrence & {
+  /** What the accounts hold after this one is paid, starting from today's balance. */
+  balance: number;
+};
+
+export type Forecast = {
+  from: string;
+  startingBalance: number;
+  windows: ForecastWindow[];
+  lines: ForecastLine[];
+  estimated: number;
+  unknown: number;
+};
+
+/**
+ * What is coming and what it leaves behind. Every recurring item is walked date by
+ * date over the longest window, sorted into one timeline, and the account balance is
+ * carried down it — the point being to see the week where the credit, the electricity
+ * and the hosting all land together, before it happens rather than after.
+ */
+export async function getForecast(windows: number[] = [30, 60, 90]): Promise<Forecast> {
+  const supabase = await createClient();
+  const [items, rates, balances, { data: history }] = await Promise.all([
+    getRecurring(),
+    getRates(),
+    getAccountBalances(),
+    supabase
+      .from("money_transactions")
+      .select("recurring_id, amount_rsd, occurred_on")
+      .not("recurring_id", "is", null)
+      .order("occurred_on", { ascending: false }),
+  ]);
+
+  const past = new Map<string, number[]>();
+  for (const row of history ?? []) {
+    if (!row.recurring_id) continue;
+    const seen = past.get(row.recurring_id) ?? [];
+    if (seen.length < 6) {
+      seen.push(Number(row.amount_rsd) || 0);
+      past.set(row.recurring_id, seen);
+    }
+  }
+
+  const longest = Math.max(...windows);
+  const now = new Date();
+  const today = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+  const from = today.toISOString().slice(0, 10);
+  const horizonDate = new Date(today);
+  horizonDate.setUTCDate(horizonDate.getUTCDate() + longest);
+  const horizon = horizonDate.toISOString().slice(0, 10);
+
+  const dayOf = (iso: string) =>
+    Math.round((Date.parse(`${iso}T00:00:00Z`) - today.getTime()) / 86_400_000);
+
+  let estimated = 0;
+  let unknown = 0;
+  const all: Occurrence[] = [];
+
+  for (const item of items) {
+    if (!item.active) continue;
+
+    let each: number;
+    let isEstimate = false;
+
+    if (item.variable || !(Number(item.amount) > 0)) {
+      const seen = past.get(item.id) ?? [];
+      if (seen.length === 0) {
+        unknown++;
+        continue;
+      }
+      estimated++;
+      isEstimate = true;
+      each = seen.reduce((sum, n) => sum + n, 0) / seen.length;
+    } else {
+      each = toRsd(Number(item.amount), item.currency, rates);
+    }
+
+    all.push(...occurrencesFor(item, each, isEstimate, horizon));
+  }
+
+  all.sort((a, b) => (a.on < b.on ? -1 : a.on > b.on ? 1 : a.name.localeCompare(b.name)));
+
+  const startingBalance = balances.reduce((sum, a) => sum + a.balance, 0);
+  let running = startingBalance;
+  const lines: ForecastLine[] = all.map((o) => {
+    running += o.kind === "income" ? o.amount : -o.amount;
+    return { ...o, balance: running };
+  });
+
+  const totals = windows
+    .slice()
+    .sort((a, b) => a - b)
+    .map((days) => {
+      const inWindow = all.filter((o) => dayOf(o.on) <= days);
+      const expense = inWindow
+        .filter((o) => o.kind !== "income")
+        .reduce((sum, o) => sum + o.amount, 0);
+      const income = inWindow
+        .filter((o) => o.kind === "income")
+        .reduce((sum, o) => sum + o.amount, 0);
+      return { days, expense, income, net: income - expense, count: inWindow.length };
+    });
+
+  return { from, startingBalance, windows: totals, lines, estimated, unknown };
+}
+
 export type TxFilter = {
   month?: string;
   categoryId?: string;

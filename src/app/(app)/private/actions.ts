@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 import { getRates } from "@/lib/data/money";
+import { fetchNbsRates } from "@/lib/rates/nbs";
 import { CURRENCIES, DEFAULT_CATEGORIES, nextDate, rateFor, type Currency } from "@/lib/money";
 
 export type MoneyState = { ok?: boolean; error?: string } | undefined;
@@ -14,6 +15,7 @@ const PATHS = [
   "/private/budgets",
   "/private/goals",
   "/private/recurring",
+  "/private/forecast",
   "/private/setup",
   "/private/quick",
 ];
@@ -425,6 +427,37 @@ export async function postAllDueFixed(): Promise<MoneyState> {
 }
 
 /* ------------------------------------------------------------------- rates */
+
+/**
+ * Pull today's NBS middle rate instead of typing it. Past entries keep the rate they
+ * were saved with, so this only affects what gets converted from here on.
+ */
+export async function refreshRatesFromNbs(): Promise<MoneyState> {
+  const supabase = await createSupabaseServerClient();
+  const uid = await userId(supabase);
+  if (!uid) return { error: "Not signed in." };
+
+  let rates;
+  try {
+    rates = await fetchNbsRates();
+  } catch (cause) {
+    console.error("refreshRatesFromNbs:", cause);
+    return { error: "Could not reach the exchange rate service. The rates are unchanged." };
+  }
+
+  const { error } = await supabase
+    .from("profiles")
+    .update({
+      rate_eur: rates.eur.middle,
+      rate_usd: rates.usd.middle,
+      rates_updated_on: rates.eur.date || new Date().toISOString().slice(0, 10),
+    })
+    .eq("id", uid);
+  if (error) return { error: error.message };
+
+  refresh();
+  return { ok: true };
+}
 
 export async function saveRates(_prev: MoneyState, formData: FormData): Promise<MoneyState> {
   const eur = num(formData.get("rate_eur"));

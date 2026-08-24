@@ -1,12 +1,13 @@
 "use client";
 
-import { useActionState, useTransition } from "react";
+import { useActionState, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Trash2, Sparkles } from "lucide-react";
+import { Trash2, Sparkles, RefreshCw } from "lucide-react";
 import {
   saveAccount,
   saveCategory,
   saveRates,
+  refreshRatesFromNbs,
   seedDefaults,
   deleteAccount,
   deleteCategory,
@@ -162,7 +163,23 @@ function CategoryRow({ category, kind }: { category?: MoneyCategory; kind: "expe
 }
 
 function RatesPanel({ eur, usd, updatedOn }: { eur: number; usd: number; updatedOn: string | null }) {
+  const router = useRouter();
   const [state, formAction, pending] = useActionState<MoneyState, FormData>(saveRates, undefined);
+  const [fetching, startFetch] = useTransition();
+  const [fetchError, setFetchError] = useState<string | null>(null);
+
+  const today = new Date().toISOString().slice(0, 10);
+  const stale = !updatedOn || updatedOn < today;
+
+  const pull = () => {
+    setFetchError(null);
+    startFetch(async () => {
+      const result = await refreshRatesFromNbs();
+      if (result?.error) setFetchError(result.error);
+      else router.refresh();
+    });
+  };
+
   return (
     <form action={formAction} className="space-y-3 px-4 py-4">
       <p className="text-[13px] leading-relaxed text-muted">
@@ -189,13 +206,30 @@ function RatesPanel({ eur, usd, updatedOn }: { eur: number; usd: number; updated
             className={`${input} ml-2 w-28`}
           />
         </label>
-        <Button type="submit" variant="primary" disabled={pending}>
+        <Button type="submit" variant="primary" disabled={pending || fetching}>
           {pending ? "Saving…" : "Save rates"}
         </Button>
+        <button
+          type="button"
+          onClick={pull}
+          disabled={fetching || pending}
+          className={buttonClasses("secondary")}
+        >
+          <RefreshCw className={`h-4 w-4 ${fetching ? "animate-spin" : ""}`} />
+          {fetching ? "Fetching…" : "Today's NBS rate"}
+        </button>
       </div>
-      {updatedOn && <p className="mono text-[11.5px] text-faint">Last updated {updatedOn}</p>}
+      <p className="mono text-[11.5px] text-faint">
+        {updatedOn ? `Rate list of ${updatedOn}` : "Rates have never been updated"}
+        {stale && (
+          <span className="ml-2 text-draft">
+            — not today&apos;s, pull the NBS rate before you trust a total in dinars
+          </span>
+        )}
+      </p>
       {state?.ok && <p className="text-[12px] text-ok">Saved.</p>}
       {state?.error && <p className="text-[12px] text-danger">{state.error}</p>}
+      {fetchError && <p className="text-[12px] text-danger">{fetchError}</p>}
     </form>
   );
 }

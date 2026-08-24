@@ -12,6 +12,7 @@ import {
   Wallet,
   Target,
   Repeat,
+  CalendarClock,
   PiggyBank,
   SlidersHorizontal,
   type LucideIcon,
@@ -78,6 +79,7 @@ export const PRIVATE_NAV_ITEMS: NavItem[] = [
   { label: "Money", href: "/private/money", icon: Wallet },
   { label: "Budgets", href: "/private/budgets", icon: Target },
   { label: "Recurring", href: "/private/recurring", icon: Repeat },
+  { label: "Forecast", href: "/private/forecast", icon: CalendarClock },
   { label: "Goals", href: "/private/goals", icon: PiggyBank },
   { label: "Setup", href: "/private/setup", icon: SlidersHorizontal },
 ];
