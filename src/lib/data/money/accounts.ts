@@ -3,6 +3,7 @@
  * left to spend. Every screen that shows money leans on these three figures adding up.
  */
 
+import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { userId } from "@/lib/supabase/current-user";
 import { toRsd } from "@/lib/money";
@@ -37,7 +38,7 @@ export type OnHand = { total: number; reserved: number; free: number };
  * between the two accounts, so one of them can read as a small negative. The figures
  * for the accounts taken together are unaffected, and that is what the screens show.
  */
-export async function getAccountBalances(): Promise<AccountBalance[]> {
+export const getAccountBalances = cache(async (): Promise<AccountBalance[]> => {
   const supabase = await createClient();
   const uid = await userId(supabase);
   if (!uid) return [];
@@ -79,7 +80,7 @@ export async function getAccountBalances(): Promise<AccountBalance[]> {
     const reserved = claimed.get(a.id) ?? 0;
     return { ...a, balance, reserved, free: balance - reserved };
   });
-}
+});
 
 /**
  * The one sentence every screen has to agree on: this much money exists, this much of
@@ -91,10 +92,10 @@ export async function getAccountBalances(): Promise<AccountBalance[]> {
  * name an account; taking it from the goals means an older entry that never named one
  * still holds its money back instead of quietly becoming spendable.
  */
-export async function getOnHand(): Promise<OnHand> {
+export const getOnHand = cache(async (): Promise<OnHand> => {
   const [accounts, goals] = await Promise.all([getAccountBalances(), getGoalLines()]);
   const total = accounts.reduce((sum, a) => sum + a.balance, 0);
   const reserved = goals.filter(isGoalOpen).reduce((sum, g) => sum + g.saved, 0);
   return { total, reserved, free: total - reserved };
-}
+});
 

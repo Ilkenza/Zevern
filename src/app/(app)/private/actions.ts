@@ -39,6 +39,24 @@ function refresh() {
   for (const p of PATHS) revalidatePath(p);
 }
 
+/**
+ * A colour, or nothing.
+ *
+ * The pickers only ever send six hex digits, but a form field is whatever the person
+ * on the other end of it decides to send, and this value is written straight into a
+ * `style` attribute on every screen that draws the thing. Anything that is not a hex
+ * colour is not a colour.
+ */
+function hexColor(value: FormDataEntryValue | null): string | null {
+  const raw = String(value ?? "").trim().toLowerCase();
+  if (!raw) return null;
+  const hex = raw.startsWith("#") ? raw : `#${raw}`;
+  return /^#[0-9a-f]{6}$/.test(hex) ? hex : null;
+}
+
+/** Money nobody could have meant: negative, or past what a number can carry honestly. */
+const MAX_AMOUNT = 1_000_000_000;
+
 function num(value: FormDataEntryValue | null, fallback = 0): number {
   const n = Number(String(value ?? "").replace(",", "."));
   return Number.isFinite(n) ? n : fallback;
@@ -359,7 +377,7 @@ export async function saveAccount(_prev: MoneyState, formData: FormData): Promis
   const kind = String(formData.get("kind") ?? "bank");
   const currency = currencyOf(formData.get("currency"));
   const openingBalance = num(formData.get("opening_balance"));
-  const color = String(formData.get("color") ?? "").trim() || null;
+  const color = hexColor(formData.get("color"));
 
   if (!name) return { error: "Name is required." };
 
@@ -470,7 +488,7 @@ export async function saveCategory(_prev: MoneyState, formData: FormData): Promi
   const id = String(formData.get("id") ?? "").trim();
   const name = String(formData.get("name") ?? "").trim();
   const kind = String(formData.get("kind") ?? "expense") === "income" ? "income" : "expense";
-  const color = String(formData.get("color") ?? "").trim() || null;
+  const color = hexColor(formData.get("color"));
 
   if (!name) return { error: "Name is required." };
 
@@ -586,7 +604,12 @@ export async function saveGoal(_prev: MoneyState, formData: FormData): Promise<M
   const targetAmount = num(formData.get("target_amount"));
   const currency = currencyOf(formData.get("currency"));
   const targetDate = String(formData.get("target_date") ?? "").trim() || null;
-  const color = String(formData.get("color") ?? "").trim() || null;
+
+  // A target below zero is not a smaller goal, it is a broken one: every percentage on
+  // the card is `saved / target`, and a negative divisor turns progress inside out.
+  if (targetAmount < 0) return { error: "A target cannot be less than nothing." };
+  if (targetAmount > MAX_AMOUNT) return { error: "That target is larger than this can carry." };
+  const color = hexColor(formData.get("color"));
 
   if (!name) return { error: "Name is required." };
 
@@ -1006,7 +1029,7 @@ export async function moveGoal(id: string, direction: "up" | "down"): Promise<Mo
 
   const { data: goals, error: readErr } = await supabase
     .from("money_goals")
-    .select("id")
+    .select("id, sort")
     .eq("user_id", uid)
     .eq("archived", false)
     .is("completed_at", null)
@@ -1021,15 +1044,44 @@ export async function moveGoal(id: string, direction: "up" | "down"): Promise<Mo
   const to = direction === "up" ? from - 1 : from + 1;
   if (to < 0 || to >= order.length) return { ok: true }; // already at the end of the list
 
-  [order[from], order[to]] = [order[to], order[from]];
+  /*
+    Two rows change, so two rows are written.
 
-  for (const [i, goalId] of order.entries()) {
-    const { error } = await supabase
+    It used to renumber the whole list on every arrow press — N updates, one round trip
+    each, and no transaction around them: a network blip halfway through left the list
+    partly renumbered, which is a list in an order nobody chose. Swapping the pair's
+    positions is the same result with a fixed cost, and the worst a failed second write
+    can do is leave the order it already had.
+  */
+  const rows = goals ?? [];
+  const [a, b] = [rows[from], rows[to]];
+
+  // The two rows trade the `sort` values they already carry, so nothing else on the
+  // list has to move and no number it was using is reused. Ties — two goals both left
+  // at the default 0 — have no values to trade, so those fall back to their positions.
+  const [sortA, sortB] =
+    a.sort === b.sort ? [to, from] : [b.sort as number, a.sort as number];
+
+  const { error: firstErr } = await supabase
+    .from("money_goals")
+    .update({ sort: sortA })
+    .eq("id", a.id)
+    .eq("user_id", uid);
+  if (firstErr) return { error: saveErrorMessage(firstErr) };
+
+  const { error: secondErr } = await supabase
+    .from("money_goals")
+    .update({ sort: sortB })
+    .eq("id", b.id)
+    .eq("user_id", uid);
+  if (secondErr) {
+    // Put the first one back rather than leaving two goals claiming the same place.
+    await supabase
       .from("money_goals")
-      .update({ sort: i })
-      .eq("id", goalId)
+      .update({ sort: a.sort })
+      .eq("id", a.id)
       .eq("user_id", uid);
-    if (error) return { error: saveErrorMessage(error) };
+    return { error: saveErrorMessage(secondErr) };
   }
 
   refresh();

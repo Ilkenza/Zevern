@@ -46,6 +46,14 @@ export type Reading = {
   note: string;
   /** The phrase that follows the target date. Null when there is no date. */
   pace: string | null;
+  /*
+    What happens if nothing changes.
+
+    "Behind pace" is a verdict, and a verdict is easy to nod at and ignore. The same
+    fact said as an outcome — the date it actually lands on at this rate — is the one
+    people act on, because it names what is being lost rather than grading effort.
+  */
+  consequence: string | null;
 };
 
 /**
@@ -74,6 +82,7 @@ export function read(goal: GoalLine, today: string): Reading {
           ? `The full ${formatRsd(target)} is there, and ${formatRsd(over)} over`
           : `The full ${formatRsd(target)} is there`,
       pace: date ? "the date you aimed at" : null,
+      consequence: null,
     };
   }
 
@@ -84,6 +93,7 @@ export function read(goal: GoalLine, today: string): Reading {
       badge: null,
       note: "No target set — this only counts what goes in.",
       pace: date ? "no target amount to work towards" : null,
+      consequence: null,
     };
   }
 
@@ -92,7 +102,7 @@ export function read(goal: GoalLine, today: string): Reading {
   const note = `${formatRsd(left)} to go of ${formatRsd(target)}`;
 
   if (daysLeft === null) {
-    return { pct, done: false, badge: null, note, pace: null };
+    return { pct, done: false, badge: null, note, pace: null, consequence: null };
   }
 
   if (daysLeft < 0) {
@@ -103,6 +113,7 @@ export function read(goal: GoalLine, today: string): Reading {
       badge: { status: "danger", label: "Date passed" },
       note,
       pace: `${ago} ${ago === 1 ? "day" : "days"} ago`,
+      consequence: null,
     };
   }
 
@@ -113,6 +124,7 @@ export function read(goal: GoalLine, today: string): Reading {
       badge: { status: "active", label: "Due today" },
       note,
       pace: "today",
+      consequence: null,
     };
   }
 
@@ -125,13 +137,33 @@ export function read(goal: GoalLine, today: string): Reading {
         : `${daysLeft} ${daysLeft === 1 ? "day" : "days"} left`;
 
   const elapsed = daysBetween(goal.created_at, today);
-  const badge =
-    elapsed !== null && elapsed >= MIN_HISTORY_DAYS && saved > 0
-      ? saved / elapsed >= left / daysLeft
-        ? { status: "ok" as const, label: "On track" }
-        : { status: "active" as const, label: "Behind pace" }
+  const perDay = elapsed !== null && elapsed > 0 ? saved / elapsed : 0;
+  const enoughHistory = elapsed !== null && elapsed >= MIN_HISTORY_DAYS && saved > 0;
+  const onTrack = enoughHistory && perDay >= left / daysLeft;
+
+  const badge = enoughHistory
+    ? onTrack
+      ? { status: "ok" as const, label: "On track" }
+      : { status: "active" as const, label: "Behind pace" }
+    : null;
+
+  /*
+    How late, at the rate money has actually been going in. Only said when there is
+    enough history for the rate to mean anything and the answer is not absurd — a goal
+    creeping in at a hundred dinars a week does not need "lands in 2039" written on it,
+    because at that point the honest reading is that the date is the thing that is
+    wrong, not the pace.
+  */
+  const behindBy = enoughHistory && !onTrack && perDay > 0 ? Math.ceil(left / perDay) - daysLeft : 0;
+  const consequence =
+    behindBy > 0
+      ? behindBy > 400
+        ? "at this rate the date is out of reach — move it, or put more in"
+        : behindBy >= 60
+          ? `at this rate it lands about ${Math.round(behindBy / 30)} months late`
+          : `at this rate it lands about ${behindBy} ${behindBy === 1 ? "day" : "days"} late`
       : null;
 
-  return { pct, done: false, badge, note, pace };
+  return { pct, done: false, badge, note, pace, consequence };
 }
 

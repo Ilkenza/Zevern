@@ -2,6 +2,7 @@
  * Savings goals, and the movements that put money into them or take it back out.
  */
 
+import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { userId } from "@/lib/supabase/current-user";
 import type { GoalEntry, GoalLine, MoneyGoal } from "@/lib/types";
@@ -17,7 +18,7 @@ const GOAL_HISTORY_LIMIT = 30;
  * decision, and the Overview and the Goals page want different answers. The order is
  * the one the owner chose: `sort` first, `created_at` to break a tie.
  */
-export async function getGoalLines(): Promise<GoalLine[]> {
+export const getGoalLines = cache(async (): Promise<GoalLine[]> => {
   const supabase = await createClient();
   const uid = await userId(supabase);
   if (!uid) return [];
@@ -94,7 +95,7 @@ export async function getGoalLines(): Promise<GoalLine[]> {
       lastAccountId: lastAccount.get(g.id) ?? null,
     };
   });
-}
+});
 
 
 /**

@@ -7,6 +7,7 @@
  * it do the thinking; this one only fetches.
  */
 
+import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { userId } from "@/lib/supabase/current-user";
 import { DEFAULT_RATES, toRsd, type Rates } from "@/lib/money";
@@ -28,7 +29,7 @@ import type {
 export const TX_SELECT =
   "*, category:money_categories(name, color, kind), account:money_accounts!money_transactions_account_id_fkey(name, currency), goal:money_goals(name)";
 
-export async function getRates(): Promise<Rates> {
+export const getRates = cache(async (): Promise<Rates> => {
   const supabase = await createClient();
   const {
     data: { user },
@@ -43,9 +44,9 @@ export async function getRates(): Promise<Rates> {
     EUR: Number(data?.rate_eur ?? DEFAULT_RATES.EUR) || DEFAULT_RATES.EUR,
     USD: Number(data?.rate_usd ?? DEFAULT_RATES.USD) || DEFAULT_RATES.USD,
   };
-}
+});
 
-export async function getAccounts(includeArchived = false): Promise<MoneyAccount[]> {
+export const getAccounts = cache(async (includeArchived = false): Promise<MoneyAccount[]> => {
   const supabase = await createClient();
   const uid = await userId(supabase);
   if (!uid) return [];
@@ -61,9 +62,9 @@ export async function getAccounts(includeArchived = false): Promise<MoneyAccount
   if (!includeArchived) q = q.eq("archived", false);
   const { data } = await q;
   return data ?? [];
-}
+});
 
-export async function getCategories(includeArchived = false): Promise<MoneyCategory[]> {
+export const getCategories = cache(async (includeArchived = false): Promise<MoneyCategory[]> => {
   const supabase = await createClient();
   const uid = await userId(supabase);
   if (!uid) return [];
@@ -77,7 +78,7 @@ export async function getCategories(includeArchived = false): Promise<MoneyCateg
   if (!includeArchived) q = q.eq("archived", false);
   const { data } = await q;
   return data ?? [];
-}
+});
 
 export async function getBudgets(): Promise<MoneyBudget[]> {
   const supabase = await createClient();

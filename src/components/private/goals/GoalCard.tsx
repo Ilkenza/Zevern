@@ -165,6 +165,22 @@ export function GoalCard({
               aria-label={`${goal.name} progress`}
               className="goal-progress-track h-2 min-w-0 flex-1 overflow-hidden rounded-pill bg-white/6"
             >
+              {/*
+                Quarter marks.
+
+                Progress that only ever says a percentage gives you nothing to cross;
+                a bar with thresholds on it does, and crossing one is what carries
+                people through the long middle of a goal where deposits usually stop.
+                They are hairlines, not decorations — the bar still reads as one thing.
+              */}
+              {[25, 50, 75].map((mark) => (
+                <span
+                  key={mark}
+                  aria-hidden="true"
+                  className={cn("goal-milestone", shown >= mark && "is-passed")}
+                  style={{ left: `${mark}%` }}
+                />
+              ))}
               {/* A first deposit that rounds to nothing still deserves to be visible. */}
               <div
                 className="money-progress-fill h-full rounded-pill transition-[width] duration-700 motion-reduce:transition-none"
@@ -207,6 +223,26 @@ export function GoalCard({
             <span className="mono">{goal.target_date}</span> · {r.pace}
           </p>
         )}
+
+        {/*
+          What is already behind you, in the only two numbers that say it: how much has
+          gone in, and how many times you decided to put it there. Both were already
+          being computed and neither had ever been shown.
+        */}
+        {!r.done && goal.deposited > 0 && (
+          <p className="mt-1.5 text-[11.5px] text-muted">
+            <span className="mono text-ink">{formatRsd(goal.deposited)}</span> in across{" "}
+            {goal.movements} {goal.movements === 1 ? "move" : "moves"}
+            {goal.withdrawn > 0 && (
+              <span className="text-faint">
+                {" "}
+                · <span className="mono">{formatRsd(goal.withdrawn)}</span> taken back
+              </span>
+            )}
+          </p>
+        )}
+
+        {r.consequence && <p className="goal-consequence">{r.consequence}</p>}
       </div>
 
       <GoalHistory goal={goal} />
