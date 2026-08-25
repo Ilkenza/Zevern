@@ -88,7 +88,7 @@ function Row({ tx, month }: { tx: TransactionRow; month: string }) {
             href={`/private/money?month=${month}&edit=${tx.id}`}
             aria-label="Edit entry"
             title="Edit entry"
-            className="inline-flex rounded-ctrl p-1.5 text-faint transition-colors hover:bg-white/5 hover:text-ink"
+            className="zv-rowctrl"
           >
             <Pencil className="h-3.75 w-3.75" />
           </Link>

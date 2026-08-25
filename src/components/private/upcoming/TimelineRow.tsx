@@ -198,7 +198,7 @@ export function Row({ line, from }: { line: ForecastLine; from: string }) {
               href={planHref(line.id)}
               aria-label={`Edit ${line.name}`}
               title={`Edit ${line.name}`}
-              className="rounded-ctrl p-0.5 text-faint transition-colors hover:bg-white/5 hover:text-ink"
+              className="zv-rowctrl zv-rowctrl-sm"
             >
               <Pencil className="h-3.25 w-3.25" />
             </Link>

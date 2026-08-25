@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react";
 import { saveRecurring, deleteRecurring, type MoneyState } from "@/app/(app)/private/actions";
 import { Field } from "@/components/ui/Field";
+import { MoneyField } from "@/components/ui/MoneyField";
 import { Select } from "@/components/ui/Select";
 import { Button } from "@/components/ui/Button";
 import { DeleteButton } from "@/components/ui/DeleteButton";
@@ -94,11 +95,10 @@ export function RecurringForm({
 
         {(!variable || toGoal) && (
           <div className="grid grid-cols-[1fr_110px] gap-2">
-            <Field
+            <MoneyField
               label="Amount"
               name="amount"
-              inputMode="decimal"
-              defaultValue={item?.amount ? String(item.amount) : ""}
+              defaultValue={item?.amount ?? ""}
               placeholder="0"
             />
             <Select

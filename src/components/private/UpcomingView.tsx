@@ -82,7 +82,7 @@ function Tab({
 }
 
 type UpcomingViewProps = {
-  /** Every rule there is — the number beside the Rules tab. */
+  /** Every rule there is — the number beside the Repeats tab. */
   ruleCount: number;
   /** Rules and plans waiting to be dealt with — the number beside the Timeline tab. */
   dueCount: number;
@@ -145,7 +145,7 @@ export function UpcomingView(props: UpcomingViewProps) {
             {props.view === "timeline" && (
               <Link href={NEW_PLAN_HREF} className={buttonClasses("primary", "money-premium-button")}>
                 <Plus className="h-4 w-4" />
-                Plan a one-off
+                Plan a purchase
               </Link>
             )}
             <Link
@@ -178,7 +178,7 @@ export function UpcomingView(props: UpcomingViewProps) {
             href={RULES_HREF}
             current={props.view === "rules"}
             icon={Repeat}
-            label="Rules"
+            label="Repeats"
             count={props.ruleCount}
             countLabel="in total"
           />
@@ -216,7 +216,7 @@ export function UpcomingView(props: UpcomingViewProps) {
         <SlideOver
           open={plan !== null}
           onClose={closePlan}
-          title={plan?.mode === "edit" ? "Edit planned item" : "Plan a one-off"}
+          title={plan?.mode === "edit" ? "Edit planned item" : "Plan a purchase"}
         >
           <PlannedForm
             item={plan?.mode === "edit" ? plan.item : undefined}

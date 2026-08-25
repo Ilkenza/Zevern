@@ -3,6 +3,7 @@
 import { useActionState, useEffect, useState } from "react";
 import { saveTransaction, deleteTransaction, type MoneyState } from "@/app/(app)/private/actions";
 import { Field } from "@/components/ui/Field";
+import { MoneyField } from "@/components/ui/MoneyField";
 import { Select } from "@/components/ui/Select";
 import { Button } from "@/components/ui/Button";
 import { DeleteButton } from "@/components/ui/DeleteButton";
@@ -103,12 +104,11 @@ export function TransactionForm({
         </div>
 
         <div className="grid grid-cols-[1fr_110px] gap-2">
-          <Field
+          <MoneyField
             label="Amount"
             name="amount"
-            inputMode="decimal"
             value={amount}
-            onChange={(e) => setAmount(e.target.value)}
+            onValueChange={setAmount}
             placeholder="0"
             autoFocus
             required

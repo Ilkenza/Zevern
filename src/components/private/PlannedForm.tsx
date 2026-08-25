@@ -4,6 +4,7 @@ import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { savePlanned, removePlanned, type MoneyState } from "@/app/(app)/private/actions";
 import { Field } from "@/components/ui/Field";
+import { MoneyField } from "@/components/ui/MoneyField";
 import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/Textarea";
 import { Button } from "@/components/ui/Button";
@@ -75,11 +76,10 @@ export function PlannedForm({
         />
 
         <div className="grid grid-cols-[1fr_110px] gap-2">
-          <Field
+          <MoneyField
             label="Amount"
             name="amount"
-            inputMode="decimal"
-            defaultValue={item?.amount ? String(item.amount) : ""}
+            defaultValue={item?.amount ?? ""}
             placeholder="0"
             required
           />

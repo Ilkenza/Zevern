@@ -22,14 +22,14 @@ export function NothingDue({
       <EmptyState
         icon={CalendarClock}
         title="Nothing on the line yet"
-        description="Rent, hosting, a phone paid off in instalments — enter each one once. A dentist bill or an invoice you know is landing goes on as a one-off."
+        description="Rent, hosting, a phone paid off in instalments — enter each one once. Something you know you are buying next month, or a dentist bill you are expecting, goes on as a planned purchase."
         action={
           <div className="flex flex-wrap justify-center gap-2">
             <Link href={NEW_RULE_HREF} className={buttonClasses("primary", "money-premium-button")}>
               New recurring
             </Link>
             <Link href={NEW_PLAN_HREF} className={buttonClasses("secondary", "money-premium-button")}>
-              Plan a one-off
+              Plan a purchase
             </Link>
           </div>
         }
@@ -80,7 +80,7 @@ export function NothingDue({
               Open the rules
             </Link>
             <Link href={NEW_PLAN_HREF} className={buttonClasses("secondary", "money-premium-button")}>
-              Plan a one-off
+              Plan a purchase
             </Link>
           </div>
         }

@@ -91,7 +91,7 @@ export function DeleteButton({
           onClick={() => setOpen(true)}
           aria-label={label}
           title={label}
-          className="inline-flex cursor-pointer rounded-ctrl p-1.5 text-faint transition-colors hover:bg-white/5 hover:text-danger"
+          className="zv-rowctrl zv-rowctrl-danger"
         >
           <Trash2 className="h-3.75 w-3.75" />
         </button>

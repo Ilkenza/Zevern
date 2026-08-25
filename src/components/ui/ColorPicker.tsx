@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, useTransition } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import { Check, Pipette, Plus } from "lucide-react";
+import { Check, Pipette, Plus, X } from "lucide-react";
 import { saveCustomColor } from "@/app/(app)/private/actions";
 import { SWATCHES } from "@/lib/money";
 import { cn } from "@/lib/utils";
@@ -41,15 +42,59 @@ export function ColorPicker({
   const [typed, setTyped] = useState(selected);
   const [pending, startTransition] = useTransition();
   const wheel = useRef<HTMLInputElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
   const popover = useRef<HTMLDivElement>(null);
   const panelId = useId();
+  const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null);
+
+  /*
+    The panel is rendered into the body rather than next to its button.
+
+    Every form that uses this picker lives inside a SlideOver whose body scrolls, and
+    a scrolling box clips on both axes — so an absolutely positioned panel had its
+    left column of swatches cut off by the panel edge with no way to reach them. Out
+    in the body it is clipped by nothing, and it is placed by hand against the
+    trigger: under it when there is room, above it when there is not, and always
+    inside the viewport.
+  */
+  const place = useCallback(() => {
+    const anchor = trigger.current;
+    if (!anchor) return;
+    const rect = anchor.getBoundingClientRect();
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const width = Math.min(248, vw - 24);
+    const height = popover.current?.offsetHeight ?? 300;
+    const below = rect.bottom + 8;
+    const top = below + height > vh - 12 ? Math.max(12, rect.top - height - 8) : below;
+    const left = Math.min(Math.max(12, rect.left), Math.max(12, vw - width - 12));
+    setPos({ top, left, width });
+  }, []);
+
+  // Before paint, so the panel never shows up at the last place it was opened from.
+  useLayoutEffect(() => {
+    if (open) place();
+  }, [open, place]);
+
+  useEffect(() => {
+    if (!open) return;
+    const replace = () => place();
+    window.addEventListener("resize", replace);
+    window.addEventListener("scroll", replace, true);
+    return () => {
+      window.removeEventListener("resize", replace);
+      window.removeEventListener("scroll", replace, true);
+    };
+  }, [open, place]);
 
   // The picker is a popover, so it closes the way every popover should: click away,
   // or press Escape.
   useEffect(() => {
     if (!open) return;
     const onDown = (e: MouseEvent) => {
-      if (!popover.current?.contains(e.target as Node)) setOpen(false);
+      const target = e.target as Node;
+      if (popover.current?.contains(target) || trigger.current?.contains(target)) return;
+      setOpen(false);
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setOpen(false);
@@ -77,11 +122,12 @@ export function ColorPicker({
     });
 
   return (
-    <div className="relative" ref={popover}>
+    <div>
       <input type="hidden" name={name} value={selected} />
 
       <button
         type="button"
+        ref={trigger}
         onClick={() => setOpen((v) => !v)}
         aria-label={`${label}: ${selected}`}
         aria-expanded={open}
@@ -96,18 +142,38 @@ export function ColorPicker({
         <span className="mono text-[11px] uppercase text-muted">{selected.slice(1)}</span>
       </button>
 
-      {open && (
-        <div
-          id={panelId}
-          /*
-            `right-0` hangs the panel off the trigger's right edge, so a 248px panel
-            opened from a control near the left of a phone starts at a negative x and
-            half the swatches are unreachable. Anchoring left on narrow screens and
-            capping the width to the viewport keeps it on screen at any size.
-          */
-          className="absolute left-0 z-40 mt-2 w-[min(15.5rem,calc(100vw-2rem))] rounded-card border border-line bg-surface p-3 shadow-2xl min-[420px]:left-auto min-[420px]:right-0"
-        >
-          <Group title="Palette">
+      {open &&
+        createPortal(
+          <div
+            id={panelId}
+            ref={popover}
+            role="dialog"
+            aria-label={label}
+            style={{
+              top: pos?.top ?? -9999,
+              left: pos?.left ?? -9999,
+              width: pos?.width ?? 248,
+              opacity: pos ? 1 : 0,
+            }}
+            className="zv-menu fixed z-110 rounded-card border border-line bg-surface p-3 shadow-2xl"
+          >
+            {/* Clicking away closed it, but nothing on screen said so. */}
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <span className="text-[10.5px] font-semibold uppercase tracking-wider text-faint">
+                {label}
+              </span>
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                aria-label="Close the colour picker"
+                title="Close"
+                className="zv-rowctrl zv-rowctrl-sm"
+              >
+                <X className="h-3.5 w-3.5" strokeWidth={2.25} />
+              </button>
+            </div>
+
+            <Group title="Palette">
             {SWATCHES.map((hex) => (
               <Dot key={hex} hex={hex} selected={selected === hex} onPick={pick} />
             ))}
@@ -181,8 +247,9 @@ export function ColorPicker({
               </button>
             </div>
           </div>
-        </div>
-      )}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

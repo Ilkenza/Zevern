@@ -8,6 +8,7 @@ import { Panel } from "@/components/ui/Panel";
 import { Button, buttonClasses } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { formatAmount } from "@/lib/money";
+import { MoneyField } from "@/components/ui/MoneyField";
 import { cn } from "@/lib/utils";
 import type { PlannedRow } from "@/lib/types";
 import { daysBetween, whenLabel } from "./upcoming";
@@ -69,12 +70,12 @@ function DueRow({ item, today }: { item: PlannedRow; today: string }) {
           </div>
         </div>
 
-        <input
+        <MoneyField
+          className="contents"
           name="amount"
-          inputMode="decimal"
           placeholder={`Different amount? ${item.currency}`}
           aria-label={`What ${item.name} actually came to`}
-          className={cn(field, "w-40")}
+          inputClassName={cn(field, "w-40")}
         />
         <input
           name="occurred_on"

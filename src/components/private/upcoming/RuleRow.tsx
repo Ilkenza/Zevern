@@ -35,7 +35,7 @@ export function RuleRow({ item, rates, today }: { item: RecurringRow; rates: Rat
         disabled={pending}
         aria-label={item.active ? `Pause ${item.name}` : `Resume ${item.name}`}
         title={item.active ? "Pause — stop booking this one" : "Resume"}
-        className="inline-flex rounded-ctrl p-1.5 text-faint transition-colors hover:bg-white/5 hover:text-ink disabled:opacity-50"
+        className="zv-rowctrl"
       >
         {item.active ? <Pause className="h-3.75 w-3.75" /> : <Play className="h-3.75 w-3.75" />}
       </button>
@@ -43,7 +43,7 @@ export function RuleRow({ item, rates, today }: { item: RecurringRow; rates: Rat
         href={`${RULES_HREF}&edit=${item.id}`}
         aria-label={`Edit ${item.name}`}
         title="Edit"
-        className="inline-flex rounded-ctrl p-1.5 text-faint transition-colors hover:bg-white/5 hover:text-ink"
+        className="zv-rowctrl"
       >
         <Pencil className="h-3.75 w-3.75" />
       </Link>

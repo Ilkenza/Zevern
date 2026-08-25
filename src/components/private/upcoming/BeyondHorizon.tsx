@@ -44,7 +44,7 @@ export function BeyondHorizon({ items, horizon }: { items: PlannedRow[]; horizon
             href={planHref(item.id)}
             aria-label={`Edit ${item.name}`}
             title={`Edit ${item.name}`}
-            className="shrink-0 rounded-ctrl p-1.5 text-faint transition-colors hover:bg-white/5 hover:text-ink"
+            className="zv-rowctrl"
           >
             <Pencil className="h-3.75 w-3.75" />
           </Link>

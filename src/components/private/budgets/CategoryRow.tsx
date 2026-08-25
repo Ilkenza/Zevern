@@ -2,6 +2,7 @@
 
 import { Wand2 } from "lucide-react";
 import { formatRsd } from "@/lib/money";
+import { MoneyField } from "@/components/ui/MoneyField";
 import { cn } from "@/lib/utils";
 import type { BudgetLine } from "@/lib/types";
 import { STATUS_LABEL, STATUS_TONE, clean, shouldSuggest, statusOf } from "./status";
@@ -67,14 +68,14 @@ export function CategoryRow({
           <span className="mono budget-card-spent">{formatRsd(line.spent)}</span>
           <span className="budget-card-of">of</span>
           <span className="budget-card-field">
-            <input
+            <MoneyField
+              className="contents"
               name={`limit_${line.category.id}`}
               value={value}
-              onChange={(e) => onChange(clean(e.target.value))}
-              inputMode="numeric"
+              onValueChange={(next) => onChange(clean(next))}
               placeholder="no limit"
               aria-label={`Monthly limit for ${line.category.name}`}
-              className="mono budget-card-input"
+              inputClassName="mono budget-card-input"
             />
             <span aria-hidden="true" className="budget-card-unit">
               RSD

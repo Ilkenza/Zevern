@@ -6,6 +6,7 @@ import { Repeat } from "lucide-react";
 import { postRecurring, skipRecurring, postAllDueFixed } from "@/app/(app)/private/actions";
 import { Panel } from "@/components/ui/Panel";
 import { buttonClasses } from "@/components/ui/Button";
+import { MoneyField } from "@/components/ui/MoneyField";
 import { formatAmount } from "@/lib/money";
 import type { RecurringRow } from "@/lib/types";
 
@@ -58,13 +59,14 @@ function DueRow({ item }: { item: RecurringRow }) {
             : "amount changes"}
         </div>
       </div>
-      <input
+      <MoneyField
+        className="contents"
+        name="amount"
         value={amount}
-        onChange={(e) => setAmount(e.target.value)}
-        inputMode="decimal"
+        onValueChange={setAmount}
         placeholder={hasDefault ? "Different amount?" : `Amount ${item.currency}`}
         aria-label={`Amount for ${item.name}`}
-        className="w-36 rounded-ctrl border border-line bg-white/[0.035] px-3 py-1.5 text-[13px] text-ink placeholder:text-faint focus:border-gold focus:shadow-ring focus:outline-none"
+        inputClassName="w-36 rounded-ctrl border border-line bg-white/[0.035] px-3 py-1.5 text-[13px] text-ink placeholder:text-faint focus:border-gold focus:shadow-ring focus:outline-none"
       />
       <button
         type="button"
