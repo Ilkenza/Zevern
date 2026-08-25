@@ -3820,57 +3820,69 @@ body > * { min-width: 0; }
 /* ============================================================== The mark
    What a logo is allowed to do when you point at it.
 
-   Not tilt. A mark is the one shape in a product that has to be the same shape
-   every time it is seen — skewing it says "toy", and it says it about the brand
-   rather than about the button. What reads as expensive is the light changing,
-   not the geometry: the tile warms, a glow comes up under it, and the whole
-   thing rises a hair. The letter never moves relative to its own box.
+   Not tilt, and not move. A mark is the one shape in a product that has to be
+   the same shape in the same place every time it is seen — skew it and it says
+   "toy", shift it and the eye reads a wobble rather than a response. Everything
+   here happens in light: the surface has a lit top edge and a shaded bottom one
+   the way a real key does, and on hover the metal warms, the bloom behind it
+   opens, and a single pass of light crosses the face. Nothing occupies a
+   different pixel than it did a moment ago.
    ====================================================================== */
 
 .zv-mark {
   position: relative;
+  overflow: hidden;
+  /*
+    A lit top edge, a shaded bottom one, and a tight shadow underneath. That trio is
+    what makes a flat rectangle read as a physical key rather than a coloured box, and
+    it is doing the work before any pointer arrives.
+  */
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.32),
+    inset 0 -1px 0 rgba(88, 56, 10, 0.28),
+    0 1px 2px rgba(0, 0, 0, 0.35);
   transition:
-    transform 420ms var(--ease-premium),
-    box-shadow 420ms ease,
-    filter 320ms ease;
+    box-shadow 460ms var(--ease-premium),
+    filter 360ms ease;
 }
 
 .zv-brand:hover .zv-mark {
-  transform: translateY(-1px);
-  filter: brightness(1.06) saturate(1.05);
+  filter: brightness(1.05) saturate(1.04);
   box-shadow:
-    0 6px 18px rgba(217, 164, 65, 0.28),
-    0 0 0 3px rgba(217, 164, 65, 0.1);
+    inset 0 1px 0 rgba(255, 255, 255, 0.46),
+    inset 0 -1px 0 rgba(88, 56, 10, 0.3),
+    0 2px 6px rgba(0, 0, 0, 0.32),
+    0 0 0 4px rgba(217, 164, 65, 0.12),
+    0 0 24px rgba(217, 164, 65, 0.34);
 }
 
-/* A single pass of light across the tile — once, on the way in. */
+/* One pass of light across the face, on the way in. */
 .zv-mark::after {
   content: "";
   position: absolute;
   inset: 0;
-  overflow: hidden;
-  border-radius: inherit;
-  background: linear-gradient(105deg, transparent 38%, rgba(255, 255, 255, 0.5) 50%, transparent 62%);
+  background: linear-gradient(105deg, transparent 38%, rgba(255, 255, 255, 0.55) 50%, transparent 62%);
   opacity: 0;
-  transform: translateX(-120%);
+  transform: translateX(-130%);
   pointer-events: none;
 }
 
 .zv-brand:hover .zv-mark::after {
-  animation: zv-mark-sheen 720ms var(--ease-premium);
+  animation: zv-mark-sheen 760ms var(--ease-premium);
 }
 
 @keyframes zv-mark-sheen {
-  from { opacity: 0; transform: translateX(-120%); }
+  from { opacity: 0; transform: translateX(-130%); }
   35% { opacity: 1; }
-  to { opacity: 0; transform: translateX(120%); }
+  to { opacity: 0; transform: translateX(130%); }
 }
 
-.zv-brand .font-display { transition: color 320ms ease; }
+/* The wordmark comes up with it, by a shade, so the two read as one control. */
+.zv-brand span { transition: text-shadow 400ms ease; }
+.zv-brand:hover span { text-shadow: 0 0 20px rgba(217, 164, 65, 0.16); }
 
 @media (prefers-reduced-motion: reduce) {
-  .zv-mark,
-  .zv-brand:hover .zv-mark { transition: none; transform: none; }
+  .zv-mark { transition: none; }
   .zv-brand:hover .zv-mark::after { animation: none; }
 }
 
