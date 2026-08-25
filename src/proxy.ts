@@ -20,6 +20,7 @@ const PUBLIC_ROUTES = [
   "/robots.txt",
   "/sitemap.xml",
   "/opengraph-image",
+  "/setup-preview",
 ];
 
 /**

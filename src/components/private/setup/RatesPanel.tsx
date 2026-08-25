@@ -4,8 +4,6 @@ import { useActionState, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { RefreshCw } from "lucide-react";
 import { refreshRatesFromNbs, saveRates, type MoneyState } from "@/app/(app)/private/actions";
-import { Panel } from "@/components/ui/Panel";
-import { Badge } from "@/components/ui/Badge";
 import { Button, buttonClasses } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
 import { SwapLabel, caps } from "./kit";
@@ -59,15 +57,7 @@ export function RatesPanel({ eur, usd, updatedOn }: { eur: number; usd: number; 
   };
 
   return (
-    <Panel
-      className="setup-panel setup-rates-panel"
-      title="Exchange rates"
-      action={
-        <Badge status={stale ? "draft" : "ok"}>
-          {!updatedOn ? "Never pulled" : stale ? "Not today's" : "Today's rate"}
-        </Badge>
-      }
-    >
+    <div>
       <form action={formAction} className="px-4 py-4">
         <div className="grid gap-2.5 min-[420px]:grid-cols-2">
           <RateTile code="EUR" name="rate_eur" value={eur} />
@@ -109,8 +99,24 @@ export function RatesPanel({ eur, usd, updatedOn }: { eur: number; usd: number; 
           update them here.
         </p>
       </form>
-    </Panel>
+    </div>
   );
+}
+
+/**
+ * The badge for the section heading.
+ *
+ * It lives here rather than in the page because the rule behind it — "not today's" —
+ * belongs to the thing being described, and a second copy of that comparison somewhere
+ * else is how the badge and the panel start disagreeing about the same date.
+ */
+export function ratesBadge(updatedOn: string | null) {
+  const today = new Date().toISOString().slice(0, 10);
+  const stale = !updatedOn || updatedOn < today;
+  return {
+    status: (stale ? "draft" : "ok") as "draft" | "ok",
+    label: !updatedOn ? "Never pulled" : stale ? "Not today's" : "Today's rate",
+  };
 }
 
 /* ------------------------------------------------------- the calendar feed */

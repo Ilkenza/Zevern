@@ -3,8 +3,6 @@
 import { useState, useTransition } from "react";
 import { CalendarClock, Check, Copy, RefreshCw } from "lucide-react";
 import { generateCalendarToken } from "@/app/(app)/private/calendar-actions";
-import { Panel } from "@/components/ui/Panel";
-import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
 import { SwapLabel, caps } from "./kit";
@@ -79,11 +77,7 @@ export function CalendarPanel({ origin, token: saved }: { origin: string; token:
   };
 
   return (
-    <Panel
-      title="Calendar reminders"
-      action={<Badge status={token ? "ok" : "draft"}>{token ? "Address live" : "Not set up"}</Badge>}
-    >
-      <div className="space-y-4 px-4 py-4">
+    <div className="space-y-4 px-4 py-4">
         <p className="text-[12.5px] leading-relaxed text-muted">
           Nothing here reaches you unless you open the app. Subscribe your phone&apos;s calendar
           to the address below and every rule and planned one-off falling due in the next{" "}
@@ -216,8 +210,15 @@ export function CalendarPanel({ origin, token: saved }: { origin: string; token:
         )}
 
         {error && <p className="text-[12px] text-danger">{error}</p>}
-      </div>
-    </Panel>
+    </div>
   );
+}
+
+/** The badge for the section heading — see the note on `ratesBadge`. */
+export function calendarBadge(token: string | null) {
+  return {
+    status: (token ? "ok" : "draft") as "ok" | "draft",
+    label: token ? "Address live" : "Not set up",
+  };
 }
 

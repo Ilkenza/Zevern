@@ -2224,59 +2224,340 @@ body {
   .task-done-summary i { transition: none; }
 }
 
-/* Setup — premium control room for the financial model. */
+/* ======================================================================= Setup
+   The model on the left, the sections on the right.
+
+   It was five identical panels stacked in a column: everything looked equally
+   important, nothing said what was missing, and a half-built model was indistinguish-
+   able from a finished one. The left column answers both — how far through you are,
+   and where each part of it lives — and it stays put while the sections scroll.
+   ========================================================================== */
+
 .setup-page-head {
-  min-height: 138px;
+  margin-bottom: 1.5rem;
 }
 
-.setup-head-stats {
+.setup-layout {
   display: grid;
-  grid-template-columns: repeat(3, auto);
-  align-items: stretch;
+  gap: 1rem;
+}
+
+@media (min-width: 1024px) {
+  .setup-layout {
+    grid-template-columns: minmax(0, 19rem) minmax(0, 1fr);
+    align-items: start;
+    gap: 1.25rem;
+  }
+}
+
+.setup-sections {
+  min-width: 0;
+  display: grid;
+  gap: 1rem;
+}
+
+/* --------------------------------------------------------- Setup: foundation */
+
+.setup-foundation {
+  position: relative;
   overflow: hidden;
+  padding: 1.15rem 1.1rem 1rem;
   border: 1px solid var(--color-line);
   border-radius: var(--radius-card);
-  background: rgba(255, 255, 255, 0.018);
-  box-shadow: 0 18px 46px rgba(0, 0, 0, 0.14);
+  background: var(--color-surface);
+  animation: money-card-in 620ms var(--ease-premium) 60ms both;
 }
 
-.setup-head-stats > span {
-  min-width: 92px;
-  padding: 11px 14px;
-  border-right: 1px solid var(--color-line-soft);
+.setup-foundation::before {
+  content: "";
+  position: absolute;
+  top: -40%;
+  right: -20%;
+  width: 16rem;
+  height: 16rem;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--color-gold) 11%, transparent),
+    transparent 62%
+  );
+  pointer-events: none;
 }
 
-.setup-head-stats > span:last-child {
-  min-width: 134px;
-  border-right: 0;
+.setup-foundation > * { position: relative; }
+
+@media (min-width: 1024px) {
+  /* Clear of the topbar, which is sticky at the same time. */
+  .setup-foundation { position: sticky; top: 5.25rem; }
 }
 
-.setup-head-stats small {
-  display: block;
-  color: var(--color-faint);
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.13em;
-  text-transform: uppercase;
-}
+.setup-foundation-head { min-width: 0; }
 
-.setup-head-stats b {
-  display: block;
-  margin-top: 5px;
+.setup-foundation-figure {
+  margin-top: 0.5rem;
+  font-family: var(--font-display);
+  font-size: 25px;
+  font-weight: 800;
+  letter-spacing: -0.9px;
   color: var(--color-ink);
+}
+
+.setup-foundation-figure b {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  color: var(--color-gold);
+}
+
+.setup-foundation-note {
+  margin-top: 0.2rem;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--color-muted);
+}
+
+/* One segment per required step. Discrete, because these are done or they are not. */
+.setup-progress {
+  display: flex;
+  gap: 4px;
+  margin-top: 0.9rem;
+}
+
+.setup-progress-seg {
+  flex: 1;
+  height: 4px;
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.07);
+  transform-origin: left;
+  transition: background-color 320ms var(--ease-premium);
+}
+
+.setup-progress-seg.is-done {
+  background: var(--color-gold);
+  animation: setup-seg-in 520ms var(--ease-premium) both;
+}
+
+.setup-progress-seg.is-done:nth-child(1) { animation-delay: 260ms; }
+.setup-progress-seg.is-done:nth-child(2) { animation-delay: 360ms; }
+.setup-progress-seg.is-done:nth-child(3) { animation-delay: 460ms; }
+
+@keyframes setup-seg-in {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+/* ------------------------------------------------------------- Setup: index */
+
+.setup-steps {
+  display: grid;
+  gap: 1px;
+  margin-top: 1rem;
+  padding-top: 0.65rem;
+  border-top: 1px solid var(--color-line-soft);
+}
+
+.setup-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.5rem 0.55rem;
+  border-radius: var(--radius-ctrl);
+  transition:
+    background-color 200ms ease,
+    transform 240ms var(--ease-premium);
+}
+
+.setup-step:hover {
+  background: rgba(255, 255, 255, 0.03);
+  transform: translate3d(2px, 0, 0);
+}
+
+/* Where you are, not what you have done — so it reads over the tick, not instead. */
+.setup-step[aria-current="true"] {
+  background: var(--color-active-bg);
+}
+
+.setup-step[aria-current="true"] .setup-step-label { color: var(--color-ink); }
+
+.setup-step-mark {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 17px;
+  height: 17px;
+  margin-top: 1px;
+  border-radius: 50%;
+  border: 1px solid var(--color-line);
+  color: var(--color-on-gold);
+  transition: background-color 240ms ease, border-color 240ms ease;
+}
+
+.setup-step-mark i {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--color-faint);
+}
+
+.setup-step.is-done .setup-step-mark {
+  background: var(--color-gold);
+  border-color: var(--color-gold);
+}
+
+.setup-step-body { min-width: 0; flex: 1; }
+
+.setup-step-label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--color-muted);
+}
+
+.setup-step.is-done .setup-step-label { color: var(--color-ink); }
+
+.setup-step-label em {
+  font-style: normal;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-faint);
+}
+
+/* What is missing, said once and only while it is missing. */
+.setup-step-todo {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--color-faint);
+}
+
+.setup-step-count {
+  flex: none;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--color-faint);
+}
+
+.setup-foundation-total {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 0.9rem;
+  padding-top: 0.7rem;
+  border-top: 1px solid var(--color-line-soft);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-muted);
+}
+
+.setup-foundation-total .mono {
   font-size: 14px;
-  font-weight: 650;
+  color: var(--color-ink);
+}
+
+/* ---------------------------------------------------------- Setup: a section */
+
+.setup-section {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.085);
+  border-radius: var(--radius-card);
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.022), transparent 42%),
+    var(--color-surface);
+  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.14);
+  animation: money-card-in 600ms var(--ease-premium) both;
+  transition: border-color 260ms ease, box-shadow 260ms ease;
+  /* The anchor lands below the sticky topbar rather than under it. */
+  scroll-margin-top: 5.5rem;
+}
+
+.setup-sections > .setup-section:nth-child(1) { animation-delay: 120ms; }
+.setup-sections > .setup-section:nth-child(2) { animation-delay: 190ms; }
+.setup-sections > .setup-section:nth-child(3) { animation-delay: 260ms; }
+.setup-sections > .setup-section:nth-child(4) { animation-delay: 330ms; }
+.setup-sections > .setup-section:nth-child(5) { animation-delay: 400ms; }
+
+.setup-section:hover {
+  border-color: color-mix(in srgb, var(--color-gold) 20%, rgba(255, 255, 255, 0.085));
+}
+
+/* A category picker has to be able to escape its section. */
+.setup-section.overflow-visible { overflow: visible; }
+
+.setup-section-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7rem;
+  padding: 0.9rem 1rem;
+  border-bottom: 1px solid var(--color-line-soft);
+}
+
+.setup-section-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-ctrl);
+  border: 1px solid color-mix(in srgb, var(--color-gold) 22%, transparent);
+  background: var(--color-active-bg);
+  color: var(--color-gold);
+  transition: transform 320ms var(--ease-premium), background-color 240ms ease;
+}
+
+.setup-section:hover .setup-section-icon {
+  transform: rotate(-6deg) scale(1.06);
+}
+
+.setup-section-title {
+  font-family: var(--font-display);
+  font-size: 14.5px;
+  font-weight: 800;
+  letter-spacing: -0.3px;
+  color: var(--color-ink);
+}
+
+.setup-section-lede {
+  margin-top: 0.15rem;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--color-muted);
+}
+
+.setup-section-meta {
+  flex: none;
+  margin-top: 0.15rem;
   white-space: nowrap;
 }
 
+.setup-section-body { min-width: 0; }
+
+/* ------------------------------------------------------- Setup: the seed card */
+
 .setup-seed-card {
   position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
   overflow: hidden;
+  margin-bottom: 1rem;
+  padding: 1.1rem 1.15rem;
+  border: 1px solid color-mix(in srgb, var(--color-gold) 25%, transparent);
+  border-radius: var(--radius-card);
   background:
     radial-gradient(circle at 92% 0%, rgba(217, 164, 65, 0.16), transparent 35%),
     var(--color-active-bg);
   box-shadow: 0 20px 54px rgba(0, 0, 0, 0.14);
   animation: money-card-in 620ms var(--ease-premium) 100ms both;
+}
+
+@media (min-width: 560px) {
+  .setup-seed-card { flex-direction: row; align-items: center; justify-content: space-between; }
 }
 
 .setup-seed-card::before {
@@ -2291,34 +2572,14 @@ body {
 
 .setup-seed-card:hover::before { transform: translateX(110%); }
 
-.setup-panel {
-  position: relative;
-  border-color: rgba(255, 255, 255, 0.085);
-  background:
-    linear-gradient(145deg, rgba(255, 255, 255, 0.022), transparent 42%),
-    var(--color-surface);
-  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.14);
-  animation: money-card-in 650ms var(--ease-premium) both;
-  transition: border-color 340ms ease, box-shadow 420ms ease;
-}
+.setup-seed-card > * { position: relative; }
 
-.setup-premium > .setup-panel:nth-of-type(1) { animation-delay: 130ms; }
-.setup-premium > .setup-panel:nth-of-type(2) { animation-delay: 210ms; }
-.setup-premium > .setup-panel:nth-of-type(3) { animation-delay: 290ms; }
-.setup-premium > .setup-panel:nth-of-type(4) { animation-delay: 370ms; }
-
-.setup-panel:hover {
-  border-color: rgba(217, 164, 65, 0.17);
-  box-shadow: 0 28px 70px rgba(0, 0, 0, 0.20);
-}
-
-.setup-panel > div:first-child {
-  background: linear-gradient(90deg, rgba(217, 164, 65, 0.035), transparent 48%);
-}
+/* -------------------------------------------------------- Setup: rows & rates */
 
 .setup-row-premium {
   position: relative;
-  transition: background-color 260ms ease, padding-left 380ms var(--ease-premium);
+  animation: money-card-in 520ms var(--ease-premium) both;
+  transition: background-color 260ms ease, padding-left 360ms var(--ease-premium);
 }
 
 .setup-row-premium::before {
@@ -2326,14 +2587,14 @@ body {
   position: absolute;
   inset: 0 auto 0 0;
   width: 2px;
-  background: linear-gradient(180deg, var(--color-gold-hi), var(--color-gold));
+  background: var(--color-gold);
   transform: scaleY(0);
-  transform-origin: bottom;
-  transition: transform 380ms var(--ease-premium);
+  transform-origin: center;
+  transition: transform 320ms var(--ease-premium);
 }
 
 .setup-row-premium:hover {
-  padding-left: 19px;
+  padding-left: 20px;
   background: rgba(255, 255, 255, 0.018);
 }
 
@@ -2341,7 +2602,7 @@ body {
 
 .setup-row-premium input,
 .setup-row-premium select {
-  transition: border-color 220ms ease, background-color 220ms ease, box-shadow 220ms ease;
+  transition: border-color 220ms ease, box-shadow 220ms ease, background-color 220ms ease;
 }
 
 .setup-row-premium input:hover,
@@ -2349,61 +2610,46 @@ body {
   background-color: rgba(255, 255, 255, 0.055);
 }
 
-.setup-rates-panel {
-  overflow: hidden;
-  background:
-    radial-gradient(circle at 100% 0%, rgba(217, 164, 65, 0.075), transparent 33%),
-    var(--color-surface);
-}
-
 .setup-rate-tile {
   position: relative;
   overflow: hidden;
-  background:
-    linear-gradient(145deg, rgba(255, 255, 255, 0.035), transparent 56%),
-    var(--color-surface-2);
-  transition: transform 380ms var(--ease-premium), border-color 280ms ease, box-shadow 380ms ease;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-ctrl);
+  background: rgba(255, 255, 255, 0.02);
+  transition: border-color 240ms ease, background-color 240ms ease;
 }
 
 .setup-rate-tile::after {
   content: "";
   position: absolute;
-  top: 0;
-  right: 0;
-  width: 42px;
-  height: 1px;
+  inset: auto 0 0 0;
+  height: 2px;
   background: var(--color-gold);
   transform: scaleX(0);
-  transform-origin: right;
-  transition: transform 460ms var(--ease-premium);
+  transform-origin: left;
+  transition: transform 380ms var(--ease-premium);
 }
 
 .setup-rate-tile:hover {
-  transform: translateY(-2px);
-  border-color: rgba(217, 164, 65, 0.25);
-  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.16);
+  border-color: color-mix(in srgb, var(--color-gold) 28%, var(--color-line));
+  background: rgba(255, 255, 255, 0.035);
 }
 
 .setup-rate-tile:hover::after { transform: scaleX(1); }
 
 @media (max-width: 680px) {
   .setup-page-head { align-items: flex-start; min-height: 0; }
-  .setup-head-stats { width: 100%; grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .setup-head-stats > span,
-  .setup-head-stats > span:last-child { min-width: 0; padding: 10px; }
-  .setup-head-stats b { overflow: hidden; font-size: 12px; text-overflow: ellipsis; }
   .setup-row-premium:hover { padding-left: 16px; }
-}
-
-@media (max-width: 420px) {
-  .setup-head-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .setup-head-stats > span:nth-child(2) { border-right: 0; }
-  .setup-head-stats > span:last-child { grid-column: 1 / -1; border-top: 1px solid var(--color-line-soft); }
+  .setup-section-lede { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .setup-foundation,
   .setup-seed-card,
-  .setup-panel {
+  .setup-section,
+  .setup-row-premium,
+  .setup-progress-seg.is-done {
     animation: none !important;
     opacity: 1;
     transform: none;
@@ -2412,9 +2658,19 @@ body {
   .setup-seed-card::before,
   .setup-rate-tile::after { display: none; }
 
-  .setup-panel,
+  .setup-section,
+  .setup-section-icon,
+  .setup-step,
+  .setup-step-mark,
+  .setup-progress-seg,
   .setup-row-premium,
+  .setup-row-premium::before,
+  .setup-row-premium input,
+  .setup-row-premium select,
   .setup-rate-tile { transition: none; }
+
+  .setup-step:hover,
+  .setup-section:hover .setup-section-icon { transform: none; }
 }
 
 /* Goals v2 — a more tactile, private-wealth treatment. */
