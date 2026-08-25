@@ -51,6 +51,15 @@ export function OnHandBand({
   const share = (value: number) =>
     total > 0 ? `${Math.max(0, Math.min(100, (value / total) * 100))}%` : "0%";
 
+  /*
+    The bar exists to show one thing: how much of the money is spoken for. With no
+    goals holding anything back there is nothing to show — it was drawing a track
+    filled to 100% and a legend that printed the same figure twice, once as "Free" and
+    once as "Total". Two labels, one number, no information. The headline above already
+    says it, and the caption already says how many accounts it is across.
+  */
+  const hasSplit = onHand.reserved > 0;
+
   return (
     <section className="onhand-band">
       <div className="onhand-figure">
@@ -72,24 +81,28 @@ export function OnHandBand({
           )}
         </p>
 
-        <div className="onhand-track" aria-hidden>
-          <span
-            className="onhand-seg onhand-free money-progress-segment"
-            style={{ width: share(onHand.free) }}
-          />
-          <span
-            className="onhand-seg onhand-reserved money-progress-segment"
-            style={{ width: share(onHand.reserved) }}
-          />
-        </div>
+        {hasSplit && (
+          <>
+            <div className="onhand-track" aria-hidden>
+              <span
+                className="onhand-seg onhand-free money-progress-segment"
+                style={{ width: share(onHand.free) }}
+              />
+              <span
+                className="onhand-seg onhand-reserved money-progress-segment"
+                style={{ width: share(onHand.reserved) }}
+              />
+            </div>
 
-        <div className="onhand-legend">
-          <span><i className="onhand-key onhand-free" /> Free {formatRsd(onHand.free)}</span>
-          {onHand.reserved > 0 && (
-            <span><i className="onhand-key onhand-reserved" /> Reserved {formatRsd(onHand.reserved)}</span>
-          )}
-          <span className="onhand-total">Total {formatRsd(onHand.total)}</span>
-        </div>
+            <div className="onhand-legend">
+              <span><i className="onhand-key onhand-free" /> Free {formatRsd(onHand.free)}</span>
+              <span>
+                <i className="onhand-key onhand-reserved" /> Reserved {formatRsd(onHand.reserved)}
+              </span>
+              <span className="onhand-total">Total {formatRsd(onHand.total)}</span>
+            </div>
+          </>
+        )}
       </div>
 
       <div className="onhand-accounts">
