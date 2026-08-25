@@ -1,9 +1,9 @@
 "use client";
 
-import { useRef } from "react";
+import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Plus, ListChecks, Pencil, Sun, AlertTriangle, CalendarDays, Archive } from "lucide-react";
+import { Plus, ListChecks, Pencil, AlertTriangle, Inbox, CalendarRange } from "lucide-react";
 import { SlideOver } from "@/components/ui/SlideOver";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { buttonClasses } from "@/components/ui/Button";
@@ -30,43 +30,28 @@ function dayOf(task: TaskWithProject): string | null {
   return task.due_at ? task.due_at.slice(0, 10) : null;
 }
 
-const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const WEEKDAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const MONTH = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-/**
- * How late, or how soon — in words.
- *
- * "2026-08-06 16:33" is a fact you have to do arithmetic on. In a column headed LATE
- * the thing you want is "19 days late", and in one headed THIS WEEK it is "Saturday".
- * The exact date stays on the card underneath it, quieter, for when the answer is
- * "which Saturday".
- */
-function whenPhrase(due: string | null, today: string): { text: string; late: boolean } | null {
-  if (!due) return null;
-  const days = Math.round(
-    (new Date(`${due}T00:00:00Z`).getTime() - new Date(`${today}T00:00:00Z`).getTime()) / 86_400_000,
-  );
-
-  if (days < 0) {
-    const late = -days;
-    if (late === 1) return { text: "yesterday", late: true };
-    if (late < 7) return { text: `${late} days late`, late: true };
-    if (late < 14) return { text: "a week late", late: true };
-    if (late < 60) return { text: `${Math.round(late / 7)} weeks late`, late: true };
-    return { text: `${Math.round(late / 30)} months late`, late: true };
-  }
-  if (days === 0) return { text: "today", late: false };
-  if (days === 1) return { text: "tomorrow", late: false };
-  // Inside the week a weekday name places it better than a count does.
-  if (days < 7) {
-    return { text: DAY_NAMES[new Date(`${due}T00:00:00Z`).getUTCDay()], late: false };
-  }
-  if (days < 14) return { text: "next week", late: false };
-  if (days < 60) return { text: `in ${Math.round(days / 7)} weeks`, late: false };
-  return { text: `in ${Math.round(days / 30)} months`, late: false };
+function parts(iso: string) {
+  const d = new Date(`${iso}T00:00:00Z`);
+  return { weekday: WEEKDAY[d.getUTCDay()], day: d.getUTCDate(), month: MONTH[d.getUTCMonth()] };
 }
 
 function plural(n: number, one: string, many: string) {
   return `${n} ${n === 1 ? one : many}`;
+}
+
+/** How late something is, in words, for the band that holds only late things. */
+function lateBy(due: string, today: string): string {
+  const days = Math.round(
+    (new Date(`${today}T00:00:00Z`).getTime() - new Date(`${due}T00:00:00Z`).getTime()) / 86_400_000,
+  );
+  if (days === 1) return "yesterday";
+  if (days < 7) return `${days} days late`;
+  if (days < 14) return "a week late";
+  if (days < 60) return `${Math.round(days / 7)} weeks late`;
+  return `${Math.round(days / 30)} months late`;
 }
 
 /* -------------------------------------------------------------------- pieces */
@@ -83,13 +68,6 @@ function PriorityDot({ priority }: { priority: string }) {
   );
 }
 
-/**
- * Edit and delete, side by side.
- *
- * `deleteTask` redirects to the list it belongs to, which is the right move here: the
- * row you were looking at is gone, and a refresh in place would leave the pointer
- * hovering over whatever slid up into its position.
- */
 function RowActions({
   task,
   basePath,
@@ -122,65 +100,24 @@ function RowActions({
 }
 
 /**
- * A task as a full-width line, for the agenda below Today.
+ * One task, one line, full width.
  *
- * The three side-by-side columns were fighting for about 300px each, so every card
- * had to stack the title, the project and three pieces of meta on top of one another
- * — three narrow towers of ragged height, and the eye had nowhere to run. Given the
- * whole width the same task is one line: what it is on the left, when it is due on
- * the right, and the columns of "when" line up down the page.
+ * Everything on the screen is now a single day's worth of work, so the row does not
+ * have to repeat which band it is in — the rail above already said that. What is
+ * left is the thing itself, what it belongs to, how urgent it is and, when it has
+ * one, the hour it is due at.
  */
-function TaskLine({
-  task,
-  basePath,
-  workspace,
-  today,
-}: {
-  task: TaskWithProject;
-  basePath: string;
-  workspace: TaskWorkspace;
-  today: string;
-}) {
-  const done = task.status === "done";
-  const when = whenPhrase(dayOf(task), today);
-
-  return (
-    <div className={cn("task-line group", done && "task-line-done")}>
-      <TaskCheckbox id={task.id} done={done} />
-      <div className="task-line-body">
-        <span className={cn("task-line-title", done && "line-through")}>{task.title}</span>
-        {task.project?.title && (
-          <Link href={`/projects/${task.project_id}`} className="task-card-project">
-            {task.project.client?.name ? `${task.project.client.name} · ` : ""}
-            {task.project.title}
-          </Link>
-        )}
-      </div>
-      {/* Fixed width, so priority and "when" make two straight columns down the band
-          rather than drifting with the length of each title. */}
-      <span className="task-line-meta">
-        <PriorityDot priority={task.priority} />
-        <span className="task-line-when">
-          {when && (
-            <span className={cn("task-when", when.late && "task-when-late")}>{when.text}</span>
-          )}
-          {task.due_at && <span className="mono task-card-date">{formatDateTime(task.due_at)}</span>}
-        </span>
-      </span>
-      <RowActions task={task} basePath={basePath} workspace={workspace} />
-    </div>
-  );
-}
-
-/** A task as a row, for the wider Today panel. */
 function TaskRow({
   task,
   basePath,
   workspace,
+  note,
 }: {
   task: TaskWithProject;
   basePath: string;
   workspace: TaskWorkspace;
+  /** Only the late band and the parked band need to say when — the rest is the rail. */
+  note?: string;
 }) {
   const done = task.status === "done";
   return (
@@ -196,14 +133,18 @@ function TaskRow({
         )}
       </div>
       <PriorityDot priority={task.priority} />
-      {task.due_at && <span className="mono task-row-date">{formatDateTime(task.due_at)}</span>}
+      {note ? (
+        <span className="task-row-note">{note}</span>
+      ) : (
+        task.due_at && <span className="mono task-row-date">{formatDateTime(task.due_at)}</span>
+      )}
       <RowActions task={task} basePath={basePath} workspace={workspace} />
     </div>
   );
 }
 
 /**
- * One field, and a date the panel already knows.
+ * One field, and the date the rail is currently pointing at.
  *
  * Passing a function to `action` lets React clear the field itself once the task is
  * in, which is what makes this usable for three thoughts in a row rather than one.
@@ -212,11 +153,13 @@ function QuickAdd({
   workspace,
   dueOn,
   placeholder,
+  hint,
 }: {
   workspace: TaskWorkspace;
   /** `null` files it with no date at all. */
   dueOn: string | null;
   placeholder: string;
+  hint: string;
 }) {
   const router = useRouter();
   const ref = useRef<HTMLFormElement>(null);
@@ -234,8 +177,7 @@ function QuickAdd({
       {/*
         Midnight, not nine o'clock. A quick add is a date, not an appointment — and
         `09:00` meant anything typed after breakfast was stamped with a time that had
-        already gone. `formatDateTime` reads midnight as "no time was set" and prints
-        the date alone, which is what this actually means.
+        already gone. `formatDateTime` reads midnight as "no time was set".
       */}
       {dueOn && <input type="hidden" name="due_at" value={`${dueOn}T00:00`} />}
       <Plus className="task-quickadd-icon h-4 w-4" aria-hidden />
@@ -247,13 +189,7 @@ function QuickAdd({
         aria-label={placeholder}
         className="task-quickadd-input"
       />
-      {/*
-        Two ways to add a task is fine as long as they are visibly two different jobs.
-        This one takes a title and nothing else, and says so: it lands on today at
-        normal priority. Anything that needs a date, a project or a priority is what
-        the New task button is for.
-      */}
-      <span className="task-quickadd-hint">adds to today</span>
+      <span className="task-quickadd-hint">{hint}</span>
       <button type="submit" className="task-quickadd-go">
         Add
       </button>
@@ -261,65 +197,38 @@ function QuickAdd({
   );
 }
 
-/**
- * One band of the agenda: a label held on the left, its tasks stacked on the right.
- *
- * The heading stays beside the list instead of on top of it, so scanning down the
- * page you always know which band you are in without a heading interrupting the
- * rows — and on a long list it sticks, so the answer stays on screen.
- */
-function Group({
-  title,
-  icon: Icon,
-  tone,
-  note,
-  tasks,
-  basePath,
-  workspace,
-  today,
-  empty,
-}: {
-  title: string;
-  icon: typeof Sun;
-  tone: "late" | "week" | "later";
-  /** What this band actually holds, in a few words. */
-  note: string;
+/* ------------------------------------------------------------------- the rail */
+
+type Band = {
+  key: string;
+  /** The line the chip leads with. */
+  lead: string;
+  /** The smaller line under it — a date, or nothing. */
+  sub?: string;
+  tone: "late" | "day" | "today" | "parked";
   tasks: TaskWithProject[];
-  basePath: string;
-  workspace: TaskWorkspace;
-  today: string;
+  /** Where a quick add typed while this band is open should land. */
+  dueOn: string | null;
+  title: string;
   empty: string;
-}) {
+  placeholder: string;
+  hint: string;
+};
+
+function Chip({ band, on, onPick }: { band: Band; on: boolean; onPick: () => void }) {
   return (
-    <section
-      className={cn("task-group", `task-group-${tone}`, tasks.length === 0 && "task-group-quiet")}
+    <button
+      type="button"
+      onClick={onPick}
+      aria-pressed={on}
+      className={cn("task-chip", `task-chip-${band.tone}`, on && "task-chip-on")}
     >
-      <div className="task-group-side">
-        <div className="task-group-sticky">
-          <span className="task-group-label">
-            <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden />
-            {title}
-          </span>
-          <span className="mono task-group-count">{tasks.length}</span>
-          <span className="task-group-note">{note}</span>
-        </div>
-      </div>
-      <div className="task-group-list">
-        {tasks.length === 0 ? (
-          <p className="task-group-empty">{empty}</p>
-        ) : (
-          tasks.map((t) => (
-            <TaskLine
-              key={t.id}
-              task={t}
-              basePath={basePath}
-              workspace={workspace}
-              today={today}
-            />
-          ))
-        )}
-      </div>
-    </section>
+      <span className="task-chip-lead">{band.lead}</span>
+      {band.sub && <span className="task-chip-sub">{band.sub}</span>}
+      <span className={cn("mono task-chip-count", band.tasks.length === 0 && "is-zero")}>
+        {band.tasks.length}
+      </span>
+    </button>
   );
 }
 
@@ -344,36 +253,115 @@ export function TasksView({
   const basePath = personal ? "/private/tasks" : "/tasks";
   const close = () => router.push(basePath);
 
-  const open = tasks.filter((t) => t.status === "todo");
-  const done = tasks.filter((t) => t.status === "done");
-  const weekEnd = addDays(today, 7);
+  const open = useMemo(() => tasks.filter((t) => t.status === "todo"), [tasks]);
+  const done = useMemo(() => tasks.filter((t) => t.status === "done"), [tasks]);
 
   /*
-    Four buckets, and the split that matters is between late and today. The old screen
-    put both under one heading, which is how a task quietly stays three days overdue:
-    it keeps appearing on a list you have already read.
+    A week of days, and the three bands that are not days.
+
+    The old screen was Today plus Late / This week / Later — four blocks on the page at
+    once, three of them usually reporting things you were not going to do today, and
+    every one of them growing downwards as tasks piled up. This shows one band at a
+    time and puts the rest in a rail you can count at a glance: the page stops growing,
+    and "what does Thursday look like" becomes one click instead of a scroll.
   */
-  const overdue = open.filter((t) => {
-    const d = dayOf(t);
-    return d !== null && d < today;
-  });
-  const todayTasks = open.filter((t) => dayOf(t) === today);
-  const week = open.filter((t) => {
-    const d = dayOf(t);
-    return d !== null && d > today && d <= weekEnd;
-  });
-  const later = open.filter((t) => {
-    const d = dayOf(t);
-    return d === null || d > weekEnd;
-  });
+  const bands = useMemo<Band[]>(() => {
+    const horizon = addDays(today, 6);
+    const list: Band[] = [];
+
+    const late = open
+      .filter((t) => {
+        const d = dayOf(t);
+        return d !== null && d < today;
+      })
+      .sort((a, b) => (dayOf(a) ?? "").localeCompare(dayOf(b) ?? ""));
+
+    if (late.length > 0) {
+      list.push({
+        key: "late",
+        lead: "Late",
+        tone: "late",
+        tasks: late,
+        dueOn: today,
+        title: "Past their date",
+        empty: "Nothing is late.",
+        placeholder: "Something else that should already be done?",
+        hint: "lands on today",
+        sub: plural(late.length, "task", "tasks"),
+      });
+    }
+
+    for (let i = 0; i < 7; i += 1) {
+      const iso = addDays(today, i);
+      const p = parts(iso);
+      const lead = i === 0 ? "Today" : i === 1 ? "Tomorrow" : p.weekday;
+      list.push({
+        key: iso,
+        lead,
+        sub: `${p.day} ${p.month}`,
+        tone: i === 0 ? "today" : "day",
+        tasks: open.filter((t) => dayOf(t) === iso),
+        dueOn: iso,
+        title: i === 0 ? "Today" : `${p.weekday} ${p.day} ${p.month}`,
+        empty: i === 0 ? "Nothing due today." : "Nothing due that day.",
+        placeholder: i === 0 ? "What needs doing today?" : `What needs doing on ${lead}?`,
+        hint: i === 0 ? "lands on today" : `lands on ${p.day} ${p.month}`,
+      });
+    }
+
+    const later = open.filter((t) => {
+      const d = dayOf(t);
+      return d !== null && d > horizon;
+    });
+    const undated = open.filter((t) => dayOf(t) === null);
+
+    if (later.length > 0) {
+      list.push({
+        key: "later",
+        lead: "Later",
+        sub: "beyond the week",
+        tone: "parked",
+        tasks: later.sort((a, b) => (dayOf(a) ?? "").localeCompare(dayOf(b) ?? "")),
+        dueOn: addDays(today, 7),
+        title: "Beyond this week",
+        empty: "Nothing parked further out.",
+        placeholder: "Something for later?",
+        hint: "lands next week",
+      });
+    }
+
+    list.push({
+      key: "undated",
+      lead: "No date",
+      sub: "someday",
+      tone: "parked",
+      tasks: undated,
+      dueOn: null,
+      title: "No date on it",
+      empty: "Everything open has a date.",
+      placeholder: "Something you are not dating yet?",
+      hint: "no date",
+    });
+
+    return list;
+  }, [open, today]);
+
+  // Late first, because a day you have already missed outranks the one you are in.
+  const [picked, setPicked] = useState<string | null>(null);
+  const fallback = bands.some((b) => b.key === "late") ? "late" : today;
+  const activeKey = picked && bands.some((b) => b.key === picked) ? picked : fallback;
+  const band = bands.find((b) => b.key === activeKey) ?? bands[0];
+
+  const lateCount = bands.find((b) => b.key === "late")?.tasks.length ?? 0;
+  const todayCount = bands.find((b) => b.key === today)?.tasks.length ?? 0;
 
   const summary = (() => {
     if (open.length === 0) return "Nothing open. Enjoy it.";
-    const parts: string[] = [];
-    if (overdue.length) parts.push(`${plural(overdue.length, "task is", "tasks are")} late`);
-    if (todayTasks.length) parts.push(`${plural(todayTasks.length, "is", "are")} due today`);
-    if (!parts.length) return `Nothing due yet — ${plural(open.length, "task", "tasks")} ahead.`;
-    return `${parts.join(", ")}.`;
+    const said: string[] = [];
+    if (lateCount) said.push(`${plural(lateCount, "task is", "tasks are")} late`);
+    if (todayCount) said.push(`${plural(todayCount, "is", "are")} due today`);
+    if (!said.length) return `Nothing due yet — ${plural(open.length, "task", "tasks")} ahead.`;
+    return `${said.join(", ")}.`;
   })();
 
   return (
@@ -384,7 +372,7 @@ export function TasksView({
           <h1 className="mt-2 font-display text-[32px] font-extrabold tracking-[-1.2px] text-ink sm:text-[38px]">
             {personal ? "Personal tasks" : "Tasks"}
           </h1>
-          <p className={cn("task-summary", overdue.length > 0 && "task-summary-late")}>{summary}</p>
+          <p className={cn("task-summary", lateCount > 0 && "task-summary-late")}>{summary}</p>
         </div>
         <Link
           href={`${basePath}?new=1`}
@@ -417,101 +405,73 @@ export function TasksView({
         </div>
       ) : (
         <>
-          {/*
-            Today is the only list most days need, so it takes the room and the top of
-            the page. Everything below it is context for it.
-          */}
-          <section className="task-focus">
-            <header className="task-focus-head">
-              <span className="money-page-kicker">
-                <Sun className="mr-1.5 inline h-3 w-3" aria-hidden /> Today
-              </span>
-              <span className="mono task-focus-count">
-                {todayTasks.length === 0 ? "clear" : plural(todayTasks.length, "task", "tasks")}
-              </span>
-            </header>
+          <nav className="task-rail" aria-label="Pick a day">
+            {bands.map((b) => (
+              <Chip key={b.key} band={b} on={b.key === activeKey} onPick={() => setPicked(b.key)} />
+            ))}
+          </nav>
 
-            <QuickAdd workspace={workspace} dueOn={today} placeholder="What needs doing today?" />
+          {band && (
+            <section className="task-panel">
+              <header className="task-panel-head">
+                <span className="task-panel-title">
+                  {band.tone === "late" ? (
+                    <AlertTriangle className="h-3.5 w-3.5" aria-hidden />
+                  ) : band.tone === "parked" ? (
+                    <Inbox className="h-3.5 w-3.5" aria-hidden />
+                  ) : (
+                    <CalendarRange className="h-3.5 w-3.5" aria-hidden />
+                  )}
+                  {band.title}
+                </span>
+                <span className="mono task-panel-count">
+                  {band.tasks.length === 0 ? "clear" : plural(band.tasks.length, "task", "tasks")}
+                </span>
+              </header>
 
-            {/*
-              An empty day says so once, and only when there is nothing anywhere else
-              to say it for. With work in the columns below, the sentence would be the
-              second of four blocks all reporting the same emptiness — so the panel
-              shrinks to the field and lets the columns speak.
-            */}
-            {todayTasks.length > 0 ? (
-              <div className="task-focus-body">
-                {todayTasks.map((t) => (
-                  <TaskRow key={t.id} task={t} basePath={basePath} workspace={workspace} />
-                ))}
-              </div>
-            ) : (
-              open.length === 0 && (
-                <div className="task-focus-body">
-                  <p className="task-focus-empty">
-                    Nothing open at all. Type above and it lands on today.
-                  </p>
+              <QuickAdd
+                workspace={workspace}
+                dueOn={band.dueOn}
+                placeholder={band.placeholder}
+                hint={band.hint}
+              />
+
+              {band.tasks.length === 0 ? (
+                <p className="task-panel-empty">{band.empty}</p>
+              ) : (
+                <div className="task-panel-body">
+                  {band.tasks.map((t) => (
+                    <TaskRow
+                      key={t.id}
+                      task={t}
+                      basePath={basePath}
+                      workspace={workspace}
+                      note={
+                        band.tone === "late" && dayOf(t)
+                          ? lateBy(dayOf(t) as string, today)
+                          : undefined
+                      }
+                    />
+                  ))}
                 </div>
-              )
-            )}
-          </section>
-
-          {/*
-            Three bands reporting nothing is three ways of saying what the panel above
-            already said. They come back the moment there is something to put in one.
-          */}
-          {open.length > 0 && (
-            <div className="task-agenda">
-              <Group
-                title="Late"
-                icon={AlertTriangle}
-                tone="late"
-                note="Past their date. Start here."
-                tasks={overdue}
-                basePath={basePath}
-                workspace={workspace}
-                today={today}
-                empty="Nothing is late."
-              />
-              <Group
-                title="This week"
-                icon={CalendarDays}
-                tone="week"
-                note="Due in the next seven days."
-                tasks={week}
-                basePath={basePath}
-                workspace={workspace}
-                today={today}
-                empty="Nothing due in the next seven days."
-              />
-              <Group
-                title="Later & undated"
-                icon={Archive}
-                tone="later"
-                note="Parked, or waiting on a date."
-                tasks={later}
-                basePath={basePath}
-                workspace={workspace}
-                today={today}
-                empty="Nothing parked."
-              />
-            </div>
-          )}
-
-          {done.length > 0 && (
-            <details className="task-done">
-              <summary className="task-done-summary">
-                <span>{plural(done.length, "finished task", "finished tasks")}</span>
-                <i aria-hidden />
-              </summary>
-              <div className="task-done-body">
-                {done.map((t) => (
-                  <TaskRow key={t.id} task={t} basePath={basePath} workspace={workspace} />
-                ))}
-              </div>
-            </details>
+              )}
+            </section>
           )}
         </>
+      )}
+
+      {done.length > 0 && (
+        <details className="task-done">
+          <summary className="task-done-summary">
+            <span>{plural(done.length, "finished task", "finished tasks")}</span>
+            <i aria-hidden />
+          </summary>
+          <div className="task-done-body">
+            {done.map((t) => (
+              <TaskRow key={t.id} task={t} basePath={basePath} workspace={workspace} />
+            ))}
+          </div>
+        </details>
       )}
 
       <SlideOver

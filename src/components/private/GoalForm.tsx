@@ -6,14 +6,20 @@ import { saveGoal, closeGoal, deleteGoal, type MoneyState } from "@/app/(app)/pr
 import { Field } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
 import { DeleteButton } from "@/components/ui/DeleteButton";
-import { SWATCHES, formatRsd } from "@/lib/money";
-import { ColorPicker } from "@/components/ui/ColorPicker";
+import { formatRsd } from "@/lib/money";
+import { MoneyField } from "@/components/ui/MoneyField";
 import { cn } from "@/lib/utils";
 import type { GoalLine, MoneyAccount } from "@/lib/types";
 import { todayISO } from "@/lib/format";
 
-/** Same label treatment the Field component uses, so the colour row lines up with it. */
-const label = "mb-1.5 block text-xs font-semibold text-[#C6CAD6]";
+/**
+ * Every goal fills in the same gold.
+ *
+ * A colour picker on this form was a decision with nothing riding on it: goals are
+ * read one card at a time, not scanned as a set the way categories are, so the colour
+ * never told anyone anything — it just stood between naming a goal and creating it.
+ */
+const GOAL_COLOUR = "#d9a441";
 
 /**
  * Closing a goal, said once and honestly.
@@ -125,12 +131,10 @@ function CloseGoal({
 export function GoalForm({
   goal,
   accounts,
-  customColors,
   onDone,
 }: {
   goal?: GoalLine;
   accounts: MoneyAccount[];
-  customColors: string[];
   onDone?: () => void;
 }) {
   const [state, formAction, pending] = useActionState<MoneyState, FormData>(saveGoal, undefined);
@@ -158,11 +162,10 @@ export function GoalForm({
         {/* The amount and the date are one thought — how much, by when — so they sit
             together as soon as the panel is wide enough to hold both. */}
         <div className="grid sm:grid-cols-2 sm:gap-x-3">
-          <Field
+          <MoneyField
             label="Target (RSD)"
             name="target_rsd"
-            inputMode="numeric"
-            defaultValue={goal?.target_rsd ? String(goal.target_rsd) : ""}
+            defaultValue={goal?.target_rsd ?? ""}
             placeholder="0"
             help="Leave empty to just count what goes in."
           />
@@ -177,15 +180,7 @@ export function GoalForm({
           />
         </div>
 
-        <div className="mb-3.25">
-          <span className={label}>Colour</span>
-          <div className="flex">
-            <ColorPicker name="color" value={goal?.color ?? SWATCHES[1]} custom={customColors} />
-          </div>
-          <p className="mt-1.25 text-[11.5px] text-muted">
-            This is the colour the progress bar fills in.
-          </p>
-        </div>
+        <input type="hidden" name="color" value={GOAL_COLOUR} />
 
         {state?.error && (
           <p className="mb-3 rounded-ctrl border border-danger/40 bg-danger-bg px-3 py-2 text-[12px] text-danger">

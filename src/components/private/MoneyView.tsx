@@ -237,11 +237,11 @@ export function MoneyView({
 
       {/* Category filter */}
       {categories.length > 0 && (
-        <div className="money-chips mb-3 flex flex-wrap gap-1.5">
+        <div className="money-chips mb-3 flex gap-1.5 md:flex-wrap">
           <Link
             href={base}
             className={cn(
-              "money-chip rounded-pill border px-2.5 py-1 text-[11.5px] font-semibold",
+              "money-chip shrink-0 rounded-pill border px-2.5 py-1 text-[11.5px] font-semibold",
               !activeCategory
                 ? "money-chip-on border-gold/40 bg-active-bg text-gold"
                 : "border-line text-muted hover:text-ink",
@@ -254,7 +254,7 @@ export function MoneyView({
               key={c.id}
               href={`${base}&cat=${c.id}`}
               className={cn(
-                "money-chip rounded-pill border px-2.5 py-1 text-[11.5px] font-semibold",
+                "money-chip shrink-0 rounded-pill border px-2.5 py-1 text-[11.5px] font-semibold",
                 activeCategory === c.id
                   ? "money-chip-on border-gold/40 bg-active-bg text-gold"
                   : "border-line text-muted hover:text-ink",

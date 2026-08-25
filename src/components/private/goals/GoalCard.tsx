@@ -4,11 +4,13 @@ import { useTransition, type CSSProperties } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChevronDown, ChevronUp, Pencil } from "lucide-react";
-import { moveGoal } from "@/app/(app)/private/actions";
+import { DeleteButton } from "@/components/ui/DeleteButton";
+import { deleteGoal, moveGoal } from "@/app/(app)/private/actions";
 import { Badge } from "@/components/ui/Badge";
 import { formatRsd } from "@/lib/money";
 import { cn } from "@/lib/utils";
-import type { GoalLine, MoneyAccount } from "@/lib/types";
+import type { AccountBalance } from "@/lib/data/money";
+import type { GoalLine } from "@/lib/types";
 import { GOALS_HREF, NO_COLOUR } from "./shared";
 import { read } from "./reading";
 import { GoalHistory } from "./GoalHistory";
@@ -34,7 +36,7 @@ function Reorder({ goal, first, last }: { goal: GoalLine; first: boolean; last: 
         disabled={pending || first}
         aria-label={`Move ${goal.name} up`}
         title="Higher priority"
-        className="rounded-ctrl p-1 text-faint transition-colors hover:bg-white/5 hover:text-ink disabled:opacity-30"
+        className="zv-rowctrl zv-rowctrl-sm"
       >
         <ChevronUp className="h-3.5 w-3.5" />
       </button>
@@ -44,7 +46,7 @@ function Reorder({ goal, first, last }: { goal: GoalLine; first: boolean; last: 
         disabled={pending || last}
         aria-label={`Move ${goal.name} down`}
         title="Lower priority"
-        className="rounded-ctrl p-1 text-faint transition-colors hover:bg-white/5 hover:text-ink disabled:opacity-30"
+        className="zv-rowctrl zv-rowctrl-sm"
       >
         <ChevronDown className="h-3.5 w-3.5" />
       </button>
@@ -61,7 +63,7 @@ export function GoalCard({
   reorderable,
 }: {
   goal: GoalLine;
-  accounts: MoneyAccount[];
+  accounts: AccountBalance[];
   today: string;
   first: boolean;
   last: boolean;
@@ -94,16 +96,26 @@ export function GoalCard({
       <div className="flex-1 py-3.5 pr-4 pl-5">
         <div className="flex items-start gap-2">
           <h3 className="min-w-0 flex-1 truncate text-[14px] font-bold text-ink">{goal.name}</h3>
-          <div className="-mt-1 -mr-1.5 flex shrink-0 items-center">
+          <div className="goal-card-controls -mt-1 -mr-1 flex shrink-0 items-center gap-1">
             {reorderable && <Reorder goal={goal} first={first} last={last} />}
             <Link
               href={`${GOALS_HREF}?edit=${goal.id}`}
               aria-label={`Edit ${goal.name}`}
               title={`Edit ${goal.name}`}
-              className="rounded-ctrl p-1.5 text-faint transition-colors hover:bg-white/5 hover:text-ink"
+              className="zv-rowctrl"
             >
               <Pencil className="h-3.75 w-3.75" />
             </Link>
+            {/*
+              The bin belongs beside the pencil, not three clicks away inside the edit
+              panel. Everything it can destroy is explained in the confirmation.
+            */}
+            <DeleteButton
+              compact
+              label={`Delete ${goal.name}`}
+              confirmText={`Delete "${goal.name}"? The target goes, the money does not: every deposit stays in the ledger and counts as free to spend again. To keep the record, close the goal instead.`}
+              action={deleteGoal.bind(null, goal.id)}
+            />
           </div>
         </div>
 

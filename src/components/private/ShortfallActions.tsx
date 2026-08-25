@@ -89,7 +89,12 @@ function LeverRow({ lever, on }: { lever: Lever; on: string }) {
           </p>
         </div>
 
-        <div className="flex w-full shrink-0 items-center gap-1.5 min-[560px]:w-auto">
+        {/*
+          On a phone these two sat shoulder to shoulder at the bottom of a paragraph,
+          each about 140px wide — a date field too narrow to read and a button too small
+          to hit. Stacked, both are full width and neither is guessing.
+        */}
+        <div className="flex w-full shrink-0 flex-col gap-1.5 min-[560px]:w-auto min-[560px]:flex-row min-[560px]:items-center">
           <input
             type="date"
             value={date}
@@ -109,8 +114,8 @@ function LeverRow({ lever, on }: { lever: Lever; on: string }) {
                   : `Has to be ${lever.target} or earlier to change this`
             }
             className={cn(
-              "rounded-ctrl border border-line bg-white/[0.04] px-2.5 py-1 text-[12px] font-semibold text-ink transition-colors",
-              "hover:bg-white/[0.08] disabled:opacity-40",
+              "w-full rounded-ctrl border border-line bg-white/[0.04] px-2.5 py-2 text-[12px] font-semibold text-ink transition-colors",
+              "hover:bg-white/[0.08] disabled:opacity-40 min-[560px]:w-auto min-[560px]:py-1",
             )}
           >
             {pending ? "Moving…" : "Move"}

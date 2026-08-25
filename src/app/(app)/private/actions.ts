@@ -6,7 +6,7 @@ import { createClient as createSupabaseServerClient } from "@/lib/supabase/serve
 import { userId } from "@/lib/supabase/current-user";
 import { todayISO } from "@/lib/format";
 import { saveErrorMessage } from "@/lib/supabase/errors";
-import { getRates } from "@/lib/data/money";
+import { getAccountBalances, getRates } from "@/lib/data/money";
 import { fetchNbsRates } from "@/lib/rates/nbs";
 import {
   CURRENCIES,
@@ -218,6 +218,45 @@ export async function saveTransaction(_prev: MoneyState, formData: FormData): Pr
   // amount_rsd is generated in the database as round(amount * rate, 2); worked out the
   // same way here so the check and the stored figure cannot disagree.
   const amountRsd = Math.round(amount * rate * 100) / 100;
+
+  /*
+    A deposit cannot reserve money the account does not have free.
+
+    Setting aside does not move a dinar anywhere — it marks part of an account as
+    spoken for. Nothing stopped that mark from covering more than the account held, and
+    the moment it did every "free to spend" figure in the app was wrong by the
+    difference, quietly, with no entry looking wrong on its own.
+
+    `free` already nets off what other open goals claim. On an edit the entry's own old
+    amount is part of that claim, so it is handed back before the comparison — raising
+    a deposit from 5.000 to 6.000 has to answer for 1.000, not for 6.000.
+  */
+  if (kind === "saving" && accountId) {
+    const balances = await getAccountBalances();
+    const account = balances.find((a) => a.id === accountId);
+    if (account) {
+      let free = account.free;
+      if (id) {
+        const { data: previous } = await supabase
+          .from("money_transactions")
+          .select("kind, amount_rsd, account_id")
+          .eq("id", id)
+          .eq("user_id", uid)
+          .maybeSingle();
+        if (previous?.kind === "saving" && previous.account_id === accountId) {
+          free += Number(previous.amount_rsd) || 0;
+        }
+      }
+
+      if (amountRsd > free + PENNY)
+        return {
+          error:
+            free > 0
+              ? `${account.name} only has ${formatRsd(free)} free — the rest is already set aside for another goal.`
+              : `${account.name} has nothing free to set aside. Every dinar on it is already claimed by a goal.`,
+        };
+    }
+  }
 
   if (goal) {
     // A goal can never hold less than nothing, in either direction: you cannot take

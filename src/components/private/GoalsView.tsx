@@ -9,7 +9,8 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { buttonClasses } from "@/components/ui/Button";
 import { formatRsd } from "@/lib/money";
 import type { OnHand } from "@/lib/data/money";
-import type { GoalLine, MoneyAccount } from "@/lib/types";
+import type { AccountBalance } from "@/lib/data/money";
+import type { GoalLine } from "@/lib/types";
 import { GoalForm } from "./GoalForm";
 import { ARCHIVE_HREF, GOALS_HREF, PanelMeta, caps } from "./goals/shared";
 import { isOpen } from "./goals/reading";
@@ -61,14 +62,12 @@ export function GoalsView({
   accounts,
   onHand,
   panel,
-  customColors,
   showArchived,
 }: {
   goals: GoalLine[];
-  accounts: MoneyAccount[];
+  accounts: AccountBalance[];
   onHand: OnHand;
   panel: GoalsPanel;
-  customColors: string[];
   showArchived: boolean;
 }) {
   const router = useRouter();
@@ -200,7 +199,6 @@ export function GoalsView({
         <GoalForm
           goal={panel?.mode === "edit" ? panel.goal : undefined}
           accounts={accounts}
-          customColors={customColors}
           onDone={close}
         />
       </SlideOver>

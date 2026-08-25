@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useSyncExternalStore } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 
 /**
@@ -14,7 +15,17 @@ import { X } from "lucide-react";
  * list you had scrolled halfway down. And it was a plain `div`, so a screen reader
  * never announced that anything had opened and the keyboard could still tab into the
  * page behind it.
+ *
+ * And it is rendered into the body rather than where it is written. `<main>` is
+ * wrapped in a ViewTransition, which gives it a view-transition-name and therefore a
+ * stacking context of its own — so a panel inside it could not paint above the
+ * topbar no matter what z-index it asked for. The visible symptom was a panel whose
+ * header, and with it the close button, sat underneath the search bar. A portal puts
+ * it back at the top of the document where `fixed inset-0` means what it says.
  */
+
+/** SSR-safe "are we in the browser yet", without a setState in an effect. */
+const subscribeToNothing = () => () => {};
 export function SlideOver({
   open,
   onClose,
@@ -28,6 +39,11 @@ export function SlideOver({
 }) {
   const panel = useRef<HTMLDivElement>(null);
   const returnTo = useRef<HTMLElement | null>(null);
+  const mounted = useSyncExternalStore(
+    subscribeToNothing,
+    () => true,
+    () => false,
+  );
 
   useEffect(() => {
     if (!open) return;
@@ -89,9 +105,9 @@ export function SlideOver({
     };
   }, [open, onClose]);
 
-  if (!open) return null;
+  if (!open || !mounted) return null;
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50">
       <button
         aria-label="Close panel"
@@ -137,6 +153,7 @@ export function SlideOver({
           {children}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
