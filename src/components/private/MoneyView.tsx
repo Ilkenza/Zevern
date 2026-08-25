@@ -42,7 +42,7 @@ const SIGN: Record<string, string> = {
 const TONE: Record<string, string> = {
   expense: "text-ink",
   income: "text-ok",
-  saving: "text-info",
+  saving: "text-held",
   withdraw: "text-muted",
   transfer: "text-muted",
 };

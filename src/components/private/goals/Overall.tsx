@@ -13,7 +13,7 @@ function Figure({
 }: {
   label: string;
   value: number;
-  tone?: "info" | "danger";
+  tone?: "held" | "danger";
 }) {
   return (
     <div className="goal-figure bg-surface px-3 py-2.5">
@@ -21,7 +21,9 @@ function Figure({
       <div
         className={cn(
           "mono mt-1 text-[15px] font-semibold",
-          tone === "info" ? "text-info" : tone === "danger" ? "text-danger" : "text-ink",
+          // Money held by a goal has its own colour now — the accent, held back — so
+          // this figure agrees with every other place a goal's money is named.
+          tone === "held" ? "text-held" : tone === "danger" ? "text-danger" : "text-ink",
         )}
       >
         {formatRsd(value)}
@@ -127,7 +129,7 @@ export function Overall({ goals, onHand }: { goals: GoalLine[]; onHand: OnHand }
           )}
         >
           <Figure label="On accounts" value={onHand.total} />
-          <Figure label="− Set aside" value={onHand.reserved} tone="info" />
+          <Figure label="− Set aside" value={onHand.reserved} tone="held" />
           <Figure
             label="= Free to spend"
             value={onHand.free}

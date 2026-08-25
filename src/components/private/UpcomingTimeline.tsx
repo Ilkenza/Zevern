@@ -101,7 +101,7 @@ export function UpcomingTimeline({
                       {w.count} {w.count === 1 ? "item" : "items"}
                       {w.income > 0 && <> · {formatRsd(w.income)} coming in</>}
                       {w.saving > 0 && (
-                        <span className="text-info"> · {formatRsd(w.saving)} into goals</span>
+                        <span className="text-held"> · {formatRsd(w.saving)} into goals</span>
                       )}
                     </span>
                     {w.everyday > 0 && (
@@ -130,7 +130,7 @@ export function UpcomingTimeline({
         <p className="text-[11.5px] leading-relaxed text-muted">
           Starting from <span className="mono text-ink">{formatRsd(startingBalance)}</span>:{" "}
           <span className="mono">{formatRsd(onAccounts)}</span> on the accounts, less{" "}
-          <span className="mono text-info">{formatRsd(reserved)}</span> already set aside for
+          <span className="mono text-held">{formatRsd(reserved)}</span> already set aside for
           goals. That money has not gone anywhere — it just cannot pay a bill.
         </p>
       )}
@@ -187,7 +187,7 @@ export function UpcomingTimeline({
           {estimated > 0 && (
             <>
               {estimated} variable {estimated === 1 ? "item is" : "items are"} shown at the average
-              of their last bookings — marked <span className="text-info">Estimate</span> in the
+              of their last bookings — marked <span className="text-held">Estimate</span> in the
               list, and every one of them opens to show the bookings behind it.{" "}
             </>
           )}

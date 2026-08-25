@@ -106,7 +106,7 @@ export function RuleRow({ item, rates, today }: { item: RecurringRow; rates: Rat
             <span>{EVERY_LABEL[item.every] ?? item.every}</span>
             <Dot />
             {item.goal ? (
-              <span className="min-w-0 truncate text-info">{item.goal.name}</span>
+              <span className="min-w-0 truncate text-held">{item.goal.name}</span>
             ) : (
               <span className="min-w-0 truncate">{item.category?.name ?? "No category"}</span>
             )}
@@ -137,7 +137,7 @@ export function RuleRow({ item, rates, today }: { item: RecurringRow; rates: Rat
                     : income
                       ? "text-ok"
                       : r.toGoal
-                        ? "text-info"
+                        ? "text-held"
                         : "text-ink",
                 )}
               >

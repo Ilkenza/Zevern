@@ -8,6 +8,7 @@ import { Panel } from "@/components/ui/Panel";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { buttonClasses } from "@/components/ui/Button";
 import { formatRsd } from "@/lib/money";
+import { cn } from "@/lib/utils";
 import type { OnHand } from "@/lib/data/money";
 import type { AccountBalance } from "@/lib/data/money";
 import type { GoalLine, MoneyCategory } from "@/lib/types";
@@ -105,7 +106,7 @@ export function GoalsView({
               <span><small>Active</small><b>{open.length}</b></span>
               <span><small>Saved</small><b className="mono">{formatRsd(openSaved)}</b></span>
               <span><small>Target</small><b className="mono">{formatRsd(openTarget)}</b></span>
-              <span className="goals-reached"><small>Reached</small><b>{reached}</b></span>
+              <span className={cn("goals-reached", reached === 0 && "is-none")}><small>Reached</small><b>{reached}</b></span>
             </div>
           )}
           <Link href={`${GOALS_HREF}?new=1`} className={buttonClasses("primary", "money-premium-button shrink-0")}>

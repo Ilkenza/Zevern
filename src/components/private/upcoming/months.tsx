@@ -56,7 +56,7 @@ export function MonthHead({ group }: { group: MonthGroup }) {
       <span className="mono text-[11px] text-muted">
         −{formatRsd(group.expense)}
         {group.income > 0 && <> · +{formatRsd(group.income)}</>}
-        {group.saving > 0 && <span className="text-info"> · {formatRsd(group.saving)} aside</span>}
+        {group.saving > 0 && <span className="text-held"> · {formatRsd(group.saving)} aside</span>}
         {group.everyday > 0 && <> · {formatRsd(group.everyday)} living</>}
         {" · "}
         <span className={group.closing < 0 ? "text-danger" : "text-faint"}>

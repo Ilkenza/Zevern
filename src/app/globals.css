@@ -32,6 +32,16 @@
   --color-danger: #de6b5e;
   --color-draft: #6b7185;
   --color-info: #5b8fd6;
+  /*
+    Money a goal is holding.
+
+    It needed its own colour — it is neither spending nor income — and it had been
+    borrowing the blue that Badge uses for informational status. A cold blue in a
+    palette of warm gold on graphite reads as a foreign object, which is exactly how it
+    looked next to the reconciliation strip. This is the same accent family, held back:
+    warm enough to belong, quiet enough that free money still leads.
+  */
+  --color-held: #b3903f;
 
   /* Status (background tints) */
   --color-ok-bg: rgba(95, 184, 138, 0.14);
@@ -40,6 +50,7 @@
   --color-danger-bg: rgba(222, 107, 94, 0.15);
   --color-draft-bg: rgba(255, 255, 255, 0.045);
   --color-info-bg: rgba(91, 143, 214, 0.16);
+  --color-held-bg: rgba(179, 144, 63, 0.16);
 
   /* Borders */
   --color-line: rgba(255, 255, 255, 0.08);
@@ -463,7 +474,12 @@ body {
 
 .onhand-seg { display: block; height: 100%; border-radius: var(--radius-pill); }
 .onhand-free { background: var(--color-gold); }
-.onhand-reserved { background: var(--color-info); }
+/*
+  Reserved money is not a different kind of money, it is the same money with a label on
+  it — so it takes a dimmed version of the same gold rather than a blue borrowed from a
+  status palette this app does not otherwise use. Free leads, reserved recedes.
+*/
+.onhand-reserved { background: var(--color-held); }
 
 .onhand-legend {
   display: flex;
@@ -3041,20 +3057,48 @@ body {
   gap: 12px;
 }
 
+/*
+  Four figures that had drifted out of the app's own language: a flat panel, a green
+  cell borrowed from a status palette, and no relationship to the gold everything else
+  on this page is built from. Same glass, same hairlines, same gold — and the count
+  that matters most is the one wearing it.
+*/
 .goals-head-stats {
+  position: relative;
   display: grid;
-  grid-template-columns: repeat(4, auto);
   overflow: hidden;
-  border: 1px solid var(--color-line);
+  border: 1px solid rgba(255, 255, 255, 0.09);
   border-radius: var(--radius-card);
-  background: rgba(255, 255, 255, 0.018);
-  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.14);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.008)),
+    rgba(12, 14, 18, 0.5);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 18px 48px rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(14px);
+  grid-template-columns: repeat(4, auto);
+}
+
+/* The same warm bloom the page head carries, so the strip belongs to it. */
+.goals-head-stats::after {
+  content: "";
+  position: absolute;
+  top: -34px;
+  right: 8%;
+  width: 140px;
+  height: 76px;
+  border-radius: 50%;
+  background: rgba(217, 164, 65, 0.08);
+  filter: blur(26px);
+  pointer-events: none;
 }
 
 .goals-head-stats > span {
+  position: relative;
+  z-index: 1;
   min-width: 76px;
-  padding: 10px 12px;
-  border-right: 1px solid var(--color-line-soft);
+  padding: 10px 13px;
+  border-right: 1px solid rgba(255, 255, 255, 0.055);
 }
 
 .goals-head-stats > span:last-child { border-right: 0; }
@@ -3075,17 +3119,23 @@ body {
   display: block;
   margin-top: 4px;
   color: var(--color-ink);
-  font-size: 13px;
+  font-size: 13.5px;
   font-weight: 650;
+  letter-spacing: -0.2px;
   white-space: nowrap;
 }
 
 .goals-head-stats .goals-reached {
-  background: rgba(95, 184, 138, 0.07);
+  background: linear-gradient(135deg, rgba(217, 164, 65, 0.16), rgba(217, 164, 65, 0.045));
 }
 
-.goals-head-stats .goals-reached small,
-.goals-head-stats .goals-reached b { color: var(--color-ok); }
+.goals-head-stats .goals-reached small { color: rgba(230, 180, 87, 0.7); }
+.goals-head-stats .goals-reached b { color: var(--color-gold-hi); }
+
+/* Nothing reached yet is not an achievement to colour in. */
+.goals-head-stats .goals-reached.is-none { background: none; }
+.goals-head-stats .goals-reached.is-none small { color: var(--color-faint); }
+.goals-head-stats .goals-reached.is-none b { color: var(--color-muted); }
 
 .goal-overall-panel {
   overflow: hidden;

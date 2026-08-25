@@ -224,7 +224,7 @@ export function Row({ line, from }: { line: ForecastLine; from: string }) {
               )}
               <Dot />
               {line.goal ? (
-                <span className="min-w-0 truncate text-info">Into {line.goal}</span>
+                <span className="min-w-0 truncate text-held">Into {line.goal}</span>
               ) : (
                 <span className="min-w-0 truncate">{line.category ?? "No category"}</span>
               )}
@@ -255,7 +255,7 @@ export function Row({ line, from }: { line: ForecastLine; from: string }) {
               : everyday
                 ? "text-muted"
                 : line.goal
-                  ? "text-info"
+                  ? "text-held"
                   : line.estimated
                     ? "text-muted"
                     : "text-ink",

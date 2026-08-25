@@ -49,7 +49,7 @@ function DueRow({ item }: { item: RecurringRow }) {
         <div className="mono text-[11.5px] text-muted">
           due {item.next_on} ·{" "}
           {item.goal ? (
-            <span className="text-info">into {item.goal.name}</span>
+            <span className="text-held">into {item.goal.name}</span>
           ) : (
             (item.category?.name ?? "No category")
           )}{" "}
