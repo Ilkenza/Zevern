@@ -7,6 +7,7 @@ import { refreshRatesFromNbs, saveRates, type MoneyState } from "@/app/(app)/pri
 import { Button, buttonClasses } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
 import { SwapLabel, caps } from "./kit";
+import { todayISO } from "@/lib/format";
 
 /** A rate is a figure first: big, mono, and editable in place. */
 function RateTile({ code, name, value }: { code: string; name: string; value: number }) {
@@ -44,7 +45,7 @@ export function RatesPanel({ eur, usd, updatedOn }: { eur: number; usd: number; 
   const [fetching, startFetch] = useTransition();
   const [fetchError, setFetchError] = useState<string | null>(null);
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayISO();
   const stale = !updatedOn || updatedOn < today;
 
   const pull = () => {

@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { DeleteButton } from "@/components/ui/DeleteButton";
 import { CURRENCY_OPTIONS, EVERY_OPTIONS, CATEGORY_KIND_OPTIONS } from "@/lib/money";
 import type { MoneyAccount, MoneyCategory, MoneyGoal, MoneyRecurring } from "@/lib/types";
+import { todayISO } from "@/lib/format";
 
 export function RecurringForm({
   item,
@@ -128,7 +129,7 @@ export function RecurringForm({
           label="Next due"
           name="next_on"
           type="date"
-          defaultValue={item?.next_on ?? new Date().toISOString().slice(0, 10)}
+          defaultValue={item?.next_on ?? todayISO()}
         />
 
         <div className="grid grid-cols-2 gap-2">

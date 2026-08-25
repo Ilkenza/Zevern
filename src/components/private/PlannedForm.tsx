@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/Button";
 import { DeleteButton } from "@/components/ui/DeleteButton";
 import { CATEGORY_KIND_OPTIONS, CURRENCY_OPTIONS } from "@/lib/money";
 import type { MoneyAccount, MoneyCategory, PlannedRow } from "@/lib/types";
+import { todayISO } from "@/lib/format";
 
 /**
  * One thing you already know about, on a date you already know: the dentist in three
@@ -96,7 +97,7 @@ export function PlannedForm({
           label="Due on"
           name="due_on"
           type="date"
-          defaultValue={item?.due_on ?? new Date().toISOString().slice(0, 10)}
+          defaultValue={item?.due_on ?? todayISO()}
           help="The day you expect it to happen. It can be moved later."
         />
 

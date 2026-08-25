@@ -165,7 +165,7 @@ export const EVERY_OPTIONS = [
  * last day of the next one, which is how bills anchored to month-end behave, and
  * any other day is clamped so the 31st lands on the 30th or the 28th.
  */
-export function nextDate(from: string, every: string): string {
+export function nextDate(from: string, every: string, anchorDay?: number | null): string {
   const d = new Date(`${from}T00:00:00Z`);
   if (every === "week") {
     d.setUTCDate(d.getUTCDate() + 7);
@@ -177,17 +177,54 @@ export function nextDate(from: string, every: string): string {
   const day = d.getUTCDate();
   const step = every === "year" ? 12 : 1;
 
-  const lastOfThis = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
   const target = new Date(Date.UTC(year, month + step, 1));
   const lastOfTarget = new Date(
     Date.UTC(target.getUTCFullYear(), target.getUTCMonth() + 1, 0),
   ).getUTCDate();
 
-  const nextDay = day === lastOfThis ? lastOfTarget : Math.min(day, lastOfTarget);
+  /*
+    With an anchor there is nothing to infer: the rule knows which day it belongs to,
+    and a day past the end of the target month clamps to the end of it. Anchor 31 is
+    how a month-end rule is written, so it lands on 30 in April and 28 in February and
+    comes back to 31 in March.
+
+    Without one — a rule created before the anchor existed — fall back to the old
+    guess. It reads month-end out of the date itself, which is why the 28th of
+    February used to promote a rule to month-end for ever. The fallback is kept so
+    nothing changes underneath a row that has not been backfilled, not because it is
+    right.
+  */
+  const nextDay =
+    anchorDay != null
+      ? Math.min(anchorDay, lastOfTarget)
+      : day === new Date(Date.UTC(year, month + 1, 0)).getUTCDate()
+        ? lastOfTarget
+        : Math.min(day, lastOfTarget);
+
   return new Date(Date.UTC(target.getUTCFullYear(), target.getUTCMonth(), nextDay))
     .toISOString()
     .slice(0, 10);
 }
+
+/**
+ * The anchor a rule should carry, worked out from the date it starts on.
+ *
+ * A rule set up on the last day of a 30-day month means "the end of the month", not
+ * "the 30th" — nobody picks 30 September and means 30 October rather than 31 October.
+ * So the last day of any short month reads as 31, which is how month-end is written.
+ * Weekly rules have no day of the month at all.
+ */
+export function anchorDayFor(startOn: string, every: string): number | null {
+  if (every === "week") return null;
+  const d = new Date(`${startOn}T00:00:00Z`);
+  if (Number.isNaN(d.getTime())) return null;
+  const day = d.getUTCDate();
+  const lastOfMonth = new Date(
+    Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0),
+  ).getUTCDate();
+  return day === lastOfMonth ? 31 : day;
+}
+
 
 /** Palette used for categories, goals and accounts. */
 /**

@@ -16,6 +16,7 @@ import {
 } from "@/lib/money";
 import { cn } from "@/lib/utils";
 import type { MoneyAccount, MoneyCategory, MoneyGoal, TransactionRow } from "@/lib/types";
+import { todayISO } from "@/lib/format";
 
 export type TxFormData = {
   accounts: MoneyAccount[];
@@ -176,7 +177,7 @@ export function TransactionForm({
           label="Date"
           name="occurred_on"
           type="date"
-          defaultValue={tx?.occurred_on ?? new Date().toISOString().slice(0, 10)}
+          defaultValue={tx?.occurred_on ?? todayISO()}
         />
 
         <Field label="Note" name="note" defaultValue={tx?.note ?? ""} placeholder="Optional" />

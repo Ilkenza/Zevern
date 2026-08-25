@@ -289,7 +289,17 @@ export async function getForecast(windows: number[] = [30, 60, 90]): Promise<For
     .slice()
     .sort((a, b) => a - b)
     .map((days) => {
-      const inWindow = all.filter((o) => dayOf(o.on) <= days);
+      /*
+        The lower bound matters as much as the upper one. `occurrencesFor` walks from
+        `next_on`, which sits in the past for every rule that has not been booked yet,
+        and `dayOf` is negative for those — so an unbooked rent from May was landing
+        inside "the next 30 days" along with every month since. A rule four months in
+        arrears reported five rents due in the next thirty days.
+      */
+      const inWindow = all.filter((o) => {
+        const day = dayOf(o.on);
+        return day >= 0 && day <= days;
+      });
       const real = inWindow.filter((o) => o.source !== "everyday");
       const expense = real
         .filter((o) => o.kind !== "income" && o.goal === null)

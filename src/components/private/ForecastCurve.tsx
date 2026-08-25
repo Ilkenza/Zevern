@@ -58,7 +58,12 @@ function monthTicks(from: string, days: number): { day: number; label: string }[
 export function ForecastCurve({ forecast, days = 90 }: { forecast: Forecast; days?: number }) {
   const [hover, setHover] = useState<Point | null>(null);
 
-  const inWindow = forecast.lines.filter((l) => dayIndex(forecast.from, l.on) <= days);
+  // Same lower bound the window totals needed: an unbooked rule walks from a date in
+  // the past, and those points would otherwise all pile onto day zero.
+  const inWindow = forecast.lines.filter((l) => {
+    const day = dayIndex(forecast.from, l.on);
+    return day >= 0 && day <= days;
+  });
   if (inWindow.length === 0) return null;
 
   const balances = [forecast.startingBalance, ...inWindow.map((l) => l.balance)];

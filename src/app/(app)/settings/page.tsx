@@ -8,6 +8,7 @@ import { BusinessForm } from "@/components/settings/BusinessForm";
 import { PasswordForm } from "@/components/settings/PasswordForm";
 import { ExtensionPanel } from "@/components/settings/ExtensionPanel";
 import { ModulesPanel } from "@/components/settings/ModulesPanel";
+import { ExportPanel } from "@/components/settings/ExportPanel";
 import { DangerZone } from "@/components/settings/DangerZone";
 
 export default async function SettingsPage() {
@@ -47,6 +48,10 @@ export default async function SettingsPage() {
 
       <Panel title="Password">
         <PasswordForm email={user?.email ?? ""} />
+      </Panel>
+
+      <Panel title="Your data">
+        <ExportPanel />
       </Panel>
 
       <Panel title="Danger zone">

@@ -100,7 +100,7 @@ export function occurrencesFor(
       samples,
       days: 0,
     });
-    on = nextDate(on, item.every);
+    on = nextDate(on, item.every, item.anchor_day ?? null);
   }
 
   return out;

@@ -10,6 +10,7 @@ import { SWATCHES, formatRsd } from "@/lib/money";
 import { ColorPicker } from "@/components/ui/ColorPicker";
 import { cn } from "@/lib/utils";
 import type { GoalLine, MoneyAccount } from "@/lib/types";
+import { todayISO } from "@/lib/format";
 
 /** Same label treatment the Field component uses, so the colour row lines up with it. */
 const label = "mb-1.5 block text-xs font-semibold text-[#C6CAD6]";
@@ -98,7 +99,7 @@ function CloseGoal({
         label="Closed on"
         name="completed_at"
         type="date"
-        defaultValue={new Date().toISOString().slice(0, 10)}
+        defaultValue={todayISO()}
       />
 
       {state?.error && <p className="mt-2 text-[11.5px] text-danger">{state.error}</p>}

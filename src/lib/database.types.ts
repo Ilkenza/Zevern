@@ -406,6 +406,7 @@ export type Database = {
           account_id: string | null
           active: boolean
           amount: number
+          anchor_day: number | null
           category_id: string | null
           created_at: string
           currency: string
@@ -425,6 +426,7 @@ export type Database = {
           account_id?: string | null
           active?: boolean
           amount?: number
+          anchor_day?: number | null
           category_id?: string | null
           created_at?: string
           currency?: string
@@ -444,6 +446,7 @@ export type Database = {
           account_id?: string | null
           active?: boolean
           amount?: number
+          anchor_day?: number | null
           category_id?: string | null
           created_at?: string
           currency?: string

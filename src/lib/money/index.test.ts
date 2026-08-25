@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  anchorDayFor,
   DEFAULT_RATES,
   formatRsdShort,
   isGoalKind,
@@ -35,12 +36,66 @@ describe("nextDate", () => {
   });
 
   it("keeps a month-end date on the month end rather than clamping it once", () => {
-    // A bill anchored to the last day of the month stays anchored: 28 February is
-    // the end of February, so the next one is 31 March, not 28 March.
+    // Without an anchor the date is all there is to go on, so 28 February still reads
+    // as month-end. This is the legacy path, kept for rows written before anchors.
     expect(nextDate("2026-02-28", "month")).toBe("2026-03-31");
     expect(nextDate("2026-09-30", "month")).toBe("2026-10-31");
     // …but a 28th that is *not* the month end stays a 28th.
     expect(nextDate("2026-03-28", "month")).toBe("2026-04-28");
+  });
+
+  /*
+    The bug the anchor exists to kill. Rent due on the 28th walked
+    01-28 → 02-28 → 03-31 → 04-30 and stayed month-end for ever, because the guess
+    could not tell "the 28th" from "the last day of February". `postRecurring` wrote
+    the drifted date back, so one February permanently re-anchored the rule.
+  */
+  it("does not let February promote a 28th to month-end", () => {
+    let on = "2026-01-28";
+    const walked: string[] = [];
+    for (let i = 0; i < 5; i += 1) {
+      on = nextDate(on, "month", 28);
+      walked.push(on);
+    }
+    expect(walked).toEqual([
+      "2026-02-28",
+      "2026-03-28",
+      "2026-04-28",
+      "2026-05-28",
+      "2026-06-28",
+    ]);
+  });
+
+  it("clamps an anchored month-end rule and comes back", () => {
+    // Anchor 31 is how month-end is written: it gives up days it cannot have and
+    // takes them straight back.
+    expect(nextDate("2026-01-31", "month", 31)).toBe("2026-02-28");
+    expect(nextDate("2026-02-28", "month", 31)).toBe("2026-03-31");
+    expect(nextDate("2026-03-31", "month", 31)).toBe("2026-04-30");
+    expect(nextDate("2026-04-30", "month", 31)).toBe("2026-05-31");
+    expect(nextDate("2028-01-31", "month", 31)).toBe("2028-02-29");
+  });
+
+  it("holds the 30th through February instead of losing it", () => {
+    // The other half of the same bug: a 30th clamped to 28 in February and then
+    // became month-end, so it never returned to the 30th.
+    expect(nextDate("2026-01-30", "month", 30)).toBe("2026-02-28");
+    expect(nextDate("2026-02-28", "month", 30)).toBe("2026-03-30");
+    expect(nextDate("2026-03-30", "month", 30)).toBe("2026-04-30");
+    expect(nextDate("2026-04-30", "month", 30)).toBe("2026-05-30");
+  });
+
+  it("reads the right anchor off the date a rule starts on", () => {
+    // The last day of a short month means "month end" — nobody picks 30 September
+    // and means 30 October rather than 31 October.
+    expect(anchorDayFor("2026-09-30", "month")).toBe(31);
+    expect(anchorDayFor("2026-02-28", "month")).toBe(31);
+    expect(anchorDayFor("2026-01-31", "month")).toBe(31);
+    // Any other day is itself.
+    expect(anchorDayFor("2026-01-28", "month")).toBe(28);
+    expect(anchorDayFor("2026-03-14", "month")).toBe(14);
+    // A weekly rule has no day of the month at all.
+    expect(anchorDayFor("2026-03-14", "week")).toBeNull();
   });
 
   it("steps a week without touching month logic", () => {

@@ -16,6 +16,7 @@ import { isOpen } from "./goals/reading";
 import { GoalCard } from "./goals/GoalCard";
 import { ClosedRow } from "./goals/ClosedRow";
 import { Overall } from "./goals/Overall";
+import { todayISO } from "@/lib/format";
 
 export type GoalsPanel = { mode: "new" } | { mode: "edit"; goal: GoalLine } | null;
 
@@ -74,7 +75,7 @@ export function GoalsView({
   const close = () => router.push(GOALS_HREF);
 
   // Read the same way Setup reads today — UTC on both sides, so nothing disagrees.
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayISO();
 
   // Open is measured by completed_at alone, never by the archive flag: a goal still
   // holding money back has to stay visible, whatever else has been done to it.

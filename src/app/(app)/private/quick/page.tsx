@@ -1,9 +1,10 @@
 import { getAccounts, getCategories, getRates, getTransactions } from "@/lib/data/money";
 import { QuickAdd } from "@/components/private/QuickAdd";
 import { monthKey } from "@/lib/money";
+import { todayISO } from "@/lib/format";
 
 export default async function QuickAddPage() {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayISO();
   const [accounts, categories, rates, month] = await Promise.all([
     getAccounts(),
     getCategories(),

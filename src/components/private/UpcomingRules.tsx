@@ -28,6 +28,7 @@ import {
   type SortKey,
 } from "./upcoming/rule-filters";
 import { NoRules } from "./upcoming/NoRules";
+import { todayISO } from "@/lib/format";
 
 export function UpcomingRules({
   items,
@@ -39,7 +40,7 @@ export function UpcomingRules({
   rates: Rates;
 }) {
   // Read the same way Setup and Goals read today — UTC on both sides, so nothing disagrees.
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayISO();
 
   // The register's own state, and nowhere else. The page's `searchParams` already
   // carry the view, the open form and the rule being edited; putting a search term in

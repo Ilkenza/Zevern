@@ -80,6 +80,9 @@ type FeedRule = {
   goal_id: string | null;
   created_at: string;
   category_name: string | null;
+  /** The day of the month the rule is anchored to — the feed must walk the same
+      dates the app does, or a subscribed calendar quietly disagrees with it. */
+  anchor_day: number | null;
 };
 
 type FeedPlanned = {
@@ -128,6 +131,7 @@ function asRecurringRow(rule: FeedRule): RecurringRow {
     installments_done: rule.installments_done ?? 0,
     goal_id: rule.goal_id,
     created_at: rule.created_at,
+    anchor_day: rule.anchor_day ?? null,
     user_id: "",
     account_id: null,
     category_id: null,

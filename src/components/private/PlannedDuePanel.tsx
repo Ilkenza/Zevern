@@ -11,6 +11,7 @@ import { formatAmount } from "@/lib/money";
 import { cn } from "@/lib/utils";
 import type { PlannedRow } from "@/lib/types";
 import { daysBetween, whenLabel } from "./upcoming";
+import { todayISO } from "@/lib/format";
 
 /** Bare controls inside a row, measured the way Goals and Setup measure their own. */
 const field =
@@ -135,7 +136,7 @@ function DueRow({ item, today }: { item: PlannedRow; today: string }) {
  * out to be true.
  */
 export function PlannedDuePanel({ due }: { due: PlannedRow[] }) {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayISO();
   if (due.length === 0) return null;
 
   return (

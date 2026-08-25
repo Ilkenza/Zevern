@@ -57,7 +57,25 @@ export async function commitLeadsImport(
   const uid = await userId(supabase);
   if (!uid) return { imported: 0, updated: 0, error: "Not signed in." };
 
-  const { data: existing } = await supabase.from("leads").select("*");
+  /*
+    Both halves of this were wrong and they compounded. The read had no `user_id`
+    filter, unlike its own preview twin twenty lines up; and the error was dropped, so
+    a failed read became `[]`. An empty "existing" makes every pasted row look new,
+    and the import then inserts a second copy of the entire lead list — immediately
+    after the preview screen said "0 new, 40 unchanged".
+  */
+  const { data: existing, error: readErr } = await supabase
+    .from("leads")
+    .select("*")
+    .eq("user_id", uid);
+  if (readErr) {
+    console.error("commitLeadsImport read:", readErr.message);
+    return {
+      imported: 0,
+      updated: 0,
+      error: "Could not read your existing leads, so nothing was imported.",
+    };
+  }
   const plan = computeImportPlan(rows, existing ?? []);
 
   if (plan.newRows.length > 0) {

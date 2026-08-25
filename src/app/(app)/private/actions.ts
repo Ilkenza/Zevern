@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 import { userId } from "@/lib/supabase/current-user";
+import { todayISO } from "@/lib/format";
 import { saveErrorMessage } from "@/lib/supabase/errors";
 import { getRates } from "@/lib/data/money";
 import { fetchNbsRates } from "@/lib/rates/nbs";
@@ -15,6 +16,7 @@ import {
   nextDate,
   rateFor,
   type Currency,
+  anchorDayFor,
 } from "@/lib/money";
 
 export type MoneyState = { ok?: boolean; error?: string } | undefined;
@@ -86,8 +88,15 @@ async function ownsMoneyRow(
 }
 
 /** Today, read in UTC — the same reading every screen uses, so nothing disagrees. */
+/*
+  `toISOString()` is UTC, and next.config pins the server to Europe/Belgrade — so
+  between midnight and 02:00 this returned yesterday while `monthKey()` on the very
+  next line returned today. An entry added at 00:30 on 1 September was stored as
+  31 August, then hidden from a screen defaulting to September and quietly added to
+  August's totals and August's budget. `todayISO()` is the local answer.
+*/
 function today(): string {
-  return new Date().toISOString().slice(0, 10);
+  return todayISO();
 }
 
 /**
@@ -747,6 +756,8 @@ export async function saveRecurring(_prev: MoneyState, formData: FormData): Prom
     variable,
     every,
     next_on: nextOn,
+    // The day the rule belongs to, kept so a February can never re-anchor it.
+    anchor_day: anchorDayFor(nextOn, every),
     account_id: accountId,
     category_id: categoryId,
     goal_id: goalId,
@@ -876,29 +887,47 @@ export async function postRecurring(id: string, amountOverride?: number): Promis
   }
 
   const rates = await getRates();
-  const { error } = await supabase.from("money_transactions").insert({
-    kind: toGoal ? "saving" : item.kind,
-    amount,
-    currency: item.currency,
-    rate: rateFor(item.currency, rates),
-    account_id: item.account_id,
-    category_id: toGoal ? null : item.category_id,
-    goal_id: item.goal_id,
-    recurring_id: item.id,
-    note: item.name,
-    occurred_on: item.next_on,
-  });
+  const { data: booked, error } = await supabase
+    .from("money_transactions")
+    .insert({
+      kind: toGoal ? "saving" : item.kind,
+      amount,
+      currency: item.currency,
+      rate: rateFor(item.currency, rates),
+      account_id: item.account_id,
+      category_id: toGoal ? null : item.category_id,
+      goal_id: item.goal_id,
+      recurring_id: item.id,
+      note: item.name,
+      occurred_on: item.next_on,
+    })
+    .select("id")
+    .maybeSingle();
   if (error) return { error: saveErrorMessage(error) };
 
   // One installment down. Whichever limit is reached first — the count or the end
   // date — pauses the item; the entries already booked stay untouched.
   const done = (item.installments_done ?? 0) + 1;
-  const next = nextDate(item.next_on, item.every);
+  const next = nextDate(item.next_on, item.every, item.anchor_day);
   const finished =
     (item.installments_total != null && done >= item.installments_total) ||
     (item.ends_on != null && next > item.ends_on);
 
-  const { error: bumpErr } = await supabase
+  /*
+    The date this booked is part of the condition, not just part of the payload.
+
+    Two things fire this without a person asking: DueRecurringPanel books everything
+    due from an effect on mount, and that panel is on both /private and
+    /private/upcoming. Navigate between them while the first run is still going — or
+    just keep both tabs open — and a second run reads the same `next_on` for every
+    rule and books the month again. Rent twice, `installments_done` up by one instead
+    of two, `next_on` advanced a single period, and no error anywhere.
+
+    Guarding the bump on the date we read means the loser of that race updates zero
+    rows and knows it, so it can take its own entry back out. `settlePlanned` already
+    worked this way; this is the same shape.
+  */
+  const { data: bumped, error: bumpErr } = await supabase
     .from("money_recurring")
     .update({
       next_on: next,
@@ -906,8 +935,28 @@ export async function postRecurring(id: string, amountOverride?: number): Promis
       ...(finished ? { active: false } : {}),
     })
     .eq("id", id)
-    .eq("user_id", uid);
-  if (bumpErr) return { error: saveErrorMessage(bumpErr) };
+    .eq("user_id", uid)
+    .eq("next_on", item.next_on)
+    .select("id")
+    .maybeSingle();
+
+  if (bumpErr || !bumped) {
+    // Somebody else advanced this rule between our read and our write, so the entry we
+    // just made is a duplicate of theirs. Take it back out rather than leaving it.
+    if (booked?.id) {
+      const { error: undoErr } = await supabase
+        .from("money_transactions")
+        .delete()
+        .eq("id", booked.id)
+        .eq("user_id", uid);
+      if (undoErr) console.error("postRecurring rollback:", undoErr.message);
+    }
+    if (bumpErr) return { error: saveErrorMessage(bumpErr) };
+    // Not an error the person needs to see: the booking they wanted did happen, just
+    // on the other request.
+    refresh();
+    return { ok: true };
+  }
 
   refresh();
   return { ok: true };
@@ -921,13 +970,13 @@ export async function skipRecurring(id: string): Promise<MoneyState> {
 
   const { data: item } = await supabase
     .from("money_recurring")
-    .select("id, next_on, every, ends_on")
+    .select("id, next_on, every, ends_on, anchor_day")
     .eq("id", id)
     .eq("user_id", uid)
     .maybeSingle();
   if (!item) return { error: "Recurring item not found." };
 
-  const next = nextDate(item.next_on, item.every);
+  const next = nextDate(item.next_on, item.every, item.anchor_day);
   const { error } = await supabase
     .from("money_recurring")
     .update({
@@ -1197,7 +1246,7 @@ export async function moveRecurringNext(id: string, nextOn: string): Promise<Mon
 
   const { data: item } = await supabase
     .from("money_recurring")
-    .select("ends_on")
+    .select("ends_on, every")
     .eq("id", id)
     .eq("user_id", uid)
     .maybeSingle();
@@ -1207,7 +1256,7 @@ export async function moveRecurringNext(id: string, nextOn: string): Promise<Mon
 
   const { error } = await supabase
     .from("money_recurring")
-    .update({ next_on: date })
+    .update({ next_on: date, anchor_day: anchorDayFor(date, item.every) })
     .eq("id", id)
     .eq("user_id", uid);
   if (error) return { error: saveErrorMessage(error) };
