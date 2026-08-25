@@ -40,7 +40,7 @@ export function Sidebar({
 
   return (
     <aside className="flex h-screen flex-col border-r border-line bg-sidebar lg:sticky lg:top-0">
-      <div className="flex items-center gap-2 px-5 pb-3 pt-5">
+      <div className="zv-brand flex items-center gap-2 px-5 pb-3 pt-5">
         <div className="zv-mark flex h-7 w-7 items-center justify-center rounded-ctrl bg-gold text-on-gold">
           <span className="font-display text-[15px] font-extrabold">Z</span>
         </div>

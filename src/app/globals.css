@@ -3817,6 +3817,63 @@ body > * { min-width: 0; }
 }
 
 /* The drawer's close button lives over the brand row, so the brand keeps clear of it. */
+/* ============================================================== The mark
+   What a logo is allowed to do when you point at it.
+
+   Not tilt. A mark is the one shape in a product that has to be the same shape
+   every time it is seen — skewing it says "toy", and it says it about the brand
+   rather than about the button. What reads as expensive is the light changing,
+   not the geometry: the tile warms, a glow comes up under it, and the whole
+   thing rises a hair. The letter never moves relative to its own box.
+   ====================================================================== */
+
+.zv-mark {
+  position: relative;
+  transition:
+    transform 420ms var(--ease-premium),
+    box-shadow 420ms ease,
+    filter 320ms ease;
+}
+
+.zv-brand:hover .zv-mark {
+  transform: translateY(-1px);
+  filter: brightness(1.06) saturate(1.05);
+  box-shadow:
+    0 6px 18px rgba(217, 164, 65, 0.28),
+    0 0 0 3px rgba(217, 164, 65, 0.1);
+}
+
+/* A single pass of light across the tile — once, on the way in. */
+.zv-mark::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  background: linear-gradient(105deg, transparent 38%, rgba(255, 255, 255, 0.5) 50%, transparent 62%);
+  opacity: 0;
+  transform: translateX(-120%);
+  pointer-events: none;
+}
+
+.zv-brand:hover .zv-mark::after {
+  animation: zv-mark-sheen 720ms var(--ease-premium);
+}
+
+@keyframes zv-mark-sheen {
+  from { opacity: 0; transform: translateX(-120%); }
+  35% { opacity: 1; }
+  to { opacity: 0; transform: translateX(120%); }
+}
+
+.zv-brand .font-display { transition: color 320ms ease; }
+
+@media (prefers-reduced-motion: reduce) {
+  .zv-mark,
+  .zv-brand:hover .zv-mark { transition: none; transform: none; }
+  .zv-brand:hover .zv-mark::after { animation: none; }
+}
+
 .zv-drawer .zv-brand { padding-right: 60px; }
 
 
