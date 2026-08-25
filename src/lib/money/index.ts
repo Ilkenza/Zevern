@@ -268,15 +268,20 @@ export const DEFAULT_CATEGORIES: { name: string; kind: "expense" | "income"; col
  *
  * The note is what settles it, and the two negative cases are genuinely different:
  *
- *  - Nothing came in. The minus is the spending mirrored back, because the income
- *    column is empty. That is a bookkeeping fact, not a warning, and colouring it red
- *    cries wolf at someone who is paid on the 30th.
+ *  - Nothing was logged as income. The minus is the spending mirrored back, because
+ *    the income column is empty. That is a bookkeeping fact, not a warning, and
+ *    colouring it red cries wolf at someone who is paid on the 30th.
+ *
+ *    It says "logged" rather than "came in" on purpose. What an account opened with —
+ *    the figure typed into Setup — is money you have, but it is not money that arrived
+ *    this month, so it is not in this column. "Nothing came in" read as an argument
+ *    with the balance sitting next to it.
  *  - Money came in and it still went negative. That is the real one, and it is red.
  */
 export type NetNote = { text: string; tone: "danger" | "muted" } | null;
 
 export function monthNetNote(net: number, income: number): NetNote {
   if (net >= 0) return null;
-  if (income <= 0) return { text: "Nothing came in this month", tone: "muted" };
+  if (income <= 0) return { text: "No income logged this month", tone: "muted" };
   return { text: "More went out than came in", tone: "danger" };
 }

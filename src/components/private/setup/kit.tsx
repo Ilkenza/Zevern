@@ -34,8 +34,14 @@ export const caps = "text-[10.5px] font-semibold uppercase tracking-wider text-f
 export const accountCols =
   "grid grid-cols-1 gap-2 min-[420px]:grid-cols-2 min-[720px]:grid-cols-[minmax(0,1fr)_8.5rem_9.5rem_7rem_7.5rem] min-[720px]:items-center min-[720px]:gap-3";
 
+/*
+  On a phone this was two equal halves, which put a colour swatch in one and a Save
+  button floating in the other — two controls of unrelated size sitting side by side
+  with a gap between them for no reason. The swatch only ever needs its own width, so
+  it takes it, and everything else gets the rest of the row.
+*/
 export const categoryCols =
-  "grid grid-cols-2 items-center gap-2 min-[480px]:grid-cols-[minmax(0,1fr)_auto_7.5rem] min-[480px]:gap-3";
+  "grid grid-cols-[auto_minmax(0,1fr)] items-center gap-2 min-[480px]:grid-cols-[minmax(0,1fr)_auto_7.5rem] min-[480px]:gap-3";
 
 /**
  * How a row leaves: it fades and drifts a little towards the trash it was sent

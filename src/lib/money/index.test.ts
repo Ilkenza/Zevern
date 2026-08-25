@@ -232,7 +232,7 @@ describe("monthNetNote", () => {
    */
   it("explains a minus that is only an empty income column, and does not shout", () => {
     expect(monthNetNote(-670, 0)).toEqual({
-      text: "Nothing came in this month",
+      text: "No income logged this month",
       tone: "muted",
     });
   });

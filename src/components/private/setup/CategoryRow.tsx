@@ -81,11 +81,11 @@ export function CategoryRow({
             <SwapLabel pending={pending} idle="Add" busy="Adding…" />
           </Button>
         ) : (
-          <div className="flex items-center justify-end gap-1">
+          <div className="flex min-w-0 items-center justify-end gap-1">
             <Button
               type="submit"
               variant="secondary"
-            className="money-premium-button w-21 px-3 py-1.5 text-[12.5px]"
+              className="money-premium-button w-full px-3 py-1.5 text-[12.5px] min-[480px]:w-21"
               disabled={pending}
             >
               <SwapLabel pending={pending} idle="Save" busy="Saving…" />
