@@ -597,6 +597,7 @@ export type Database = {
           spending_basis: string
           handle: string | null
           hidden_modules: string[]
+          default_currency: string
           id: string
           rate_eur: number
           rate_usd: number
@@ -639,6 +640,7 @@ export type Database = {
           spending_basis?: string
           handle?: string | null
           hidden_modules?: string[]
+          default_currency?: string
           id?: string
           rate_eur?: number
           rate_usd?: number

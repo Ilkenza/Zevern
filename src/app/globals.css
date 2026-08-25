@@ -3158,15 +3158,15 @@ body {
   box-shadow: 0 0 18px color-mix(in srgb, var(--goal-accent) 26%, transparent);
 }
 
-.goal-saved-value {
-  margin-top: 3px;
-  transition: color 260ms ease, transform 420ms var(--ease-premium);
-}
+/*
+  The figure holds still.
 
-.goal-card-premium:hover .goal-saved-value {
-  color: color-mix(in srgb, var(--goal-accent) 72%, var(--color-ink));
-  transform: translateX(2px);
-}
+  It used to slide two pixels right and change colour whenever the pointer crossed the
+  card — a card you do not click, reacting as though you had. The amount saved is the
+  one number on this card you want to read at a glance, and a number that moves when
+  you look at it is a number you read twice.
+*/
+.goal-saved-value { margin-top: 3px; }
 
 .goal-card-metrics {
   display: grid;
@@ -3179,14 +3179,12 @@ body {
   background: var(--color-line-soft);
 }
 
+/* Target and Remaining are a reading, not a menu — no grey wash under the pointer. */
 .goal-card-metrics > div {
   min-width: 0;
   padding: 8px 10px;
   background: rgba(12, 14, 18, 0.24);
-  transition: background-color 240ms ease;
 }
-
-.goal-card-metrics > div:hover { background: rgba(255, 255, 255, 0.025); }
 
 .goal-card-metrics dt {
   color: var(--color-faint);

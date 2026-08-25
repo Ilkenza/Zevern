@@ -18,6 +18,7 @@ import {
 import { cn } from "@/lib/utils";
 import type { MoneyAccount, MoneyCategory, MoneyGoal, TransactionRow } from "@/lib/types";
 import { todayISO } from "@/lib/format";
+import { useDefaultCurrency } from "@/lib/money/currency";
 
 export type TxFormData = {
   accounts: MoneyAccount[];
@@ -51,12 +52,13 @@ export function TransactionForm({
   returnTo?: "quick";
   onSaved?: () => void;
 }) {
+  const fallback = useDefaultCurrency();
   const [state, formAction, pending] = useActionState<MoneyState, FormData>(
     saveTransaction,
     undefined,
   );
   const [kind, setKind] = useState(tx?.kind ?? defaultKind);
-  const [currency, setCurrency] = useState(tx?.currency ?? "RSD");
+  const [currency, setCurrency] = useState(tx?.currency ?? fallback);
   const [amount, setAmount] = useState(tx ? String(tx.amount) : "");
 
   const { accounts, categories, goals, rates } = data;

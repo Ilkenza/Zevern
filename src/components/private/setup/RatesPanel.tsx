@@ -3,8 +3,15 @@
 import { useActionState, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { RefreshCw } from "lucide-react";
-import { refreshRatesFromNbs, saveRates, type MoneyState } from "@/app/(app)/private/actions";
+import {
+  refreshRatesFromNbs,
+  saveRates,
+  setDefaultCurrency,
+  type MoneyState,
+} from "@/app/(app)/private/actions";
 import { Button, buttonClasses } from "@/components/ui/Button";
+import { CURRENCIES } from "@/lib/money";
+import { useDefaultCurrency } from "@/lib/money/currency";
 import { cn } from "@/lib/utils";
 import { SwapLabel, caps } from "./kit";
 import { todayISO } from "@/lib/format";
@@ -39,6 +46,57 @@ function RateTile({ code, name, value }: { code: string; name: string; value: nu
   );
 }
 
+/**
+ * The currency a new entry, rule, goal or account opens on.
+ *
+ * It sits with the rates because this is the one section about currency, and it is the
+ * question the rates below only make sense as an answer to: everything is totalled in
+ * dinars, but what you type most often does not have to be.
+ */
+function DefaultCurrency() {
+  const router = useRouter();
+  const current = useDefaultCurrency();
+  const [pending, startTransition] = useTransition();
+
+  const pick = (code: string) =>
+    startTransition(async () => {
+      await setDefaultCurrency(code);
+      router.refresh();
+    });
+
+  return (
+    <div className="border-b border-line-soft px-4 py-3.5">
+      <span className={caps}>Forms open on</span>
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        {CURRENCIES.map((code) => {
+          const on = code === current;
+          return (
+            <button
+              key={code}
+              type="button"
+              onClick={() => pick(code)}
+              disabled={pending || on}
+              aria-pressed={on}
+              className={cn(
+                "mono rounded-pill border px-3 py-1 text-[12px] font-bold transition-colors",
+                on
+                  ? "border-gold/45 bg-active-bg text-gold-hi"
+                  : "border-line text-muted hover:border-line-soft hover:text-ink",
+              )}
+            >
+              {code}
+            </button>
+          );
+        })}
+      </div>
+      <p className="mt-2 text-[11.5px] leading-relaxed text-muted">
+        Every new entry, rule, plan, goal and account starts on this one. You can still
+        change it on any single one of them, and totals stay in dinars either way.
+      </p>
+    </div>
+  );
+}
+
 export function RatesPanel({ eur, usd, updatedOn }: { eur: number; usd: number; updatedOn: string | null }) {
   const router = useRouter();
   const [state, formAction, pending] = useActionState<MoneyState, FormData>(saveRates, undefined);
@@ -59,6 +117,8 @@ export function RatesPanel({ eur, usd, updatedOn }: { eur: number; usd: number; 
 
   return (
     <div>
+      <DefaultCurrency />
+
       <form action={formAction} className="px-4 py-4">
         <div className="grid gap-2.5 min-[420px]:grid-cols-2">
           <RateTile code="EUR" name="rate_eur" value={eur} />

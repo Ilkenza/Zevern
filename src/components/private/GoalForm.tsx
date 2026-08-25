@@ -18,6 +18,7 @@ import { MoneyField } from "@/components/ui/MoneyField";
 import { cn } from "@/lib/utils";
 import type { GoalLine, MoneyAccount, MoneyCategory } from "@/lib/types";
 import { todayISO } from "@/lib/format";
+import { useDefaultCurrency } from "@/lib/money/currency";
 
 /**
  * Every goal fills in the same gold.
@@ -265,6 +266,7 @@ export function GoalForm({
   categories: MoneyCategory[];
   onDone?: () => void;
 }) {
+  const fallback = useDefaultCurrency();
   const [state, formAction, pending] = useActionState<MoneyState, FormData>(saveGoal, undefined);
 
   return (
@@ -303,7 +305,7 @@ export function GoalForm({
           <Select
             label="Currency"
             name="currency"
-            defaultValue={goal?.currency ?? "RSD"}
+            defaultValue={goal?.currency ?? fallback}
             options={CURRENCY_OPTIONS}
           />
         </div>

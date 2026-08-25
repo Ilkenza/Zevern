@@ -10,6 +10,8 @@ import { getActiveLeadCount } from "@/lib/data/leads";
 import { getQuoteCount } from "@/lib/data/quotes";
 import { getToolCount } from "@/lib/data/tools";
 import { getProfile } from "@/lib/data/profile";
+import { DefaultCurrencyProvider } from "@/lib/money/currency";
+import { CURRENCIES, type Currency } from "@/lib/money";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
@@ -52,10 +54,16 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     tools,
   };
   const hidden = profile?.hidden_modules ?? [];
+  // Read once here so no form has to be handed it, and validated because a column
+  // check is not a type.
+  const stored = profile?.default_currency ?? "RSD";
+  const currency = ((CURRENCIES as readonly string[]).includes(stored) ? stored : "RSD") as Currency;
 
   return (
-    <AppShell user={shellUser} counts={counts} hidden={hidden}>
-      {children}
-    </AppShell>
+    <DefaultCurrencyProvider value={currency}>
+      <AppShell user={shellUser} counts={counts} hidden={hidden}>
+        {children}
+      </AppShell>
+    </DefaultCurrencyProvider>
   );
 }

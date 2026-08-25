@@ -135,7 +135,7 @@ export function CalendarPanel({ origin, token: saved }: { origin: string; token:
               <div>
                 <div className={caps}>What it never shows</div>
                 <ul className="mt-2 space-y-1.5 text-[12.5px] text-muted">
-                  <li>Your accounts, their balances, or what is on hand.</li>
+                  <li>Your accounts, their balances, or what is available to spend.</li>
                   <li>Anything already spent, any goal, any budget.</li>
                   <li>Anything that could be used to sign in or to write.</li>
                 </ul>
@@ -221,4 +221,3 @@ export function calendarBadge(token: string | null) {
     label: token ? "Address live" : "Not set up",
   };
 }
-

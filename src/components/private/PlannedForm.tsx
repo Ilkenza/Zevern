@@ -12,6 +12,7 @@ import { DeleteButton } from "@/components/ui/DeleteButton";
 import { CATEGORY_KIND_OPTIONS, CURRENCY_OPTIONS } from "@/lib/money";
 import type { MoneyAccount, MoneyCategory, PlannedRow } from "@/lib/types";
 import { todayISO } from "@/lib/format";
+import { useDefaultCurrency } from "@/lib/money/currency";
 
 /**
  * One thing you already know about, on a date you already know: the dentist in three
@@ -31,6 +32,7 @@ export function PlannedForm({
   categories: MoneyCategory[];
   onDone?: () => void;
 }) {
+  const fallback = useDefaultCurrency();
   const router = useRouter();
   const [state, formAction, pending] = useActionState<MoneyState, FormData>(
     savePlanned,
@@ -86,7 +88,7 @@ export function PlannedForm({
           <Select
             label="Currency"
             name="currency"
-            defaultValue={item?.currency ?? "RSD"}
+            defaultValue={item?.currency ?? fallback}
             options={CURRENCY_OPTIONS}
           />
         </div>

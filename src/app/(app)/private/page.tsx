@@ -112,7 +112,7 @@ export default async function PrivateOverviewPage({
       <div className="money-card-grid grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Kpi className="money-card-premium" label="Spent this month" value={formatRsd(summary.expense)} />
         <Kpi className="money-card-premium" label="Income" value={formatRsd(summary.income)} />
-        <NetKpi className="money-card-premium" net={summary.net} income={summary.income} />
+        <NetKpi className="money-card-premium" net={summary.net} income={summary.income} saved={summary.saved} />
         {/* The total is what the bank says. What can actually be spent is the total
             less whatever the open goals have a claim on — said here rather than left
             for the goals screen to contradict later. */}
@@ -235,12 +235,23 @@ export default async function PrivateOverviewPage({
                     style={{ background: t.category?.color ?? "var(--color-faint)" }}
                   />
                   <span className="min-w-0 flex-1 truncate text-[13px] text-ink">
-                    {t.category?.name ?? t.goal?.name ?? t.note ?? "—"}
+                    {t.title ?? t.category?.name ?? t.goal?.name ?? t.note ?? "—"}
                   </span>
-                  {/* Money coming back out of a goal is not money arriving, and not
-                      money leaving either — it only stops being spoken for. */}
+                  {/*
+                    A deposit into a goal was getting the same minus sign as a purchase,
+                    so five rows of saving read as five rows of spending. Money into a
+                    goal goes in, money out of one comes back, and neither is a minus.
+                  */}
                   <span className="mono text-[12.5px] text-muted">
-                    {t.kind === "income" ? "+" : t.kind === "withdraw" ? "←" : "−"}{" "}
+                    {t.kind === "income"
+                      ? "+"
+                      : t.kind === "saving"
+                        ? "→"
+                        : t.kind === "withdraw"
+                          ? "←"
+                          : t.kind === "transfer"
+                            ? "⇄"
+                            : "−"}{" "}
                     {formatRsd(Number(t.amount_rsd))}
                   </span>
                 </div>

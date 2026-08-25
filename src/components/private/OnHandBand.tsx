@@ -29,7 +29,7 @@ export function OnHandBand({
     return (
       <section className="onhand-band onhand-empty">
         <div>
-          <span className="money-page-kicker">On hand</span>
+          <span className="money-page-kicker">Available to spend</span>
           <p className="mt-1.5 text-[13px] text-muted">
             Add an account and Zevern can tell you what is left to spend, not just what
             you spent.
@@ -64,7 +64,7 @@ export function OnHandBand({
     <section className="onhand-band">
       <div className="onhand-figure">
         <span className="money-page-kicker">
-          On hand <em>· right now</em>
+          Available to spend <em>· right now</em>
         </span>
         <div
           className={`mono onhand-value ${onHand.free < 0 ? "text-danger" : "text-ink"}`}
@@ -74,10 +74,10 @@ export function OnHandBand({
         <p className="onhand-caption">
           {onHand.reserved > 0 ? (
             <>
-              free to spend — {formatRsd(onHand.reserved)} is held by your goals
+              after {formatRsd(onHand.reserved)} is reserved for your goals
             </>
           ) : (
-            <>free to spend across {accounts.length === 1 ? "one account" : `${accounts.length} accounts`}</>
+            <>across {accounts.length === 1 ? "one account" : `${accounts.length} accounts`}</>
           )}
         </p>
 

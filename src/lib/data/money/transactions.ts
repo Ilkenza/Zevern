@@ -104,13 +104,26 @@ export async function getMonthSummary(month = monthKey()): Promise<MonthSummary>
 
   const saved = putIn - withdrawn;
 
+  /*
+    Net is income less what was actually spent, and nothing else.
+
+    It used to subtract what had been put aside as well, which made a month with one
+    small purchase and one big deposit read as −6.720 — a figure that looks exactly
+    like a spending spree and is nothing of the kind. Money moved into a goal has not
+    left the accounts; it is sitting on the same bank account it was on this morning,
+    with a label on it. "Free to spend" is the figure that accounts for the label, and
+    it says so on the same screen.
+
+    `saved` is still reported, so the card beside this one can say what was set aside
+    without this one pretending it was gone.
+  */
   return {
     month,
     expense,
     income,
     saved,
     withdrawn,
-    net: income - expense - saved,
+    net: income - expense,
     byCategory: [...spentBy].map(([id, spent]) => ({ id, spent })),
   };
 }

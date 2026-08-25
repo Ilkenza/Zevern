@@ -10,6 +10,7 @@ import { DeleteButton } from "@/components/ui/DeleteButton";
 import { CURRENCY_OPTIONS, EVERY_OPTIONS, CATEGORY_KIND_OPTIONS } from "@/lib/money";
 import type { MoneyAccount, MoneyCategory, MoneyGoal, MoneyRecurring } from "@/lib/types";
 import { todayISO } from "@/lib/format";
+import { useDefaultCurrency } from "@/lib/money/currency";
 
 export function RecurringForm({
   item,
@@ -22,6 +23,7 @@ export function RecurringForm({
   categories: MoneyCategory[];
   goals: MoneyGoal[];
 }) {
+  const fallback = useDefaultCurrency();
   const [state, formAction, pending] = useActionState<MoneyState, FormData>(
     saveRecurring,
     undefined,
@@ -104,7 +106,7 @@ export function RecurringForm({
             <Select
               label="Currency"
               name="currency"
-              defaultValue={item?.currency ?? "RSD"}
+              defaultValue={item?.currency ?? fallback}
               options={CURRENCY_OPTIONS}
             />
           </div>
@@ -113,7 +115,7 @@ export function RecurringForm({
           <Select
             label="Currency"
             name="currency"
-            defaultValue={item?.currency ?? "RSD"}
+            defaultValue={item?.currency ?? fallback}
             options={CURRENCY_OPTIONS}
           />
         )}

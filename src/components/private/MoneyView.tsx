@@ -14,7 +14,6 @@ import { removeTransaction } from "@/app/(app)/private/actions";
 import {
   formatAmount,
   formatRsd,
-  isGoalKind,
   monthLabel,
   shiftMonth,
   shortMonthLabel,
@@ -51,13 +50,22 @@ const TONE: Record<string, string> = {
 function Row({ tx, month }: { tx: TransactionRow; month: string }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
-  // The name the entry was given leads; the category is what it belongs to, and it
-  // moves to the line underneath rather than standing in for what was bought.
-  const label =
-    tx.title ?? tx.category?.name ?? (isGoalKind(tx.kind) ? tx.goal?.name : null) ?? tx.note ?? "—";
-  const belongsTo = tx.title
-    ? (tx.category?.name ?? (isGoalKind(tx.kind) ? (tx.goal?.name ?? null) : null))
-    : null;
+  /*
+    The name the entry was given leads; what it belongs to moves to the line underneath.
+
+    Money going into a goal used to show as the goal's bare name — a row reading
+    "nesto − 2.000" next to a row reading "Groceries − 670", which is the app telling
+    you that you spent money you have not spent. A movement says which direction it
+    went in words, and the goal it went to sits under it with the account.
+  */
+  const movement =
+    tx.kind === "saving" ? "Put aside" : tx.kind === "withdraw" ? "Taken back out" : null;
+  const label = tx.title ?? movement ?? tx.category?.name ?? tx.note ?? "—";
+  const belongsTo = movement
+    ? [tx.title ? movement : null, tx.goal?.name].filter(Boolean).join(" · ") || null
+    : tx.title
+      ? (tx.category?.name ?? null)
+      : null;
   return (
     <div className="money-row group border-b border-line-soft last:border-b-0">
       <div className="flex items-center gap-3 px-4 py-2.5">
@@ -217,7 +225,7 @@ export function MoneyView({
               : undefined
           }
         />
-        <NetKpi className="money-card-premium" net={summary.net} income={summary.income} />
+        <NetKpi className="money-card-premium" net={summary.net} income={summary.income} saved={summary.saved} />
       </div>
 
       {/*

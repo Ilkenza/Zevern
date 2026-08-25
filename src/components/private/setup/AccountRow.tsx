@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/Button";
 import { ACCOUNT_KIND_OPTIONS, CURRENCIES, formatRsd } from "@/lib/money";
 import { cn } from "@/lib/utils";
 import type { AccountBalance } from "@/lib/data/money";
+import { useDefaultCurrency } from "@/lib/money/currency";
 import {
   AddCaption,
   RowDelete,
@@ -62,6 +63,7 @@ function DefaultStar({ account }: { account: AccountBalance }) {
 }
 
 export function AccountRow({ account, arrived }: { account?: AccountBalance; arrived?: boolean }) {
+  const fallback = useDefaultCurrency();
   const [state, formAction, pending] = useActionState<MoneyState, FormData>(saveAccount, undefined);
   const isNew = !account;
   const [leaving, setLeaving] = useState(false);
@@ -123,7 +125,7 @@ export function AccountRow({ account, arrived }: { account?: AccountBalance; arr
           />
           <select
             name="currency"
-            defaultValue={account?.currency ?? "RSD"}
+            defaultValue={account?.currency ?? fallback}
             aria-label="Currency"
             className="mono rounded-r-ctrl border-l border-line-soft bg-transparent py-1.5 pr-1.5 pl-1.5 text-[11.5px] font-semibold text-muted scheme-dark"
           >

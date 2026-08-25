@@ -15,10 +15,13 @@ import { formatRsd, monthNetNote } from "@/lib/money";
 export function NetKpi({
   net,
   income,
+  saved = 0,
   className,
 }: {
   net: number;
   income: number;
+  /** Net earmarked this month. Said here so its absence from the figure is deliberate. */
+  saved?: number;
   className?: string;
 }) {
   const note = monthNetNote(net, income);
@@ -29,11 +32,12 @@ export function NetKpi({
       label="Net for the month"
       value={formatRsd(net)}
       hint={
-        note && (
-          <span className={note.tone === "danger" ? "text-danger" : "text-muted"}>
-            {note.text}
-          </span>
-        )
+        <span className={note?.tone === "danger" ? "text-danger" : "text-muted"}>
+          {note?.text}
+          {note && saved > 0 && " · "}
+          {/* Set aside on purpose does not belong in a figure about money that left. */}
+          {saved > 0 && <>{formatRsd(saved)} also set aside</>}
+        </span>
       }
     />
   );

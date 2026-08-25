@@ -95,7 +95,7 @@ export function FoundationPanel({
 
       {accounts > 0 && (
         <div className="setup-foundation-total">
-          <span>On hand</span>
+          <span>Total balance</span>
           <span className="mono">{formatRsd(onHand)}</span>
         </div>
       )}

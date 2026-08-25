@@ -401,6 +401,30 @@ export async function saveAccount(_prev: MoneyState, formData: FormData): Promis
  * soon as you added another. The old default is cleared first because the database
  * refuses a second one outright.
  */
+/**
+ * The currency every new form opens on.
+ *
+ * Hard-coded as dinars everywhere, which is right for someone paid in dinars and a
+ * small tax on every entry for anyone who is not. Stored on the profile and read once
+ * at the top of the app, so no form has to be handed it.
+ */
+export async function setDefaultCurrency(code: string): Promise<MoneyState> {
+  const currency = currencyOf(code);
+
+  const supabase = await createSupabaseServerClient();
+  const uid = await userId(supabase);
+  if (!uid) return { error: "Not signed in." };
+
+  const { error } = await supabase
+    .from("profiles")
+    .update({ default_currency: currency })
+    .eq("id", uid);
+  if (error) return { error: saveErrorMessage(error) };
+
+  refresh();
+  return { ok: true };
+}
+
 export async function setDefaultAccount(id: string): Promise<MoneyState> {
   const supabase = await createSupabaseServerClient();
   const uid = await userId(supabase);

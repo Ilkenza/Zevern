@@ -10,6 +10,7 @@ import { MoneyField } from "@/components/ui/MoneyField";
 import { CURRENCIES, formatRsd, rateFor, type Rates } from "@/lib/money";
 import { cn } from "@/lib/utils";
 import type { MoneyAccount, MoneyCategory } from "@/lib/types";
+import { useDefaultCurrency } from "@/lib/money/currency";
 
 /** Phone-first entry: amount, category, done. Two taps and it is in. */
 export function QuickAdd({
@@ -23,13 +24,14 @@ export function QuickAdd({
   rates: Rates;
   spentToday: number;
 }) {
+  const fallback = useDefaultCurrency();
   const router = useRouter();
   const [result, setResult] = useState<MoneyState>();
   const [pending, startTransition] = useTransition();
 
   const [kind, setKind] = useState("expense");
   const [amount, setAmount] = useState("");
-  const [currency, setCurrency] = useState("RSD");
+  const [currency, setCurrency] = useState<string>(fallback);
   const [categoryId, setCategoryId] = useState("");
   const [accountId, setAccountId] = useState(accounts[0]?.id ?? "");
   const [title, setTitle] = useState("");
