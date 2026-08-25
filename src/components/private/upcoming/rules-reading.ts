@@ -19,6 +19,9 @@ const EVERY_LABEL: Record<string, string> = {
 
 export const EVERY_SHORT: Record<string, string> = { week: "a week", month: "a month", year: "a year" };
 
+/** The same thing beside a figure, where a whole phrase would crowd it: /w, /m, /y. */
+export const EVERY_TICK: Record<string, string> = { week: "/w", month: "/m", year: "/y" };
+
 export { EVERY_LABEL };
 
 /**
