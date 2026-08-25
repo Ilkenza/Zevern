@@ -25,6 +25,7 @@ import { DueRecurringPanel } from "./DueRecurringPanel";
 import { PlannedDuePanel } from "./PlannedDuePanel";
 import { ShortfallActions } from "./ShortfallActions";
 import { SpendingBasisPanel } from "./SpendingBasisPanel";
+import { ForecastCurve } from "./ForecastCurve";
 import {
   NEW_PLAN_HREF,
   NEW_RULE_HREF,
@@ -630,6 +631,14 @@ export function UpcomingTimeline({
 
       <DueRecurringPanel due={due} />
       <PlannedDuePanel due={plannedDue} />
+
+      {/*
+        The windows below say what each period does to the balance. This says the shape
+        of it — where the money dips, how long it stays down, whether the line ever
+        crosses zero. That is what a column of dates cannot answer at a glance, and
+        every figure it draws was already being computed and thrown away.
+      */}
+      {lines.length > 0 && <ForecastCurve forecast={forecast} days={longest || 90} />}
 
       {/* Three zeroes above an empty timeline say nothing the empty state does not. */}
       {lines.length > 0 && (

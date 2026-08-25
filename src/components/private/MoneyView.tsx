@@ -23,6 +23,7 @@ import { cn } from "@/lib/utils";
 import type { MoneyCategory, TransactionRow } from "@/lib/types";
 import { TransactionForm, type TxFormData } from "./TransactionForm";
 import { OnHandBand } from "./OnHandBand";
+import { SpendBreakdown } from "./SpendBreakdown";
 import type { AccountBalance, MonthSummary, OnHand } from "@/lib/data/money";
 
 export type MoneyPanel =
@@ -214,6 +215,21 @@ export function MoneyView({
           label="Left over"
           value={formatRsd(summary.net)}
           hint={summary.net < 0 ? <span className="text-danger">Over budget</span> : undefined}
+        />
+      </div>
+
+      {/*
+        The figures above say how much. This says on what — and each row is a filter,
+        so the ledger below is one click from showing only the category whose number
+        just surprised you.
+      */}
+      <div className="mb-4">
+        <SpendBreakdown
+          byCategory={summary.byCategory}
+          categories={categories}
+          total={summary.expense}
+          month={month}
+          activeCategory={activeCategory}
         />
       </div>
 
