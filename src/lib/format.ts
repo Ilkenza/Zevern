@@ -21,27 +21,50 @@ export function formatMoney(amount: number | null | undefined, currency = "EUR")
   }
 }
 
+/* ------------------------------------------------------------------ the clock
+ *
+ * A due date in Zevern is a wall clock, not an instant. A task set for 15:20 is
+ * due at 15:20 — it does not become 17:20 because the reader sits two hours east
+ * of UTC, and it does not become 13:20 if he answers mail from Lisbon.
+ *
+ * That distinction is where the bug lived. The browser posts exactly what was
+ * typed, `2026-08-25T15:20`, with no offset on it; Postgres reads the naive text
+ * in the session zone (UTC) and hands back `2026-08-25T15:20:00+00:00`. Both
+ * strings already carry the answer in their first sixteen characters. The old
+ * code threw them into `new Date()` and read the pieces back out with local
+ * getters — which is precisely the step that added two hours.
+ *
+ * So we never parse. We read the characters.
+ */
+const WALL = /^(\d{4}-\d{2}-\d{2})(?:[T ](\d{2}):(\d{2}))?/;
+
+/** `YYYY-MM-DD`, exactly as stored. Plain date columns pass through untouched. */
 export function formatDate(value: string | null | undefined) {
-  if (!value) return "—";
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return "—";
-  return d.toISOString().slice(0, 10);
+  const m = WALL.exec(String(value ?? ""));
+  return m ? m[1] : "—";
 }
 
+/**
+ * The date, plus the time when one was actually set. Midnight is how a date-only
+ * value reaches a `timestamptz` column, so it reads as no time rather than 00:00.
+ */
 export function formatDateTime(value: string | null | undefined) {
-  if (!value) return "—";
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return "—";
-  const date = formatDate(value);
-  const hasTime = /[T ]\d{2}:\d{2}/.test(value) && !(d.getHours() === 0 && d.getMinutes() === 0);
-  if (!hasTime) return date;
-  const hh = String(d.getHours()).padStart(2, "0");
-  const mm = String(d.getMinutes()).padStart(2, "0");
-  return `${date} ${hh}:${mm}`;
+  const m = WALL.exec(String(value ?? ""));
+  if (!m) return "—";
+  if (!m[2] || (m[2] === "00" && m[3] === "00")) return m[1];
+  return `${m[1]} ${m[2]}:${m[3]}`;
 }
 
+/**
+ * The user's own calendar date. This one is deliberately local: "today" and
+ * "overdue" are questions a person asks about their own day, and at 01:00 in
+ * Belgrade the UTC answer is still yesterday.
+ */
 export function todayISO() {
-  return new Date().toISOString().slice(0, 10);
+  const d = new Date();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${d.getFullYear()}-${m}-${day}`;
 }
 
 export function isToday(value: string | null | undefined) {

@@ -584,30 +584,212 @@ body {
   animation: money-progress-in 900ms cubic-bezier(0.22, 1, 0.36, 1) 320ms both;
 }
 
+/* The day line — a date to anchor it, then the state of the day in one sentence. */
+.overview-dayline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 11px;
+  max-width: 40rem;
+  margin-top: 11px;
+  animation: overview-row-in 620ms cubic-bezier(0.22, 1, 0.36, 1) 320ms both;
+}
+
+.overview-date {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 9px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.025);
+  color: var(--color-muted);
+  font-size: 10.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.overview-dayline-text {
+  color: var(--color-muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+/*
+  Needs attention — the only band on this page allowed to reach for the danger
+  colour, and it earns that by being absent on every day when nothing is late.
+*/
+@keyframes attention-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(222, 107, 94, 0.45); }
+  70%, 100% { box-shadow: 0 0 0 7px rgba(222, 107, 94, 0); }
+}
+
+.attention-band {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+  padding: 12px 16px;
+  border: 1px solid rgba(222, 107, 94, 0.2);
+  border-radius: var(--radius-card);
+  background:
+    linear-gradient(135deg, rgba(222, 107, 94, 0.06), transparent 52%),
+    var(--color-surface);
+  animation: money-card-in 620ms cubic-bezier(0.22, 1, 0.36, 1) 120ms both;
+}
+
+.attention-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--color-danger);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.attention-title::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-danger);
+  animation: attention-pulse 2.6s ease-out infinite;
+}
+
+.attention-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.attention-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 10px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.03);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  transition:
+    transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    background-color 220ms,
+    border-color 220ms;
+}
+
+.attention-chip:hover {
+  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.055);
+}
+
+.attention-critical { border-color: rgba(222, 107, 94, 0.3); color: var(--color-danger); }
+.attention-critical:hover { border-color: rgba(222, 107, 94, 0.5); }
+.attention-warning { border-color: rgba(230, 180, 87, 0.28); color: var(--color-active); }
+.attention-warning:hover { border-color: rgba(230, 180, 87, 0.48); }
+.attention-detail { color: var(--color-ink); opacity: 0.7; }
+
+/* Always rendered, so hovering never reflows the chip — the arrow just wakes up. */
+.attention-arrow {
+  opacity: 0.35;
+  transform: translateX(-2px);
+  transition: opacity 220ms, transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.attention-chip:hover .attention-arrow { opacity: 0.9; transform: translateX(0); }
+
+/* A KPI's direction. The arrow and the word carry it; the colour only agrees. */
+.kpi-delta {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 7px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.kpi-delta-label { color: var(--color-faint); font-weight: 600; }
+.kpi-delta-good { color: var(--color-ok); }
+.kpi-delta-bad { color: var(--color-danger); }
+.kpi-delta-flat { color: var(--color-muted); }
+.kpi-delta-none { color: var(--color-faint); font-weight: 600; }
+
+/* Sparkline — one series, so no legend and no axis; the tile above is the label. */
+@keyframes spark-in {
+  from { opacity: 0; transform: translateY(5px); }
+  to { opacity: 1; transform: none; }
+}
+
+.kpi-spark {
+  height: 32px;
+  margin-top: 12px;
+  animation: spark-in 700ms cubic-bezier(0.22, 1, 0.36, 1) 430ms both;
+}
+
+.spark { display: block; width: 100%; height: 32px; overflow: visible; }
+.spark-area { fill: var(--color-gold); fill-opacity: 0.07; stroke: none; }
+.spark-line { stroke: var(--color-gold); opacity: 0.85; }
+.spark-dot-ring { fill: none; stroke: var(--color-surface); }
+.spark-dot { fill: none; stroke: var(--color-gold-hi); }
+
+/* A monogram before a client's name, so two rows of grey stop looking alike. */
+.client-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.client-chip {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--color-line);
+  border-radius: 7px;
+  background: linear-gradient(140deg, rgba(217, 164, 65, 0.14), rgba(91, 143, 214, 0.08));
+  color: var(--color-ink);
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 700;
+}
+
 @media (max-width: 760px) {
   .overview-hero { align-items: flex-start; flex-direction: column; min-height: 0; padding-top: 4px; }
   .overview-actions { justify-content: flex-start; width: 100%; }
   .overview-actions > a { flex: 1; }
   .overview-premium::before { right: -260px; }
   .overview-kpi { min-height: 116px; }
+  .attention-band { align-items: flex-start; flex-direction: column; gap: 10px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .overview-hero,
   .overview-hero::after,
   .overview-onboarding,
+  .overview-dayline,
   .overview-kpi,
   .overview-panel,
   .overview-list-row,
-  .overview-progress-fill {
+  .overview-progress-fill,
+  .attention-band,
+  .kpi-spark {
     animation: none !important;
     opacity: 1;
     transform: none;
   }
 
+  .attention-title::before { animation: none !important; }
+
   .overview-kpi,
   .overview-panel,
-  .overview-list-row { transition: none; }
+  .overview-list-row,
+  .attention-chip,
+  .attention-arrow { transition: none; }
 }
 
 /* Setup — premium control room for the financial model. */

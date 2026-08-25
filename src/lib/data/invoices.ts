@@ -95,14 +95,39 @@ export async function nextInvoiceNumber(): Promise<string> {
 
 export type InvoiceStats = {
   revenueThisMonth: number;
+  /** One month back, so the headline figure can be given a direction. */
+  revenueLastMonth: number;
   outstanding: number;
+  outstandingCount: number;
   overdueCount: number;
+  overdueAmount: number;
+  /** Paid revenue per month, oldest first, ending with the month we are in. */
+  revenueTrend: { month: string; value: number }[];
 };
 
+const TREND_MONTHS = 6;
+
+/** `YYYY-MM`, `back` months before the month `from` names. */
+function monthBack(from: string, back: number): string {
+  const [y, m] = from.split("-").map(Number);
+  const d = new Date(Date.UTC(y, m - 1 - back, 1));
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
 export async function getInvoiceStats(): Promise<InvoiceStats> {
+  const empty: InvoiceStats = {
+    revenueThisMonth: 0,
+    revenueLastMonth: 0,
+    outstanding: 0,
+    outstandingCount: 0,
+    overdueCount: 0,
+    overdueAmount: 0,
+    revenueTrend: [],
+  };
+
   const supabase = await createClient();
   const uid = await userId(supabase);
-  if (!uid) return { revenueThisMonth: 0, outstanding: 0, overdueCount: 0 };
+  if (!uid) return empty;
 
   const { data } = await supabase
     .from("invoices")
@@ -111,23 +136,48 @@ export async function getInvoiceStats(): Promise<InvoiceStats> {
   const rows = data ?? [];
   const month = todayISO().slice(0, 7);
 
+  // Every month in the window is seeded first, so a month that earned nothing reads
+  // as a real zero instead of a gap the line quietly steps over.
+  const trend = new Map<string, number>();
+  for (let i = TREND_MONTHS - 1; i >= 0; i -= 1) trend.set(monthBack(month, i), 0);
+  const previous = monthBack(month, 1);
+
   let revenueThisMonth = 0;
+  let revenueLastMonth = 0;
   let outstanding = 0;
+  let outstandingCount = 0;
   let overdueCount = 0;
+  let overdueAmount = 0;
 
   for (const inv of rows) {
     const amount = Number(inv.amount) || 0;
     const eff = effectiveInvoiceStatus(inv);
-    if (inv.status === "paid" && inv.issued_at?.slice(0, 7) === month) {
-      revenueThisMonth += amount;
+    const issuedMonth = inv.issued_at?.slice(0, 7);
+
+    if (inv.status === "paid" && issuedMonth) {
+      if (issuedMonth === month) revenueThisMonth += amount;
+      if (issuedMonth === previous) revenueLastMonth += amount;
+      if (trend.has(issuedMonth)) {
+        trend.set(issuedMonth, (trend.get(issuedMonth) ?? 0) + amount);
+      }
     }
     if (eff === "sent" || eff === "overdue") {
       outstanding += amount;
+      outstandingCount += 1;
     }
     if (eff === "overdue") {
       overdueCount += 1;
+      overdueAmount += amount;
     }
   }
 
-  return { revenueThisMonth, outstanding, overdueCount };
+  return {
+    revenueThisMonth,
+    revenueLastMonth,
+    outstanding,
+    outstandingCount,
+    overdueCount,
+    overdueAmount,
+    revenueTrend: [...trend].map(([m, value]) => ({ month: m, value })),
+  };
 }

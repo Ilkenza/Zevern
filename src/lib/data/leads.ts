@@ -56,3 +56,20 @@ export async function getLeadsForFollowup(limit = 5): Promise<Lead[]> {
     .limit(limit);
   return data ?? [];
 }
+
+/**
+ * How many follow-ups are actually waiting. The list above stops at five, which is
+ * the right length for a panel and the wrong number to put in a sentence.
+ */
+export async function getFollowupCount(): Promise<number> {
+  const supabase = await createClient();
+  const uid = await userId(supabase);
+  if (!uid) return 0;
+  const { count } = await supabase
+    .from("leads")
+    .select("*", { count: "exact", head: true })
+    .eq("user_id", uid)
+    .not("status", "in", "(won,lost)")
+    .lte("next_followup", todayISO());
+  return count ?? 0;
+}
