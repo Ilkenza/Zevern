@@ -64,6 +64,17 @@ function Tab({
         current ? "upcoming-tab-on text-gold-hi" : "text-muted hover:text-ink",
       )}
     >
+      {/*
+        The lit surface is its own element, not a background on the link.
+
+        Only the selected tab renders it, and it carries a view-transition name — so
+        when the other tab is clicked, the browser does not fade one pill out and
+        another in, it moves this one across. That single detail is the difference
+        between a segmented control that looks drawn and one that looks built; it is
+        what iOS, Linear and Framer all do, and the app already runs every navigation
+        inside a ViewTransition, so it costs one element and no JavaScript.
+      */}
+      {current && <span aria-hidden="true" className="upcoming-tab-surface" />}
       <Icon className="upcoming-tab-icon h-4 w-4" />
       <span className="upcoming-tab-label">{label}</span>
       {count > 0 && (

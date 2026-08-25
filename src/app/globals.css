@@ -1917,31 +1917,53 @@ body {
   border-color: transparent;
 }
 
+/*
+  The selected segment is a surface that sits *above* the track, not a tint mixed into
+  it. A translucent gold over a dark groove muddies into brown — the eye reads it as a
+  stained area rather than a raised key. Every segmented control worth copying does the
+  same thing instead: the chosen segment is lighter than what it sits in, and the colour
+  goes into the label, where it means something.
+*/
 .upcoming-tab-on {
-  overflow: hidden;
   border-color: transparent;
-  background:
-    radial-gradient(circle at 32% -30%, rgba(255, 224, 153, 0.16), transparent 60%),
-    linear-gradient(180deg, rgba(217, 164, 65, 0.26), rgba(217, 164, 65, 0.13));
-  box-shadow:
-    inset 0 1px 0 rgba(255, 238, 198, 0.2),
-    0 6px 16px rgba(0, 0, 0, 0.3);
-  animation: upcoming-tab-select 480ms var(--ease-premium) both;
+  background: none;
+  box-shadow: none;
 }
 
-@keyframes upcoming-tab-select {
-  from { opacity: 0.72; transform: scale(0.965); filter: brightness(0.88); }
-  to { opacity: 1; transform: scale(1); filter: brightness(1); }
-}
-
-.upcoming-tab-on::before {
-  content: "";
+.upcoming-tab-surface {
   position: absolute;
   z-index: -1;
-  top: -80%;
-  bottom: -80%;
-  left: -28px;
-  width: 22px;
+  inset: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.115), rgba(255, 255, 255, 0.055)),
+    rgba(38, 42, 52, 0.9);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.03),
+    0 2px 4px rgba(0, 0, 0, 0.34),
+    0 8px 20px rgba(0, 0, 0, 0.26);
+  /*
+    Named, so the browser moves this one shape from one tab to the other across the
+    navigation rather than crossfading two of them.
+  */
+  view-transition-name: zv-upcoming-pill;
+}
+
+::view-transition-group(zv-upcoming-pill) {
+  animation-duration: 420ms;
+  animation-timing-function: var(--ease-premium);
+}
+
+/* The light that crosses the surface the moment it lands. */
+.upcoming-tab-surface::before {
+  content: "";
+  position: absolute;
+  top: -60%;
+  bottom: -60%;
+  left: -30px;
+  width: 26px;
   background: linear-gradient(90deg, transparent, rgba(255, 235, 190, 0.18), transparent);
   transform: skewX(-18deg) translateX(-50px);
   animation: upcoming-tab-sheen 900ms var(--ease-premium) 360ms both;
@@ -1975,7 +1997,7 @@ body {
 }
 
 .upcoming-tab-on .upcoming-tab-count {
-  background: rgba(0, 0, 0, 0.24);
+  background: rgba(0, 0, 0, 0.3);
   color: var(--color-gold-hi);
   animation: upcoming-count-in 520ms var(--ease-spring) 90ms both;
 }
@@ -1986,7 +2008,8 @@ body {
 }
 
 .upcoming-tab-on .upcoming-tab-label {
-  text-shadow: 0 0 18px rgba(217, 164, 65, 0.18);
+  letter-spacing: -0.1px;
+  text-shadow: 0 0 20px rgba(217, 164, 65, 0.22);
 }
 
 .upcoming-tab:hover .upcoming-tab-count { transform: translateY(-1px); }
