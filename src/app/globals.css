@@ -801,6 +801,7 @@ body {
   .setup-panel,
   .setup-row-premium,
   .setup-rate-tile { transition: none; }
+}
 
 /*
   Setup — motion.
