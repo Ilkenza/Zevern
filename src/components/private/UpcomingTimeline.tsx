@@ -2,7 +2,8 @@
 
 import { Panel } from "@/components/ui/Panel";
 import { Kpi } from "@/components/ui/Kpi";
-import { formatRsd } from "@/lib/money";
+
+import { useMoney } from "@/lib/money/currency";
 import { cn } from "@/lib/utils";
 import type { Forecast, ForecastLine } from "@/lib/data/money";
 import type { PlannedRow, RecurringRow } from "@/lib/types";
@@ -31,6 +32,7 @@ export function UpcomingTimeline({
   /** Every one-off still waiting — the window shows most of them, not all. */
   planned: PlannedRow[];
 }) {
+  const { fmt } = useMoney();
   const {
     lines,
     windows,
@@ -94,25 +96,25 @@ export function UpcomingTimeline({
               <Kpi
                 key={w.days}
                 label={`Next ${w.days} days`}
-                value={formatRsd(w.expense)}
+                value={fmt(w.expense)}
                 hint={
                   <>
                     <span className="block">
                       {w.count} {w.count === 1 ? "item" : "items"}
-                      {w.income > 0 && <> · {formatRsd(w.income)} coming in</>}
+                      {w.income > 0 && <> · {fmt(w.income)} coming in</>}
                       {w.saving > 0 && (
-                        <span className="text-held"> · {formatRsd(w.saving)} into goals</span>
+                        <span className="text-held"> · {fmt(w.saving)} into goals</span>
                       )}
                     </span>
                     {w.everyday > 0 && (
                       <span className="block font-normal text-faint">
-                        plus {formatRsd(w.everyday)} projected for living
+                        plus {fmt(w.everyday)} projected for living
                       </span>
                     )}
                     <span className="block">
                       leaves{" "}
                       <span className={cn("mono", leaves < 0 ? "text-danger" : "text-ink")}>
-                        {formatRsd(leaves)}
+                        {fmt(leaves)}
                       </span>{" "}
                       free
                     </span>
@@ -128,9 +130,9 @@ export function UpcomingTimeline({
           the Goals screen and the Overview without doing arithmetic in your head. */}
       {lines.length > 0 && reserved > 0 && (
         <p className="text-[11.5px] leading-relaxed text-muted">
-          Starting from <span className="mono text-ink">{formatRsd(startingBalance)}</span>:{" "}
-          <span className="mono">{formatRsd(onAccounts)}</span> on the accounts, less{" "}
-          <span className="mono text-held">{formatRsd(reserved)}</span> already set aside for
+          Starting from <span className="mono text-ink">{fmt(startingBalance)}</span>:{" "}
+          <span className="mono">{fmt(onAccounts)}</span> on the accounts, less{" "}
+          <span className="mono text-held">{fmt(reserved)}</span> already set aside for
           goals. That money has not gone anywhere — it just cannot pay a bill.
         </p>
       )}
@@ -144,7 +146,7 @@ export function UpcomingTimeline({
               {running} {running === 1 ? "rule" : "rules"} running
               {plannedOnLine > 0 && ` · ${plannedOnLine} planned`} ·{" "}
             </span>
-            from <span className="mono text-ink">{formatRsd(startingBalance)}</span> free
+            from <span className="mono text-ink">{fmt(startingBalance)}</span> free
           </PanelMeta>
         }
       >
@@ -193,7 +195,7 @@ export function UpcomingTimeline({
           )}
           {everydayTotal > 0 && (
             <>
-              <span className="mono">{formatRsd(everydayTotal)}</span> of the total is projected
+              <span className="mono">{fmt(everydayTotal)}</span> of the total is projected
               everyday spending, marked <span className="text-draft">Projection</span> — a rate
               spread over the days, not something dated that will actually happen.{" "}
             </>

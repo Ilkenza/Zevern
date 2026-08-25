@@ -7,18 +7,11 @@ import { MoneyField } from "@/components/ui/MoneyField";
 import { Select } from "@/components/ui/Select";
 import { Button } from "@/components/ui/Button";
 import { DeleteButton } from "@/components/ui/DeleteButton";
-import {
-  CURRENCY_OPTIONS,
-  TX_KIND_OPTIONS,
-  formatRsd,
-  isGoalKind,
-  rateFor,
-  type Rates,
-} from "@/lib/money";
+import { CURRENCY_OPTIONS, TX_KIND_OPTIONS, isGoalKind, rateFor, type Rates } from "@/lib/money";
 import { cn } from "@/lib/utils";
 import type { MoneyAccount, MoneyCategory, MoneyGoal, TransactionRow } from "@/lib/types";
 import { todayISO } from "@/lib/format";
-import { useDefaultCurrency } from "@/lib/money/currency";
+import { useDefaultCurrency, useMoney } from "@/lib/money/currency";
 
 export type TxFormData = {
   accounts: MoneyAccount[];
@@ -52,6 +45,7 @@ export function TransactionForm({
   returnTo?: "quick";
   onSaved?: () => void;
 }) {
+  const { fmt } = useMoney();
   const fallback = useDefaultCurrency();
   const [state, formAction, pending] = useActionState<MoneyState, FormData>(
     saveTransaction,
@@ -144,7 +138,7 @@ export function TransactionForm({
             name="rate"
             inputMode="decimal"
             defaultValue={tx ? String(tx.rate) : String(rate)}
-            help={parsed > 0 ? `≈ ${formatRsd(parsed * rate)} at the saved rate` : "From Setup — change it only for this entry."}
+            help={parsed > 0 ? `≈ ${fmt(parsed * rate)} at the saved rate` : "From Setup — change it only for this entry."}
           />
         )}
 

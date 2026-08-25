@@ -7,7 +7,8 @@ import { Pause, Pencil, Play } from "lucide-react";
 import { removeRecurring, toggleRecurring } from "@/app/(app)/private/actions";
 import { Badge } from "@/components/ui/Badge";
 import { DeleteButton } from "@/components/ui/DeleteButton";
-import { formatAmount, formatRsd, type Rates } from "@/lib/money";
+import { formatAmount, type Rates } from "@/lib/money";
+import { useMoney } from "@/lib/money/currency";
 import { cn } from "@/lib/utils";
 import type { RecurringRow } from "@/lib/types";
 import { RULES_HREF, daysBetween, whenLabel } from "./index";
@@ -15,6 +16,7 @@ import { Dot, NO_COLOUR, caps } from "./ui";
 import { EVERY_LABEL, EVERY_SHORT, read, ruleCols } from "./rules-reading";
 
 export function RuleRow({ item, rates, today }: { item: RecurringRow; rates: Rates; today: string }) {
+  const { fmt } = useMoney();
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const r = read(item, rates);
@@ -142,7 +144,7 @@ export function RuleRow({ item, rates, today }: { item: RecurringRow; rates: Rat
                 )}
               >
                 {income && "+ "}
-                {formatRsd(r.monthly)}
+                {fmt(r.monthly)}
               </div>
               {(item.currency !== "RSD" || item.every !== "month") && (
                 <div className="mono text-[11px] text-faint">

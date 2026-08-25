@@ -16,6 +16,7 @@ import {
   getTransactions,
   isGoalOpen,
 } from "@/lib/data/money";
+import { getMoney } from "@/lib/data/money";
 import { getTasksForToday } from "@/lib/data/tasks";
 import { Panel } from "@/components/ui/Panel";
 import { Kpi } from "@/components/ui/Kpi";
@@ -24,15 +25,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { buttonClasses } from "@/components/ui/Button";
 import { TaskCheckbox } from "@/components/tasks/TaskCheckbox";
 import { DueRecurringPanel } from "@/components/private/DueRecurringPanel";
-import {
-  formatRsd,
-  formatRsdShort,
-  monthKey,
-  monthLabel,
-  monthProgress,
-  shiftMonth,
-  shortMonthLabel,
-} from "@/lib/money";
+import { monthKey, monthLabel, monthProgress, shiftMonth, shortMonthLabel } from "@/lib/money";
 
 export default async function PrivateOverviewPage({
   searchParams,
@@ -42,6 +35,7 @@ export default async function PrivateOverviewPage({
   // The month was fixed to today, which left the page showing a month it gave you no
   // way to leave — while Money and Budgets both let you walk back through them.
   const params = await searchParams;
+  const { fmt, fmtShort } = await getMoney();
   const current = monthKey();
   const month = /^\d{4}-\d{2}$/.test(params.month ?? "") ? (params.month as string) : current;
   const [summary, lines, allGoals, due, recent, tasks, onHand, trend] = await Promise.all([
@@ -110,8 +104,8 @@ export default async function PrivateOverviewPage({
       </div>
 
       <div className="money-card-grid grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Kpi className="money-card-premium" label="Spent this month" value={formatRsd(summary.expense)} />
-        <Kpi className="money-card-premium" label="Income" value={formatRsd(summary.income)} />
+        <Kpi className="money-card-premium" label="Spent this month" value={fmt(summary.expense)} />
+        <Kpi className="money-card-premium" label="Income" value={fmt(summary.income)} />
         <NetKpi className="money-card-premium" net={summary.net} income={summary.income} saved={summary.saved} />
         {/* The total is what the bank says. What can actually be spent is the total
             less whatever the open goals have a claim on — said here rather than left
@@ -119,14 +113,14 @@ export default async function PrivateOverviewPage({
         <Kpi
           className="money-card-premium"
           label="On accounts"
-          value={formatRsd(onHand.total)}
+          value={fmt(onHand.total)}
           hint={
             onHand.reserved > 0 ? (
               <>
                 <span className={onHand.free < 0 ? "text-danger" : undefined}>
-                  {formatRsd(onHand.free)} free
+                  {fmt(onHand.free)} free
                 </span>{" "}
-                · {formatRsd(onHand.reserved)} set aside
+                · {fmt(onHand.reserved)} set aside
               </>
             ) : undefined
           }
@@ -186,7 +180,7 @@ export default async function PrivateOverviewPage({
                     <div className="flex items-center justify-between text-[12.5px]">
                       <span className="truncate font-semibold text-ink">{l.category.name}</span>
                       <span className={`mono ${over ? "text-danger" : "text-muted"}`}>
-                        {formatRsdShort(l.spent)} / {formatRsdShort(l.limit)}
+                        {fmtShort(l.spent)} / {fmtShort(l.limit)}
                       </span>
                     </div>
                     <div className="mt-1.5 h-1.5 overflow-hidden rounded-pill bg-white/6">
@@ -252,7 +246,7 @@ export default async function PrivateOverviewPage({
                           : t.kind === "transfer"
                             ? "⇄"
                             : "−"}{" "}
-                    {formatRsd(Number(t.amount_rsd))}
+                    {fmt(Number(t.amount_rsd))}
                   </span>
                 </div>
               ))}
@@ -279,8 +273,8 @@ export default async function PrivateOverviewPage({
                     <div className="flex items-center justify-between text-[12.5px]">
                       <span className="truncate font-semibold text-ink">{g.name}</span>
                       <span className="mono text-muted">
-                        {formatRsdShort(g.saved)}
-                        {Number(g.target_rsd) > 0 ? ` / ${formatRsdShort(Number(g.target_rsd))}` : ""}
+                        {fmtShort(g.saved)}
+                        {Number(g.target_rsd) > 0 ? ` / ${fmtShort(Number(g.target_rsd))}` : ""}
                       </span>
                     </div>
                     <div className="mt-1.5 h-1.5 overflow-hidden rounded-pill bg-white/6">
@@ -301,7 +295,7 @@ export default async function PrivateOverviewPage({
         <div className="flex items-end gap-3 px-4 py-4">
           {trend.map((t) => (
             <div key={t.month} className="flex flex-1 flex-col items-center gap-1.5">
-              <span className="mono text-[10.5px] text-faint">{formatRsdShort(t.expense)}</span>
+              <span className="mono text-[10.5px] text-faint">{fmtShort(t.expense)}</span>
               <div
                 className={`w-full rounded-t-[4px] ${t.month === month ? "bg-gold" : "bg-white/12"}`}
                 style={{ height: `${Math.max(4, (t.expense / peak) * 90)}px` }}

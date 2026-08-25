@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { formatRsd, formatRsdShort } from "@/lib/money";
+
 import type { Forecast } from "@/lib/data/money";
+import { useMoney } from "@/lib/money/currency";
 
 /**
  * Ninety days of free money, drawn.
@@ -56,6 +57,7 @@ function monthTicks(from: string, days: number): { day: number; label: string }[
 }
 
 export function ForecastCurve({ forecast, days = 90 }: { forecast: Forecast; days?: number }) {
+  const { fmt, fmtShort } = useMoney();
   const [hover, setHover] = useState<Point | null>(null);
 
   // Same lower bound the window totals needed: an unbooked rule walks from a date in
@@ -114,7 +116,7 @@ export function ForecastCurve({ forecast, days = 90 }: { forecast: Forecast; day
             </span>
           ) : (
             <span>
-              lowest <span className="mono">{formatRsd(low.balance)}</span> on{" "}
+              lowest <span className="mono">{fmt(low.balance)}</span> on{" "}
               <span className="mono">{low.on}</span>
             </span>
           )}
@@ -126,7 +128,7 @@ export function ForecastCurve({ forecast, days = 90 }: { forecast: Forecast; day
           viewBox={`0 0 ${W} ${H}`}
           preserveAspectRatio="none"
           role="img"
-          aria-label={`Free money over the next ${days} days, starting at ${formatRsd(
+          aria-label={`Free money over the next ${days} days, starting at ${fmt(
             forecast.startingBalance,
           )}${goesNegative ? ` and running out on ${firstNegative.on}` : ""}`}
           onMouseLeave={() => setHover(null)}
@@ -223,7 +225,7 @@ export function ForecastCurve({ forecast, days = 90 }: { forecast: Forecast; day
             <span
               className={`mono forecast-tip-balance ${hover.balance < 0 ? "text-danger" : ""}`}
             >
-              {formatRsd(hover.balance)} left
+              {fmt(hover.balance)} left
             </span>
           </div>
         )}
@@ -239,10 +241,10 @@ export function ForecastCurve({ forecast, days = 90 }: { forecast: Forecast; day
 
       <div className="forecast-curve-foot">
         <span>
-          starts at <b className="mono">{formatRsd(forecast.startingBalance)}</b> free
+          starts at <b className="mono">{fmt(forecast.startingBalance)}</b> free
         </span>
         <span className="forecast-curve-scale mono">
-          {formatRsdShort(top)} → {formatRsdShort(bottom)}
+          {fmtShort(top)} → {fmtShort(bottom)}
         </span>
       </div>
     </div>

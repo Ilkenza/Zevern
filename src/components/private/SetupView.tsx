@@ -3,7 +3,7 @@
 import { CalendarClock, Coins, Landmark, Tag, Wallet } from "lucide-react";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Badge } from "@/components/ui/Badge";
-import { formatRsd } from "@/lib/money";
+
 import type { MoneyCategory } from "@/lib/types";
 import type { AccountBalance } from "@/lib/data/money";
 import { PanelMeta, useArrived } from "./setup/kit";
@@ -15,6 +15,7 @@ import { SeedButton } from "./setup/SeedButton";
 import { SetupSection } from "./setup/SetupSection";
 import { FoundationPanel } from "./setup/FoundationPanel";
 import { foundationOf } from "./setup/foundation";
+import { useMoney } from "@/lib/money/currency";
 
 export function SetupView({
   accounts,
@@ -35,6 +36,7 @@ export function SetupView({
   /** Where this app is being served from, so the feed address can be shown in full. */
   origin: string;
 }) {
+  const { fmt } = useMoney();
   const expense = categories.filter((c) => c.kind === "expense");
   const income = categories.filter((c) => c.kind === "income");
   const empty = accounts.length === 0 && categories.length === 0;
@@ -104,7 +106,7 @@ export function SetupView({
                   <span className="hidden min-[420px]:inline">
                     {accounts.length} {accounts.length === 1 ? "account" : "accounts"} ·{" "}
                   </span>
-                  <span className="mono text-ink">{formatRsd(onHand)}</span>
+                  <span className="mono text-ink">{fmt(onHand)}</span>
                 </PanelMeta>
               ) : undefined
             }

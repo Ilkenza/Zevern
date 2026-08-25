@@ -1,13 +1,15 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Archive, PiggyBank, Plus } from "lucide-react";
+import { Archive, PiggyBank, Plus, ArrowDownWideNarrow, ListOrdered } from "lucide-react";
 import { SlideOver } from "@/components/ui/SlideOver";
 import { Panel } from "@/components/ui/Panel";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { buttonClasses } from "@/components/ui/Button";
-import { formatRsd } from "@/lib/money";
+
+import { useMoney } from "@/lib/money/currency";
 import { cn } from "@/lib/utils";
 import type { OnHand } from "@/lib/data/money";
 import type { AccountBalance } from "@/lib/data/money";
@@ -73,6 +75,7 @@ export function GoalsView({
   panel: GoalsPanel;
   showArchived: boolean;
 }) {
+  const { fmt } = useMoney();
   const router = useRouter();
   const close = () => router.push(GOALS_HREF);
 
@@ -87,6 +90,36 @@ export function GoalsView({
   const openSaved = open.reduce((sum, goal) => sum + goal.saved, 0);
   const openTarget = open.reduce((sum, goal) => sum + Math.max(Number(goal.target_rsd) || 0, 0), 0);
   const reached = open.filter((goal) => Number(goal.target_rsd) > 0 && goal.saved >= Number(goal.target_rsd)).length;
+
+  /*
+    Two orders, because they answer two different questions.
+
+    "Mine" is the order you arranged: what matters most, first. "Closest" is the one
+    that finishes goals — motivation climbs the nearer a target gets, and a list that
+    buries the goal sitting at 92% behind three at 4% spends that climb on nothing. A
+    goal with no target has nothing to be close to, so it sorts last either way.
+  */
+  const [order, setOrder] = useState<"mine" | "closest">("mine");
+  // No useMemo: the compiler handles this, and hand-written memoization here only
+  // stopped it from optimising the component at all.
+  const share = (g: GoalLine) => {
+    const target = Math.max(Number(g.target_rsd) || 0, 0);
+    return target > 0 ? Math.min(g.saved / target, 1) : -1;
+  };
+  const ordered = order === "mine" ? open : [...open].sort((a, b) => share(b) - share(a));
+
+  /*
+    One card open at a time once the grid gets long.
+
+    A goal card is 280px tall because it carries a history, a deposit box and a
+    progress reading. Four of them is a screen and a half of scrolling to answer "how
+    am I doing", which is a question about all four at once. So the one being worked on
+    stays whole and the rest collapse to a line each — name, progress, figure — and
+    open when clicked.
+  */
+  const [focus, setFocus] = useState<string | null>(null);
+  const compactable = ordered.length > 2;
+  const focused = focus && ordered.some((g) => g.id === focus) ? focus : (ordered[0]?.id ?? null);
 
   return (
     <div className="money-premium money-goals mx-auto max-w-220 space-y-5">
@@ -104,8 +137,8 @@ export function GoalsView({
           {goals.length > 0 && (
             <div className="goals-head-stats" aria-label="Goals summary">
               <span><small>Active</small><b>{open.length}</b></span>
-              <span><small>Saved</small><b className="mono">{formatRsd(openSaved)}</b></span>
-              <span><small>Target</small><b className="mono">{formatRsd(openTarget)}</b></span>
+              <span><small>Saved</small><b className="mono">{fmt(openSaved)}</b></span>
+              <span><small>Target</small><b className="mono">{fmt(openTarget)}</b></span>
               <span className={cn("goals-reached", reached === 0 && "is-none")}><small>Reached</small><b>{reached}</b></span>
             </div>
           )}
@@ -122,17 +155,41 @@ export function GoalsView({
         <>
           {open.length > 0 && <Overall goals={open} onHand={onHand} />}
 
-          <div className="money-card-grid grid gap-3 sm:grid-cols-2">
-            {open.map((goal, i) => (
+          {open.length > 1 && (
+            <div className="goals-order" role="group" aria-label="Order the goals">
+              {(
+                [
+                  { key: "mine", label: "My order", icon: ListOrdered },
+                  { key: "closest", label: "Closest to done", icon: ArrowDownWideNarrow },
+                ] as const
+              ).map((o) => (
+                <button
+                  key={o.key}
+                  type="button"
+                  onClick={() => setOrder(o.key)}
+                  aria-pressed={order === o.key}
+                  className={cn("goals-order-tab", order === o.key && "is-on")}
+                >
+                  <o.icon className="h-3.5 w-3.5" aria-hidden />
+                  {o.label}
+                </button>
+              ))}
+            </div>
+          )}
+
+          <div className={cn("money-card-grid grid gap-3", !compactable && "sm:grid-cols-2")}>
+            {ordered.map((goal, i) => (
               <GoalCard
                 key={goal.id}
                 goal={goal}
                 accounts={accounts}
-                siblings={open.filter((g) => g.id !== goal.id)}
+                siblings={ordered.filter((g) => g.id !== goal.id)}
                 today={today}
                 first={i === 0}
-                last={i === open.length - 1}
-                reorderable={open.length > 1}
+                last={i === ordered.length - 1}
+                reorderable={order === "mine" && ordered.length > 1}
+                compact={compactable && goal.id !== focused}
+                onOpen={() => setFocus(goal.id)}
               />
             ))}
           </div>

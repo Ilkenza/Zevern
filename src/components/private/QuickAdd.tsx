@@ -7,10 +7,10 @@ import { Check, X } from "lucide-react";
 import { saveTransaction, type MoneyState } from "@/app/(app)/private/actions";
 import { buttonClasses } from "@/components/ui/Button";
 import { MoneyField } from "@/components/ui/MoneyField";
-import { CURRENCIES, formatRsd, rateFor, type Rates } from "@/lib/money";
+import { CURRENCIES, rateFor, type Rates } from "@/lib/money";
 import { cn } from "@/lib/utils";
 import type { MoneyAccount, MoneyCategory } from "@/lib/types";
-import { useDefaultCurrency } from "@/lib/money/currency";
+import { useDefaultCurrency, useMoney } from "@/lib/money/currency";
 
 /** Phone-first entry: amount, category, done. Two taps and it is in. */
 export function QuickAdd({
@@ -24,6 +24,7 @@ export function QuickAdd({
   rates: Rates;
   spentToday: number;
 }) {
+  const { fmt } = useMoney();
   const fallback = useDefaultCurrency();
   const router = useRouter();
   const [result, setResult] = useState<MoneyState>();
@@ -140,7 +141,7 @@ export function QuickAdd({
           ))}
         </div>
         {currency !== "RSD" && parsed > 0 && (
-          <p className="mono mt-2 text-center text-[12px] text-muted">≈ {formatRsd(parsed * rate)}</p>
+          <p className="mono mt-2 text-center text-[12px] text-muted">≈ {fmt(parsed * rate)}</p>
         )}
 
         <div className="mt-4 grid grid-cols-3 gap-2">
@@ -222,7 +223,7 @@ export function QuickAdd({
       </form>
 
       <p className="mono mt-3 text-center text-[12px] text-muted">
-        Spent today: {formatRsd(spentToday)}
+        Spent today: {fmt(spentToday)}
       </p>
     </div>
   );

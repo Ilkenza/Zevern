@@ -7,11 +7,12 @@ import { saveBudgets, type MoneyState } from "@/app/(app)/private/actions";
 import { Panel } from "@/components/ui/Panel";
 import { Button, buttonClasses } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { formatRsd, monthLabel, monthProgress, shiftMonth, shortMonthLabel } from "@/lib/money";
+import { monthLabel, monthProgress, shiftMonth, shortMonthLabel } from "@/lib/money";
 import type { BudgetLine } from "@/lib/types";
 import { SummaryPanel } from "./budgets/SummaryPanel";
 import { CategoryRow } from "./budgets/CategoryRow";
 import { totalsOf, type Status } from "./budgets/status";
+import { useMoney } from "@/lib/money/currency";
 
 /**
  * The state of the whole month, in the same vocabulary a single category uses. The
@@ -40,6 +41,7 @@ export function BudgetsView({
   currentMonth: string;
   lines: BudgetLine[];
 }) {
+  const { fmt } = useMoney();
   const [state, formAction, pending] = useActionState<MoneyState, FormData>(saveBudgets, undefined);
   const pace = monthProgress(month);
   const isCurrentMonth = month === currentMonth;
@@ -94,16 +96,16 @@ export function BudgetsView({
     if (totals.limit === 0) return "Set a limit on a category and its pace shows up here.";
     if (!isCurrentMonth) {
       return totals.spent > totals.limit
-        ? `${monthLabel(month)} finished ${formatRsd(totals.spent - totals.limit)} over.`
-        : `${monthLabel(month)} finished ${formatRsd(totals.limit - totals.spent)} under.`;
+        ? `${monthLabel(month)} finished ${fmt(totals.spent - totals.limit)} over.`
+        : `${monthLabel(month)} finished ${fmt(totals.limit - totals.spent)} under.`;
     }
     if (totals.used > totals.pacePct + 5) {
       return totals.overshoot > 0
-        ? `${totals.used - totals.pacePct} points ahead of the month — at this rate you finish ${formatRsd(totals.overshoot)} over.`
+        ? `${totals.used - totals.pacePct} points ahead of the month — at this rate you finish ${fmt(totals.overshoot)} over.`
         : `${totals.used - totals.pacePct} points ahead of the month, but still inside the limits.`;
     }
     if (totals.used < totals.pacePct - 5) {
-      return `${totals.pacePct - totals.used} points behind the month — ${formatRsd(Math.max(totals.limit - totals.projected, 0))} of slack at this rate.`;
+      return `${totals.pacePct - totals.used} points behind the month — ${fmt(Math.max(totals.limit - totals.projected, 0))} of slack at this rate.`;
     }
     return "Right on pace for the month.";
   })();

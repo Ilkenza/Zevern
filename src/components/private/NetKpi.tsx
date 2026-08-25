@@ -1,5 +1,8 @@
+"use client";
+
 import { Kpi } from "@/components/ui/Kpi";
-import { formatRsd, monthNetNote } from "@/lib/money";
+import { monthNetNote } from "@/lib/money";
+import { useMoney } from "@/lib/money/currency";
 
 /**
  * The month's net, said in a way that cannot be mistaken for a balance.
@@ -24,19 +27,20 @@ export function NetKpi({
   saved?: number;
   className?: string;
 }) {
+  const { fmt } = useMoney();
   const note = monthNetNote(net, income);
 
   return (
     <Kpi
       className={className}
       label="Net for the month"
-      value={formatRsd(net)}
+      value={fmt(net)}
       hint={
         <span className={note?.tone === "danger" ? "text-danger" : "text-muted"}>
           {note?.text}
           {note && saved > 0 && " · "}
           {/* Set aside on purpose does not belong in a figure about money that left. */}
-          {saved > 0 && <>{formatRsd(saved)} also set aside</>}
+          {saved > 0 && <>{fmt(saved)} also set aside</>}
         </span>
       }
     />

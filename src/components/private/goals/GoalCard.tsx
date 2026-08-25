@@ -7,7 +7,8 @@ import { ChevronDown, ChevronUp, Pencil, Trophy } from "lucide-react";
 import { DeleteButton } from "@/components/ui/DeleteButton";
 import { deleteGoal, moveGoal } from "@/app/(app)/private/actions";
 import { Badge } from "@/components/ui/Badge";
-import { formatAmount, formatRsd } from "@/lib/money";
+import { formatAmount } from "@/lib/money";
+import { useMoney } from "@/lib/money/currency";
 import { cn } from "@/lib/utils";
 import type { AccountBalance } from "@/lib/data/money";
 import type { GoalLine } from "@/lib/types";
@@ -62,6 +63,8 @@ export function GoalCard({
   first,
   last,
   reorderable,
+  compact = false,
+  onOpen,
 }: {
   goal: GoalLine;
   accounts: AccountBalance[];
@@ -71,8 +74,12 @@ export function GoalCard({
   first: boolean;
   last: boolean;
   reorderable: boolean;
+  /** Collapsed to a line because another card is the one being worked on. */
+  compact?: boolean;
+  onOpen?: () => void;
 }) {
-  const r = read(goal, today);
+  const { fmt } = useMoney();
+  const r = read(goal, today, fmt);
   const colour = goal.color ?? NO_COLOUR;
   const target = Math.max(Number(goal.target_rsd) || 0, 0);
   // A goal aimed at euros says euros, with the dinar figure it was converted at
@@ -82,6 +89,35 @@ export function GoalCard({
   // Rounded down, and capped at 99 until the target is actually met — a goal one
   // dinar short should never claim to be finished.
   const shown = r.pct === null ? null : r.done ? 100 : Math.min(Math.floor(r.pct * 100), 99);
+
+  if (compact) {
+    return (
+      <button
+        type="button"
+        onClick={onOpen}
+        className={cn("goal-strip", r.done && "is-done")}
+        style={{ "--goal-accent": colour } as CSSProperties}
+        aria-label={`Open ${goal.name}`}
+      >
+        <span aria-hidden="true" className="goal-strip-rail" style={{ background: colour }} />
+        <span className="goal-strip-name">{goal.name}</span>
+        <span className="goal-strip-bar" aria-hidden="true">
+          <span
+            className="goal-strip-fill"
+            style={{
+              width: `${r.pct === null ? 0 : Math.max(Math.min(r.pct, 1) * 100, goal.saved > 0 ? 2 : 0)}%`,
+              background: colour,
+            }}
+          />
+        </span>
+        <span className="mono goal-strip-figure">
+          {fmt(goal.saved)}
+          {target > 0 && <span className="goal-strip-of"> / {fmt(target)}</span>}
+        </span>
+        {shown !== null && <span className="mono goal-strip-pct">{shown}%</span>}
+      </button>
+    );
+  }
 
   return (
     <article
@@ -129,7 +165,7 @@ export function GoalCard({
           <span>
             <small className="goal-saved-label">Saved</small>
             <b className="mono goal-saved-value block text-[24px] font-semibold tracking-[-0.7px] text-ink">
-              {formatRsd(goal.saved)}
+              {fmt(goal.saved)}
             </b>
           </span>
           {r.badge && <Badge status={r.badge.status}>{r.badge.label}</Badge>}
@@ -142,14 +178,14 @@ export function GoalCard({
               <dd className="mono">
                 {foreign
                   ? formatAmount(Number(goal.target_amount), goal.currency)
-                  : formatRsd(target)}
+                  : fmt(target)}
               </dd>
-              {foreign && <dd className="mono goal-card-metric-note">≈ {formatRsd(target)}</dd>}
+              {foreign && <dd className="mono goal-card-metric-note">≈ {fmt(target)}</dd>}
             </div>
             <div>
               <dt>{r.done ? "Above target" : "Remaining"}</dt>
               <dd className={cn("mono", r.done && goal.saved > target && "text-gold-hi")}>
-                {r.done ? formatRsd(Math.max(goal.saved - target, 0)) : formatRsd(remaining)}
+                {r.done ? fmt(Math.max(goal.saved - target, 0)) : fmt(remaining)}
               </dd>
             </div>
           </dl>
@@ -231,12 +267,12 @@ export function GoalCard({
         */}
         {!r.done && goal.deposited > 0 && (
           <p className="mt-1.5 text-[11.5px] text-muted">
-            <span className="mono text-ink">{formatRsd(goal.deposited)}</span> in across{" "}
+            <span className="mono text-ink">{fmt(goal.deposited)}</span> in across{" "}
             {goal.movements} {goal.movements === 1 ? "move" : "moves"}
             {goal.withdrawn > 0 && (
               <span className="text-faint">
                 {" "}
-                · <span className="mono">{formatRsd(goal.withdrawn)}</span> taken back
+                · <span className="mono">{fmt(goal.withdrawn)}</span> taken back
               </span>
             )}
           </p>

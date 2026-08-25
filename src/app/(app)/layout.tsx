@@ -12,6 +12,7 @@ import { getToolCount } from "@/lib/data/tools";
 import { getProfile } from "@/lib/data/profile";
 import { DefaultCurrencyProvider } from "@/lib/money/currency";
 import { CURRENCIES, type Currency } from "@/lib/money";
+import { getRates } from "@/lib/data/money";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
@@ -54,13 +55,15 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     tools,
   };
   const hidden = profile?.hidden_modules ?? [];
-  // Read once here so no form has to be handed it, and validated because a column
-  // check is not a type.
+  // Read once here so no screen has to be handed it. The same two facts the server
+  // helper uses, so a page and the client components inside it can never print the
+  // same figure in two different currencies.
   const stored = profile?.default_currency ?? "RSD";
   const currency = ((CURRENCIES as readonly string[]).includes(stored) ? stored : "RSD") as Currency;
+  const rates = await getRates();
 
   return (
-    <DefaultCurrencyProvider value={currency}>
+    <DefaultCurrencyProvider value={{ currency, rates }}>
       <AppShell user={shellUser} counts={counts} hidden={hidden}>
         {children}
       </AppShell>

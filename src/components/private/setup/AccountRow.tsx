@@ -10,10 +10,10 @@ import {
   type MoneyState,
 } from "@/app/(app)/private/actions";
 import { Button } from "@/components/ui/Button";
-import { ACCOUNT_KIND_OPTIONS, CURRENCIES, formatRsd } from "@/lib/money";
+import { ACCOUNT_KIND_OPTIONS, CURRENCIES } from "@/lib/money";
 import { cn } from "@/lib/utils";
 import type { AccountBalance } from "@/lib/data/money";
-import { useDefaultCurrency } from "@/lib/money/currency";
+import { useDefaultCurrency, useMoney } from "@/lib/money/currency";
 import {
   AddCaption,
   RowDelete,
@@ -63,6 +63,7 @@ function DefaultStar({ account }: { account: AccountBalance }) {
 }
 
 export function AccountRow({ account, arrived }: { account?: AccountBalance; arrived?: boolean }) {
+  const { fmt } = useMoney();
   const fallback = useDefaultCurrency();
   const [state, formAction, pending] = useActionState<MoneyState, FormData>(saveAccount, undefined);
   const isNew = !account;
@@ -146,7 +147,7 @@ export function AccountRow({ account, arrived }: { account?: AccountBalance; arr
                 account.balance < 0 ? "text-danger" : "text-ink",
               )}
             >
-              {formatRsd(account.balance)}
+              {fmt(account.balance)}
             </span>
           </div>
         ) : (

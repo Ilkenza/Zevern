@@ -4,7 +4,8 @@ import { useState } from "react";
 import Link from "next/link";
 import { ChevronDown, ChevronUp, Flag, Pencil, Repeat, TriangleAlert, Utensils } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
-import { formatRsd } from "@/lib/money";
+
+import { useMoney } from "@/lib/money/currency";
 import { cn } from "@/lib/utils";
 import type { ForecastLine } from "@/lib/data/money";
 import { ShortfallActions } from "../ShortfallActions";
@@ -35,6 +36,7 @@ export function Shortfall({
   lines: ForecastLine[];
   index: number;
 }) {
+  const { fmt } = useMoney();
   const when = whenLabel(daysBetween(from, line.on));
   const deeper = low.on !== line.on && low.balance < line.balance;
   const levers = shortfallLevers(lines, index, from);
@@ -50,7 +52,7 @@ export function Shortfall({
 
           <div className="mt-1.5 flex flex-wrap items-baseline gap-x-3 gap-y-1">
             <span className="mono text-[26px] font-semibold tracking-[-0.5px] text-danger">
-              {formatRsd(line.balance)}
+              {fmt(line.balance)}
             </span>
             <span className="text-[12.5px] text-muted">
               after{" "}
@@ -62,20 +64,20 @@ export function Shortfall({
           </div>
 
           <p className="mt-1.5 text-[12.5px] leading-relaxed text-muted">
-            <span className="mono text-ink">{formatRsd(-line.balance)}</span> has to come in
+            <span className="mono text-ink">{fmt(-line.balance)}</span> has to come in
             before then.
             {deeper && (
               <>
                 {" "}
                 It keeps falling after that — down to{" "}
-                <span className="mono text-ink">{formatRsd(low.balance)}</span> on{" "}
+                <span className="mono text-ink">{fmt(low.balance)}</span> on{" "}
                 <span className="mono">{low.on}</span>.
               </>
             )}
             {reserved > 0 && (
               <>
                 {" "}
-                There is <span className="mono text-ink">{formatRsd(reserved)}</span> set aside
+                There is <span className="mono text-ink">{fmt(reserved)}</span> set aside
                 for goals on top of this. Close a goal or take money back out and it counts
                 again.
               </>
@@ -95,6 +97,7 @@ export function Shortfall({
  * way to tell a steady figure from a dragged one without seeing the readings.
  */
 function EstimateDetail({ line }: { line: ForecastLine }) {
+  const { fmt } = useMoney();
   const amounts = line.samples.map((s) => s.amount);
   const lowest = Math.min(...amounts);
   const highest = Math.max(...amounts);
@@ -113,17 +116,17 @@ function EstimateDetail({ line }: { line: ForecastLine }) {
             className="flex items-baseline justify-between gap-3 text-[11.5px]"
           >
             <span className="mono text-muted">{s.on}</span>
-            <span className="mono text-faint">{formatRsd(s.amount)}</span>
+            <span className="mono text-faint">{fmt(s.amount)}</span>
           </div>
         ))}
       </div>
       <p className="mt-2 text-[11.5px] leading-relaxed text-muted">
-        Lowest <span className="mono">{formatRsd(lowest)}</span>, highest{" "}
-        <span className="mono">{formatRsd(highest)}</span>
+        Lowest <span className="mono">{fmt(lowest)}</span>, highest{" "}
+        <span className="mono">{fmt(highest)}</span>
         {spread > 0 ? (
           <>
             {" "}
-            — <span className="mono">{formatRsd(spread)}</span> between them. The timeline uses
+            — <span className="mono">{fmt(spread)}</span> between them. The timeline uses
             the average of all {line.samples.length}.
           </>
         ) : (
@@ -136,6 +139,7 @@ function EstimateDetail({ line }: { line: ForecastLine }) {
 
 /** One due date: what it is, when it lands, what it costs, what it leaves behind. */
 export function Row({ line, from }: { line: ForecastLine; from: string }) {
+  const { fmt } = useMoney();
   const [open, setOpen] = useState(false);
   const days = daysBetween(from, line.on);
   const when = whenLabel(days);
@@ -261,11 +265,11 @@ export function Row({ line, from }: { line: ForecastLine; from: string }) {
                     : "text-ink",
           )}
         >
-          {income ? "+" : "−"} {formatRsd(line.amount)}
+          {income ? "+" : "−"} {fmt(line.amount)}
         </div>
         <div className={cn("mono text-[11px]", line.balance < 0 ? "text-danger" : "text-faint")}>
           <span className="sr-only">leaves </span>
-          {formatRsd(line.balance)}
+          {fmt(line.balance)}
         </div>
       </div>
     </div>

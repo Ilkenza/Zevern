@@ -6,7 +6,8 @@ import { Panel } from "@/components/ui/Panel";
 import { Kpi } from "@/components/ui/Kpi";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { buttonClasses } from "@/components/ui/Button";
-import { formatRsd, type Rates } from "@/lib/money";
+import { type Rates } from "@/lib/money";
+import { useMoney } from "@/lib/money/currency";
 import { cn } from "@/lib/utils";
 import type { RecurringTotals } from "@/lib/data/money";
 import type { RecurringRow } from "@/lib/types";
@@ -39,6 +40,7 @@ export function UpcomingRules({
   totals: RecurringTotals;
   rates: Rates;
 }) {
+  const { fmt } = useMoney();
   // Read the same way Setup and Goals read today — UTC on both sides, so nothing disagrees.
   const today = todayISO();
 
@@ -178,28 +180,28 @@ export function UpcomingRules({
           <div className="grid gap-3 min-[560px]:grid-cols-2 lg:grid-cols-3">
             <Kpi
               label="Per month, on average"
-              value={formatRsd(totals.expense)}
+              value={fmt(totals.expense)}
               hint="A run rate — a yearly bill spread over twelve, a weekly one multiplied up. Running rules only."
             />
             <Kpi
               label="Falls due within a year"
-              value={formatRsd(totals.yearExpense)}
+              value={fmt(totals.yearExpense)}
               hint={`${totals.yearCount} ${totals.yearCount === 1 ? "date" : "dates"} between today and ${totals.yearHorizon}`}
             />
             {totals.saving > 0 && (
               <Kpi
                 label="Into goals, per month"
-                value={formatRsd(totals.saving)}
-                hint={`${formatRsd(totals.yearSaving)} over the next year. Not spent — set aside.`}
+                value={fmt(totals.saving)}
+                hint={`${fmt(totals.yearSaving)} over the next year. Not spent — set aside.`}
               />
             )}
             {(totals.income > 0 || totals.saving > 0) && (
               <Kpi
                 label="Net per month"
-                value={formatRsd(totals.net)}
+                value={fmt(totals.net)}
                 hint={
                   totals.income > 0
-                    ? `After ${formatRsd(totals.income)} a month coming in${totals.saving > 0 ? ", and what goes into goals" : ""}`
+                    ? `After ${fmt(totals.income)} a month coming in${totals.saving > 0 ? ", and what goes into goals" : ""}`
                     : "After the bills and what goes into goals"
                 }
               />

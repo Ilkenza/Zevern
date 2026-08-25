@@ -4,7 +4,8 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { CalendarArrowDown, CalendarArrowUp } from "lucide-react";
 import { movePlanned, moveRecurringNext } from "@/app/(app)/private/actions";
-import { formatRsd } from "@/lib/money";
+
+import { useMoney } from "@/lib/money/currency";
 import { cn } from "@/lib/utils";
 import type { Lever } from "./upcoming";
 
@@ -21,6 +22,7 @@ const field =
  * the app only knows what the earliest date that helps is.
  */
 function LeverRow({ lever, on }: { lever: Lever; on: string }) {
+  const { fmt } = useMoney();
   const router = useRouter();
   const [date, setDate] = useState(lever.target);
   const [error, setError] = useState<string | null>(null);
@@ -60,7 +62,7 @@ function LeverRow({ lever, on }: { lever: Lever; on: string }) {
               {lever.name}
             </span>
             <span className="mono shrink-0 text-[12px] text-muted">
-              {later ? "−" : "+"} {formatRsd(lever.worth)}
+              {later ? "−" : "+"} {fmt(lever.worth)}
             </span>
           </div>
           <p className="mt-0.5 text-[11.5px] text-muted">
@@ -75,7 +77,7 @@ function LeverRow({ lever, on }: { lever: Lever; on: string }) {
             )}{" "}
             that day leaves{" "}
             <span className={cn("mono", lever.clears ? "text-ok" : "text-danger")}>
-              {formatRsd(lever.after)}
+              {fmt(lever.after)}
             </span>
             {lever.clears ? " — that clears it." : " — still short."}
             {lever.source === "recurring" && (

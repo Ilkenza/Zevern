@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { Utensils } from "lucide-react";
 import { saveSpendingBasis } from "@/app/(app)/private/actions";
 import { Panel } from "@/components/ui/Panel";
-import { formatRsd, monthLabel } from "@/lib/money";
+import { monthLabel } from "@/lib/money";
+import { useMoney } from "@/lib/money/currency";
 import { cn } from "@/lib/utils";
 import type { SpendingProjection } from "@/lib/data/money";
 import type { SpendingBasis } from "@/lib/types";
@@ -75,6 +76,7 @@ function Option({
  * next to the working behind it.
  */
 export function SpendingBasisPanel({ spending }: { spending: SpendingProjection }) {
+  const { fmt } = useMoney();
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -128,20 +130,20 @@ export function SpendingBasisPanel({ spending }: { spending: SpendingProjection 
           <>
             <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
               <span className="mono text-[24px] font-semibold tracking-[-0.5px] text-ink">
-                {formatRsd(spending.monthly)}
+                {fmt(spending.monthly)}
               </span>
               <span className="text-[12.5px] text-muted">a month · {blurb}</span>
             </div>
 
             <p className="mt-2 text-[12.5px] leading-relaxed text-muted">
               This month has already seen{" "}
-              <span className="mono text-ink">{formatRsd(spending.spentThisMonth)}</span> of it.
+              <span className="mono text-ink">{fmt(spending.spentThisMonth)}</span> of it.
               {left > 0 ? (
                 <>
                   {" "}
-                  The remaining <span className="mono text-ink">{formatRsd(remaining)}</span> is
+                  The remaining <span className="mono text-ink">{fmt(remaining)}</span> is
                   spread over the {left} {left === 1 ? "day" : "days"} left — about{" "}
-                  <span className="mono">{formatRsd(perDay)}</span> a day — rather than dropped
+                  <span className="mono">{fmt(perDay)}</span> a day — rather than dropped
                   on one date.
                 </>
               ) : (
@@ -162,7 +164,7 @@ export function SpendingBasisPanel({ spending }: { spending: SpendingProjection 
                       className="flex items-baseline justify-between gap-3 text-[11.5px]"
                     >
                       <span className="min-w-0 truncate text-muted">{monthLabel(m.month)}</span>
-                      <span className="mono text-faint">{formatRsd(m.spent)}</span>
+                      <span className="mono text-faint">{fmt(m.spent)}</span>
                     </div>
                   ))}
                 </div>
@@ -185,14 +187,14 @@ export function SpendingBasisPanel({ spending }: { spending: SpendingProjection 
                     >
                       <span className="min-w-0 truncate text-muted">{c.name}</span>
                       <span className="mono shrink-0 text-faint">
-                        {formatRsd(c.limit)}
+                        {fmt(c.limit)}
                         {c.recurring > 0 && (
                           <>
                             {" − "}
-                            {formatRsd(c.recurring)}
+                            {fmt(c.recurring)}
                             {" = "}
                             <span className="text-ink">
-                              {formatRsd(Math.max(c.limit - c.recurring, 0))}
+                              {fmt(Math.max(c.limit - c.recurring, 0))}
                             </span>
                           </>
                         )}

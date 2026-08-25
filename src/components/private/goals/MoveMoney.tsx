@@ -10,7 +10,8 @@ import {
 } from "@/app/(app)/private/actions";
 import { Button } from "@/components/ui/Button";
 import { MoneyField } from "@/components/ui/MoneyField";
-import { formatRsd } from "@/lib/money";
+
+import { useMoney } from "@/lib/money/currency";
 import { cn } from "@/lib/utils";
 import type { AccountBalance } from "@/lib/data/money";
 import type { GoalLine } from "@/lib/types";
@@ -37,6 +38,7 @@ export function MoveMoney({
   siblings: GoalLine[];
   done: boolean;
 }) {
+  const { fmt } = useMoney();
   const router = useRouter();
   const [state, setState] = useState<MoneyState>();
   const [pending, startTransition] = useTransition();
@@ -95,6 +97,23 @@ export function MoveMoney({
   const beyondAccount = !taking && !moving && account !== null && typed > account.free + 0.5;
   const beyondTarget =
     !taking && !moving && !beyondAccount && needs !== null && typed > needs + 0.5 && typed > 0;
+
+  /*
+    The first deposit, offered.
+
+    An empty goal asks an open question — "how much?" — at the exact moment there is no
+    information to answer it with, and an open question at zero progress is where goals
+    are abandoned. A round tenth of the target is small enough to say yes to and large
+    enough to move the bar off nothing, which is the whole job of the first one: turn
+    0% into a number, because the second deposit is never the hard one.
+  */
+  const firstStep = (() => {
+    if (goal.saved > 0 || target <= 0 || taking || moving) return 0;
+    const tenth = target / 10;
+    const step = tenth >= 10000 ? 5000 : tenth >= 2000 ? 1000 : tenth >= 500 ? 500 : 100;
+    const rounded = Math.max(Math.round(tenth / step) * step, step);
+    return rounded < target ? rounded : 0;
+  })();
   /** What this goal is holding above its own target — the obvious thing to move. */
   const excess = needs !== null ? Math.max(goal.saved - target, 0) : 0;
 
@@ -230,22 +249,32 @@ export function MoveMoney({
 
       {taking && (
         <p className="mt-2 text-[11px] text-faint">
-          Holds {formatRsd(goal.saved)}. Taking it out frees it to spend again.
+          Holds {fmt(goal.saved)}. Taking it out frees it to spend again.
         </p>
       )}
 
       {moving && (
         <p className="mt-2 text-[11px] leading-relaxed text-faint">
-          Holds {formatRsd(goal.saved)}
-          {excess > 0 && <>, {formatRsd(excess)} of it above the target</>}. It leaves this goal
+          Holds {fmt(goal.saved)}
+          {excess > 0 && <>, {fmt(excess)} of it above the target</>}. It leaves this goal
           and lands on the other one the same day, on the same account — so it never passes
           through being free to spend.
         </p>
       )}
 
+      {firstStep > 0 && !amount && (
+        <p className="mt-2 text-[11px] leading-relaxed text-muted">
+          Nothing in yet.{" "}
+          <button type="button" onClick={() => setAmount(String(firstStep))} className="goal-first-step">
+            Start with {fmt(firstStep)}
+          </button>{" "}
+          — that is {Math.round((firstStep / target) * 100)}% of the way.
+        </p>
+      )}
+
       {beyondAccount && account && (
         <p className="mt-2 text-[11px] leading-relaxed text-danger">
-          {account.name} only has {formatRsd(account.free)} free — the rest of what is on it is
+          {account.name} only has {fmt(account.free)} free — the rest of what is on it is
           already claimed by another goal. Put aside more than that and this goal would be
           holding money that is not there.
         </p>
@@ -253,8 +282,8 @@ export function MoveMoney({
 
       {beyondTarget && needs !== null && (
         <p className="mt-2 text-[11px] leading-relaxed text-muted">
-          That is {formatRsd(typed - needs)} more than this goal still needs
-          {needs > 0 ? <> — {formatRsd(needs)} finishes it</> : " — it is already at its target"}.
+          That is {fmt(typed - needs)} more than this goal still needs
+          {needs > 0 ? <> — {fmt(needs)} finishes it</> : " — it is already at its target"}.
           It will go in anyway if that is what you meant.
         </p>
       )}

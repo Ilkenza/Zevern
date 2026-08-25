@@ -1,8 +1,11 @@
+"use client";
+
 import Link from "next/link";
 import { Wallet, ArrowRight } from "lucide-react";
-import { formatRsd } from "@/lib/money";
+
 import { buttonClasses } from "@/components/ui/Button";
 import type { AccountBalance, OnHand } from "@/lib/data/money";
+import { useMoney } from "@/lib/money/currency";
 
 /**
  * What is actually in your pocket.
@@ -25,6 +28,7 @@ export function OnHandBand({
   onHand: OnHand;
   accounts: AccountBalance[];
 }) {
+  const { fmt } = useMoney();
   if (accounts.length === 0) {
     return (
       <section className="onhand-band onhand-empty">
@@ -69,12 +73,12 @@ export function OnHandBand({
         <div
           className={`mono onhand-value ${onHand.free < 0 ? "text-danger" : "text-ink"}`}
         >
-          {formatRsd(onHand.free)}
+          {fmt(onHand.free)}
         </div>
         <p className="onhand-caption">
           {onHand.reserved > 0 ? (
             <>
-              after {formatRsd(onHand.reserved)} is reserved for your goals
+              after {fmt(onHand.reserved)} is reserved for your goals
             </>
           ) : (
             <>across {accounts.length === 1 ? "one account" : `${accounts.length} accounts`}</>
@@ -95,11 +99,11 @@ export function OnHandBand({
             </div>
 
             <div className="onhand-legend">
-              <span><i className="onhand-key onhand-free" /> Free {formatRsd(onHand.free)}</span>
+              <span><i className="onhand-key onhand-free" /> Free {fmt(onHand.free)}</span>
               <span>
-                <i className="onhand-key onhand-reserved" /> Reserved {formatRsd(onHand.reserved)}
+                <i className="onhand-key onhand-reserved" /> Reserved {fmt(onHand.reserved)}
               </span>
-              <span className="onhand-total">Total {formatRsd(onHand.total)}</span>
+              <span className="onhand-total">Total {fmt(onHand.total)}</span>
             </div>
           </>
         )}
@@ -109,9 +113,9 @@ export function OnHandBand({
         {accounts.map((a) => (
           <div key={a.id} className="onhand-account">
             <span className="onhand-account-name">{a.name}</span>
-            <span className="mono onhand-account-value">{formatRsd(a.balance)}</span>
+            <span className="mono onhand-account-value">{fmt(a.balance)}</span>
             {a.reserved > 0 && (
-              <span className="onhand-account-note">{formatRsd(a.free)} free</span>
+              <span className="onhand-account-note">{fmt(a.free)} free</span>
             )}
           </div>
         ))}

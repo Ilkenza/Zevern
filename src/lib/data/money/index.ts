@@ -74,3 +74,5 @@ export {
   type AccountBalance,
   type OnHand,
 } from "./accounts";
+
+export { getMoney } from "./display";

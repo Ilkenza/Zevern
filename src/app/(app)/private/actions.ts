@@ -6,12 +6,11 @@ import { createClient as createSupabaseServerClient } from "@/lib/supabase/serve
 import { userId } from "@/lib/supabase/current-user";
 import { todayISO } from "@/lib/format";
 import { saveErrorMessage } from "@/lib/supabase/errors";
-import { getAccountBalances, getRates } from "@/lib/data/money";
+import { getAccountBalances, getMoney, getRates } from "@/lib/data/money";
 import { fetchNbsRates } from "@/lib/rates/nbs";
 import {
   CURRENCIES,
   DEFAULT_CATEGORIES,
-  formatRsd,
   isTxKind,
   nextDate,
   rateFor,
@@ -197,6 +196,9 @@ export async function saveTransaction(_prev: MoneyState, formData: FormData): Pr
   if (kind === "withdraw" && !accountId)
     return { error: "Pick the account this money goes back to." };
 
+  // Errors quote figures, and a figure quoted in a currency the person does not read
+  // in is a figure they have to convert before they can act on it.
+  const { fmt } = await getMoney();
   const rates = await getRates();
   const manualRate = num(formData.get("rate"), 0);
   const rate = currency === "RSD" ? 1 : manualRate > 0 ? manualRate : rateFor(currency, rates);
@@ -270,7 +272,7 @@ export async function saveTransaction(_prev: MoneyState, formData: FormData): Pr
         return {
           error:
             free > 0
-              ? `${account.name} only has ${formatRsd(free)} free — the rest is already set aside for another goal.`
+              ? `${account.name} only has ${fmt(free)} free — the rest is already set aside for another goal.`
               : `${account.name} has nothing free to set aside. Every dinar on it is already claimed by a goal.`,
         };
     }
@@ -288,13 +290,13 @@ export async function saveTransaction(_prev: MoneyState, formData: FormData): Pr
       return {
         error:
           others > 0
-            ? `That goal only holds ${formatRsd(others)}.`
+            ? `That goal only holds ${fmt(others)}.`
             : "That goal is empty — there is nothing to take out.",
       };
 
     if (kind === "saving" && others + amountRsd < -PENNY)
       return {
-        error: `${formatRsd(-others)} has already been taken out of that goal, so this deposit cannot be smaller than that.`,
+        error: `${fmt(-others)} has already been taken out of that goal, so this deposit cannot be smaller than that.`,
       };
   }
 
@@ -353,9 +355,10 @@ export async function removeTransaction(id: string): Promise<MoneyState> {
   if (row?.kind === "saving" && row.goal_id) {
     const others = await goalBalance(supabase, uid, row.goal_id, id);
     if (others === null) return { error: "Could not read what that goal holds. Try again." };
+    const { fmt } = await getMoney();
     if (others < -PENNY)
       return {
-        error: `Take the ${formatRsd(-others)} out of that goal back first — without this deposit there is nothing for it to have come out of.`,
+        error: `Take the ${fmt(-others)} out of that goal back first — without this deposit there is nothing for it to have come out of.`,
       };
   }
 
@@ -853,11 +856,12 @@ export async function moveBetweenGoals(_prev: MoneyState, formData: FormData): P
 
   const held = await goalBalance(supabase, uid, fromId);
   if (held === null) return { error: "Could not read what that goal holds. Try again." };
+  const { fmt } = await getMoney();
   if (amount > held + PENNY)
     return {
       error:
         held > 0
-          ? `${from.name} only holds ${formatRsd(held)}.`
+          ? `${from.name} only holds ${fmt(held)}.`
           : `${from.name} is empty — there is nothing to move.`,
     };
 

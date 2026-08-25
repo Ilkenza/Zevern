@@ -8,7 +8,6 @@
  * rendered component.
  */
 
-import { formatRsd } from "@/lib/money";
 import type { BadgeStatus } from "@/components/ui/Badge";
 import type { GoalLine } from "@/lib/types";
 
@@ -65,7 +64,16 @@ export type Reading = {
  * history and something actually put aside — before that, a rate worked out from two
  * days and one deposit would be a guess wearing a badge.
  */
-export function read(goal: GoalLine, today: string): Reading {
+/**
+ * `fmt` is passed in rather than imported.
+ *
+ * This module turns a goal into sentences, and the sentences carry money — which means
+ * they carry a currency, and the currency is a per-reader setting that lives in a React
+ * context this file cannot reach. Taking the formatter as an argument keeps the module
+ * pure, keeps it testable without a provider, and makes it impossible for a card and
+ * the note under it to disagree about what currency they are in.
+ */
+export function read(goal: GoalLine, today: string, fmt: (n: number) => string): Reading {
   const target = Number(goal.target_rsd) || 0;
   const saved = goal.saved;
   const date = goal.target_date;
@@ -79,8 +87,8 @@ export function read(goal: GoalLine, today: string): Reading {
       badge: { status: "ok", label: "Reached" },
       note:
         over > 0
-          ? `The full ${formatRsd(target)} is there, and ${formatRsd(over)} over`
-          : `The full ${formatRsd(target)} is there`,
+          ? `The full ${fmt(target)} is there, and ${fmt(over)} over`
+          : `The full ${fmt(target)} is there`,
       pace: date ? "the date you aimed at" : null,
       consequence: null,
     };
@@ -99,7 +107,7 @@ export function read(goal: GoalLine, today: string): Reading {
 
   const left = target - saved;
   const pct = Math.min(saved / target, 1);
-  const note = `${formatRsd(left)} to go of ${formatRsd(target)}`;
+  const note = `${fmt(left)} to go of ${fmt(target)}`;
 
   if (daysLeft === null) {
     return { pct, done: false, badge: null, note, pace: null, consequence: null };
@@ -131,9 +139,9 @@ export function read(goal: GoalLine, today: string): Reading {
   // What has to go in from here, said in whichever unit fits the time left.
   const pace =
     daysLeft >= 60
-      ? `${formatRsd(Math.ceil(left / (daysLeft / DAYS_PER_MONTH)))} a month to make it`
+      ? `${fmt(Math.ceil(left / (daysLeft / DAYS_PER_MONTH)))} a month to make it`
       : daysLeft >= MIN_HISTORY_DAYS
-        ? `${formatRsd(Math.ceil(left / (daysLeft / 7)))} a week to make it`
+        ? `${fmt(Math.ceil(left / (daysLeft / 7)))} a week to make it`
         : `${daysLeft} ${daysLeft === 1 ? "day" : "days"} left`;
 
   const elapsed = daysBetween(goal.created_at, today);

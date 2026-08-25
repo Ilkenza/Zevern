@@ -13,12 +13,12 @@ import { Field } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
 import { Select } from "@/components/ui/Select";
 import { DeleteButton } from "@/components/ui/DeleteButton";
-import { CURRENCY_OPTIONS, formatRsd } from "@/lib/money";
+import { CURRENCY_OPTIONS } from "@/lib/money";
 import { MoneyField } from "@/components/ui/MoneyField";
 import { cn } from "@/lib/utils";
 import type { GoalLine, MoneyAccount, MoneyCategory } from "@/lib/types";
 import { todayISO } from "@/lib/format";
-import { useDefaultCurrency } from "@/lib/money/currency";
+import { useDefaultCurrency, useMoney } from "@/lib/money/currency";
 
 /**
  * Every goal fills in the same gold.
@@ -52,6 +52,7 @@ function SpendGoal({
   categories: MoneyCategory[];
   onDone?: () => void;
 }) {
+  const { fmt } = useMoney();
   const [state, formAction, pending] = useActionState<MoneyState, FormData>(spendGoal, undefined);
   const [open, setOpen] = useState(false);
 
@@ -81,7 +82,7 @@ function SpendGoal({
 
       <div className="text-[13px] font-semibold text-ink">I bought it</div>
       <p className="mt-1 text-[11.5px] leading-relaxed text-muted">
-        The {formatRsd(held)} this goal holds goes back to the account, the purchase is
+        The {fmt(held)} this goal holds goes back to the account, the purchase is
         logged in Money under <span className="text-ink">{goal.name}</span>, and the goal
         closes. Anything it cost less than stays free to spend.
       </p>
@@ -165,6 +166,7 @@ function CloseGoal({
   accounts: MoneyAccount[];
   onDone?: () => void;
 }) {
+  const { fmt } = useMoney();
   const [state, formAction, pending] = useActionState<MoneyState, FormData>(closeGoal, undefined);
   const [open, setOpen] = useState(false);
 
@@ -196,7 +198,7 @@ function CloseGoal({
       <p className="mt-1 text-[11.5px] leading-relaxed text-muted">
         {held > 0 ? (
           <>
-            The <span className="mono text-ink">{formatRsd(held)}</span> it still holds goes back
+            The <span className="mono text-ink">{fmt(held)}</span> it still holds goes back
             to an account and is free to spend again. If you spent it on the thing itself, log
             that purchase in Money — this only stops the goal claiming it.
           </>
@@ -239,7 +241,7 @@ function CloseGoal({
 
       <div className="mt-3 flex gap-2">
         <Button type="submit" variant="primary" className="flex-1 py-2 text-[12.5px]" disabled={pending}>
-          {pending ? "Closing…" : held > 0 ? `Close and free ${formatRsd(held)}` : "Close it"}
+          {pending ? "Closing…" : held > 0 ? `Close and free ${fmt(held)}` : "Close it"}
         </Button>
         <Button
           type="button"

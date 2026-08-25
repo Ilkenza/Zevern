@@ -11,13 +11,8 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { DeleteButton } from "@/components/ui/DeleteButton";
 import { buttonClasses } from "@/components/ui/Button";
 import { removeTransaction } from "@/app/(app)/private/actions";
-import {
-  formatAmount,
-  formatRsd,
-  monthLabel,
-  shiftMonth,
-  shortMonthLabel,
-} from "@/lib/money";
+import { formatAmount, monthLabel, shiftMonth, shortMonthLabel } from "@/lib/money";
+import { useMoney } from "@/lib/money/currency";
 import { cn } from "@/lib/utils";
 import type { MoneyCategory, TransactionRow } from "@/lib/types";
 import { TransactionForm, type TxFormData } from "./TransactionForm";
@@ -48,6 +43,7 @@ const TONE: Record<string, string> = {
 };
 
 function Row({ tx, month }: { tx: TransactionRow; month: string }) {
+  const { fmt } = useMoney();
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   /*
@@ -83,7 +79,7 @@ function Row({ tx, month }: { tx: TransactionRow; month: string }) {
         </div>
         <div className="shrink-0 text-right">
           <div className={cn("mono text-[13.5px] font-semibold", TONE[tx.kind])}>
-            {SIGN[tx.kind]} {formatRsd(Number(tx.amount_rsd))}
+            {SIGN[tx.kind]} {fmt(Number(tx.amount_rsd))}
           </div>
           {tx.currency !== "RSD" && (
             <div className="mono text-[11px] text-faint">
@@ -141,6 +137,7 @@ export function MoneyView({
   panel: MoneyPanel;
   activeCategory?: string;
 }) {
+  const { fmt } = useMoney();
   const router = useRouter();
   const base = `/private/money?month=${month}`;
   const close = () => router.push(base + (activeCategory ? `&cat=${activeCategory}` : ""));
@@ -208,20 +205,20 @@ export function MoneyView({
         <Kpi
           className="money-card-premium"
           label="Spent"
-          value={formatRsd(summary.expense)}
+          value={fmt(summary.expense)}
         />
         <Kpi
           className="money-card-premium"
           label="Income"
-          value={formatRsd(summary.income)}
+          value={fmt(summary.income)}
         />
         <Kpi
           className="money-card-premium"
           label="Put aside"
-          value={formatRsd(summary.saved)}
+          value={fmt(summary.saved)}
           hint={
             summary.withdrawn > 0
-              ? `After ${formatRsd(summary.withdrawn)} taken back out`
+              ? `After ${fmt(summary.withdrawn)} taken back out`
               : undefined
           }
         />
@@ -308,7 +305,7 @@ export function MoneyView({
                   <div className="money-day-head flex items-center justify-between border-b border-line-soft px-4 py-2">
                     <span className="mono text-[11px] font-semibold text-muted">{day}</span>
                     {dayTotal > 0 && (
-                      <span className="mono text-[11px] text-faint">−{formatRsd(dayTotal)}</span>
+                      <span className="mono text-[11px] text-faint">−{fmt(dayTotal)}</span>
                     )}
                   </div>
                   {rows.map((t) => (

@@ -1,8 +1,9 @@
 "use client";
 
 import { Wand2 } from "lucide-react";
-import { formatRsd } from "@/lib/money";
+
 import { MoneyField } from "@/components/ui/MoneyField";
+import { useMoney } from "@/lib/money/currency";
 import { cn } from "@/lib/utils";
 import type { BudgetLine } from "@/lib/types";
 import { STATUS_LABEL, STATUS_TONE, clean, shouldSuggest, statusOf } from "./status";
@@ -37,6 +38,7 @@ export function CategoryRow({
   /** The caller's rung on the entrance ladder. Merged with the colours below. */
   style?: React.CSSProperties;
 }) {
+  const { fmt } = useMoney();
   const status = statusOf(line, pace);
   const tone = STATUS_TONE[status];
   const used = line.limit > 0 ? Math.min(line.spent / line.limit, 1) : 0;
@@ -65,7 +67,7 @@ export function CategoryRow({
         </span>
 
         <span className="budget-card-money">
-          <span className="mono budget-card-spent">{formatRsd(line.spent)}</span>
+          <span className="mono budget-card-spent">{fmt(line.spent)}</span>
           <span className="budget-card-of">of</span>
           <span className="budget-card-field">
             <MoneyField
@@ -101,7 +103,7 @@ export function CategoryRow({
             )}
           </div>
           <span className={cn("mono budget-card-left", left < 0 && "is-over")}>
-            {left < 0 ? `${formatRsd(-left)} over` : `${formatRsd(left)} left`}
+            {left < 0 ? `${fmt(-left)} over` : `${fmt(left)} left`}
           </span>
         </div>
       ) : (
@@ -121,7 +123,7 @@ export function CategoryRow({
       {suggest && (
         <button type="button" className="budget-suggest" onClick={() => onChange(String(line.typical))}>
           <Wand2 className="h-3 w-3" aria-hidden />
-          A normal month is {formatRsd(line.typical)}
+          A normal month is {fmt(line.typical)}
           <span className="budget-suggest-cta">use it</span>
         </button>
       )}

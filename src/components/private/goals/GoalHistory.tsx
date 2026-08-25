@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { ChevronDown, ChevronUp, History } from "lucide-react";
 import { removeTransaction } from "@/app/(app)/private/actions";
 import { DeleteButton } from "@/components/ui/DeleteButton";
-import { formatRsd } from "@/lib/money";
+
+import { useMoney } from "@/lib/money/currency";
 import { cn } from "@/lib/utils";
 import type { GoalEntry, GoalLine } from "@/lib/types";
 
@@ -14,6 +15,7 @@ import type { GoalEntry, GoalLine } from "@/lib/types";
  * question the run of deposits is usually asked to settle — which pocket it came from.
  */
 function EntryRow({ entry, goalName }: { entry: GoalEntry; goalName: string }) {
+  const { fmt } = useMoney();
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const out = entry.kind === "withdraw";
@@ -30,12 +32,12 @@ function EntryRow({ entry, goalName }: { entry: GoalEntry; goalName: string }) {
         <span
           className={cn("mono shrink-0 text-[12px] font-semibold", out ? "text-muted" : "text-ink")}
         >
-          {out ? "−" : "+"} {formatRsd(entry.amount)}
+          {out ? "−" : "+"} {fmt(entry.amount)}
         </span>
         <DeleteButton
           compact
           label={`Delete this ${out ? "withdrawal" : "deposit"}`}
-          confirmText={`Remove ${formatRsd(entry.amount)} of ${entry.occurred_on} from ${goalName}? The entry leaves the ledger and every balance is worked out without it.`}
+          confirmText={`Remove ${fmt(entry.amount)} of ${entry.occurred_on} from ${goalName}? The entry leaves the ledger and every balance is worked out without it.`}
           action={async () => {
             const result = await removeTransaction(entry.id);
             if (result?.error) setError(result.error);
@@ -54,6 +56,7 @@ function EntryRow({ entry, goalName }: { entry: GoalEntry; goalName: string }) {
  * is also the only place a fat-fingered 50.000 can be found and taken back out.
  */
 export function GoalHistory({ goal }: { goal: GoalLine }) {
+  const { fmt } = useMoney();
   const [open, setOpen] = useState(false);
 
   if (goal.movements === 0) return null;
@@ -75,7 +78,7 @@ export function GoalHistory({ goal }: { goal: GoalLine }) {
           {goal.withdrawn > 0 && (
             <span className="font-normal text-faint">
               {" "}
-              · {formatRsd(goal.withdrawn)} taken back out
+              · {fmt(goal.withdrawn)} taken back out
             </span>
           )}
         </span>
@@ -95,7 +98,7 @@ export function GoalHistory({ goal }: { goal: GoalLine }) {
             {shown < goal.movements
               ? `The last ${shown} of ${goal.movements}. `
               : deposits > 1
-                ? `${deposits} deposits, ${formatRsd(goal.deposited)} in total. `
+                ? `${deposits} deposits, ${fmt(goal.deposited)} in total. `
                 : ""}
             Every one of these is an entry in Money.
           </p>

@@ -1,9 +1,12 @@
+"use client";
+
 import { Panel } from "@/components/ui/Panel";
-import { formatRsd } from "@/lib/money";
+
 import { cn } from "@/lib/utils";
 import type { OnHand } from "@/lib/data/money";
 import type { GoalLine } from "@/lib/types";
 import { NO_COLOUR, PanelMeta, caps } from "./shared";
+import { useMoney } from "@/lib/money/currency";
 
 /** One figure of the reconciliation strip. The operator lives in the label. */
 function Figure({
@@ -15,6 +18,7 @@ function Figure({
   value: number;
   tone?: "held" | "danger";
 }) {
+  const { fmt } = useMoney();
   return (
     <div className="goal-figure bg-surface px-3 py-2.5">
       <div className={caps}>{label}</div>
@@ -26,7 +30,7 @@ function Figure({
           tone === "held" ? "text-held" : tone === "danger" ? "text-danger" : "text-ink",
         )}
       >
-        {formatRsd(value)}
+        {fmt(value)}
       </div>
     </div>
   );
@@ -40,6 +44,7 @@ function Figure({
  * middle one is read straight off the goals above it.
  */
 export function Overall({ goals, onHand }: { goals: GoalLine[]; onHand: OnHand }) {
+  const { fmt } = useMoney();
   const targeted = goals.filter((g) => Number(g.target_rsd) > 0);
   const totalTarget = targeted.reduce((s, g) => s + Number(g.target_rsd), 0);
   const totalSaved = goals.reduce((s, g) => s + g.saved, 0);
@@ -70,11 +75,11 @@ export function Overall({ goals, onHand }: { goals: GoalLine[]; onHand: OnHand }
           <>
             <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
               <span className="mono text-[28px] font-semibold tracking-[-0.5px] text-ink">
-                {formatRsd(totalSaved)}
+                {fmt(totalSaved)}
               </span>
               {totalTarget > 0 && (
                 <span className="text-[12.5px] text-muted">
-                  of <span className="mono">{formatRsd(totalTarget)}</span> aimed at
+                  of <span className="mono">{fmt(totalTarget)}</span> aimed at
                 </span>
               )}
             </div>
@@ -111,7 +116,7 @@ export function Overall({ goals, onHand }: { goals: GoalLine[]; onHand: OnHand }
                   ) : (
                     <>
                       {Math.min(Math.floor(pct * 100), 99)}% of the way there ·{" "}
-                      <span className="mono">{formatRsd(left)}</span> still to find
+                      <span className="mono">{fmt(left)}</span> still to find
                     </>
                   )}
                   {untargeted > 0 &&

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { GoalLine } from "@/lib/types";
 import { daysBetween, isOpen, read } from "./reading";
+import { formatRsd } from "@/lib/money";
 
 const TODAY = "2026-08-25";
 
@@ -44,39 +45,39 @@ describe("daysBetween", () => {
 
 describe("read", () => {
   it("says a goal is reached once it holds the target", () => {
-    const r = read(goal({ saved: 200000 }), TODAY);
+    const r = read(goal({ saved: 200000 }), TODAY, formatRsd);
     expect(r.done).toBe(true);
     expect(r.pct).toBe(1);
     expect(r.badge).toEqual({ status: "ok", label: "Reached" });
   });
 
   it("names the overshoot rather than hiding it", () => {
-    const r = read(goal({ saved: 230000 }), TODAY);
+    const r = read(goal({ saved: 230000 }), TODAY, formatRsd);
     expect(r.done).toBe(true);
     expect(r.note).toContain("over");
   });
 
   it("has no progress at all without a target", () => {
-    const r = read(goal({ target_rsd: 0, saved: 50000 }), TODAY);
+    const r = read(goal({ target_rsd: 0, saved: 50000 }), TODAY, formatRsd);
     expect(r.pct).toBeNull();
     expect(r.done).toBe(false);
     expect(r.badge).toBeNull();
   });
 
   it("reports what is left against the target", () => {
-    const r = read(goal({ saved: 50000 }), TODAY);
+    const r = read(goal({ saved: 50000 }), TODAY, formatRsd);
     expect(r.pct).toBeCloseTo(0.25);
     expect(r.done).toBe(false);
   });
 
   it("flags a target date that has gone past", () => {
-    const r = read(goal({ saved: 50000, target_date: "2026-08-20" }), TODAY);
+    const r = read(goal({ saved: 50000, target_date: "2026-08-20" }), TODAY, formatRsd);
     expect(r.badge).toEqual({ status: "danger", label: "Date passed" });
     expect(r.pace).toBe("5 days ago");
   });
 
   it("says today rather than nought days", () => {
-    const r = read(goal({ saved: 50000, target_date: TODAY }), TODAY);
+    const r = read(goal({ saved: 50000, target_date: TODAY }), TODAY, formatRsd);
     expect(r.badge).toEqual({ status: "active", label: "Due today" });
     expect(r.pace).toBe("today");
   });
@@ -84,9 +85,9 @@ describe("read", () => {
   it("picks the unit that fits the time left", () => {
     // Far out: a monthly figure. Close in: a weekly one. Very close: just the days,
     // because "38.000 a week" is not advice anyone can act on with nine days left.
-    expect(read(goal({ saved: 0, target_date: "2027-08-25" }), TODAY).pace).toContain("a month");
-    expect(read(goal({ saved: 0, target_date: "2026-09-24" }), TODAY).pace).toContain("a week");
-    expect(read(goal({ saved: 0, target_date: "2026-09-01" }), TODAY).pace).toBe("7 days left");
+    expect(read(goal({ saved: 0, target_date: "2027-08-25" }), TODAY, formatRsd).pace).toContain("a month");
+    expect(read(goal({ saved: 0, target_date: "2026-09-24" }), TODAY, formatRsd).pace).toContain("a week");
+    expect(read(goal({ saved: 0, target_date: "2026-09-01" }), TODAY, formatRsd).pace).toBe("7 days left");
   });
 
   /**
@@ -98,6 +99,7 @@ describe("read", () => {
       const r = read(
         goal({ saved: 10000, created_at: "2026-08-20T00:00:00Z", target_date: "2026-12-01" }),
         TODAY,
+        formatRsd,
       );
       expect(r.badge).toBeNull();
     });
@@ -106,6 +108,7 @@ describe("read", () => {
       const r = read(
         goal({ saved: 0, created_at: "2026-01-01T00:00:00Z", target_date: "2026-12-01" }),
         TODAY,
+        formatRsd,
       );
       expect(r.badge).toBeNull();
     });
@@ -115,6 +118,7 @@ describe("read", () => {
       const r = read(
         goal({ saved: 180000, created_at: "2026-01-01T00:00:00Z", target_date: "2026-12-01" }),
         TODAY,
+        formatRsd,
       );
       expect(r.badge).toEqual({ status: "ok", label: "On track" });
     });
@@ -123,6 +127,7 @@ describe("read", () => {
       const r = read(
         goal({ saved: 20000, created_at: "2026-01-01T00:00:00Z", target_date: "2026-10-01" }),
         TODAY,
+        formatRsd,
       );
       expect(r.badge).toEqual({ status: "active", label: "Behind pace" });
     });

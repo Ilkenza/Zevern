@@ -1,7 +1,8 @@
 "use client";
 
 import { Check } from "lucide-react";
-import { formatRsd } from "@/lib/money";
+
+import { useMoney } from "@/lib/money/currency";
 import { cn } from "@/lib/utils";
 import type { Foundation } from "./foundation";
 import { useActiveSection } from "./useActiveSection";
@@ -24,6 +25,7 @@ export function FoundationPanel({
   onHand: number;
   accounts: number;
 }) {
+  const { fmt } = useMoney();
   const active = useActiveSection(foundation.steps.map((s) => s.id));
   const { done, total, ready, steps } = foundation;
 
@@ -96,7 +98,7 @@ export function FoundationPanel({
       {accounts > 0 && (
         <div className="setup-foundation-total">
           <span>Total balance</span>
-          <span className="mono">{formatRsd(onHand)}</span>
+          <span className="mono">{fmt(onHand)}</span>
         </div>
       )}
     </aside>

@@ -6,13 +6,15 @@ import { Archive, ArchiveRestore, RotateCcw } from "lucide-react";
 import { archiveGoal, reopenGoal, type MoneyState } from "@/app/(app)/private/actions";
 import { Badge } from "@/components/ui/Badge";
 import { buttonClasses } from "@/components/ui/Button";
-import { formatRsd } from "@/lib/money";
+
 import type { GoalLine } from "@/lib/types";
 import { NO_COLOUR } from "./shared";
 import { GoalHistory } from "./GoalHistory";
+import { useMoney } from "@/lib/money/currency";
 
 /** One closed goal: what passed through it, and the two ways back. */
 export function ClosedRow({ goal }: { goal: GoalLine }) {
+  const { fmt } = useMoney();
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -47,11 +49,11 @@ export function ClosedRow({ goal }: { goal: GoalLine }) {
             <Badge status={reached ? "ok" : "draft"}>{reached ? "Reached" : "Closed"}</Badge>
           </div>
           <div className="mt-0.5 text-[11.5px] text-faint">
-            <span className="mono">{formatRsd(goal.deposited)}</span> went in
+            <span className="mono">{fmt(goal.deposited)}</span> went in
             {target > 0 && (
               <>
                 {" "}
-                of <span className="mono">{formatRsd(target)}</span>
+                of <span className="mono">{fmt(target)}</span>
               </>
             )}
             {goal.completed_at && (

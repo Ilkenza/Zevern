@@ -1,9 +1,12 @@
+"use client";
+
 import Link from "next/link";
-import { formatRsd, monthLabel } from "@/lib/money";
+import { monthLabel } from "@/lib/money";
 import { cn } from "@/lib/utils";
 import type { BudgetLine } from "@/lib/types";
 import { PaceRing } from "./PaceRing";
 import type { Status, Totals } from "./status";
+import { useMoney } from "@/lib/money/currency";
 
 /** One line of the read-out under the ring. The word carries it; colour only agrees. */
 function Figure({
@@ -54,6 +57,7 @@ export function SummaryPanel({
   untracked: BudgetLine[];
   entriesHref: string;
 }) {
+  const { fmt } = useMoney();
   const untrackedTotal = untracked.reduce((s, l) => s + l.spent, 0);
   const monthName = monthLabel(month).split(" ")[0];
 
@@ -81,18 +85,18 @@ export function SummaryPanel({
       <p className="budget-verdict">{verdict}</p>
 
       <div className="budget-figures">
-        <Figure label="Spent" value={formatRsd(totals.spent)} />
-        <Figure label="Limits" value={formatRsd(totals.limit)} />
+        <Figure label="Spent" value={fmt(totals.spent)} />
+        <Figure label="Limits" value={fmt(totals.limit)} />
         <Figure
           label={totals.left > 0 ? "Left" : "Over"}
-          value={formatRsd(totals.left > 0 ? totals.left : totals.spent - totals.limit)}
+          value={fmt(totals.left > 0 ? totals.left : totals.spent - totals.limit)}
           tone={totals.left > 0 ? "ok" : "danger"}
         />
         {showPace && (
           <Figure
             label="At this rate"
             hint={`by the end of ${monthName}`}
-            value={formatRsd(totals.projected)}
+            value={fmt(totals.projected)}
             tone={totals.overshoot > 0 ? "danger" : "ok"}
           />
         )}
@@ -100,7 +104,7 @@ export function SummaryPanel({
 
       {untracked.length > 0 && (
         <div className="budget-untracked">
-          <span className="mono budget-untracked-amount">{formatRsd(untrackedTotal)}</span>
+          <span className="mono budget-untracked-amount">{fmt(untrackedTotal)}</span>
           <span>
             went to {untracked.length === 1 ? "one category" : `${untracked.length} categories`} with
             no limit — {untracked.map((l) => l.category.name).join(", ")}. None of it is in the

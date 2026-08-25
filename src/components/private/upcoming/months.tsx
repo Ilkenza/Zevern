@@ -1,5 +1,8 @@
-import { formatRsd, monthLabel } from "@/lib/money";
+"use client";
+
+import { monthLabel } from "@/lib/money";
 import type { ForecastLine } from "@/lib/data/money";
+import { useMoney } from "@/lib/money/currency";
 
 export type MonthGroup = {
   key: string;
@@ -43,6 +46,7 @@ export function byMonth(lines: ForecastLine[]): MonthGroup[] {
 }
 
 export function MonthHead({ group }: { group: MonthGroup }) {
+  const { fmt } = useMoney();
   const dated = group.rows.filter((r) => r.source !== "everyday").length;
 
   return (
@@ -54,13 +58,13 @@ export function MonthHead({ group }: { group: MonthGroup }) {
         </span>
       </span>
       <span className="mono text-[11px] text-muted">
-        −{formatRsd(group.expense)}
-        {group.income > 0 && <> · +{formatRsd(group.income)}</>}
-        {group.saving > 0 && <span className="text-held"> · {formatRsd(group.saving)} aside</span>}
-        {group.everyday > 0 && <> · {formatRsd(group.everyday)} living</>}
+        −{fmt(group.expense)}
+        {group.income > 0 && <> · +{fmt(group.income)}</>}
+        {group.saving > 0 && <span className="text-held"> · {fmt(group.saving)} aside</span>}
+        {group.everyday > 0 && <> · {fmt(group.everyday)} living</>}
         {" · "}
         <span className={group.closing < 0 ? "text-danger" : "text-faint"}>
-          leaves {formatRsd(group.closing)}
+          leaves {fmt(group.closing)}
         </span>
       </span>
     </div>

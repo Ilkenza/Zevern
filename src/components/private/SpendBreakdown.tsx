@@ -1,6 +1,9 @@
+"use client";
+
 import Link from "next/link";
-import { formatRsd } from "@/lib/money";
+
 import type { MoneyCategory } from "@/lib/types";
+import { useMoney } from "@/lib/money/currency";
 
 /**
  * Where the month's money went.
@@ -33,6 +36,7 @@ export function SpendBreakdown({
   month: string;
   activeCategory?: string;
 }) {
+  const { fmt } = useMoney();
   const nameById = new Map(categories.map((c) => [c.id, c]));
 
   const rows = byCategory
@@ -51,7 +55,7 @@ export function SpendBreakdown({
     <section className="breakdown">
       <div className="breakdown-head">
         <span className="money-page-kicker">Where it went</span>
-        <span className="mono breakdown-total">{formatRsd(total)}</span>
+        <span className="mono breakdown-total">{fmt(total)}</span>
       </div>
 
       <div className="breakdown-rows">
@@ -84,7 +88,7 @@ export function SpendBreakdown({
                   style={{ width: `${(row.spent / peak) * 100}%`, background: color }}
                 />
               </span>
-              <span className="mono breakdown-amount">{formatRsd(row.spent)}</span>
+              <span className="mono breakdown-amount">{fmt(row.spent)}</span>
               <span className="mono breakdown-share">{share}%</span>
             </Link>
           );
@@ -102,7 +106,7 @@ export function SpendBreakdown({
                 style={{ width: `${(restTotal / peak) * 100}%`, background: "var(--color-faint)" }}
               />
             </span>
-            <span className="mono breakdown-amount">{formatRsd(restTotal)}</span>
+            <span className="mono breakdown-amount">{fmt(restTotal)}</span>
             <span className="mono breakdown-share">{Math.round((restTotal / total) * 100)}%</span>
           </div>
         )}
