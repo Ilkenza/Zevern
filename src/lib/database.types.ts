@@ -331,6 +331,76 @@ export type Database = {
         }
         Relationships: []
       }
+      money_planned: {
+        Row: {
+          account_id: string | null
+          amount: number
+          category_id: string | null
+          created_at: string
+          currency: string
+          due_on: string
+          id: string
+          kind: string
+          name: string
+          note: string | null
+          settled_at: string | null
+          transaction_id: string | null
+          user_id: string
+        }
+        Insert: {
+          account_id?: string | null
+          amount?: number
+          category_id?: string | null
+          created_at?: string
+          currency?: string
+          due_on?: string
+          id?: string
+          kind?: string
+          name: string
+          note?: string | null
+          settled_at?: string | null
+          transaction_id?: string | null
+          user_id?: string
+        }
+        Update: {
+          account_id?: string | null
+          amount?: number
+          category_id?: string | null
+          created_at?: string
+          currency?: string
+          due_on?: string
+          id?: string
+          kind?: string
+          name?: string
+          note?: string | null
+          settled_at?: string | null
+          transaction_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "money_planned_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "money_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "money_planned_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "money_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "money_planned_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "money_transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       money_recurring: {
         Row: {
           account_id: string | null
@@ -501,10 +571,12 @@ export type Database = {
           business_email: string | null
           business_name: string | null
           created_at: string
+          calendar_token: string | null
           custom_colors: string[]
           ext_token_hash: string | null
           onboarding_hidden: boolean
           full_name: string | null
+          spending_basis: string
           handle: string | null
           hidden_modules: string[]
           id: string
@@ -520,10 +592,12 @@ export type Database = {
           business_email?: string | null
           business_name?: string | null
           created_at?: string
+          calendar_token?: string | null
           custom_colors?: string[]
           ext_token_hash?: string | null
           onboarding_hidden?: boolean
           full_name?: string | null
+          spending_basis?: string
           handle?: string | null
           hidden_modules?: string[]
           id: string
@@ -539,10 +613,12 @@ export type Database = {
           business_email?: string | null
           business_name?: string | null
           created_at?: string
+          calendar_token?: string | null
           custom_colors?: string[]
           ext_token_hash?: string | null
           onboarding_hidden?: boolean
           full_name?: string | null
+          spending_basis?: string
           handle?: string | null
           hidden_modules?: string[]
           id?: string

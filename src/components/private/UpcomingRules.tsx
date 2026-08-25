@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useTransition } from "react";
-import { Pause, Pencil, Play, Repeat } from "lucide-react";
+import { useState, useTransition } from "react";
+import { Pause, Pencil, Play, Repeat, Search } from "lucide-react";
 import { removeRecurring, toggleRecurring } from "@/app/(app)/private/actions";
 import { Panel } from "@/components/ui/Panel";
 import { Kpi } from "@/components/ui/Kpi";
@@ -73,6 +73,21 @@ type Reading = {
 };
 
 /**
+ * Dinars in an average month, or null when there is no honest figure — a variable rule
+ * has no per-item amount here, and guessing one would put a number in the column that
+ * nothing behind it supports.
+ *
+ * Its own function because the row prints it and the "costs most" sort ranks by it:
+ * two readings of the same thing would eventually disagree, and a list sorted by a
+ * figure other than the one it shows is worse than no sort at all.
+ */
+function monthlyFor(item: RecurringRow, rates: Rates): number | null {
+  const amount = Number(item.amount);
+  if (item.variable || !(amount > 0)) return null;
+  return toRsd(amount, item.currency, rates) * (PER_MONTH[item.every] ?? 1);
+}
+
+/**
  * Everything a row says, worked out from what a rule actually carries: its amount and
  * currency, how often it repeats, the instalments booked so far and its end date.
  * A variable rule has no per-item amount to show — there is no honest monthly figure
@@ -83,11 +98,7 @@ function read(item: RecurringRow, rates: Rates): Reading {
   const done = item.installments_done ?? 0;
   const settled = total != null && done >= total;
 
-  const amount = Number(item.amount);
-  const monthly =
-    item.variable || !(amount > 0)
-      ? null
-      : toRsd(amount, item.currency, rates) * (PER_MONTH[item.every] ?? 1);
+  const monthly = monthlyFor(item, rates);
 
   const left = total != null ? Math.max(total - done, 0) : null;
   const countdown = settled
@@ -275,6 +286,121 @@ function RuleHead() {
   );
 }
 
+/* ------------------------------------------------------------ the handles */
+
+/**
+ * Below this many rules the register is read, not searched. A filter bar over five
+ * rows is chrome standing in front of the thing it is meant to help with; over thirty
+ * it is the only way to answer a question without reading everything.
+ */
+const FILTERS_FROM = 6;
+
+type SortKey = "due" | "cost" | "name";
+
+const SORTS: { value: SortKey; label: string }[] = [
+  { value: "due", label: "Next due first" },
+  { value: "cost", label: "Costs most first" },
+  { value: "name", label: "Name A–Z" },
+];
+
+const EVERY_FILTER: { value: string; label: string }[] = [
+  { value: "week", label: "Weekly" },
+  { value: "month", label: "Monthly" },
+  { value: "year", label: "Yearly" },
+];
+
+/**
+ * What a rule is *for*, as one value: a category, a goal, or neither.
+ *
+ * A standing order into a goal carries no category — the row puts the goal's name
+ * where the category would be — so both live in one select, keyed apart by prefix so
+ * a goal and a category sharing a name stay two different filters.
+ */
+function purposeKey(item: RecurringRow): string {
+  if (item.goal) return `g:${item.goal.name}`;
+  return item.category ? `c:${item.category.name}` : "none";
+}
+
+function purposeLabel(item: RecurringRow): string {
+  if (item.goal) return item.goal.name;
+  return item.category?.name ?? "No category";
+}
+
+function accountKey(item: RecurringRow): string {
+  return item.account ? `a:${item.account.name}` : "none";
+}
+
+function accountLabel(item: RecurringRow): string {
+  return item.account?.name ?? "No account";
+}
+
+/**
+ * The values a select can honestly offer: the ones this register actually contains.
+ * Offering "Subscriptions" to someone who has no subscription rule is a filter that
+ * can only ever return nothing.
+ */
+function optionsFrom(
+  items: RecurringRow[],
+  key: (item: RecurringRow) => string,
+  label: (item: RecurringRow) => string,
+): { value: string; label: string }[] {
+  const seen = new Map<string, string>();
+  for (const item of items) if (!seen.has(key(item))) seen.set(key(item), label(item));
+  return [...seen]
+    .map(([value, text]) => ({ value, label: text }))
+    .sort((a, b) => a.label.localeCompare(b.label));
+}
+
+/**
+ * How much a rule takes off the account in an average month, for the "costs most"
+ * sort. Money coming in is not a cost, so it is ranked by the negative of its figure:
+ * the bills descend from the top and income settles at the far end, biggest last.
+ * Null — a variable rule with no set amount — has no rank and sinks below both.
+ */
+function costRank(item: RecurringRow, rates: Rates): number | null {
+  const monthly = monthlyFor(item, rates);
+  if (monthly === null) return null;
+  return item.kind === "income" ? -monthly : monthly;
+}
+
+const control =
+  "rounded-ctrl border border-line bg-white/[0.035] px-2.5 py-1.5 text-[12.5px] text-ink scheme-dark focus:border-gold focus:shadow-ring";
+
+function Filter({
+  value,
+  onChange,
+  label,
+  all,
+  options,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  label: string;
+  all: string;
+  options: { value: string; label: string }[];
+}) {
+  // One real choice is not a choice — a select offering "All accounts" and the single
+  // account every rule already uses can only ever be a no-op.
+  if (options.length < 2) return null;
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      aria-label={label}
+      className={control}
+    >
+      <option value="" className="bg-surface">
+        {all}
+      </option>
+      {options.map((o) => (
+        <option key={o.value} value={o.value} className="bg-surface">
+          {o.label}
+        </option>
+      ))}
+    </select>
+  );
+}
+
 /** Nothing recurring yet — so the panel has to explain what a rule is for on its own. */
 function NoRules() {
   const steps = [
@@ -322,8 +448,133 @@ export function UpcomingRules({
   // Read the same way Setup and Goals read today — UTC on both sides, so nothing disagrees.
   const today = new Date().toISOString().slice(0, 10);
 
+  // The register's own state, and nowhere else. The page's `searchParams` already
+  // carry the view, the open form and the rule being edited; putting a search term in
+  // there too would make every keystroke a navigation and every filter a history entry
+  // to step back out of. Nothing here is worth a URL — it is a way of reading a list,
+  // not a place.
+  const [q, setQ] = useState("");
+  const [purpose, setPurpose] = useState("");
+  const [account, setAccount] = useState("");
+  const [every, setEvery] = useState("");
+  const [sort, setSort] = useState<SortKey>("due");
+
   const running = items.filter(isRunning);
   const stopped = items.filter((i) => !isRunning(i));
+
+  const purposes = optionsFrom(items, purposeKey, purposeLabel);
+  const accounts = optionsFrom(items, accountKey, accountLabel);
+  const intervals = EVERY_FILTER.filter((o) => items.some((i) => i.every === o.value));
+
+  const term = q.trim().toLowerCase();
+  const narrowed = Boolean(term || purpose || account || every);
+
+  const matching = items.filter((item) => {
+    if (term && !item.name.toLowerCase().includes(term)) return false;
+    if (purpose && purposeKey(item) !== purpose) return false;
+    if (account && accountKey(item) !== account) return false;
+    if (every && item.every !== every) return false;
+    return true;
+  });
+
+  const sorted = [...matching].sort((a, b) => {
+    if (sort === "name") return a.name.localeCompare(b.name);
+    if (sort === "cost") {
+      const ra = costRank(a, rates);
+      const rb = costRank(b, rates);
+      if (ra === null || rb === null) {
+        if (ra === rb) return a.name.localeCompare(b.name);
+        return ra === null ? 1 : -1;
+      }
+      return rb - ra || a.name.localeCompare(b.name);
+    }
+    return a.next_on.localeCompare(b.next_on) || a.name.localeCompare(b.name);
+  });
+
+  // The split survives the filter: paused and finished rules go on sitting under their
+  // own heading at the bottom, because they mean something different from the rest and
+  // are left out of the figures above whether they are being searched or not.
+  const shownRunning = sorted.filter(isRunning);
+  const shownStopped = sorted.filter((i) => !isRunning(i));
+
+  const clear = () => {
+    setQ("");
+    setPurpose("");
+    setAccount("");
+    setEvery("");
+  };
+
+  const toolbar = items.length >= FILTERS_FROM && (
+    <div className="flex flex-wrap items-center gap-2 border-b border-line-soft bg-white/[0.02] px-4 py-2.5">
+      <div className="relative min-w-40 flex-1 min-[560px]:max-w-56">
+        <Search
+          aria-hidden="true"
+          className="pointer-events-none absolute top-1/2 left-2.5 h-3.75 w-3.75 -translate-y-1/2 text-faint"
+        />
+        <input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          type="search"
+          placeholder="Search by name…"
+          aria-label="Search rules by name"
+          className={cn(control, "w-full py-1.5 pr-2.5 pl-8 placeholder:text-faint")}
+        />
+      </div>
+
+      <Filter
+        value={purpose}
+        onChange={setPurpose}
+        label="Filter by category or goal"
+        all="All categories"
+        options={purposes}
+      />
+      <Filter
+        value={account}
+        onChange={setAccount}
+        label="Filter by account"
+        all="All accounts"
+        options={accounts}
+      />
+      <Filter
+        value={every}
+        onChange={setEvery}
+        label="Filter by how often it repeats"
+        all="Any interval"
+        options={intervals}
+      />
+
+      <select
+        value={sort}
+        onChange={(e) => setSort(e.target.value as SortKey)}
+        aria-label="Sort rules"
+        className={control}
+      >
+        {SORTS.map((o) => (
+          <option key={o.value} value={o.value} className="bg-surface">
+            {o.label}
+          </option>
+        ))}
+      </select>
+
+      {/* What is being left out, said out loud. A list that quietly shrank is a list
+          you cannot trust to be complete when you go looking for something. */}
+      {narrowed && (
+        <div className="ml-auto flex items-center gap-2 whitespace-nowrap">
+          <span aria-live="polite" className="mono text-[11.5px] text-muted">
+            {sorted.length} of {items.length}
+            <span className="sr-only"> rules shown</span>
+          </span>
+          <button
+            type="button"
+            onClick={clear}
+            className="rounded-ctrl px-2 py-1 text-[11.5px] font-semibold text-gold-hi transition-colors hover:bg-active-bg"
+          >
+            Clear
+          </button>
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <>
@@ -409,22 +660,39 @@ export function UpcomingRules({
           <NoRules />
         ) : (
           <div>
-            <RuleHead />
-            {running.map((item) => (
-              <RuleRow key={item.id} item={item} rates={rates} today={today} />
-            ))}
+            {toolbar}
 
-            {stopped.length > 0 && (
+            {sorted.length === 0 ? (
+              <EmptyState
+                icon={Search}
+                title="No rule matches"
+                description={`All ${items.length} are still here — the search or a filter is hiding them.`}
+                action={
+                  <button type="button" onClick={clear} className={buttonClasses("secondary")}>
+                    Clear the filters
+                  </button>
+                }
+              />
+            ) : (
               <>
-                <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 border-b border-line-soft bg-white/[0.02] px-4 py-2">
-                  <span className={caps}>Paused and finished</span>
-                  <span className="text-[11px] text-faint">
-                    Nothing books from these, and they are not in the figures above
-                  </span>
-                </div>
-                {stopped.map((item) => (
+                <RuleHead />
+                {shownRunning.map((item) => (
                   <RuleRow key={item.id} item={item} rates={rates} today={today} />
                 ))}
+
+                {shownStopped.length > 0 && (
+                  <>
+                    <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 border-b border-line-soft bg-white/[0.02] px-4 py-2">
+                      <span className={caps}>Paused and finished</span>
+                      <span className="text-[11px] text-faint">
+                        Nothing books from these, and they are not in the figures above
+                      </span>
+                    </div>
+                    {shownStopped.map((item) => (
+                      <RuleRow key={item.id} item={item} rates={rates} today={today} />
+                    ))}
+                  </>
+                )}
               </>
             )}
           </div>

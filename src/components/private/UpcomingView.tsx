@@ -8,14 +8,29 @@ import { buttonClasses } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
 import type { Rates } from "@/lib/money";
 import type { Forecast, RecurringTotals } from "@/lib/data/money";
-import type { MoneyAccount, MoneyCategory, MoneyGoal, RecurringRow } from "@/lib/types";
+import type {
+  MoneyAccount,
+  MoneyCategory,
+  MoneyGoal,
+  PlannedRow,
+  RecurringRow,
+} from "@/lib/types";
 import { RecurringForm } from "./RecurringForm";
+import { PlannedForm } from "./PlannedForm";
 import { UpcomingRules } from "./UpcomingRules";
 import { UpcomingTimeline } from "./UpcomingTimeline";
-import { NEW_RULE_HREF, RULES_HREF, TIMELINE_HREF, type UpcomingPanel } from "./upcoming";
+import {
+  NEW_PLAN_HREF,
+  NEW_RULE_HREF,
+  RULES_HREF,
+  TIMELINE_HREF,
+  type PlanPanel,
+  type UpcomingPanel,
+} from "./upcoming";
 
 const BLURB = {
-  timeline: "What falls due over the next 90 days, and what it leaves on the accounts.",
+  timeline:
+    "What falls due over the next 90 days, what living costs on top of it, and what it leaves on the accounts.",
   rules: "What repeats, what it costs a month, and how much longer it runs.",
 };
 
@@ -69,10 +84,20 @@ function Tab({
 type UpcomingViewProps = {
   /** Every rule there is — the number beside the Rules tab. */
   ruleCount: number;
-  /** Rules waiting to be booked — the number beside the Timeline tab, where they live. */
+  /** Rules and plans waiting to be dealt with — the number beside the Timeline tab. */
   dueCount: number;
 } & (
-  | { view: "timeline"; forecast: Forecast; items: RecurringRow[]; due: RecurringRow[] }
+  | {
+      view: "timeline";
+      forecast: Forecast;
+      items: RecurringRow[];
+      due: RecurringRow[];
+      plannedDue: PlannedRow[];
+      planned: PlannedRow[];
+      plan: PlanPanel;
+      accounts: MoneyAccount[];
+      categories: MoneyCategory[];
+    }
   | {
       view: "rules";
       items: RecurringRow[];
@@ -89,14 +114,21 @@ type UpcomingViewProps = {
  * One screen, two answers. "What is coming and what does it leave me" is asked before
  * every real spending decision, so the timeline leads. "What repeats" is asked only
  * when something changes, so the register sits one tap away — but at its own URL.
+ *
+ * Two things can be created here, and they are not the same thing: a rule that repeats
+ * belongs to the register, a one-off that has a date belongs to the timeline. Each
+ * form opens over the view it belongs to.
  */
 export function UpcomingView(props: UpcomingViewProps) {
   const router = useRouter();
   const rules = props.view === "rules" ? props : null;
+  const timeline = props.view === "timeline" ? props : null;
   const panel = rules?.panel ?? null;
+  const plan = timeline?.plan ?? null;
 
-  // The form belongs to the register, so closing it lands back on the register.
-  const close = () => router.push(RULES_HREF);
+  // Each form belongs to a view, so closing it lands back on that view.
+  const closeRule = () => router.push(RULES_HREF);
+  const closePlan = () => router.push(TIMELINE_HREF);
 
   return (
     <div className="mx-auto max-w-220 space-y-5">
@@ -108,10 +140,21 @@ export function UpcomingView(props: UpcomingViewProps) {
             </h1>
             <p className="text-[12.5px] text-muted">{BLURB[props.view]}</p>
           </div>
-          <Link href={NEW_RULE_HREF} className={buttonClasses("primary", "shrink-0")}>
-            <Plus className="h-4 w-4" />
-            New recurring
-          </Link>
+          <div className="flex shrink-0 flex-wrap gap-2">
+            {props.view === "timeline" && (
+              <Link href={NEW_PLAN_HREF} className={buttonClasses("primary")}>
+                <Plus className="h-4 w-4" />
+                Plan a one-off
+              </Link>
+            )}
+            <Link
+              href={NEW_RULE_HREF}
+              className={buttonClasses(props.view === "timeline" ? "secondary" : "primary")}
+            >
+              <Plus className="h-4 w-4" />
+              New recurring
+            </Link>
+          </div>
         </div>
 
         <nav
@@ -138,16 +181,22 @@ export function UpcomingView(props: UpcomingViewProps) {
         </nav>
       </div>
 
-      {props.view === "timeline" ? (
-        <UpcomingTimeline forecast={props.forecast} items={props.items} due={props.due} />
+      {timeline ? (
+        <UpcomingTimeline
+          forecast={timeline.forecast}
+          items={timeline.items}
+          due={timeline.due}
+          plannedDue={timeline.plannedDue}
+          planned={timeline.planned}
+        />
       ) : (
-        <UpcomingRules items={props.items} totals={props.totals} rates={props.rates} />
+        rules && <UpcomingRules items={rules.items} totals={rules.totals} rates={rules.rates} />
       )}
 
       {rules && (
         <SlideOver
           open={panel !== null}
-          onClose={close}
+          onClose={closeRule}
           title={panel?.mode === "edit" ? "Edit recurring" : "New recurring"}
         >
           <RecurringForm
@@ -155,6 +204,21 @@ export function UpcomingView(props: UpcomingViewProps) {
             accounts={rules.accounts}
             categories={rules.categories}
             goals={rules.goals}
+          />
+        </SlideOver>
+      )}
+
+      {timeline && (
+        <SlideOver
+          open={plan !== null}
+          onClose={closePlan}
+          title={plan?.mode === "edit" ? "Edit planned item" : "Plan a one-off"}
+        >
+          <PlannedForm
+            item={plan?.mode === "edit" ? plan.item : undefined}
+            accounts={timeline.accounts}
+            categories={timeline.categories}
+            onDone={closePlan}
           />
         </SlideOver>
       )}

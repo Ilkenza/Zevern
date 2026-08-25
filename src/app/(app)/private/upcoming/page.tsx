@@ -4,19 +4,20 @@ import {
   getDueRecurring,
   getForecast,
   getGoals,
+  getPlanned,
   getRates,
   getRecurring,
   getRecurringTotals,
 } from "@/lib/data/money";
 import { UpcomingView } from "@/components/private/UpcomingView";
-import type { UpcomingPanel } from "@/components/private/upcoming";
+import type { PlanPanel, UpcomingPanel } from "@/components/private/upcoming";
 
 const WINDOWS = [30, 60, 90];
 
 export default async function UpcomingPage({
   searchParams,
 }: {
-  searchParams: Promise<{ view?: string; new?: string; edit?: string }>;
+  searchParams: Promise<{ view?: string; new?: string; edit?: string; plan?: string }>;
 }) {
   const params = await searchParams;
 
@@ -28,7 +29,18 @@ export default async function UpcomingPage({
 
   // Both views need the rules themselves: the register lists them, the timeline uses
   // them to explain an empty window, and both tabs are labelled with their count.
-  const [items, due] = await Promise.all([getRecurring(), getDueRecurring()]);
+  const [items, due, planned] = await Promise.all([
+    getRecurring(),
+    getDueRecurring(),
+    getPlanned(),
+  ]);
+
+  // Read the same way every other screen reads today — UTC on both sides.
+  const today = new Date().toISOString().slice(0, 10);
+  const plannedDue = planned.filter((p) => p.due_on <= today);
+
+  // Anything waiting on a decision sits on the timeline, so the tab carries both.
+  const dueCount = due.length + plannedDue.length;
 
   if (view === "rules") {
     const [totals, rates, accounts, categories, goals] = await Promise.all([
@@ -52,7 +64,7 @@ export default async function UpcomingPage({
       <UpcomingView
         view="rules"
         ruleCount={items.length}
-        dueCount={due.length}
+        dueCount={dueCount}
         items={items}
         totals={totals}
         rates={rates}
@@ -64,16 +76,36 @@ export default async function UpcomingPage({
     );
   }
 
-  const forecast = await getForecast(WINDOWS);
+  // The one-off form is the only thing on this view that needs accounts and categories,
+  // so nothing is read for them until it is actually asked for.
+  const wantsPlan = Boolean(params.plan);
+  const [forecast, accounts, categories] = await Promise.all([
+    getForecast(WINDOWS),
+    wantsPlan ? getAccounts() : [],
+    wantsPlan ? getCategories() : [],
+  ]);
+
+  let plan: PlanPanel = null;
+  if (params.plan === "new") {
+    plan = { mode: "new" };
+  } else if (params.plan) {
+    const item = planned.find((p) => p.id === params.plan);
+    if (item) plan = { mode: "edit", item };
+  }
 
   return (
     <UpcomingView
       view="timeline"
       ruleCount={items.length}
-      dueCount={due.length}
+      dueCount={dueCount}
       forecast={forecast}
       items={items}
       due={due}
+      plannedDue={plannedDue}
+      planned={planned}
+      plan={plan}
+      accounts={accounts}
+      categories={categories}
     />
   );
 }

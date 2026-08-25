@@ -1,6 +1,14 @@
 import { createClient } from "@/lib/supabase/server";
 import { userId } from "@/lib/supabase/current-user";
-import { DEFAULT_RATES, monthKey, monthRange, nextDate, toRsd, type Rates } from "@/lib/money";
+import {
+  DEFAULT_RATES,
+  monthKey,
+  monthRange,
+  nextDate,
+  shiftMonth,
+  toRsd,
+  type Rates,
+} from "@/lib/money";
 import type {
   BudgetLine,
   GoalEntry,
@@ -9,7 +17,9 @@ import type {
   MoneyBudget,
   MoneyCategory,
   MoneyGoal,
+  PlannedRow,
   RecurringRow,
+  SpendingBasis,
   TransactionRow,
 } from "@/lib/types";
 
@@ -109,6 +119,34 @@ export function feedsGoal(item: { goal_id: string | null }): boolean {
   return item.goal_id != null;
 }
 
+/* ----------------------------------------------------------------- planned */
+
+/** money_planned points at money_accounts once, so the embed needs no constraint name. */
+const PLANNED_SELECT = "*, category:money_categories(name, color), account:money_accounts(name)";
+
+/**
+ * One-off dated things that are known about: the dentist bill, the tax payment, the
+ * invoice landing on the 20th. Settled ones are left out by default — from the moment
+ * a plan becomes a real entry, the entry is what carries the money.
+ */
+export async function getPlanned(includeSettled = false): Promise<PlannedRow[]> {
+  const supabase = await createClient();
+  const uid = await userId(supabase);
+  if (!uid) return [];
+  let q = supabase.from("money_planned").select(PLANNED_SELECT).eq("user_id", uid);
+  if (!includeSettled) q = q.is("settled_at", null);
+  const { data, error } = await q.order("due_on").order("created_at");
+  if (error) console.error("getPlanned:", error.message);
+  return (data ?? []) as PlannedRow[];
+}
+
+/** Planned items that have come due and have not been dealt with either way. */
+export async function getPlannedDue(): Promise<PlannedRow[]> {
+  const today = new Date().toISOString().slice(0, 10);
+  const all = await getPlanned();
+  return all.filter((p) => p.due_on <= today);
+}
+
 /** Active recurring items that are due today or overdue — and not past their end date. */
 export async function getDueRecurring(): Promise<RecurringRow[]> {
   const today = new Date().toISOString().slice(0, 10);
@@ -149,8 +187,23 @@ export type RecurringTotals = {
 /** Weekly and yearly items normalised to a month so one number can be compared. */
 const PER_MONTH: Record<string, number> = { week: 52 / 12, month: 1, year: 1 / 12 };
 
+/** How many past bookings a variable rule is estimated from. */
+export const ESTIMATE_FROM = 6;
+
+/** One past booking of a rule — what an estimate is actually made of. */
+export type Booking = { on: string; amount: number };
+
+/**
+ * What each line of the timeline is: a rule falling due, a one-off that was planned,
+ * or the everyday spending nobody enters one by one. The first two are dated facts;
+ * the third is a projection, and the screen has to be able to tell them apart.
+ */
+export type OccurrenceSource = "recurring" | "planned" | "everyday";
+
 export type Occurrence = {
+  /** The row this came from: a rule, a planned item, or the projection itself. */
   id: string;
+  source: OccurrenceSource;
   name: string;
   /** "expense" or "income" — what the rule books. A goal rule books a saving. */
   kind: string;
@@ -163,7 +216,64 @@ export type Occurrence = {
   color: string | null;
   /** The goal this one feeds, when it is a standing order rather than a bill. */
   goal: string | null;
+  /**
+   * The bookings an estimate was averaged from, newest first — empty for anything
+   * that is not an estimate. Carried down to the row so an average can be checked
+   * against the readings behind it rather than taken on trust.
+   */
+  samples: Booking[];
+  /** Everyday lines only: how many days of spending this one stands for. */
+  days: number;
 };
+
+type PastBookings = Map<string, Booking[]>;
+
+/** The last few bookings of every rule, newest first — what an estimate is made of. */
+async function recentBookings(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  uid: string,
+): Promise<PastBookings> {
+  const { data } = await supabase
+    .from("money_transactions")
+    .select("recurring_id, amount_rsd, occurred_on")
+    .eq("user_id", uid)
+    .not("recurring_id", "is", null)
+    .order("occurred_on", { ascending: false });
+
+  const past: PastBookings = new Map();
+  for (const row of data ?? []) {
+    if (!row.recurring_id) continue;
+    const seen = past.get(row.recurring_id) ?? [];
+    if (seen.length < ESTIMATE_FROM) {
+      seen.push({ on: String(row.occurred_on), amount: Number(row.amount_rsd) || 0 });
+      past.set(row.recurring_id, seen);
+    }
+  }
+  return past;
+}
+
+/**
+ * What one occurrence of a rule costs, in RSD. A fixed rule contributes its amount;
+ * a variable one the average of its last bookings, which is the only honest guess
+ * available — and it carries those bookings with it so the guess can be inspected.
+ * Null means there is nothing to go on, so the rule is left out entirely.
+ */
+function estimateFor(
+  item: RecurringRow,
+  past: PastBookings,
+  rates: Rates,
+): { each: number; estimated: boolean; samples: Booking[] } | null {
+  if (item.variable || !(Number(item.amount) > 0)) {
+    const seen = past.get(item.id) ?? [];
+    if (seen.length === 0) return null;
+    return {
+      each: seen.reduce((sum, b) => sum + b.amount, 0) / seen.length,
+      estimated: true,
+      samples: seen,
+    };
+  }
+  return { each: toRsd(Number(item.amount), item.currency, rates), estimated: false, samples: [] };
+}
 
 /** Guard against a runaway walk if an item ever ends up with a nonsense date. */
 const MAX_STEPS = 400;
@@ -178,6 +288,7 @@ export function occurrencesFor(
   amount: number,
   estimated: boolean,
   horizon: string,
+  samples: Booking[] = [],
 ): Occurrence[] {
   if (!item.active) return [];
 
@@ -194,6 +305,7 @@ export function occurrencesFor(
     if (item.ends_on != null && on > item.ends_on) break;
     out.push({
       id: item.id,
+      source: "recurring",
       name: item.name,
       kind: item.kind,
       on,
@@ -204,6 +316,8 @@ export function occurrencesFor(
       // timeline the same way it reads on the goals screen.
       color: item.goal?.color ?? item.category?.color ?? null,
       goal: item.goal?.name ?? null,
+      samples,
+      days: 0,
     });
     on = nextDate(on, item.every);
   }
@@ -247,26 +361,11 @@ export async function getRecurringTotals(): Promise<RecurringTotals> {
     };
   }
 
-  const [items, rates, { data: history }] = await Promise.all([
+  const [items, rates, past] = await Promise.all([
     getRecurring(),
     getRates(),
-    supabase
-      .from("money_transactions")
-      .select("recurring_id, amount_rsd, occurred_on")
-      .eq("user_id", uid)
-      .not("recurring_id", "is", null)
-      .order("occurred_on", { ascending: false }),
+    recentBookings(supabase, uid),
   ]);
-
-  const past = new Map<string, number[]>();
-  for (const row of history ?? []) {
-    if (!row.recurring_id) continue;
-    const seen = past.get(row.recurring_id) ?? [];
-    if (seen.length < 6) {
-      seen.push(Number(row.amount_rsd) || 0);
-      past.set(row.recurring_id, seen);
-    }
-  }
 
   let expense = 0;
   let income = 0;
@@ -284,21 +383,13 @@ export async function getRecurringTotals(): Promise<RecurringTotals> {
     if (item.ends_on != null && item.next_on > item.ends_on) continue;
 
     const factor = PER_MONTH[item.every] ?? 1;
-    let each: number;
-    let isEstimate = false;
-
-    if (item.variable || !(Number(item.amount) > 0)) {
-      const seen = past.get(item.id) ?? [];
-      if (seen.length === 0) {
-        unknown++;
-        continue;
-      }
-      estimated++;
-      isEstimate = true;
-      each = seen.reduce((sum, n) => sum + n, 0) / seen.length;
-    } else {
-      each = toRsd(Number(item.amount), item.currency, rates);
+    const reading = estimateFor(item, past, rates);
+    if (reading === null) {
+      unknown++;
+      continue;
     }
+    const { each, estimated: isEstimate } = reading;
+    if (isEstimate) estimated++;
 
     const monthly = each * factor;
     const toGoal = feedsGoal(item);
@@ -333,13 +424,210 @@ export async function getRecurringTotals(): Promise<RecurringTotals> {
   };
 }
 
+/* -------------------------------------------------------- everyday spending */
+
+/** How many complete months the median is taken over. */
+const HISTORY_MONTHS = 6;
+
+/** How the owner wants everyday spending projected. Anything unknown reads as history. */
+export async function getSpendingBasis(): Promise<SpendingBasis> {
+  const supabase = await createClient();
+  const uid = await userId(supabase);
+  if (!uid) return "off";
+  const { data } = await supabase
+    .from("profiles")
+    .select("spending_basis")
+    .eq("id", uid)
+    .maybeSingle();
+  const value = String(data?.spending_basis ?? "history");
+  return value === "off" || value === "budgets" ? value : "history";
+}
+
+export type SpendingProjection = {
+  basis: SpendingBasis;
+  /** RSD a whole month is expected to take. Zero when there is nothing to say. */
+  monthly: number;
+  /** How much of that this month has already seen — real entries, not projection. */
+  spentThisMonth: number;
+  /** False when the chosen basis needs data that does not exist yet. */
+  ready: boolean;
+  /** history: the months the median was taken over, oldest first. */
+  months: { month: string; spent: number }[];
+  /** budgets: every limit, and what recurring rules already book into that category. */
+  categories: { id: string; name: string; limit: number; recurring: number }[];
+  /**
+   * Categories carrying a limit. A planned item in one of them is already counted by
+   * that limit, so the forecast takes it off the month rather than adding it twice.
+   */
+  budgeted: string[];
+};
+
+const NO_SPENDING: SpendingProjection = {
+  basis: "off",
+  monthly: 0,
+  spentThisMonth: 0,
+  ready: true,
+  months: [],
+  categories: [],
+  budgeted: [],
+};
+
+/** The middle of a list — the mean of the two middles when there is no single one. */
+function median(values: number[]): number {
+  if (values.length === 0) return 0;
+  const sorted = values.slice().sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 1 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
+/**
+ * Everyday spending is what is left of the expenses once the timeline's own items are
+ * taken out: an entry a recurring rule booked, and an entry that settled a planned
+ * item, are both already on the line in their own right. Counting them here as well is
+ * exactly the double count this projection exists to avoid.
+ */
+async function everydayByMonth(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  uid: string,
+  from: string,
+  to: string,
+): Promise<{ spent: Map<string, number>; active: Set<string> }> {
+  const [{ data: rows }, { data: settled }] = await Promise.all([
+    supabase
+      .from("money_transactions")
+      .select("id, kind, recurring_id, amount_rsd, occurred_on")
+      .eq("user_id", uid)
+      .gte("occurred_on", from)
+      .lte("occurred_on", to),
+    supabase
+      .from("money_planned")
+      .select("transaction_id")
+      .eq("user_id", uid)
+      .not("transaction_id", "is", null),
+  ]);
+
+  const fromPlan = new Set((settled ?? []).map((p) => p.transaction_id));
+  const spent = new Map<string, number>();
+  const active = new Set<string>();
+
+  for (const row of rows ?? []) {
+    const month = String(row.occurred_on).slice(0, 7);
+    // A month with entries of any kind is a month that was actually being used; one
+    // with none is a month with no data, which is not the same as a month of zero.
+    active.add(month);
+    if (row.kind !== "expense") continue;
+    if (row.recurring_id != null) continue;
+    if (fromPlan.has(row.id)) continue;
+    spent.set(month, (spent.get(month) ?? 0) + (Number(row.amount_rsd) || 0));
+  }
+
+  return { spent, active };
+}
+
+/**
+ * What a month of everyday spending is expected to come to, and where that figure
+ * comes from.
+ *
+ * `budgets` believes the limits: it adds up the monthly limit of every expense
+ * category, less whatever recurring rules already book into that same category —
+ * a limit of 20.000 on bills with 14.000 of standing rules against it leaves 6.000
+ * of everyday room, not 20.000 on top of the bills.
+ *
+ * `history` believes the ledger: the median of the last complete months of everyday
+ * spending. The median rather than the mean, because one month with a new laptop in
+ * it should not raise the line for the rest of the year.
+ */
+export async function getSpendingProjection(): Promise<SpendingProjection> {
+  const supabase = await createClient();
+  const uid = await userId(supabase);
+  if (!uid) return NO_SPENDING;
+
+  const basis = await getSpendingBasis();
+  if (basis === "off") return { ...NO_SPENDING, basis };
+
+  const now = new Date();
+  const thisMonth = monthKey(now);
+  const first = monthRange(shiftMonth(thisMonth, -HISTORY_MONTHS)).from;
+  const last = monthRange(thisMonth).to;
+  const { spent, active } = await everydayByMonth(supabase, uid, first, last);
+  const spentThisMonth = spent.get(thisMonth) ?? 0;
+
+  if (basis === "budgets") {
+    const [budgets, categories, items, rates, past] = await Promise.all([
+      getBudgets(),
+      getCategories(true),
+      getRecurring(),
+      getRates(),
+      recentBookings(supabase, uid),
+    ]);
+
+    // What the rules already take out of each category in an average month.
+    const booked = new Map<string, number>();
+    for (const item of items) {
+      if (!item.active || item.kind === "income" || feedsGoal(item)) continue;
+      if (!item.category_id) continue;
+      if (item.installments_total != null && item.installments_done >= item.installments_total)
+        continue;
+      if (item.ends_on != null && item.next_on > item.ends_on) continue;
+      const reading = estimateFor(item, past, rates);
+      if (reading === null) continue;
+      const monthly = reading.each * (PER_MONTH[item.every] ?? 1);
+      booked.set(item.category_id, (booked.get(item.category_id) ?? 0) + monthly);
+    }
+
+    const nameBy = new Map(categories.map((c) => [c.id, c.name]));
+    const lines = budgets
+      .map((b) => ({
+        id: b.category_id,
+        name: nameBy.get(b.category_id) ?? "Category",
+        limit: Number(b.amount_rsd) || 0,
+        recurring: booked.get(b.category_id) ?? 0,
+      }))
+      .filter((line) => line.limit > 0)
+      .sort((a, b) => b.limit - a.limit);
+
+    const monthly = lines.reduce((sum, l) => sum + Math.max(l.limit - l.recurring, 0), 0);
+
+    return {
+      basis,
+      monthly,
+      spentThisMonth,
+      ready: lines.length > 0,
+      months: [],
+      categories: lines,
+      budgeted: lines.map((l) => l.id),
+    };
+  }
+
+  // The complete months behind us, oldest first. This month is left out on purpose:
+  // it is half over, and half a month would drag the middle down every time.
+  const months: { month: string; spent: number }[] = [];
+  for (let i = HISTORY_MONTHS; i >= 1; i--) {
+    const month = shiftMonth(thisMonth, -i);
+    if (!active.has(month)) continue; // no entries at all — no data, not a zero
+    months.push({ month, spent: spent.get(month) ?? 0 });
+  }
+
+  return {
+    basis,
+    monthly: median(months.map((m) => m.spent)),
+    spentThisMonth,
+    ready: months.length > 0,
+    months,
+    categories: [],
+    budgeted: [],
+  };
+}
+
 export type ForecastWindow = {
   days: number;
   /** Bills only. What goes into goals is counted on its own. */
   expense: number;
   income: number;
   saving: number;
-  /** What the window does to the free balance: income less bills less savings. */
+  /** Everyday spending projected over the window — not a dated fact, an estimate. */
+  everyday: number;
+  /** What the window does to the free balance: income less bills, savings and living. */
   net: number;
   count: number;
 };
@@ -364,17 +652,38 @@ export type Forecast = {
   lines: ForecastLine[];
   estimated: number;
   unknown: number;
+  /** How the everyday line was worked out — the screen shows it and can change it. */
+  spending: SpendingProjection;
+  /** How many one-off planned items fall inside the window. */
+  planned: number;
 };
 
+/** One day on from a plain date, in UTC — the walk the everyday line is spread over. */
+function nextDay(iso: string): string {
+  const d = new Date(`${iso}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + 1);
+  return d.toISOString().slice(0, 10);
+}
+
+/** Guard against a runaway month walk if a horizon ever comes back nonsense. */
+const MAX_MONTHS = 24;
+
 /**
- * What is coming and what it leaves behind. Every recurring item is walked date by
- * date over the longest window, sorted into one timeline, and the free balance is
- * carried down it — the point being to see the week where the credit, the electricity
- * and the hosting all land together, before it happens rather than after.
+ * What is coming and what it leaves behind. Three things land on one line: every
+ * recurring rule walked date by date, every one-off that has been planned and not yet
+ * dealt with, and the everyday spending nobody enters one item at a time. The free
+ * balance is carried down the lot — the point being to see the week where the credit,
+ * the electricity and the hosting all land together, before it happens rather than
+ * after.
  *
  * A standing order into a goal counts as an outflow here even though the money stays
  * on the account: from the day it books, it is reserved, and this line is about what
  * can still be spent.
+ *
+ * The everyday figure is spread across the days it covers rather than dropped as one
+ * lump, so the balance beside a bill on the 12th already carries the twelve days of
+ * living that came before it. Every one of those lines is marked as a projection; the
+ * other two kinds are dated facts.
  */
 export async function getForecast(windows: number[] = [30, 60, 90]): Promise<Forecast> {
   const supabase = await createClient();
@@ -397,34 +706,31 @@ export async function getForecast(windows: number[] = [30, 60, 90]): Promise<For
       windows: windows
         .slice()
         .sort((a, b) => a - b)
-        .map((days) => ({ days, expense: 0, income: 0, saving: 0, net: 0, count: 0 })),
+        .map((days) => ({
+          days,
+          expense: 0,
+          income: 0,
+          saving: 0,
+          everyday: 0,
+          net: 0,
+          count: 0,
+        })),
       lines: [],
       estimated: 0,
       unknown: 0,
+      spending: NO_SPENDING,
+      planned: 0,
     };
   }
 
-  const [items, rates, onHand, { data: history }] = await Promise.all([
+  const [items, planned, rates, onHand, past, spending] = await Promise.all([
     getRecurring(),
+    getPlanned(),
     getRates(),
     getOnHand(),
-    supabase
-      .from("money_transactions")
-      .select("recurring_id, amount_rsd, occurred_on")
-      .eq("user_id", uid)
-      .not("recurring_id", "is", null)
-      .order("occurred_on", { ascending: false }),
+    recentBookings(supabase, uid),
+    getSpendingProjection(),
   ]);
-
-  const past = new Map<string, number[]>();
-  for (const row of history ?? []) {
-    if (!row.recurring_id) continue;
-    const seen = past.get(row.recurring_id) ?? [];
-    if (seen.length < 6) {
-      seen.push(Number(row.amount_rsd) || 0);
-      past.set(row.recurring_id, seen);
-    }
-  }
 
   const dayOf = (iso: string) =>
     Math.round((Date.parse(`${iso}T00:00:00Z`) - today.getTime()) / 86_400_000);
@@ -436,26 +742,148 @@ export async function getForecast(windows: number[] = [30, 60, 90]): Promise<For
   for (const item of items) {
     if (!item.active) continue;
 
-    let each: number;
-    let isEstimate = false;
-
-    if (item.variable || !(Number(item.amount) > 0)) {
-      const seen = past.get(item.id) ?? [];
-      if (seen.length === 0) {
-        unknown++;
-        continue;
-      }
-      estimated++;
-      isEstimate = true;
-      each = seen.reduce((sum, n) => sum + n, 0) / seen.length;
-    } else {
-      each = toRsd(Number(item.amount), item.currency, rates);
+    const reading = estimateFor(item, past, rates);
+    if (reading === null) {
+      unknown++;
+      continue;
     }
+    if (reading.estimated) estimated++;
 
-    all.push(...occurrencesFor(item, each, isEstimate, horizon));
+    all.push(
+      ...occurrencesFor(item, reading.each, reading.estimated, horizon, reading.samples),
+    );
   }
 
-  all.sort((a, b) => (a.on < b.on ? -1 : a.on > b.on ? 1 : a.name.localeCompare(b.name)));
+  // A planned item is a dated fact that has not happened yet. Once it settles it is
+  // an entry in the ledger and leaves this list, so it is never counted twice.
+  // How much everyday room each budgeted category still has after its standing rules.
+  // A planned item can only take back what its own category was actually contributing.
+  const roomBy = new Map(
+    spending.categories.map((c) => [c.id, Math.max(c.limit - c.recurring, 0)]),
+  );
+  const budgeted = new Set(spending.budgeted);
+  const plannedInBudget = new Map<string, Map<string, number>>();
+  let plannedCount = 0;
+
+  for (const p of planned) {
+    if (p.due_on > horizon) continue;
+    plannedCount++;
+    const amount = toRsd(Number(p.amount) || 0, p.currency, rates);
+    all.push({
+      id: p.id,
+      source: "planned",
+      name: p.name,
+      kind: p.kind === "income" ? "income" : "expense",
+      on: p.due_on,
+      amount,
+      estimated: false,
+      category: p.category?.name ?? null,
+      color: p.category?.color ?? null,
+      goal: null,
+      samples: [],
+      days: 0,
+    });
+
+    // Its category already carries a limit, and the everyday figure is built out of
+    // those limits — so this month's projection has to give the amount back.
+    if (p.kind !== "income" && p.category_id && budgeted.has(p.category_id)) {
+      const month = p.due_on.slice(0, 7);
+      const per = plannedInBudget.get(month) ?? new Map<string, number>();
+      per.set(p.category_id, (per.get(p.category_id) ?? 0) + amount);
+      plannedInBudget.set(month, per);
+    }
+  }
+
+  /** What a month's projection owes back to the planned items already on the line. */
+  const givenBack = (month: string): number => {
+    const per = plannedInBudget.get(month);
+    if (!per) return 0;
+    let total = 0;
+    // Never more than the category was contributing: a 30.000 dentist bill against a
+    // 5.000 health limit takes 5.000 off the projection, not 30.000.
+    for (const [category, amount] of per) total += Math.min(amount, roomBy.get(category) ?? 0);
+    return total;
+  };
+
+  // What a day of ordinary living costs, month by month. The current month counts
+  // only the days still to come, and only what is left of its figure — the part
+  // already spent is on the accounts the balance starts from.
+  const dailyRate = new Map<string, number>();
+  if (spending.monthly > 0) {
+    let month = from.slice(0, 7);
+    const lastMonth = horizon.slice(0, 7);
+    for (let step = 0; step <= MAX_MONTHS && month <= lastMonth; step++) {
+      const daysInMonth = Number(monthRange(month).to.slice(8, 10));
+      let figure = Math.max(spending.monthly - givenBack(month), 0);
+      let over = daysInMonth;
+      if (month === from.slice(0, 7)) {
+        figure = Math.max(figure - spending.spentThisMonth, 0);
+        over = daysInMonth - Number(from.slice(8, 10));
+      }
+      dailyRate.set(month, over > 0 ? figure / over : 0);
+      month = shiftMonth(month, 1);
+    }
+  }
+
+  // Running total of everyday spending from today up to and including each day, so
+  // the spend between any two dates is one subtraction.
+  const upTo = new Map<string, number>();
+  let accrued = 0;
+  for (let day = nextDay(from); day <= horizon; day = nextDay(day)) {
+    accrued += dailyRate.get(day.slice(0, 7)) ?? 0;
+    upTo.set(day, accrued);
+  }
+
+  // The everyday line is cut at every date that has to be right: where something real
+  // falls due, where a month ends, and where each window closes. Nothing straddles a
+  // boundary, so every total on the screen is the sum of the lines above it.
+  if (accrued > 0) {
+    const stops = new Set<string>();
+    for (const o of all) if (o.on > from && o.on <= horizon) stops.add(o.on);
+    for (const day of upTo.keys()) {
+      if (day === horizon || day.slice(0, 7) !== nextDay(day).slice(0, 7)) stops.add(day);
+    }
+    for (const days of windows) {
+      const edge = [...upTo.keys()][days - 1];
+      if (edge) stops.add(edge);
+    }
+
+    let previous = from;
+    for (const stop of [...stops].sort()) {
+      const amount = (upTo.get(stop) ?? 0) - (upTo.get(previous) ?? 0);
+      const days = Math.round(
+        (Date.parse(`${stop}T00:00:00Z`) - Date.parse(`${previous}T00:00:00Z`)) / 86_400_000,
+      );
+      if (amount > 0 && days > 0) {
+        all.push({
+          id: `everyday-${stop}`,
+          source: "everyday",
+          name: "Everyday spending",
+          kind: "expense",
+          on: stop,
+          amount,
+          estimated: true,
+          category: null,
+          color: null,
+          goal: null,
+          samples: [],
+          days,
+        });
+      }
+      previous = stop;
+    }
+  }
+
+  // Same date: the days of living come before the bill they lead up to, so the
+  // balance printed beside the bill is what is actually left after paying it.
+  const rank = (o: Occurrence) => (o.source === "everyday" ? 0 : 1);
+  all.sort((a, b) =>
+    a.on < b.on
+      ? -1
+      : a.on > b.on
+        ? 1
+        : rank(a) - rank(b) || a.name.localeCompare(b.name),
+  );
 
   const startingBalance = onHand.free;
   let running = startingBalance;
@@ -469,22 +897,27 @@ export async function getForecast(windows: number[] = [30, 60, 90]): Promise<For
     .sort((a, b) => a - b)
     .map((days) => {
       const inWindow = all.filter((o) => dayOf(o.on) <= days);
-      const expense = inWindow
+      const real = inWindow.filter((o) => o.source !== "everyday");
+      const expense = real
         .filter((o) => o.kind !== "income" && o.goal === null)
         .reduce((sum, o) => sum + o.amount, 0);
-      const income = inWindow
+      const income = real
         .filter((o) => o.kind === "income")
         .reduce((sum, o) => sum + o.amount, 0);
-      const saving = inWindow
+      const saving = real
         .filter((o) => o.goal !== null)
+        .reduce((sum, o) => sum + o.amount, 0);
+      const everyday = inWindow
+        .filter((o) => o.source === "everyday")
         .reduce((sum, o) => sum + o.amount, 0);
       return {
         days,
         expense,
         income,
         saving,
-        net: income - expense - saving,
-        count: inWindow.length,
+        everyday,
+        net: income - expense - saving - everyday,
+        count: real.length,
       };
     });
 
@@ -497,6 +930,8 @@ export async function getForecast(windows: number[] = [30, 60, 90]): Promise<For
     lines,
     estimated,
     unknown,
+    spending,
+    planned: plannedCount,
   };
 }
 

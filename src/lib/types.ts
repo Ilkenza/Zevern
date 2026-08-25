@@ -51,6 +51,7 @@ export type MoneyGoal = Tables<"money_goals">;
 export type MoneyRecurring = Tables<"money_recurring">;
 export type MoneyBudget = Tables<"money_budgets">;
 export type MoneyTransaction = Tables<"money_transactions">;
+export type MoneyPlanned = Tables<"money_planned">;
 
 export type TransactionRow = MoneyTransaction & {
   category: { name: string; color: string | null; kind: string } | null;
@@ -64,6 +65,22 @@ export type RecurringRow = MoneyRecurring & {
   /** Set when the rule is a standing order into a goal rather than a bill. */
   goal: { name: string; color: string | null } | null;
 };
+
+/**
+ * A one-off dated thing that is known about but has not happened yet — the dentist
+ * bill, the tax payment, the invoice landing on the 20th.
+ *
+ * `settled_at` is the line between a prediction and a fact: while it is null the item
+ * is on the timeline, and the moment it is set the entry named by `transaction_id` is
+ * carrying the money instead. Nothing counts it twice because nothing counts both.
+ */
+export type PlannedRow = MoneyPlanned & {
+  category: { name: string; color: string | null } | null;
+  account: { name: string } | null;
+};
+
+/** How the forecast projects everyday spending. Mirrors the check on the column. */
+export type SpendingBasis = "off" | "budgets" | "history";
 
 /** A category with its monthly limit and what has been spent against it. */
 export type BudgetLine = {
