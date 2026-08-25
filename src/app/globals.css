@@ -1856,16 +1856,21 @@ body {
   isolation: isolate;
   overflow: hidden;
   min-height: 54px;
-  padding: 6px;
-  border-color: rgba(255, 255, 255, 0.10);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.038), rgba(255, 255, 255, 0.012)),
-    rgba(12, 14, 18, 0.55);
+  padding: 5px;
+  /*
+    One shape, not four outlines.
+
+    There was a hairline around the pair, another around the lit tab inside it, a third
+    around its count, and a fourth drawn under the label — four lines all describing the
+    same control, which is what made it read as sketched rather than made. A segmented
+    control needs a recess and one lit segment: the track sinks into the page and every
+    border comes off.
+  */
+  border-color: transparent;
+  background: rgba(0, 0, 0, 0.3);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.045),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.22),
-    0 18px 44px rgba(0, 0, 0, 0.24),
-    0 0 0 1px rgba(255, 255, 255, 0.018);
+    inset 0 1px 1px rgba(0, 0, 0, 0.4),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.045);
   backdrop-filter: blur(18px) saturate(125%);
   animation: money-head-in 620ms var(--ease-premium) 240ms both;
 }
@@ -1908,24 +1913,19 @@ body {
 
 .upcoming-tab:not(.upcoming-tab-on):hover {
   color: rgba(245, 247, 250, 0.92);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.018));
-  border-color: rgba(255, 255, 255, 0.08);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
-  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.06);
+  border-color: transparent;
 }
 
 .upcoming-tab-on {
   overflow: hidden;
-  border-color: rgba(217, 164, 65, 0.34);
+  border-color: transparent;
   background:
-    radial-gradient(circle at 32% -20%, rgba(255, 224, 153, 0.18), transparent 52%),
-    linear-gradient(145deg, rgba(217, 164, 65, 0.24), rgba(156, 108, 31, 0.10)),
-    rgba(217, 164, 65, 0.055);
+    radial-gradient(circle at 32% -30%, rgba(255, 224, 153, 0.16), transparent 60%),
+    linear-gradient(180deg, rgba(217, 164, 65, 0.26), rgba(217, 164, 65, 0.13));
   box-shadow:
-    inset 0 1px 0 rgba(255, 235, 190, 0.16),
-    inset 0 -1px 0 rgba(91, 57, 10, 0.22),
-    0 10px 28px rgba(217, 164, 65, 0.13),
-    0 0 0 1px rgba(217, 164, 65, 0.07);
+    inset 0 1px 0 rgba(255, 238, 198, 0.2),
+    0 6px 16px rgba(0, 0, 0, 0.3);
   animation: upcoming-tab-select 480ms var(--ease-premium) both;
 }
 
@@ -1970,18 +1970,13 @@ body {
 }
 
 .upcoming-tab-count {
-  border: 1px solid rgba(255, 255, 255, 0.045);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
-  transition: color 220ms ease, background-color 220ms ease, border-color 220ms ease, transform 300ms var(--ease-premium);
+  border: 0;
+  transition: color 220ms ease, background-color 220ms ease, transform 300ms var(--ease-premium);
 }
 
 .upcoming-tab-on .upcoming-tab-count {
-  border-color: rgba(217, 164, 65, 0.16);
-  background: linear-gradient(180deg, rgba(255, 224, 153, 0.105), rgba(255, 255, 255, 0.055));
+  background: rgba(0, 0, 0, 0.24);
   color: var(--color-gold-hi);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 238, 198, 0.10),
-    0 4px 12px rgba(0, 0, 0, 0.12);
   animation: upcoming-count-in 520ms var(--ease-spring) 90ms both;
 }
 
@@ -1995,21 +1990,6 @@ body {
 }
 
 .upcoming-tab:hover .upcoming-tab-count { transform: translateY(-1px); }
-
-/* A restrained light line anchors the selected view. */
-.upcoming-tab-on::after {
-  content: "";
-  position: absolute;
-  right: 22px;
-  bottom: 4px;
-  left: 22px;
-  height: 1px;
-  border-radius: 2px;
-  background: linear-gradient(90deg, transparent, var(--color-gold-hi), transparent);
-  box-shadow: 0 0 8px rgba(217, 164, 65, 0.3);
-  animation: money-progress-in 520ms var(--ease-premium) both;
-  transform-origin: center;
-}
 
 @media (max-width: 520px) {
   .upcoming-tabs { display: grid; width: 100%; grid-template-columns: repeat(2, minmax(0, 1fr)); }
