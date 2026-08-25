@@ -3324,3 +3324,15 @@ body > * { min-width: 0; }
 @media (max-width: 480px) {
   .task-quickadd-hint { display: none; }
 }
+
+/*
+  A column with nothing in it should cost a line, not a card's worth of height. It
+  still appears — knowing that nothing is late is worth something — but it stops
+  reserving room for entries that are not there.
+*/
+.task-column-body:has(> .task-column-empty) {
+  flex: 0 0 auto;
+  padding: 4px 10px 12px;
+}
+
+.task-column-empty { padding: 6px 4px; }

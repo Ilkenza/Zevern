@@ -134,7 +134,13 @@ function QuickAdd({
       }}
     >
       <input type="hidden" name="workspace" value={workspace} />
-      {dueOn && <input type="hidden" name="due_at" value={`${dueOn}T09:00`} />}
+      {/*
+        Midnight, not nine o'clock. A quick add is a date, not an appointment — and
+        `09:00` meant anything typed after breakfast was stamped with a time that had
+        already gone. `formatDateTime` reads midnight as "no time was set" and prints
+        the date alone, which is what this actually means.
+      */}
+      {dueOn && <input type="hidden" name="due_at" value={`${dueOn}T00:00`} />}
       <Plus className="task-quickadd-icon h-4 w-4" aria-hidden />
       <input
         name="title"
@@ -301,20 +307,35 @@ export function TasksView({
 
             <QuickAdd workspace={workspace} dueOn={today} placeholder="What needs doing today?" />
 
-            <div className="task-focus-body">
-              {todayTasks.length === 0 ? (
-                <p className="task-focus-empty">
-                  Nothing is due today.{" "}
-                  {overdue.length > 0
-                    ? "Clearing what is late is the next best thing."
-                    : "The columns below are what is coming."}
-                </p>
-              ) : (
-                todayTasks.map((t) => <TaskRow key={t.id} task={t} basePath={basePath} />)
-              )}
-            </div>
+            {/*
+              An empty day says so once, and only when there is nothing anywhere else
+              to say it for. With work in the columns below, the sentence would be the
+              second of four blocks all reporting the same emptiness — so the panel
+              shrinks to the field and lets the columns speak.
+            */}
+            {todayTasks.length > 0 ? (
+              <div className="task-focus-body">
+                {todayTasks.map((t) => (
+                  <TaskRow key={t.id} task={t} basePath={basePath} />
+                ))}
+              </div>
+            ) : (
+              open.length === 0 && (
+                <div className="task-focus-body">
+                  <p className="task-focus-empty">
+                    Nothing open at all. Type above and it lands on today.
+                  </p>
+                </div>
+              )
+            )}
           </section>
 
+          {/*
+            Three columns reporting nothing is three ways of saying what the panel
+            above already said. They come back the moment there is something to put
+            in one of them.
+          */}
+          {open.length > 0 && (
           <div className="task-board">
             <Column
               title="Late"
@@ -341,6 +362,7 @@ export function TasksView({
               empty="Nothing parked."
             />
           </div>
+          )}
 
           {done.length > 0 && (
             <details className="task-done">
