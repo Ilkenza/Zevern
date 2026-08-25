@@ -2041,14 +2041,16 @@ body {
   width: 30px;
   height: 30px;
   /*
-    Faint grey on a near-transparent square was still asking to be found. These are the
-    only way to reorder, edit or delete anything, so at rest they read as controls:
-    a border you can see, a surface under it, and an icon in `muted` rather than the
-    colour reserved for text nobody has to read.
+    No box at rest.
+
+    The frame was there to make a faint grey glyph findable; once the icon itself sits
+    in `muted` it is findable on its own, and the box was doing nothing but drawing a
+    second rectangle inside every row. The chrome arrives on hover, where it is telling
+    you something — this is the one you are about to press.
   */
-  border: 1px solid rgba(255, 255, 255, 0.11);
+  border: 1px solid transparent;
   border-radius: 9px;
-  background: rgba(255, 255, 255, 0.055);
+  background: transparent;
   color: var(--color-muted);
   cursor: pointer;
   transition:
