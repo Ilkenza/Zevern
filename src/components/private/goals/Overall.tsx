@@ -135,9 +135,10 @@ export function Overall({ goals, onHand }: { goals: GoalLine[]; onHand: OnHand }
           />
         </div>
         <p className="mt-2 text-[11.5px] leading-relaxed text-muted">
-          Setting money aside moves nothing. The dinars stay on the account and only
-          stop counting as free to spend — and free to spend is the figure every other
-          screen plans against, so the same dinar can never be promised twice.
+          Setting money aside moves nothing. The money stays on the account and only
+          stops counting as free to spend — and free to spend is the figure every other
+          screen plans against, so the same money can never be promised twice. A goal
+          aimed at euros or dollars is counted here at the rate it was set at.
         </p>
       </div>
     </Panel>

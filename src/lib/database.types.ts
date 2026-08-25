@@ -305,6 +305,9 @@ export type Database = {
           id: string
           name: string
           target_date: string | null
+          currency: string
+          rate: number
+          target_amount: number | null
           target_rsd: number
           user_id: string
         }
@@ -317,6 +320,9 @@ export type Database = {
           id?: string
           name: string
           target_date?: string | null
+          currency?: string
+          rate?: number
+          target_amount?: number | null
           target_rsd?: number
           user_id?: string
         }
@@ -329,6 +335,9 @@ export type Database = {
           id?: string
           name?: string
           target_date?: string | null
+          currency?: string
+          rate?: number
+          target_amount?: number | null
           target_rsd?: number
           user_id?: string
         }

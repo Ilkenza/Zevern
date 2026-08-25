@@ -559,7 +559,8 @@ export async function saveBudgets(_prev: MoneyState, formData: FormData): Promis
 export async function saveGoal(_prev: MoneyState, formData: FormData): Promise<MoneyState> {
   const id = String(formData.get("id") ?? "").trim();
   const name = String(formData.get("name") ?? "").trim();
-  const targetRsd = num(formData.get("target_rsd"));
+  const targetAmount = num(formData.get("target_amount"));
+  const currency = currencyOf(formData.get("currency"));
   const targetDate = String(formData.get("target_date") ?? "").trim() || null;
   const color = String(formData.get("color") ?? "").trim() || null;
 
@@ -569,7 +570,28 @@ export async function saveGoal(_prev: MoneyState, formData: FormData): Promise<M
   const uid = await userId(supabase);
   if (!uid) return { error: "Not signed in." };
 
-  const payload = { name, target_rsd: targetRsd, target_date: targetDate, color };
+  /*
+    The target is kept twice: as you said it, and in dinars.
+
+    A goal aimed at €1.200 is a fact about euros, and the card should say euros back.
+    But progress, the pace figure, the reconciliation strip and the forecast all count
+    dinars — that is the one currency every screen agrees on — so the dinar figure is
+    worked out here, once, at the rate of the day, exactly the way an entry in another
+    currency is. The rate is stored with it so the conversion can always be explained.
+  */
+  const rates = await getRates();
+  const rate = currency === "RSD" ? 1 : rateFor(currency, rates);
+  const targetRsd = Math.round(targetAmount * rate * 100) / 100;
+
+  const payload = {
+    name,
+    target_amount: targetAmount,
+    currency,
+    rate,
+    target_rsd: targetRsd,
+    target_date: targetDate,
+    color,
+  };
 
   let error;
   if (id) {

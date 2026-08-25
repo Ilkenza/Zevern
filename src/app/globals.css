@@ -2348,8 +2348,15 @@ body {
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.032), rgba(255, 255, 255, 0.008)),
     rgba(12, 14, 18, 0.4);
-  grid-template-columns: 1fr auto;
+  /*
+    `minmax(0, 1fr)`, not `1fr`. A grid track defaults to a floor of its own content, so
+    a long label — "beyond the week" — pushed the track wider than the tile and shoved
+    the count out through the border, where it sat beside the chip looking like it
+    belonged to the next one. With a floor of zero the text gives way instead.
+  */
+  grid-template-columns: minmax(0, 1fr) auto;
   grid-template-rows: auto auto;
+  overflow: hidden;
   cursor: pointer;
   text-align: left;
   transition:
@@ -2378,8 +2385,10 @@ body {
 
 .task-chip-sub {
   grid-area: 2 / 1;
+  overflow: hidden;
   color: var(--color-faint);
   font-size: 10.5px;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
@@ -2396,6 +2405,9 @@ body {
 
 /* The day you are in is marked even when you are looking at another one. */
 .task-chip-today .task-chip-lead { color: var(--color-gold-hi); }
+
+.task-chip-late,
+.task-chip-parked { flex: 0 0 auto; min-width: 116px; }
 
 .task-chip-late {
   border-color: rgba(222, 107, 94, 0.32);
@@ -2956,6 +2968,13 @@ body {
   0% { box-shadow: 0 0 0 rgba(217, 164, 65, 0); }
   45% { box-shadow: 0 0 0 6px rgba(217, 164, 65, 0.13), 0 24px 54px rgba(0, 0, 0, 0.2); }
   100% { box-shadow: 0 0 0 1px rgba(217, 164, 65, 0.12), 0 20px 46px rgba(0, 0, 0, 0.18); }
+}
+
+/* The dinar figure under a target said in another currency. */
+.goal-card-metric-note {
+  margin-top: 1px;
+  color: var(--color-faint);
+  font-size: 10.5px;
 }
 
 /* --------------------------------------------------- The card that got there

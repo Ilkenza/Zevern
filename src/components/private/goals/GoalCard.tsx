@@ -7,7 +7,7 @@ import { ChevronDown, ChevronUp, Pencil, Trophy } from "lucide-react";
 import { DeleteButton } from "@/components/ui/DeleteButton";
 import { deleteGoal, moveGoal } from "@/app/(app)/private/actions";
 import { Badge } from "@/components/ui/Badge";
-import { formatRsd } from "@/lib/money";
+import { formatAmount, formatRsd } from "@/lib/money";
 import { cn } from "@/lib/utils";
 import type { AccountBalance } from "@/lib/data/money";
 import type { GoalLine } from "@/lib/types";
@@ -72,6 +72,9 @@ export function GoalCard({
   const r = read(goal, today);
   const colour = goal.color ?? NO_COLOUR;
   const target = Math.max(Number(goal.target_rsd) || 0, 0);
+  // A goal aimed at euros says euros, with the dinar figure it was converted at
+  // underneath — that is the number the progress bar is actually measuring.
+  const foreign = goal.currency !== "RSD" && Number(goal.target_amount) > 0;
   const remaining = Math.max(target - goal.saved, 0);
   // Rounded down, and capped at 99 until the target is actually met — a goal one
   // dinar short should never claim to be finished.
@@ -133,7 +136,12 @@ export function GoalCard({
           <dl className="goal-card-metrics">
             <div>
               <dt>Target</dt>
-              <dd className="mono">{formatRsd(target)}</dd>
+              <dd className="mono">
+                {foreign
+                  ? formatAmount(Number(goal.target_amount), goal.currency)
+                  : formatRsd(target)}
+              </dd>
+              {foreign && <dd className="mono goal-card-metric-note">≈ {formatRsd(target)}</dd>}
             </div>
             <div>
               <dt>{r.done ? "Above target" : "Remaining"}</dt>
@@ -179,9 +187,9 @@ export function GoalCard({
           <div className="goal-reached-note">
             <Trophy className="h-4 w-4" aria-hidden />
             <span>
-              <b>You got there.</b>
-              {r.note}. Buy it whenever you like — the money is still on the account, so
-              close the goal when you do and it goes back to being free to spend.
+              <b>You made it.</b>{" "}
+              {r.note} — your goal is fully funded. When you are ready, make it happen,
+              then close the goal to release the reserved amount.
             </span>
           </div>
         ) : (
@@ -199,4 +207,3 @@ export function GoalCard({
     </article>
   );
 }
-

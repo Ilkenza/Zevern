@@ -5,8 +5,9 @@ import { CheckCircle2 } from "lucide-react";
 import { saveGoal, closeGoal, deleteGoal, type MoneyState } from "@/app/(app)/private/actions";
 import { Field } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
+import { Select } from "@/components/ui/Select";
 import { DeleteButton } from "@/components/ui/DeleteButton";
-import { formatRsd } from "@/lib/money";
+import { CURRENCY_OPTIONS, formatRsd } from "@/lib/money";
 import { MoneyField } from "@/components/ui/MoneyField";
 import { cn } from "@/lib/utils";
 import type { GoalLine, MoneyAccount } from "@/lib/types";
@@ -159,26 +160,36 @@ export function GoalForm({
           required
         />
 
-        {/* The amount and the date are one thought — how much, by when — so they sit
-            together as soon as the panel is wide enough to hold both. */}
-        <div className="grid sm:grid-cols-2 sm:gap-x-3">
+        {/*
+          The target is said in whatever currency the thing is priced in — a laptop at
+          €1.200 is a fact about euros. Progress is still counted in dinars, because
+          that is what actually goes in, so the card converts and says so.
+        */}
+        <div className="grid grid-cols-[1fr_110px] gap-x-2">
           <MoneyField
-            label="Target (RSD)"
-            name="target_rsd"
-            defaultValue={goal?.target_rsd ?? ""}
+            label="Target"
+            name="target_amount"
+            defaultValue={goal?.target_amount ?? goal?.target_rsd ?? ""}
             placeholder="0"
             help="Leave empty to just count what goes in."
           />
-          {/* color-scheme is inherited, so this reaches the native date picker. */}
-          <Field
-            className="scheme-dark"
-            label="Target date"
-            name="target_date"
-            type="date"
-            defaultValue={goal?.target_date ?? ""}
-            help="Optional. With one, the goal says what a month has to look like."
+          <Select
+            label="Currency"
+            name="currency"
+            defaultValue={goal?.currency ?? "RSD"}
+            options={CURRENCY_OPTIONS}
           />
         </div>
+
+        {/* color-scheme is inherited, so this reaches the native date picker. */}
+        <Field
+          className="scheme-dark"
+          label="Target date"
+          name="target_date"
+          type="date"
+          defaultValue={goal?.target_date ?? ""}
+          help="Optional. With one, the goal says what a month has to look like."
+        />
 
         <input type="hidden" name="color" value={GOAL_COLOUR} />
 

@@ -24,8 +24,8 @@ export type GoalsPanel = { mode: "new" } | { mode: "edit"; goal: GoalLine } | nu
 /** Nothing saved for yet — so the screen has to explain what a goal is for on its own. */
 function NoGoals() {
   const steps = [
-    "Name what the money is for, and set the amount you are aiming at.",
-    "Put money aside against it — the dinars stay on the account, they just stop counting as free to spend.",
+    "Name what the money is for, and set the amount you are aiming at — in dinars, euros or dollars.",
+    "Put money aside against it — the money stays on the account, it just stops counting as free to spend.",
     "Give it a date and the goal tells you what each month has to look like to make it.",
     "Buy the thing, or change your mind: take the money back out, or close the goal and it lets go of what is left.",
   ];
@@ -94,7 +94,7 @@ export function GoalsView({
             Goals
           </h1>
           <p className="mt-1 max-w-md text-[13px] leading-5 text-muted">
-            Name what the money is for, and it stops being available for something else.
+            Turn something you want into a plan you can reach. Create a goal and make every contribution count.
           </p>
         </div>
         <div className="goals-head-side">

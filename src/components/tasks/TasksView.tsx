@@ -319,7 +319,7 @@ export function TasksView({
       list.push({
         key: "later",
         lead: "Later",
-        sub: "beyond the week",
+        sub: "after this week",
         tone: "parked",
         tasks: later.sort((a, b) => (dayOf(a) ?? "").localeCompare(dayOf(b) ?? "")),
         dueOn: addDays(today, 7),
