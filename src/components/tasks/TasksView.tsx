@@ -7,7 +7,8 @@ import { Plus, ListChecks, Pencil, Sun, AlertTriangle, CalendarDays, Archive } f
 import { SlideOver } from "@/components/ui/SlideOver";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { buttonClasses } from "@/components/ui/Button";
-import { quickAddTask } from "@/app/(app)/tasks/actions";
+import { DeleteButton } from "@/components/ui/DeleteButton";
+import { deleteTask, quickAddTask } from "@/app/(app)/tasks/actions";
 import { priorityBadge } from "@/lib/status";
 import { formatDateTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -47,8 +48,54 @@ function PriorityDot({ priority }: { priority: string }) {
   );
 }
 
+/**
+ * Edit and delete, side by side.
+ *
+ * `deleteTask` redirects to the list it belongs to, which is the right move here: the
+ * row you were looking at is gone, and a refresh in place would leave the pointer
+ * hovering over whatever slid up into its position.
+ */
+function RowActions({
+  task,
+  basePath,
+  workspace,
+}: {
+  task: TaskWithProject;
+  basePath: string;
+  workspace: TaskWorkspace;
+}) {
+  return (
+    <span className="task-actions">
+      <Link
+        href={`${basePath}?edit=${task.id}`}
+        aria-label={`Edit ${task.title}`}
+        title="Edit"
+        className="task-edit"
+      >
+        <Pencil className="h-3.5 w-3.5" />
+      </Link>
+      <DeleteButton
+        compact
+        label={`Delete ${task.title}`}
+        confirmText={`Delete "${task.title}"? This cannot be undone.`}
+        action={async () => {
+          await deleteTask(task.id, workspace);
+        }}
+      />
+    </span>
+  );
+}
+
 /** A task as a card, for the three columns. */
-function TaskCard({ task, basePath }: { task: TaskWithProject; basePath: string }) {
+function TaskCard({
+  task,
+  basePath,
+  workspace,
+}: {
+  task: TaskWithProject;
+  basePath: string;
+  workspace: TaskWorkspace;
+}) {
   const done = task.status === "done";
   return (
     <div className={cn("task-card group", done && "task-card-done")}>
@@ -66,19 +113,21 @@ function TaskCard({ task, basePath }: { task: TaskWithProject; basePath: string 
           {task.due_at && <span className="mono task-card-date">{formatDateTime(task.due_at)}</span>}
         </span>
       </div>
-      <Link
-        href={`${basePath}?edit=${task.id}`}
-        aria-label={`Edit ${task.title}`}
-        className="task-edit"
-      >
-        <Pencil className="h-3.5 w-3.5" />
-      </Link>
+      <RowActions task={task} basePath={basePath} workspace={workspace} />
     </div>
   );
 }
 
 /** A task as a row, for the wider Today panel. */
-function TaskRow({ task, basePath }: { task: TaskWithProject; basePath: string }) {
+function TaskRow({
+  task,
+  basePath,
+  workspace,
+}: {
+  task: TaskWithProject;
+  basePath: string;
+  workspace: TaskWorkspace;
+}) {
   const done = task.status === "done";
   return (
     <div className="task-row group">
@@ -94,13 +143,7 @@ function TaskRow({ task, basePath }: { task: TaskWithProject; basePath: string }
       </div>
       <PriorityDot priority={task.priority} />
       {task.due_at && <span className="mono task-row-date">{formatDateTime(task.due_at)}</span>}
-      <Link
-        href={`${basePath}?edit=${task.id}`}
-        aria-label={`Edit ${task.title}`}
-        className="task-edit"
-      >
-        <Pencil className="h-3.5 w-3.5" />
-      </Link>
+      <RowActions task={task} basePath={basePath} workspace={workspace} />
     </div>
   );
 }
@@ -170,6 +213,7 @@ function Column({
   tone,
   tasks,
   basePath,
+  workspace,
   empty,
 }: {
   title: string;
@@ -177,6 +221,7 @@ function Column({
   tone: "late" | "week" | "later";
   tasks: TaskWithProject[];
   basePath: string;
+  workspace: TaskWorkspace;
   empty: string;
 }) {
   return (
@@ -190,7 +235,9 @@ function Column({
         {tasks.length === 0 ? (
           <p className="task-column-empty">{empty}</p>
         ) : (
-          tasks.map((t) => <TaskCard key={t.id} task={t} basePath={basePath} />)
+          tasks.map((t) => (
+            <TaskCard key={t.id} task={t} basePath={basePath} workspace={workspace} />
+          ))
         )}
       </div>
     </section>
@@ -316,7 +363,7 @@ export function TasksView({
             {todayTasks.length > 0 ? (
               <div className="task-focus-body">
                 {todayTasks.map((t) => (
-                  <TaskRow key={t.id} task={t} basePath={basePath} />
+                  <TaskRow key={t.id} task={t} basePath={basePath} workspace={workspace} />
                 ))}
               </div>
             ) : (
@@ -343,6 +390,7 @@ export function TasksView({
               tone="late"
               tasks={overdue}
               basePath={basePath}
+              workspace={workspace}
               empty="Nothing is late."
             />
             <Column
@@ -351,6 +399,7 @@ export function TasksView({
               tone="week"
               tasks={week}
               basePath={basePath}
+              workspace={workspace}
               empty="Nothing due in the next seven days."
             />
             <Column
@@ -359,6 +408,7 @@ export function TasksView({
               tone="later"
               tasks={later}
               basePath={basePath}
+              workspace={workspace}
               empty="Nothing parked."
             />
           </div>
@@ -372,7 +422,7 @@ export function TasksView({
               </summary>
               <div className="task-done-body">
                 {done.map((t) => (
-                  <TaskRow key={t.id} task={t} basePath={basePath} />
+                  <TaskRow key={t.id} task={t} basePath={basePath} workspace={workspace} />
                 ))}
               </div>
             </details>

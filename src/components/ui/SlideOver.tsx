@@ -114,12 +114,19 @@ export function SlideOver({
           <h2 className="min-w-0 truncate font-display text-[17px] font-extrabold tracking-[-0.3px] text-ink">
             {title}
           </h2>
+          {/*
+            It was a bare glyph in muted grey on a grey header — the same weight as a
+            decoration, and the one control every panel needs. Give it a border and a
+            surface and it reads as a button; make the target 40px and a thumb can
+            actually hit it.
+          */}
           <button
             onClick={onClose}
             aria-label="Close panel"
-            className="zv-press -mr-1.5 shrink-0 rounded-ctrl p-2 text-muted hover:bg-white/4 hover:text-ink"
+            title="Close"
+            className="zv-press flex h-10 w-10 shrink-0 items-center justify-center rounded-ctrl border border-line bg-white/[0.045] text-ink hover:border-danger/50 hover:bg-danger-bg hover:text-danger"
           >
-            <X className="h-4.5 w-4.5" />
+            <X className="h-5 w-5" strokeWidth={2.25} />
           </button>
         </div>
         {/*

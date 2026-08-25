@@ -2154,13 +2154,11 @@ body {
   padding: 5px;
   border-radius: var(--radius-ctrl);
   color: var(--color-faint);
-  opacity: 0;
-  transition: opacity 200ms ease, color 200ms ease, background-color 200ms ease;
+  /* Whether it is visible is `.task-actions`' decision — it owns both icons, and two
+     rules setting the same opacity is how one wins by accident. */
+  transition: color 200ms ease, background-color 200ms ease;
 }
 
-.task-card:hover .task-edit,
-.task-row:hover .task-edit,
-.task-edit:focus-visible { opacity: 1; }
 .task-edit:hover { background: rgba(255, 255, 255, 0.06); color: var(--color-ink); }
 
 /* --------------------------------------------------------------- The done */
@@ -3279,8 +3277,6 @@ body > * { min-width: 0; }
   .task-row-date { margin-left: auto; }
   .task-row:hover { padding-left: 16px; }
 
-  /* On a touch screen there is no hover to reveal it, so it is simply always there. */
-  .task-edit { opacity: 0.5; }
 }
 
 /*
@@ -3336,3 +3332,28 @@ body > * { min-width: 0; }
 }
 
 .task-column-empty { padding: 6px 4px; }
+
+/* Edit and delete travel together, and on a touch screen they are simply there. */
+.task-actions {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 2px;
+}
+
+.task-actions > * {
+  opacity: 0;
+  transition: opacity 200ms ease;
+}
+
+.task-card:hover .task-actions > *,
+.task-row:hover .task-actions > *,
+.task-actions:focus-within > * { opacity: 1; }
+
+@media (hover: none) {
+  .task-actions > * { opacity: 0.55; }
+}
+
+@media (max-width: 560px) {
+  .task-row > .task-actions { order: 3; }
+}
