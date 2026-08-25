@@ -108,18 +108,6 @@ export function GoalsView({
   };
   const ordered = order === "mine" ? open : [...open].sort((a, b) => share(b) - share(a));
 
-  /*
-    One card open at a time once the grid gets long.
-
-    A goal card is 280px tall because it carries a history, a deposit box and a
-    progress reading. Four of them is a screen and a half of scrolling to answer "how
-    am I doing", which is a question about all four at once. So the one being worked on
-    stays whole and the rest collapse to a line each — name, progress, figure — and
-    open when clicked.
-  */
-  const [focus, setFocus] = useState<string | null>(null);
-  const compactable = ordered.length > 2;
-  const focused = focus && ordered.some((g) => g.id === focus) ? focus : (ordered[0]?.id ?? null);
 
   return (
     <div className="money-premium money-goals mx-auto max-w-220 space-y-5">
@@ -177,7 +165,7 @@ export function GoalsView({
             </div>
           )}
 
-          <div className={cn("money-card-grid grid gap-3", !compactable && "sm:grid-cols-2")}>
+          <div className="money-card-grid grid gap-3 sm:grid-cols-2">
             {ordered.map((goal, i) => (
               <GoalCard
                 key={goal.id}
@@ -188,8 +176,6 @@ export function GoalsView({
                 first={i === 0}
                 last={i === ordered.length - 1}
                 reorderable={order === "mine" && ordered.length > 1}
-                compact={compactable && goal.id !== focused}
-                onOpen={() => setFocus(goal.id)}
               />
             ))}
           </div>

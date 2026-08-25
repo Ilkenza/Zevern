@@ -63,8 +63,6 @@ export function GoalCard({
   first,
   last,
   reorderable,
-  compact = false,
-  onOpen,
 }: {
   goal: GoalLine;
   accounts: AccountBalance[];
@@ -74,9 +72,6 @@ export function GoalCard({
   first: boolean;
   last: boolean;
   reorderable: boolean;
-  /** Collapsed to a line because another card is the one being worked on. */
-  compact?: boolean;
-  onOpen?: () => void;
 }) {
   const { fmt, code } = useMoney();
   const r = read(goal, today, fmt);
@@ -96,35 +91,6 @@ export function GoalCard({
   // Rounded down, and capped at 99 until the target is actually met — a goal one
   // dinar short should never claim to be finished.
   const shown = r.pct === null ? null : r.done ? 100 : Math.min(Math.floor(r.pct * 100), 99);
-
-  if (compact) {
-    return (
-      <button
-        type="button"
-        onClick={onOpen}
-        className={cn("goal-strip", r.done && "is-done")}
-        style={{ "--goal-accent": colour } as CSSProperties}
-        aria-label={`Open ${goal.name}`}
-      >
-        <span aria-hidden="true" className="goal-strip-rail" style={{ background: colour }} />
-        <span className="goal-strip-name">{goal.name}</span>
-        <span className="goal-strip-bar" aria-hidden="true">
-          <span
-            className="goal-strip-fill"
-            style={{
-              width: `${r.pct === null ? 0 : Math.max(Math.min(r.pct, 1) * 100, goal.saved > 0 ? 2 : 0)}%`,
-              background: colour,
-            }}
-          />
-        </span>
-        <span className="mono goal-strip-figure">
-          {fmt(goal.saved)}
-          {target > 0 && <span className="goal-strip-of"> / {fmt(target)}</span>}
-        </span>
-        {shown !== null && <span className="mono goal-strip-pct">{shown}%</span>}
-      </button>
-    );
-  }
 
   return (
     <article
