@@ -621,10 +621,272 @@ body {
 
 .budget-row-premium input:hover { background-color: rgba(255, 255, 255, 0.055); }
 
+/* ------------------------------------------------- Budgets: the pace read-out */
+.budget-verdict {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 8px 24px;
+  margin-bottom: 14px;
+}
+
+.budget-figure {
+  margin-top: 4px;
+  color: var(--color-ink);
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -1px;
+  line-height: 1.05;
+  animation: money-head-in 700ms cubic-bezier(0.22, 1, 0.36, 1) 160ms both;
+}
+
+.budget-verdict-main { min-width: 0; flex: 1 1 22rem; }
+
+/* The sentence, not the percentage, is the thing worth reading first. */
+.budget-verdict-text {
+  max-width: 34rem;
+  margin-top: 6px;
+  color: var(--color-ink);
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.budget-verdict-meta {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 2px;
+  color: var(--color-muted);
+  font-size: 11.5px;
+  text-align: right;
+}
+
+.budget-verdict-meta > :last-child { color: var(--color-faint); }
+
+.budget-track {
+  position: relative;
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.budget-track-sm { height: 6px; flex: 1; }
+
+.budget-fill {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-pill);
+}
+
+/*
+  Where the month itself has got to. It sits above the fill rather than inside it, so
+  a full bar cannot hide the very mark that says the bar filled too early.
+*/
+.budget-pace {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 2px;
+  margin-left: -1px;
+  border-radius: 2px;
+  background: var(--color-ink);
+  box-shadow: 0 0 0 2px var(--color-surface);
+  opacity: 0.75;
+  animation: budget-pace-in 760ms cubic-bezier(0.22, 1, 0.36, 1) 520ms both;
+}
+
+.budget-pace-sm { top: -2px; bottom: -2px; opacity: 0.5; }
+
+@keyframes budget-pace-in {
+  from { opacity: 0; transform: scaleY(0.4); }
+  to { opacity: 0.75; transform: scaleY(1); }
+}
+
+.budget-pace-legend {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 9px;
+  color: var(--color-faint);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.budget-pace-legend i {
+  width: 2px;
+  height: 10px;
+  border-radius: 2px;
+  background: var(--color-ink);
+  opacity: 0.75;
+}
+
+/* The spending no limit is watching. */
+.budget-untracked {
+  background: linear-gradient(100deg, rgba(217, 164, 65, 0.06), transparent 60%);
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
+.budget-untracked-amount { color: var(--color-gold-hi); font-weight: 700; }
+
+/* --------------------------------------------------------- Budgets: the rows */
+.budget-row {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--color-line-soft);
+}
+
+.budget-row:last-child { border-bottom: 0; }
+
+.budget-row-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.budget-dot {
+  width: 10px;
+  height: 10px;
+  flex: none;
+  border-radius: 50%;
+  transition: transform 320ms cubic-bezier(0.22, 1, 0.36, 1), filter 320ms ease;
+}
+
+.budget-row:hover .budget-dot { transform: scale(1.35); filter: brightness(1.25); }
+
+.budget-name {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  color: var(--color-ink);
+  font-size: 13.5px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The word carries the state; colour only agrees with it. */
+.budget-status {
+  flex: none;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.budget-status-over { background: var(--color-danger-bg); color: var(--color-danger); }
+.budget-status-ahead { background: var(--color-active-bg); color: var(--color-active); }
+.budget-status-ontrack { background: var(--color-ok-bg); color: var(--color-ok); }
+.budget-status-untracked { background: var(--color-pending-bg); color: var(--color-muted); }
+.budget-status-unset { background: transparent; color: var(--color-faint); }
+
+.budget-spent { flex: none; color: var(--color-muted); font-size: 12.5px; }
+.budget-of { flex: none; color: var(--color-faint); font-size: 12px; }
+
+.budget-input {
+  width: 96px;
+  flex: none;
+  padding: 6px 9px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-ctrl);
+  background: rgba(255, 255, 255, 0.035);
+  color: var(--color-ink);
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  text-align: right;
+}
+
+.budget-input::placeholder { color: var(--color-faint); font-family: var(--font-ui); }
+.budget-input:focus { border-color: var(--color-gold); box-shadow: var(--shadow-ring); outline: none; }
+
+.budget-row-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.budget-left {
+  width: 7.5rem;
+  flex: none;
+  color: var(--color-muted);
+  font-size: 11.5px;
+  text-align: right;
+}
+
+.budget-suggest {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 9px;
+  padding: 4px 10px;
+  border: 1px dashed rgba(217, 164, 65, 0.32);
+  border-radius: var(--radius-pill);
+  color: var(--color-gold-hi);
+  font-size: 11px;
+  font-weight: 600;
+  transition: background-color 220ms ease, border-color 220ms ease, transform 260ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.budget-suggest:hover {
+  transform: translateY(-1px);
+  border-color: rgba(217, 164, 65, 0.6);
+  border-style: solid;
+  background: var(--color-active-bg);
+}
+
+/* ------------------------------------------------------- Budgets: the save bar */
+.budget-savebar {
+  position: sticky;
+  bottom: 14px;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 14px;
+  padding: 10px 12px 10px 16px;
+  border: 1px solid rgba(217, 164, 65, 0.24);
+  border-radius: var(--radius-pill);
+  background: rgba(26, 29, 36, 0.92);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(10px);
+  animation: budget-savebar-in 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes budget-savebar-in {
+  from { opacity: 0; transform: translateY(16px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+
+.budget-savebar-text {
+  flex: 1;
+  color: var(--color-ink);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.budget-savebar-undo {
+  color: var(--color-muted);
+  font-size: 12px;
+  font-weight: 600;
+  transition: color 200ms ease;
+}
+
+.budget-savebar-undo:hover { color: var(--color-ink); }
+
 @media (max-width: 640px) {
   .money-page-head { min-height: 0; padding-top: 0; }
   .money-premium::before { right: -150px; opacity: 0.7; }
   .budget-row-premium:hover { padding-left: 16px; }
+  .budget-verdict-meta { text-align: left; }
+  .budget-row-main { flex-wrap: wrap; }
+  .budget-name { flex: 1 0 100%; order: -1; }
+  .budget-input { margin-left: auto; }
+  .budget-left { width: auto; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -640,12 +902,23 @@ body {
     transform: none;
   }
 
+  .budget-figure,
+  .budget-pace,
+  .budget-savebar {
+    animation: none !important;
+    opacity: 1;
+    transform: none;
+  }
+
   .money-summary-panel::after,
   .money-premium-button::after { display: none; }
 
   .money-card-premium,
   .money-premium-button,
-  .budget-row-premium { transition: none; }
+  .budget-row-premium,
+  .budget-dot,
+  .budget-suggest,
+  .budget-savebar { transition: none; }
 }
 
 /* Overview — executive dashboard treatment. */

@@ -11,5 +11,7 @@ export default async function BudgetsPage({
   const month = /^\d{4}-\d{2}$/.test(params.month ?? "") ? (params.month as string) : monthKey();
   const lines = await getBudgetLines(month);
 
-  return <BudgetsView month={month} lines={lines} />;
+  // Which month counts as "now" is settled on the server, so the client cannot
+  // disagree with it after hydration.
+  return <BudgetsView month={month} currentMonth={monthKey()} lines={lines} />;
 }

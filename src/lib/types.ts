@@ -87,6 +87,12 @@ export type BudgetLine = {
   category: MoneyCategory;
   limit: number;
   spent: number;
+  /**
+   * What a normal month costs this category — the median of the six completed months
+   * before the one being viewed. `0` means there is no typical month to speak of, and
+   * the screen then offers no suggestion rather than inventing one.
+   */
+  typical: number;
 };
 
 /** One movement between an account and a goal — the goal's own history. */
