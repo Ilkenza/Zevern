@@ -30,6 +30,41 @@ function dayOf(task: TaskWithProject): string | null {
   return task.due_at ? task.due_at.slice(0, 10) : null;
 }
 
+const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+/**
+ * How late, or how soon — in words.
+ *
+ * "2026-08-06 16:33" is a fact you have to do arithmetic on. In a column headed LATE
+ * the thing you want is "19 days late", and in one headed THIS WEEK it is "Saturday".
+ * The exact date stays on the card underneath it, quieter, for when the answer is
+ * "which Saturday".
+ */
+function whenPhrase(due: string | null, today: string): { text: string; late: boolean } | null {
+  if (!due) return null;
+  const days = Math.round(
+    (new Date(`${due}T00:00:00Z`).getTime() - new Date(`${today}T00:00:00Z`).getTime()) / 86_400_000,
+  );
+
+  if (days < 0) {
+    const late = -days;
+    if (late === 1) return { text: "yesterday", late: true };
+    if (late < 7) return { text: `${late} days late`, late: true };
+    if (late < 14) return { text: "a week late", late: true };
+    if (late < 60) return { text: `${Math.round(late / 7)} weeks late`, late: true };
+    return { text: `${Math.round(late / 30)} months late`, late: true };
+  }
+  if (days === 0) return { text: "today", late: false };
+  if (days === 1) return { text: "tomorrow", late: false };
+  // Inside the week a weekday name places it better than a count does.
+  if (days < 7) {
+    return { text: DAY_NAMES[new Date(`${due}T00:00:00Z`).getUTCDay()], late: false };
+  }
+  if (days < 14) return { text: "next week", late: false };
+  if (days < 60) return { text: `in ${Math.round(days / 7)} weeks`, late: false };
+  return { text: `in ${Math.round(days / 30)} months`, late: false };
+}
+
 function plural(n: number, one: string, many: string) {
   return `${n} ${n === 1 ? one : many}`;
 }
@@ -91,14 +126,21 @@ function TaskCard({
   task,
   basePath,
   workspace,
+  today,
 }: {
   task: TaskWithProject;
   basePath: string;
   workspace: TaskWorkspace;
+  today: string;
 }) {
   const done = task.status === "done";
+  const when = whenPhrase(dayOf(task), today);
+
   return (
     <div className={cn("task-card group", done && "task-card-done")}>
+      {/* The rail takes the column's tone, so a card belongs to its column even when
+          it has been dragged into the corner of your eye. */}
+      <span className="task-card-rail" aria-hidden />
       <TaskCheckbox id={task.id} done={done} />
       <div className="task-card-body">
         <span className={cn("task-card-title", done && "line-through")}>{task.title}</span>
@@ -110,6 +152,9 @@ function TaskCard({
         )}
         <span className="task-card-meta">
           <PriorityDot priority={task.priority} />
+          {when && (
+            <span className={cn("task-when", when.late && "task-when-late")}>{when.text}</span>
+          )}
           {task.due_at && <span className="mono task-card-date">{formatDateTime(task.due_at)}</span>}
         </span>
       </div>
@@ -214,6 +259,7 @@ function Column({
   tasks,
   basePath,
   workspace,
+  today,
   empty,
 }: {
   title: string;
@@ -222,6 +268,7 @@ function Column({
   tasks: TaskWithProject[];
   basePath: string;
   workspace: TaskWorkspace;
+  today: string;
   empty: string;
 }) {
   return (
@@ -236,7 +283,13 @@ function Column({
           <p className="task-column-empty">{empty}</p>
         ) : (
           tasks.map((t) => (
-            <TaskCard key={t.id} task={t} basePath={basePath} workspace={workspace} />
+            <TaskCard
+              key={t.id}
+              task={t}
+              basePath={basePath}
+              workspace={workspace}
+              today={today}
+            />
           ))
         )}
       </div>
@@ -391,6 +444,7 @@ export function TasksView({
               tasks={overdue}
               basePath={basePath}
               workspace={workspace}
+              today={today}
               empty="Nothing is late."
             />
             <Column
@@ -400,6 +454,7 @@ export function TasksView({
               tasks={week}
               basePath={basePath}
               workspace={workspace}
+              today={today}
               empty="Nothing due in the next seven days."
             />
             <Column
@@ -409,6 +464,7 @@ export function TasksView({
               tasks={later}
               basePath={basePath}
               workspace={workspace}
+              today={today}
               empty="Nothing parked."
             />
           </div>

@@ -3360,3 +3360,89 @@ body > * { min-width: 0; }
 
 /* The drawer's close button lives over the brand row, so the brand keeps clear of it. */
 .zv-drawer .zv-brand { padding-right: 60px; }
+
+/* ==================================================== Tasks: the three columns
+   They were four grey rectangles with a machine-readable date. Nothing on a card
+   said which column it was in, how late it was, or which of them to read first.
+   ========================================================================== */
+
+/* An empty column is short. The grid was stretching it to match its neighbour, so
+   "Nothing parked." floated at the top of a tall grey void. */
+.task-board { align-items: start; }
+
+.task-card {
+  position: relative;
+  padding-left: 15px;
+}
+
+/* The rail: the column's tone, running down the card that belongs to it. */
+.task-card-rail {
+  position: absolute;
+  top: 9px;
+  bottom: 9px;
+  left: 0;
+  width: 2.5px;
+  border-radius: 0 3px 3px 0;
+  background: var(--color-faint);
+  opacity: 0.5;
+  transition: opacity 260ms ease, box-shadow 300ms ease;
+}
+
+.task-column-late .task-card-rail {
+  background: var(--color-danger);
+  opacity: 0.8;
+}
+
+.task-column-week .task-card-rail {
+  background: var(--color-active);
+  opacity: 0.65;
+}
+
+.task-card:hover .task-card-rail {
+  opacity: 1;
+  box-shadow: 0 0 10px -1px currentColor;
+}
+
+.task-column-late .task-card:hover { border-color: rgba(222, 107, 94, 0.34); }
+.task-column-week .task-card:hover { border-color: rgba(230, 180, 87, 0.32); }
+
+/*
+  The phrase leads and the date follows. "19 days late" is the fact; "2026-08-06" is
+  the footnote, and it only matters when the answer is "which Saturday".
+*/
+.task-when {
+  color: var(--color-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.task-when-late { color: var(--color-danger); }
+
+.task-card-meta {
+  flex-wrap: wrap;
+  gap: 4px 8px;
+}
+
+.task-card-date {
+  color: var(--color-faint);
+  font-size: 10px;
+  opacity: 0.75;
+}
+
+/* Late is the column you are meant to clear, so it carries a little more weight. */
+.task-column-late {
+  background:
+    linear-gradient(180deg, rgba(222, 107, 94, 0.045), transparent 38%),
+    var(--color-surface);
+}
+
+.task-column-week {
+  background:
+    linear-gradient(180deg, rgba(230, 180, 87, 0.035), transparent 38%),
+    var(--color-surface);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .task-card-rail { transition: none; }
+}
