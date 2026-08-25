@@ -8,6 +8,7 @@ import { Panel } from "@/components/ui/Panel";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Badge } from "@/components/ui/Badge";
 import { buttonClasses } from "@/components/ui/Button";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { scoreBadge } from "@/lib/status";
 import { formatRelativeTime } from "@/lib/format";
 import type { SeoCheckWithProject } from "@/lib/types";
@@ -37,15 +38,25 @@ export function SeoView({
 
   return (
     <div className="mx-auto max-w-300">
-      <div className="mb-4 flex items-center justify-between">
-        <h1 className="font-display text-[22px] font-extrabold tracking-[-0.5px] text-ink">
-          SEO / GEO
-        </h1>
-        <Link href="/seo?new=1" className={buttonClasses("primary")}>
-          <Plus className="h-4 w-4" />
-          New check
-        </Link>
-      </div>
+      <PageHeader
+        kicker="What the crawlers see"
+        title="SEO / GEO"
+        lede="Paste a URL and the server reads the markup search engines and AI answers rely on."
+        stats={[
+          { label: "Checks", value: String(checks.length) },
+          {
+            label: "Last score",
+            value: checks.length > 0 ? String(checks[0].score ?? 0) : "",
+            tone: "gold",
+          },
+        ]}
+        actions={
+          <Link href="/seo?new=1" className={buttonClasses("primary", "zv-turn")}>
+            <Plus className="h-4 w-4" />
+            New check
+          </Link>
+        }
+      />
 
       <Panel>
         {checks.length === 0 ? (
@@ -84,11 +95,12 @@ export function SeoView({
                   return (
                     <tr
                       key={c.id}
-                      className="transition-colors hover:bg-white/2"
+                      className="zv-row"
                     >
                       <td className="border-b border-line-soft px-4 py-3 font-semibold text-ink">
                         <Link
                           href={`/seo/${c.id}`}
+                          transitionTypes={["zv-forward"]}
                           className="hover:text-gold-hi"
                         >
                           {domainOf(c.url)}

@@ -1,4 +1,4 @@
-/* Store the Agency OS connection ({url, anonKey, token}) in chrome.storage.sync. */
+/* Store the Zevern connection ({url, anonKey, token}) in chrome.storage.sync. */
 
 const cfgEl = document.getElementById("cfg");
 const statusEl = document.getElementById("status");

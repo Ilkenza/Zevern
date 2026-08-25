@@ -2,7 +2,7 @@ import { AuthForm } from "./AuthForm";
 
 export default function LoginPage() {
   return (
-    <div className="w-full">
+    <div className="zv-stagger w-full">
       <div className="mb-6 text-center">
         <div className="mono text-[11px] uppercase tracking-[0.14em] text-gold/85">
           {"// access"}

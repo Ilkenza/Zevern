@@ -1,7 +1,8 @@
 @import "tailwindcss";
+@import "./motion.css";
 
 /*
-  Zevern — design tokens (source: agency-os-styleguide-dark.html)
+  Zevern — design tokens (source: docs/styleguide-dark.html)
   Dark palette: warm gold accent on cool graphite. Border-first, minimal shadow.
   Tailwind v4: tokens declared in @theme generate utilities
   (e.g. --color-gold -> bg-gold/text-gold/border-gold, --radius-card -> rounded-card).
@@ -122,30 +123,70 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-/* Light slide-over transitions (subtle, per "no heavy animations") */
+/*
+  The slide-over.
+
+  It used to travel 24px in 200ms from half-opacity, which reads as a panel that was
+  already there and blinked. It now comes the whole way in from the edge and the page
+  behind it goes soft — the panel is a layer over the app, and blurring the ground is
+  what says so without dimming it into unreadability.
+
+  The panel's own contents follow it in rather than riding along, so the form is
+  legible a beat after the panel has stopped rather than sliding while being read.
+*/
 @keyframes ag-overlay-in {
   from {
     opacity: 0;
+    backdrop-filter: blur(0px);
   }
   to {
     opacity: 1;
+    backdrop-filter: blur(3px);
   }
 }
+
 @keyframes ag-panel-in {
   from {
-    transform: translateX(24px);
-    opacity: 0.5;
+    transform: translate3d(100%, 0, 0);
   }
   to {
-    transform: translateX(0);
-    opacity: 1;
+    transform: none;
   }
 }
-.ag-overlay-in {
-  animation: ag-overlay-in 0.15s ease-out;
+
+@keyframes ag-panel-body-in {
+  from {
+    opacity: 0;
+    transform: translate3d(10px, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
+
+.ag-overlay-in {
+  animation: ag-overlay-in 240ms ease-out both;
+}
+
 .ag-panel-in {
-  animation: ag-panel-in 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+  animation: ag-panel-in 380ms var(--ease-premium) both;
+  box-shadow: -32px 0 60px -24px rgba(0, 0, 0, 0.75);
+}
+
+.ag-panel-body-in {
+  animation: ag-panel-body-in 420ms var(--ease-premium) 140ms both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ag-overlay-in,
+  .ag-panel-in,
+  .ag-panel-body-in {
+    animation: none !important;
+    opacity: 1;
+    transform: none;
+    backdrop-filter: none;
+  }
 }
 
 /* Premium money pages — calm depth, restrained gold and purposeful motion. */
@@ -188,7 +229,7 @@ body {
   min-height: 116px;
   padding: 8px 0 22px;
   border-bottom: 1px solid var(--color-line);
-  animation: money-head-in 640ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: money-head-in 640ms var(--ease-premium) both;
 }
 
 .money-page-head::after {
@@ -217,7 +258,7 @@ body {
     linear-gradient(145deg, rgba(255, 255, 255, 0.025), transparent 45%),
     var(--color-surface);
   box-shadow: 0 22px 60px rgba(0, 0, 0, 0.16);
-  animation: money-card-in 620ms cubic-bezier(0.22, 1, 0.36, 1) 90ms both;
+  animation: money-card-in 620ms var(--ease-premium) 90ms both;
 }
 
 .money-summary-panel::after {
@@ -227,7 +268,7 @@ body {
   border-radius: inherit;
   background: linear-gradient(115deg, transparent 20%, rgba(255, 255, 255, 0.035) 48%, transparent 72%);
   transform: translateX(-105%);
-  transition: transform 900ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition: transform 900ms var(--ease-premium);
   pointer-events: none;
 }
 
@@ -235,11 +276,11 @@ body {
 
 .money-card-premium {
   transition:
-    transform 420ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 420ms var(--ease-premium),
     border-color 320ms ease,
     box-shadow 420ms ease,
     background-color 320ms ease;
-  animation: money-card-in 650ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: money-card-in 650ms var(--ease-premium) both;
 }
 
 .money-card-grid > :nth-child(1) { animation-delay: 120ms; }
@@ -270,7 +311,7 @@ body {
 .money-progress-fill,
 .money-progress-segment {
   transform-origin: left center;
-  animation: money-progress-in 900ms cubic-bezier(0.22, 1, 0.36, 1) 280ms both;
+  animation: money-progress-in 900ms var(--ease-premium) 280ms both;
 }
 
 .money-progress-segment:nth-child(2) { animation-delay: 360ms; }
@@ -282,7 +323,7 @@ body {
   overflow: hidden;
   transform: translateZ(0);
   transition:
-    transform 320ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 320ms var(--ease-premium),
     box-shadow 320ms ease,
     background-color 220ms ease;
 }
@@ -307,7 +348,7 @@ body {
 .money-premium-button:hover::after {
   opacity: 1;
   transform: skewX(-18deg) translateX(260px);
-  transition: transform 720ms cubic-bezier(0.22, 1, 0.36, 1), opacity 140ms ease;
+  transition: transform 720ms var(--ease-premium), opacity 140ms ease;
 }
 
 /* ------------------------------------------------------- Money: month switcher */
@@ -330,7 +371,7 @@ body {
   color: var(--color-muted);
   font-size: 12px;
   font-weight: 600;
-  transition: background-color 200ms ease, color 200ms ease, transform 260ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition: background-color 200ms ease, color 200ms ease, transform 260ms var(--ease-premium);
 }
 
 .money-month-arrow:last-of-type { padding: 5px 7px 5px 11px; }
@@ -356,7 +397,7 @@ body {
   font-size: 11.5px;
   font-weight: 700;
   white-space: nowrap;
-  transition: background-color 220ms ease, transform 260ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition: background-color 220ms ease, transform 260ms var(--ease-premium);
 }
 
 .money-month-back:hover {
@@ -381,7 +422,7 @@ body {
     linear-gradient(145deg, rgba(255, 255, 255, 0.025), transparent 46%),
     var(--color-surface);
   box-shadow: 0 22px 60px rgba(0, 0, 0, 0.18);
-  animation: money-card-in 640ms cubic-bezier(0.22, 1, 0.36, 1) 60ms both;
+  animation: money-card-in 640ms var(--ease-premium) 60ms both;
 }
 
 .onhand-empty { align-items: center; }
@@ -400,7 +441,7 @@ body {
   font-weight: 700;
   letter-spacing: -1.2px;
   line-height: 1.1;
-  animation: money-head-in 720ms cubic-bezier(0.22, 1, 0.36, 1) 180ms both;
+  animation: money-head-in 720ms var(--ease-premium) 180ms both;
 }
 
 .onhand-caption {
@@ -461,8 +502,8 @@ body {
   border: 1px solid var(--color-line);
   border-radius: var(--radius-ctrl);
   background: rgba(255, 255, 255, 0.022);
-  animation: money-card-in 560ms cubic-bezier(0.22, 1, 0.36, 1) both;
-  transition: border-color 240ms ease, background-color 240ms ease, transform 300ms cubic-bezier(0.22, 1, 0.36, 1);
+  animation: money-card-in 560ms var(--ease-premium) both;
+  transition: border-color 240ms ease, background-color 240ms ease, transform 300ms var(--ease-premium);
 }
 
 .onhand-accounts > :nth-child(1) { animation-delay: 200ms; }
@@ -512,7 +553,7 @@ body {
     color 200ms ease,
     border-color 200ms ease,
     background-color 200ms ease,
-    transform 260ms cubic-bezier(0.22, 1, 0.36, 1);
+    transform 260ms var(--ease-premium);
 }
 
 .money-chip:hover { transform: translateY(-1px); border-color: rgba(217, 164, 65, 0.3); }
@@ -534,7 +575,7 @@ body {
 }
 
 .money-ledger .money-row {
-  animation: money-row-in 460ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: money-row-in 460ms var(--ease-premium) both;
   transition: background-color 200ms ease;
 }
 
@@ -554,7 +595,7 @@ body {
   shadow would come out the wrong colour.
 */
 .money-row-spine {
-  transition: transform 300ms cubic-bezier(0.22, 1, 0.36, 1), filter 300ms ease;
+  transition: transform 300ms var(--ease-premium), filter 300ms ease;
 }
 
 .money-row:hover .money-row-spine {
@@ -593,8 +634,8 @@ body {
 .budget-row-premium {
   position: relative;
   opacity: 0;
-  animation: money-card-in 560ms cubic-bezier(0.22, 1, 0.36, 1) both;
-  transition: background-color 260ms ease, padding-left 360ms cubic-bezier(0.22, 1, 0.36, 1);
+  animation: money-card-in 560ms var(--ease-premium) both;
+  transition: background-color 260ms ease, padding-left 360ms var(--ease-premium);
 }
 
 .budget-row-premium::before {
@@ -605,7 +646,7 @@ body {
   background: var(--color-gold);
   transform: scaleY(0);
   transform-origin: bottom;
-  transition: transform 360ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition: transform 360ms var(--ease-premium);
 }
 
 .budget-row-premium:hover {
@@ -638,7 +679,7 @@ body {
   font-weight: 700;
   letter-spacing: -1px;
   line-height: 1.05;
-  animation: money-head-in 700ms cubic-bezier(0.22, 1, 0.36, 1) 160ms both;
+  animation: money-head-in 700ms var(--ease-premium) 160ms both;
 }
 
 .budget-verdict-main { min-width: 0; flex: 1 1 22rem; }
@@ -694,7 +735,7 @@ body {
   background: var(--color-ink);
   box-shadow: 0 0 0 2px var(--color-surface);
   opacity: 0.75;
-  animation: budget-pace-in 760ms cubic-bezier(0.22, 1, 0.36, 1) 520ms both;
+  animation: budget-pace-in 760ms var(--ease-premium) 520ms both;
 }
 
 .budget-pace-sm { top: -2px; bottom: -2px; opacity: 0.5; }
@@ -750,7 +791,7 @@ body {
   height: 10px;
   flex: none;
   border-radius: 50%;
-  transition: transform 320ms cubic-bezier(0.22, 1, 0.36, 1), filter 320ms ease;
+  transition: transform 320ms var(--ease-premium), filter 320ms ease;
 }
 
 .budget-row:hover .budget-dot { transform: scale(1.35); filter: brightness(1.25); }
@@ -829,7 +870,7 @@ body {
   color: var(--color-gold-hi);
   font-size: 11px;
   font-weight: 600;
-  transition: background-color 220ms ease, border-color 220ms ease, transform 260ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition: background-color 220ms ease, border-color 220ms ease, transform 260ms var(--ease-premium);
 }
 
 .budget-suggest:hover {
@@ -854,7 +895,7 @@ body {
   background: rgba(26, 29, 36, 0.92);
   box-shadow: 0 18px 44px rgba(0, 0, 0, 0.4);
   backdrop-filter: blur(10px);
-  animation: budget-savebar-in 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: budget-savebar-in 420ms var(--ease-premium) both;
 }
 
 @keyframes budget-savebar-in {
@@ -962,7 +1003,7 @@ body {
   min-height: 172px;
   padding: 20px 0 30px;
   border-bottom: 1px solid var(--color-line);
-  animation: money-head-in 680ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: money-head-in 680ms var(--ease-premium) both;
 }
 
 .overview-hero::after {
@@ -974,7 +1015,7 @@ body {
   height: 1px;
   background: linear-gradient(90deg, var(--color-gold), rgba(217, 164, 65, 0));
   transform-origin: left;
-  animation: overview-line-in 900ms cubic-bezier(0.22, 1, 0.36, 1) 240ms both;
+  animation: overview-line-in 900ms var(--ease-premium) 240ms both;
 }
 
 .overview-eyebrow {
@@ -1004,7 +1045,7 @@ body {
 }
 
 .overview-onboarding {
-  animation: money-card-in 620ms cubic-bezier(0.22, 1, 0.36, 1) 90ms both;
+  animation: money-card-in 620ms var(--ease-premium) 90ms both;
 }
 
 .overview-onboarding > section {
@@ -1025,9 +1066,9 @@ body {
     linear-gradient(145deg, rgba(255, 255, 255, 0.035), transparent 54%),
     var(--color-surface);
   box-shadow: 0 18px 45px rgba(0, 0, 0, 0.12);
-  animation: money-card-in 620ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: money-card-in 620ms var(--ease-premium) both;
   transition:
-    transform 420ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 420ms var(--ease-premium),
     border-color 320ms ease,
     box-shadow 420ms ease;
 }
@@ -1045,7 +1086,7 @@ body {
   width: 46px;
   height: 1px;
   background: var(--color-gold);
-  transition: width 500ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition: width 500ms var(--ease-premium);
 }
 
 .overview-kpi::after {
@@ -1058,7 +1099,7 @@ body {
   border: 1px solid rgba(217, 164, 65, 0.07);
   border-radius: 50%;
   box-shadow: 0 0 0 18px rgba(217, 164, 65, 0.018);
-  transition: transform 600ms cubic-bezier(0.22, 1, 0.36, 1), border-color 320ms ease;
+  transition: transform 600ms var(--ease-premium), border-color 320ms ease;
   pointer-events: none;
 }
 
@@ -1078,8 +1119,8 @@ body {
     linear-gradient(145deg, rgba(255, 255, 255, 0.018), transparent 42%),
     var(--color-surface);
   box-shadow: 0 20px 55px rgba(0, 0, 0, 0.13);
-  animation: money-card-in 650ms cubic-bezier(0.22, 1, 0.36, 1) both;
-  transition: border-color 320ms ease, box-shadow 420ms ease, transform 420ms cubic-bezier(0.22, 1, 0.36, 1);
+  animation: money-card-in 650ms var(--ease-premium) both;
+  transition: border-color 320ms ease, box-shadow 420ms ease, transform 420ms var(--ease-premium);
 }
 
 .overview-panel:hover {
@@ -1106,8 +1147,8 @@ body {
 
 .overview-list-row {
   opacity: 0;
-  animation: overview-row-in 520ms cubic-bezier(0.22, 1, 0.36, 1) 220ms both;
-  transition: background-color 240ms ease, padding-left 360ms cubic-bezier(0.22, 1, 0.36, 1);
+  animation: overview-row-in 520ms var(--ease-premium) 220ms both;
+  transition: background-color 240ms ease, padding-left 360ms var(--ease-premium);
 }
 
 .overview-list-row:hover {
@@ -1130,7 +1171,7 @@ body {
 
 .overview-progress-fill {
   transform-origin: left;
-  animation: money-progress-in 900ms cubic-bezier(0.22, 1, 0.36, 1) 320ms both;
+  animation: money-progress-in 900ms var(--ease-premium) 320ms both;
 }
 
 /* The day line — a date to anchor it, then the state of the day in one sentence. */
@@ -1141,7 +1182,7 @@ body {
   gap: 8px 11px;
   max-width: 40rem;
   margin-top: 11px;
-  animation: overview-row-in 620ms cubic-bezier(0.22, 1, 0.36, 1) 320ms both;
+  animation: overview-row-in 620ms var(--ease-premium) 320ms both;
 }
 
 .overview-date {
@@ -1183,7 +1224,7 @@ body {
   background:
     linear-gradient(135deg, rgba(222, 107, 94, 0.06), transparent 52%),
     var(--color-surface);
-  animation: money-card-in 620ms cubic-bezier(0.22, 1, 0.36, 1) 120ms both;
+  animation: money-card-in 620ms var(--ease-premium) 120ms both;
 }
 
 .attention-title {
@@ -1225,7 +1266,7 @@ body {
   font-weight: 600;
   white-space: nowrap;
   transition:
-    transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 220ms var(--ease-premium),
     background-color 220ms,
     border-color 220ms;
 }
@@ -1245,7 +1286,7 @@ body {
 .attention-arrow {
   opacity: 0.35;
   transform: translateX(-2px);
-  transition: opacity 220ms, transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition: opacity 220ms, transform 220ms var(--ease-premium);
 }
 
 .attention-chip:hover .attention-arrow { opacity: 0.9; transform: translateX(0); }
@@ -1275,7 +1316,7 @@ body {
 .kpi-spark {
   height: 32px;
   margin-top: 12px;
-  animation: spark-in 700ms cubic-bezier(0.22, 1, 0.36, 1) 430ms both;
+  animation: spark-in 700ms var(--ease-premium) 430ms both;
 }
 
 .spark { display: block; width: 100%; height: 32px; overflow: visible; }
@@ -1348,7 +1389,7 @@ body {
   the verdict its own badge is wearing.
 */
 .money-chips {
-  animation: money-head-in 560ms cubic-bezier(0.22, 1, 0.36, 1) 200ms both;
+  animation: money-head-in 560ms var(--ease-premium) 200ms both;
 }
 
 .budget-panel-premium .budget-rows { position: relative; }
@@ -1373,7 +1414,7 @@ body {
     linear-gradient(160deg, rgba(255, 255, 255, 0.022), transparent 44%),
     var(--color-surface);
   box-shadow: 0 22px 60px rgba(0, 0, 0, 0.18);
-  animation: money-card-in 660ms cubic-bezier(0.22, 1, 0.36, 1) 80ms both;
+  animation: money-card-in 660ms var(--ease-premium) 80ms both;
 }
 
 .forecast-curve-head {
@@ -1466,12 +1507,12 @@ body {
   margin-top: 6px;
   color: var(--color-muted);
   font-size: 13px;
-  animation: money-head-in 620ms cubic-bezier(0.22, 1, 0.36, 1) 170ms both;
+  animation: money-head-in 620ms var(--ease-premium) 170ms both;
 }
 
 .upcoming-tabs {
   position: relative;
-  animation: money-head-in 620ms cubic-bezier(0.22, 1, 0.36, 1) 240ms both;
+  animation: money-head-in 620ms var(--ease-premium) 240ms both;
 }
 
 .upcoming-tab {
@@ -1479,7 +1520,7 @@ body {
   transition:
     color 200ms ease,
     background-color 220ms ease,
-    transform 280ms cubic-bezier(0.22, 1, 0.36, 1);
+    transform 280ms var(--ease-premium);
 }
 
 .upcoming-tab:hover { transform: translateY(-1px); }
@@ -1495,7 +1536,7 @@ body {
   height: 1.5px;
   border-radius: 2px;
   background: linear-gradient(90deg, transparent, var(--color-gold), transparent);
-  animation: money-progress-in 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: money-progress-in 520ms var(--ease-premium) both;
   transform-origin: center;
 }
 
@@ -1505,7 +1546,7 @@ body {
   rather than to a row class that does not exist in all of them.
 */
 .upcoming-panel > div > * {
-  animation: task-in 480ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: task-in 480ms var(--ease-premium) both;
 }
 
 .upcoming-panel > div > :nth-child(1) { animation-delay: 170ms; }
@@ -1522,7 +1563,7 @@ body {
   color: var(--color-muted);
   font-size: 13px;
   font-weight: 600;
-  animation: money-head-in 620ms cubic-bezier(0.22, 1, 0.36, 1) 180ms both;
+  animation: money-head-in 620ms var(--ease-premium) 180ms both;
 }
 
 .task-summary-late { color: var(--color-danger); }
@@ -1539,7 +1580,7 @@ body {
     linear-gradient(150deg, rgba(255, 255, 255, 0.025), transparent 46%),
     var(--color-surface);
   box-shadow: 0 22px 60px rgba(0, 0, 0, 0.2);
-  animation: money-card-in 640ms cubic-bezier(0.22, 1, 0.36, 1) 70ms both;
+  animation: money-card-in 640ms var(--ease-premium) 70ms both;
 }
 
 .task-focus-head {
@@ -1599,7 +1640,7 @@ body {
   opacity: 0;
   transform: translateX(6px);
   pointer-events: none;
-  transition: opacity 240ms ease, transform 300ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition: opacity 240ms ease, transform 300ms var(--ease-premium);
 }
 
 .task-quickadd:focus-within .task-quickadd-go,
@@ -1621,8 +1662,8 @@ body {
   gap: 12px;
   padding: 10px 16px;
   border-bottom: 1px solid var(--color-line-soft);
-  animation: task-in 460ms cubic-bezier(0.22, 1, 0.36, 1) both;
-  transition: background-color 200ms ease, padding-left 320ms cubic-bezier(0.22, 1, 0.36, 1);
+  animation: task-in 460ms var(--ease-premium) both;
+  transition: background-color 200ms ease, padding-left 320ms var(--ease-premium);
 }
 
 .task-row:last-child { border-bottom: 0; }
@@ -1658,7 +1699,7 @@ body {
   border: 1px solid var(--color-line);
   border-radius: var(--radius-card);
   background: var(--color-surface);
-  animation: money-card-in 620ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: money-card-in 620ms var(--ease-premium) both;
   transition: border-color 300ms ease;
 }
 
@@ -1716,9 +1757,9 @@ body {
   border: 1px solid var(--color-line);
   border-radius: var(--radius-ctrl);
   background: rgba(255, 255, 255, 0.022);
-  animation: task-in 440ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: task-in 440ms var(--ease-premium) both;
   transition:
-    transform 300ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 300ms var(--ease-premium),
     border-color 240ms ease,
     background-color 240ms ease,
     box-shadow 300ms ease;
@@ -1843,7 +1884,7 @@ body {
   border-right: 1.5px solid currentColor;
   border-bottom: 1.5px solid currentColor;
   transform: rotate(45deg) translate(-2px, -2px);
-  transition: transform 300ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition: transform 300ms var(--ease-premium);
 }
 
 .task-done[open] .task-done-summary i { transform: rotate(-135deg) translate(-1px, -1px); }
@@ -1924,7 +1965,7 @@ body {
     radial-gradient(circle at 92% 0%, rgba(217, 164, 65, 0.16), transparent 35%),
     var(--color-active-bg);
   box-shadow: 0 20px 54px rgba(0, 0, 0, 0.14);
-  animation: money-card-in 620ms cubic-bezier(0.22, 1, 0.36, 1) 100ms both;
+  animation: money-card-in 620ms var(--ease-premium) 100ms both;
 }
 
 .setup-seed-card::before {
@@ -1933,7 +1974,7 @@ body {
   inset: 0;
   background: linear-gradient(110deg, transparent 25%, rgba(255, 255, 255, 0.045), transparent 68%);
   transform: translateX(-110%);
-  transition: transform 950ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition: transform 950ms var(--ease-premium);
   pointer-events: none;
 }
 
@@ -1946,7 +1987,7 @@ body {
     linear-gradient(145deg, rgba(255, 255, 255, 0.022), transparent 42%),
     var(--color-surface);
   box-shadow: 0 22px 60px rgba(0, 0, 0, 0.14);
-  animation: money-card-in 650ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: money-card-in 650ms var(--ease-premium) both;
   transition: border-color 340ms ease, box-shadow 420ms ease;
 }
 
@@ -1966,7 +2007,7 @@ body {
 
 .setup-row-premium {
   position: relative;
-  transition: background-color 260ms ease, padding-left 380ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition: background-color 260ms ease, padding-left 380ms var(--ease-premium);
 }
 
 .setup-row-premium::before {
@@ -1977,7 +2018,7 @@ body {
   background: linear-gradient(180deg, var(--color-gold-hi), var(--color-gold));
   transform: scaleY(0);
   transform-origin: bottom;
-  transition: transform 380ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition: transform 380ms var(--ease-premium);
 }
 
 .setup-row-premium:hover {
@@ -2010,7 +2051,7 @@ body {
   background:
     linear-gradient(145deg, rgba(255, 255, 255, 0.035), transparent 56%),
     var(--color-surface-2);
-  transition: transform 380ms cubic-bezier(0.22, 1, 0.36, 1), border-color 280ms ease, box-shadow 380ms ease;
+  transition: transform 380ms var(--ease-premium), border-color 280ms ease, box-shadow 380ms ease;
 }
 
 .setup-rate-tile::after {
@@ -2023,7 +2064,7 @@ body {
   background: var(--color-gold);
   transform: scaleX(0);
   transform-origin: right;
-  transition: transform 460ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition: transform 460ms var(--ease-premium);
 }
 
 .setup-rate-tile:hover {
@@ -2151,7 +2192,7 @@ body {
 
 .goal-figure {
   position: relative;
-  transition: background-color 260ms ease, transform 380ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition: background-color 260ms ease, transform 380ms var(--ease-premium);
 }
 
 .goal-figure::after {
@@ -2164,7 +2205,7 @@ body {
   background: linear-gradient(90deg, var(--color-gold), transparent);
   transform: scaleX(0);
   transform-origin: left;
-  transition: transform 460ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition: transform 460ms var(--ease-premium);
 }
 
 .goal-figure:hover { background: var(--color-surface-2); transform: translateY(-1px); }
@@ -2186,7 +2227,7 @@ body {
   border-radius: inherit;
   background: linear-gradient(118deg, transparent 24%, rgba(255, 255, 255, 0.04) 48%, transparent 72%);
   transform: translateX(-112%);
-  transition: transform 950ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition: transform 950ms var(--ease-premium);
   pointer-events: none;
 }
 
@@ -2208,8 +2249,8 @@ body {
   border-radius: 50%;
   background: radial-gradient(circle, color-mix(in srgb, var(--goal-accent) 9%, transparent), transparent 67%);
   box-shadow: 0 0 0 24px color-mix(in srgb, var(--goal-accent) 2.5%, transparent);
-  animation: goal-orb-in 760ms cubic-bezier(0.22, 1, 0.36, 1) 300ms both;
-  transition: transform 700ms cubic-bezier(0.22, 1, 0.36, 1), border-color 360ms ease;
+  animation: goal-orb-in 760ms var(--ease-premium) 300ms both;
+  transition: transform 700ms var(--ease-premium), border-color 360ms ease;
   pointer-events: none;
 }
 
@@ -2221,13 +2262,13 @@ body {
 .goal-accent-rail {
   z-index: 4;
   transform-origin: top;
-  animation: goal-rail-in 820ms cubic-bezier(0.22, 1, 0.36, 1) 140ms both;
+  animation: goal-rail-in 820ms var(--ease-premium) 140ms both;
   box-shadow: 0 0 18px color-mix(in srgb, var(--goal-accent) 26%, transparent);
 }
 
 .goal-saved-value {
   margin-top: 3px;
-  transition: color 260ms ease, transform 420ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition: color 260ms ease, transform 420ms var(--ease-premium);
 }
 
 .goal-card-premium:hover .goal-saved-value {
@@ -2284,7 +2325,7 @@ body {
   inset: 0;
   background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.18), transparent);
   transform: translateX(-100%);
-  transition: transform 850ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition: transform 850ms var(--ease-premium);
   pointer-events: none;
 }
 
@@ -2306,7 +2347,7 @@ body {
 
 .goal-money-toggle button {
   min-height: 24px;
-  transition: color 220ms ease, background-color 220ms ease, box-shadow 280ms ease, transform 280ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition: color 220ms ease, background-color 220ms ease, box-shadow 280ms ease, transform 280ms var(--ease-premium);
 }
 
 .goal-money-toggle button[aria-pressed="true"] {
@@ -2325,7 +2366,7 @@ body {
 
 .goal-history-content {
   transform-origin: top;
-  animation: goal-history-in 340ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: goal-history-in 340ms var(--ease-premium) both;
 }
 
 @keyframes goal-history-in {
@@ -2335,7 +2376,7 @@ body {
 
 .goal-closed-row {
   position: relative;
-  transition: background-color 260ms ease, padding-left 360ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition: background-color 260ms ease, padding-left 360ms var(--ease-premium);
 }
 
 .goal-closed-row::before {
@@ -2346,7 +2387,7 @@ body {
   background: var(--color-ok);
   transform: scaleY(0);
   transform-origin: bottom;
-  transition: transform 360ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition: transform 360ms var(--ease-premium);
 }
 
 .goal-closed-row:hover { background: rgba(255, 255, 255, 0.016); }
@@ -2358,7 +2399,7 @@ body {
     var(--color-ok-bg);
   animation-name: money-card-in, goal-reached-glow;
   animation-duration: 650ms, 1200ms;
-  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1), ease-out;
+  animation-timing-function: var(--ease-premium), ease-out;
   animation-fill-mode: both;
 }
 
@@ -2369,8 +2410,8 @@ body {
     linear-gradient(145deg, rgba(255, 255, 255, 0.018), transparent 48%),
     var(--color-surface);
   box-shadow: 0 18px 48px rgba(0, 0, 0, 0.11);
-  animation: money-card-in 620ms cubic-bezier(0.22, 1, 0.36, 1) 240ms both;
-  transition: border-color 300ms ease, box-shadow 360ms ease, transform 360ms cubic-bezier(0.22, 1, 0.36, 1);
+  animation: money-card-in 620ms var(--ease-premium) 240ms both;
+  transition: border-color 300ms ease, box-shadow 360ms ease, transform 360ms var(--ease-premium);
 }
 
 .goal-secondary-panel:hover,
@@ -2464,7 +2505,7 @@ body {
   }
 }
 .zv-row-in {
-  animation: zv-row-in 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+  animation: zv-row-in 0.18s var(--ease-premium);
 }
 
 /* A figure that changed underneath the reader — the NBS rates landing. */
@@ -2479,7 +2520,7 @@ body {
   }
 }
 .zv-figure-in {
-  animation: zv-figure-in 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+  animation: zv-figure-in 0.2s var(--ease-premium);
 }
 
 /*
@@ -2500,7 +2541,7 @@ body {
 }
 .zv-picker :where(button[aria-expanded="true"] + div) {
   transform-origin: top right;
-  animation: zv-pop-in 0.14s cubic-bezier(0.22, 1, 0.36, 1);
+  animation: zv-pop-in 0.14s var(--ease-premium);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -2527,7 +2568,7 @@ body {
   border: 1px solid var(--color-line);
   border-radius: var(--radius-card);
   background: var(--color-surface);
-  animation: money-card-in 620ms cubic-bezier(0.22, 1, 0.36, 1) 130ms both;
+  animation: money-card-in 620ms var(--ease-premium) 130ms both;
 }
 
 .breakdown-head {
@@ -2548,7 +2589,7 @@ body {
   padding: 6px 8px;
   margin: 0 -8px;
   border-radius: var(--radius-ctrl);
-  animation: task-in 460ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: task-in 460ms var(--ease-premium) both;
   transition: background-color 200ms ease;
 }
 
@@ -2575,7 +2616,7 @@ a.breakdown-row-on:hover { background: rgba(217, 164, 65, 0.2); }
   height: 8px;
   flex: none;
   border-radius: 3px;
-  transition: transform 280ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition: transform 280ms var(--ease-premium);
 }
 
 a.breakdown-row:hover .breakdown-name i { transform: scale(1.35); }

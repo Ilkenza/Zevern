@@ -48,6 +48,8 @@ export default async function LeadDetailPage({
       <Link
         href="/leads"
         className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-muted hover:text-ink"
+      
+        transitionTypes={["zv-back"]}
       >
         <ArrowLeft className="h-4 w-4" />
         Leads

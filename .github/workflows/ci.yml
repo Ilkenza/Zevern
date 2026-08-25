@@ -1,0 +1,52 @@
+name: CI
+
+# Every push to main and every pull request. The four checks below already pass
+# locally; the point of running them here is that they keep passing when nobody
+# remembers to run them.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A second push to the same branch cancels the first — there is no value in finishing
+# a run for a commit that has already been replaced.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: typecheck · lint · test · build
+    runs-on: ubuntu-latest
+
+    env:
+      # The build needs these to exist, not to be real: `next build` renders the static
+      # routes, and `lib/env.ts` throws on a missing key by design. Nothing in CI ever
+      # reaches Supabase, so a placeholder is both sufficient and safer than a secret.
+      NEXT_PUBLIC_SUPABASE_URL: https://ci.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder-anon-key
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm test
+
+      # Last, because it is the slowest and the least specific: if it fails on its own
+      # the three above have already ruled out the ordinary reasons why.
+      - name: Build
+        run: npm run build

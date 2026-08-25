@@ -8,6 +8,7 @@ import { Panel } from "@/components/ui/Panel";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Badge } from "@/components/ui/Badge";
 import { buttonClasses } from "@/components/ui/Button";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { effectiveInvoiceStatus, invoiceStatusBadge } from "@/lib/status";
 import { formatMoney, formatDate } from "@/lib/format";
 import type { Invoice, InvoiceWithClient } from "@/lib/types";
@@ -34,15 +35,27 @@ export function InvoicesView({
 
   return (
     <div className="mx-auto max-w-300">
-      <div className="mb-4 flex items-center justify-between">
-        <h1 className="font-display text-[22px] font-extrabold tracking-[-0.5px] text-ink">
-          Invoices
-        </h1>
-        <Link href="/invoices?new=1" className={buttonClasses("primary")}>
-          <Plus className="h-4 w-4" />
-          New invoice
-        </Link>
-      </div>
+      <PageHeader
+        kicker="Getting paid"
+        title="Invoices"
+        lede="What has been sent, what has been settled, and what is late."
+        stats={[
+          { label: "All", value: String(invoices.length) },
+          {
+            label: "Unpaid",
+            value: String(invoices.filter((i) => i.status !== "paid").length),
+            tone: invoices.some((i) => effectiveInvoiceStatus(i) === "overdue")
+              ? "danger"
+              : "gold",
+          },
+        ]}
+        actions={
+          <Link href="/invoices?new=1" className={buttonClasses("primary", "zv-turn")}>
+            <Plus className="h-4 w-4" />
+            New invoice
+          </Link>
+        }
+      />
 
       <Panel>
         {invoices.length === 0 ? (
@@ -85,11 +98,12 @@ export function InvoicesView({
                   return (
                     <tr
                       key={inv.id}
-                      className="group transition-colors hover:bg-white/2"
+                      className="zv-row group"
                     >
                       <td className="mono border-b border-line-soft px-4 py-3 font-semibold text-ink">
                         <Link
                           href={`/invoices/${inv.id}`}
+                          transitionTypes={["zv-forward"]}
                           className="hover:text-gold-hi"
                         >
                           {inv.number ?? "—"}

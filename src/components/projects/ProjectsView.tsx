@@ -8,6 +8,7 @@ import { Panel } from "@/components/ui/Panel";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Badge } from "@/components/ui/Badge";
 import { buttonClasses } from "@/components/ui/Button";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { projectStatusBadge } from "@/lib/status";
 import { formatMoney, formatDate } from "@/lib/format";
 import type { Project, ProjectWithClient } from "@/lib/types";
@@ -32,15 +33,25 @@ export function ProjectsView({
 
   return (
     <div className="mx-auto max-w-300">
-      <div className="mb-4 flex items-center justify-between">
-        <h1 className="font-display text-[22px] font-extrabold tracking-[-0.5px] text-ink">
-          Projects
-        </h1>
-        <Link href="/projects?new=1" className={buttonClasses("primary")}>
-          <Plus className="h-4 w-4" />
-          New project
-        </Link>
-      </div>
+      <PageHeader
+        kicker="The work itself"
+        title="Projects"
+        lede="What is on, what is waiting, and what is finished."
+        stats={[
+          { label: "All", value: String(projects.length) },
+          {
+            label: "Active",
+            value: String(projects.filter((p) => p.status === "active").length),
+            tone: "gold",
+          },
+        ]}
+        actions={
+          <Link href="/projects?new=1" className={buttonClasses("primary", "zv-turn")}>
+            <Plus className="h-4 w-4" />
+            New project
+          </Link>
+        }
+      />
 
       <Panel>
         {projects.length === 0 ? (
@@ -83,11 +94,12 @@ export function ProjectsView({
                   return (
                     <tr
                       key={p.id}
-                      className="group transition-colors hover:bg-white/2"
+                      className="zv-row group"
                     >
                       <td className="border-b border-line-soft px-4 py-3 font-semibold text-ink">
                         <Link
                           href={`/projects/${p.id}`}
+                          transitionTypes={["zv-forward"]}
                           className="hover:text-gold-hi"
                         >
                           {p.title}

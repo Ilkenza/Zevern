@@ -1,13 +1,13 @@
-# Agency OS — Lead Collector (Chrome extension)
+# Zevern — Lead Collector (Chrome extension)
 
 Open **one** Instagram profile, Facebook page, or Google Maps business → the extension reads the page,
-**checks whether the lead already exists** in Agency OS (✓ / ✗), lets you fill in a few fields, and
+**checks whether the lead already exists** in Zevern (✓ / ✗), lets you fill in a few fields, and
 **saves it straight to your database**. No CSV, no manual typing.
 
 ## One-time setup
 
 1. In the app: **Settings → Browser extension** → **Generate token** → **Copy config for the extension**.
-2. `chrome://extensions` → **Developer mode** → **Load unpacked** → pick this folder (`extension/agency-os-leads`).
+2. `chrome://extensions` → **Developer mode** → **Load unpacked** → pick this folder (`extension/zevern-leads`).
 3. Right-click the extension icon → **Options** → paste the config → **Save connection** (shows “Connected ✓”).
 
 The config is a JSON `{ url, anonKey, token }`. `url`/`anonKey` are public (Supabase); `token` is your
@@ -34,7 +34,7 @@ The lead appears immediately in the app under **Leads**.
 - **Selectors can break**: Instagram/Facebook/Google change their HTML. If the popup finds nothing,
   update `scrapeIgProfile` / `scrapeFbProfile` / `scrapeMapsPlace` in `popup.js`.
 - **Phone** on Maps is only read if it's shown in the panel.
-- The extension only **reads** the open page and **writes to your Agency OS** — it never posts anything
+- The extension only **reads** the open page and **writes to your Zevern** — it never posts anything
   to Instagram/Facebook/Google.
 
 ## Test

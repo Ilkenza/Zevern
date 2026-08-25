@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { supabaseAnonKey, supabaseUrl } from "@/lib/env";
 import { getProfile } from "@/lib/data/profile";
 import { Panel } from "@/components/ui/Panel";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { ProfileForm } from "@/components/settings/ProfileForm";
 import { BusinessForm } from "@/components/settings/BusinessForm";
 import { PasswordForm } from "@/components/settings/PasswordForm";
@@ -17,10 +18,12 @@ export default async function SettingsPage() {
   const profile = await getProfile();
 
   return (
-    <div className="mx-auto max-w-180 space-y-6">
-      <h1 className="font-display text-[22px] font-extrabold tracking-[-0.5px] text-ink">
-        Settings
-      </h1>
+    <div className="zv-stagger mx-auto max-w-180 space-y-6">
+      <PageHeader
+        kicker="Your account"
+        title="Settings"
+        lede="Who you are on an invoice, which modules you use, and the keys that let the extension in."
+      />
 
       <Panel title="Profile">
         <ProfileForm profile={profile} />

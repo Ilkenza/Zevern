@@ -8,6 +8,7 @@ import { Panel } from "@/components/ui/Panel";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Badge } from "@/components/ui/Badge";
 import { buttonClasses } from "@/components/ui/Button";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { clientTierBadge } from "@/lib/status";
 import { formatDate } from "@/lib/format";
 import type { Client } from "@/lib/types";
@@ -35,15 +36,25 @@ export function ClientsView({
 
   return (
     <div className="mx-auto max-w-300">
-      <div className="mb-4 flex items-center justify-between">
-        <h1 className="font-display text-[22px] font-extrabold tracking-[-0.5px] text-ink">
-          Clients
-        </h1>
-        <Link href="/clients?new=1" className={buttonClasses("primary")}>
-          <Plus className="h-4 w-4" />
-          New client
-        </Link>
-      </div>
+      <PageHeader
+        kicker="Who you work for"
+        title="Clients"
+        lede="Everyone you invoice, what they are worth, and how to reach them."
+        stats={[
+          { label: "Clients", value: String(clients.length) },
+          {
+            label: "With work",
+            value: String(clients.filter((c) => (c.projects?.[0]?.count ?? 0) > 0).length),
+            tone: "gold",
+          },
+        ]}
+        actions={
+          <Link href="/clients?new=1" className={buttonClasses("primary", "zv-turn")}>
+            <Plus className="h-4 w-4" />
+            New client
+          </Link>
+        }
+      />
 
       <Panel>
         {clients.length === 0 ? (
@@ -84,11 +95,12 @@ export function ClientsView({
                 {clients.map((c) => (
                   <tr
                     key={c.id}
-                    className="group transition-colors hover:bg-white/2"
+                    className="zv-row group"
                   >
                     <td className="border-b border-line-soft px-4 py-3 font-semibold text-ink">
                       <Link
                         href={`/clients/${c.id}`}
+                        transitionTypes={["zv-forward"]}
                         className="hover:text-gold-hi"
                       >
                         {c.name}

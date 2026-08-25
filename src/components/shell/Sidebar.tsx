@@ -41,8 +41,8 @@ export function Sidebar({
   return (
     <aside className="flex h-screen flex-col border-r border-line bg-sidebar lg:sticky lg:top-0">
       <div className="flex items-center gap-2 px-5 pb-3 pt-5">
-        <div className="flex h-7 w-7 items-center justify-center rounded-ctrl bg-gold text-on-gold">
-          <span className="font-display text-[15px] font-extrabold">A</span>
+        <div className="zv-mark flex h-7 w-7 items-center justify-center rounded-ctrl bg-gold text-on-gold">
+          <span className="font-display text-[15px] font-extrabold">Z</span>
         </div>
         <span className="font-display text-[17px] font-extrabold tracking-[-0.4px] text-ink">
           Zevern
@@ -60,7 +60,7 @@ export function Sidebar({
               onClick={onNavigate}
               aria-current={active ? "true" : undefined}
               className={cn(
-                "rounded-[6px] px-2 py-[7px] text-center text-[12.5px] font-bold transition-colors",
+                "zv-switch-option rounded-[6px] px-2 py-[7px] text-center text-[12.5px] font-bold",
                 active
                   ? "bg-gold text-on-gold"
                   : "text-muted hover:bg-white/4 hover:text-ink",
@@ -73,7 +73,7 @@ export function Sidebar({
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-2">
+      <nav className="zv-nav-list flex-1 space-y-0.5 overflow-y-auto px-3 py-2">
         {items.map((item) => {
           const active =
             item.href === "/" || item.href === "/private"
@@ -88,7 +88,7 @@ export function Sidebar({
               onClick={onNavigate}
               aria-current={active ? "page" : undefined}
               className={cn(
-                "flex items-center gap-3 rounded-ctrl px-3 py-2 text-[13.5px] font-semibold transition-colors",
+                "zv-nav-item flex items-center gap-3 rounded-ctrl px-3 py-2 text-[13.5px] font-semibold",
                 active
                   ? "bg-active-bg text-gold"
                   : "text-muted hover:bg-white/3 hover:text-ink",
@@ -97,7 +97,7 @@ export function Sidebar({
               <Icon className="h-4.5 w-4.5 shrink-0" strokeWidth={2} />
               <span className="flex-1 truncate">{item.label}</span>
               {typeof count === "number" && count > 0 && (
-                <span className="mono text-[11px] text-faint">{count}</span>
+                <span className="zv-nav-count mono text-[11px] text-faint">{count}</span>
               )}
             </Link>
           );
@@ -123,7 +123,7 @@ export function Sidebar({
               type="submit"
               title="Sign out"
               aria-label="Sign out"
-              className="cursor-pointer rounded-ctrl p-1.5 text-muted transition-colors hover:bg-white/[0.04] hover:text-danger"
+              className="zv-press cursor-pointer rounded-ctrl p-1.5 text-muted hover:bg-white/[0.04] hover:text-danger"
             >
               <LogOut className="h-[16px] w-[16px]" />
             </button>

@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Agency OS — Lead Collector",
+  "name": "Zevern — Lead Collector",
   "version": "2.0.0",
-  "description": "Open a profile (Instagram/Facebook) or a Google Maps business, check if the lead exists, and save it straight to Agency OS.",
+  "description": "Open a profile (Instagram/Facebook) or a Google Maps business, check if the lead exists, and save it straight to Zevern.",
   "permissions": ["activeTab", "scripting", "clipboardWrite", "storage"],
   "host_permissions": [
     "https://www.google.com/maps/*",
@@ -18,7 +18,7 @@
   ],
   "action": {
     "default_popup": "popup.html",
-    "default_title": "Agency OS — Lead Collector"
+    "default_title": "Zevern — Lead Collector"
   },
   "options_page": "options.html"
 }

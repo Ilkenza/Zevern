@@ -7,6 +7,7 @@ import { SlideOver } from "@/components/ui/SlideOver";
 import { Panel } from "@/components/ui/Panel";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { buttonClasses } from "@/components/ui/Button";
+import { PageHeader } from "@/components/ui/PageHeader";
 import type { OutreachTemplate } from "@/lib/types";
 import { CopyButton } from "./CopyButton";
 import { TemplateForm } from "./TemplateForm";
@@ -31,23 +32,26 @@ export function TemplatesView({
       <Link
         href="/leads"
         className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-muted hover:text-ink"
+      
+        transitionTypes={["zv-back"]}
       >
         <ArrowLeft className="h-4 w-4" />
         Leads
       </Link>
 
-      <div className="mb-4 mt-3 flex items-center justify-between">
-        <h1 className="font-display text-[22px] font-extrabold tracking-[-0.5px] text-ink">
-          Message templates
-        </h1>
-        <Link
-          href="/leads/templates?new=1"
-          className={buttonClasses("primary")}
-        >
-          <Plus className="h-4 w-4" />
-          New template
-        </Link>
-      </div>
+      <PageHeader
+        className="mt-3"
+        kicker="The first message"
+        title="Message templates"
+        lede="Write the approach once; the variables fill themselves in per lead."
+        stats={[{ label: "Templates", value: String(templates.length) }]}
+        actions={
+          <Link href="/leads/templates?new=1" className={buttonClasses("primary", "zv-turn")}>
+            <Plus className="h-4 w-4" />
+            New template
+          </Link>
+        }
+      />
 
       {templates.length === 0 ? (
         <Panel>

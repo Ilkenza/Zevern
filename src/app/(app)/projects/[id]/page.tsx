@@ -43,6 +43,8 @@ export default async function ProjectDetailPage({
       <Link
         href="/projects"
         className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-muted hover:text-ink"
+      
+        transitionTypes={["zv-back"]}
       >
         <ArrowLeft className="h-4 w-4" />
         Projects

@@ -3,7 +3,7 @@ import { ForgotForm } from "./ForgotForm";
 
 export default function ForgotPasswordPage() {
   return (
-    <div className="w-full">
+    <div className="zv-stagger w-full">
       <div className="mb-6 text-center">
         <div className="mono text-[11px] uppercase tracking-[0.14em] text-gold/85">
           {"// reset"}

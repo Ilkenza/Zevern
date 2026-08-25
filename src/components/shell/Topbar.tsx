@@ -34,11 +34,14 @@ export function Topbar({
     : NEW_ITEMS.filter((item) => !hidden.includes(item.moduleKey));
 
   return (
-    <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-line bg-base/80 px-5 py-3 backdrop-blur lg:px-8">
+    <header
+      style={{ viewTransitionName: "zv-topbar" }}
+      className="sticky top-0 z-30 flex items-center gap-3 border-b border-line bg-base/80 px-5 py-3 backdrop-blur lg:px-8"
+    >
       <button
         onClick={onMenu}
         aria-label="Open menu"
-        className="rounded-ctrl p-1.5 text-muted transition-colors hover:bg-white/4 hover:text-ink lg:hidden"
+        className="zv-press rounded-ctrl p-1.5 text-muted hover:bg-white/4 hover:text-ink lg:hidden"
       >
         <Menu className="h-5 w-5" />
       </button>
@@ -57,7 +60,7 @@ export function Topbar({
       {isPrivate && (
         <Link
           href="/private/quick"
-          className={buttonClasses("secondary", "border")}
+          className={buttonClasses("secondary", "zv-press border")}
           aria-label="Quick add"
         >
           <Zap className="h-4 w-4" />
@@ -72,7 +75,7 @@ export function Topbar({
           type="search"
           placeholder="Search…"
           aria-label="Search"
-          className="w-55 rounded-ctrl border border-line bg-white/[0.035] py-2 pl-9 pr-3 text-[13px] text-ink placeholder:text-faint focus:border-gold focus:shadow-ring focus:outline-none"
+          className="zv-search w-55 rounded-ctrl border border-line bg-white/[0.035] py-2 pl-9 pr-3 text-[13px] text-ink placeholder:text-faint focus:border-gold focus:shadow-ring focus:outline-none"
         />
       </div>
 
@@ -82,7 +85,7 @@ export function Topbar({
           onClick={() => setMenuOpen((v) => !v)}
           aria-haspopup="menu"
           aria-expanded={menuOpen}
-          className={buttonClasses("primary")}
+          className={buttonClasses("primary", "zv-press zv-sheen zv-turn")}
         >
           <Plus className="h-4 w-4" />
           New
@@ -97,7 +100,7 @@ export function Topbar({
             />
             <div
               role="menu"
-              className="absolute right-0 z-50 mt-2 w-44 rounded-card border border-line bg-surface p-1 shadow-[0_16px_40px_-12px_rgba(0,0,0,0.6)]"
+              className="zv-menu absolute right-0 z-50 mt-2 w-44 rounded-card border border-line bg-surface p-1 shadow-[0_16px_40px_-12px_rgba(0,0,0,0.6)]"
             >
               {newItems.map((item) => (
                 <Link
@@ -106,7 +109,7 @@ export function Topbar({
                   role="menuitem"
                   onClick={() => setMenuOpen(false)}
                   className={cn(
-                    "block rounded-ctrl px-3 py-2 text-[13px] font-medium text-muted transition-colors",
+                    "zv-menu-item block rounded-ctrl px-3 py-2 text-[13px] font-medium text-muted",
                     "hover:bg-white/4 hover:text-ink",
                   )}
                 >

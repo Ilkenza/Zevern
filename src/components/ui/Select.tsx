@@ -31,7 +31,7 @@ export function Select({
       <select
         id={selectId}
         className={cn(
-          "w-full rounded-ctrl border bg-white/[0.035] px-3 py-2.5 text-[13.5px] text-ink scheme-dark focus:outline-none",
+          "zv-field w-full rounded-ctrl border bg-white/[0.035] px-3 py-2.5 text-[13.5px] text-ink scheme-dark focus:outline-none",
           error
             ? "border-danger focus:shadow-ring-danger"
             : "border-line focus:border-gold focus:shadow-ring",

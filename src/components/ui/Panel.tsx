@@ -16,7 +16,10 @@ export function Panel({
   return (
     <section
       className={cn(
-        "overflow-hidden rounded-card border border-line bg-surface",
+        // `zv-panel` is the entrance and the hover warmth. It comes first so a screen
+        // with its own tuned treatment — the money pages have several — overrides it
+        // from globals.css rather than being overridden by it.
+        "zv-panel overflow-hidden rounded-card border border-line bg-surface",
         className,
       )}
     >

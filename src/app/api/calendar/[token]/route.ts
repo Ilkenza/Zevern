@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { supabaseAnonKey, supabaseUrl } from "@/lib/env";
-import { occurrencesFor } from "@/lib/data/money";
+import { occurrencesFor } from "@/lib/money/occurrences";
 import { buildCalendar, type IcsEvent } from "@/lib/calendar/ics";
 import { formatAmount } from "@/lib/money";
 import type { RecurringRow } from "@/lib/types";

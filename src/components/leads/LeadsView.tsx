@@ -18,6 +18,7 @@ import { Panel } from "@/components/ui/Panel";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Badge } from "@/components/ui/Badge";
 import { buttonClasses } from "@/components/ui/Button";
+import { PageHeader } from "@/components/ui/PageHeader";
 import {
   LEAD_STATUS_OPTIONS,
   SERVICE_OPTIONS,
@@ -61,7 +62,7 @@ function exportLeadsCsv(leads: Lead[]) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `agency-os-leads-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.download = `zevern-leads-${new Date().toISOString().slice(0, 10)}.csv`;
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 4000);
 }
@@ -78,10 +79,11 @@ function LeadRow({ lead }: { lead: Lead }) {
         : "text-muted";
   const followText = formatDate(lead.next_followup);
   return (
-    <div className="group flex items-start gap-3 border-b border-line-soft px-4 py-3 last:border-b-0 hover:bg-white/2">
+    <div className="zv-row group flex items-start gap-3 border-b border-line-soft px-4 py-3 last:border-b-0">
       <div className="min-w-0 flex-1">
         <Link
           href={`/leads/${lead.id}`}
+          transitionTypes={["zv-forward"]}
           className="text-[13.5px] font-semibold text-ink hover:text-gold-hi"
         >
           {lead.name}
@@ -196,15 +198,25 @@ export function LeadsView({
   return (
     <div className="mx-auto max-w-300">
       <div className="mb-4 space-y-3">
-        <div className="flex items-center justify-between gap-3">
-          <h1 className="font-display text-[22px] font-extrabold tracking-[-0.5px] text-ink">
-            Leads
-          </h1>
-          <Link href="/leads?new=1" className={cn(buttonClasses("primary"), "shrink-0")}>
-            <Plus className="h-4 w-4" />
-            New lead
-          </Link>
-        </div>
+        <PageHeader
+          kicker="Before they are clients"
+          title="Leads"
+          lede="Who you have approached, what came back, and who is due a nudge."
+          stats={[
+            { label: "All", value: String(leads.length) },
+            {
+              label: "Open",
+              value: String(leads.filter((l) => l.status !== "won" && l.status !== "lost").length),
+              tone: "gold",
+            },
+          ]}
+          actions={
+            <Link href="/leads?new=1" className={cn(buttonClasses("primary"), "zv-turn shrink-0")}>
+              <Plus className="h-4 w-4" />
+              New lead
+            </Link>
+          }
+        />
         <div className="flex items-center gap-2">
           <div className="relative min-w-0 flex-1 sm:max-w-64">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-faint" />

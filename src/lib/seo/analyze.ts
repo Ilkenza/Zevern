@@ -401,7 +401,7 @@ async function fetchPublicHtml(startUrl: string): Promise<HtmlResult> {
         signal: AbortSignal.timeout(remaining),
         redirect: "manual",
         headers: {
-          "User-Agent": "Mozilla/5.0 (compatible; AgencyOS-SEO/1.0)",
+          "User-Agent": "Mozilla/5.0 (compatible; Zevern-SEO/1.0)",
           Accept: "text/html,application/xhtml+xml",
         },
       });

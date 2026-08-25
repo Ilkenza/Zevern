@@ -44,12 +44,12 @@ export function SlideOver({
           <button
             onClick={onClose}
             aria-label="Close panel"
-            className="rounded-ctrl p-1.5 text-muted transition-colors hover:bg-white/4 hover:text-ink"
+            className="zv-press rounded-ctrl p-1.5 text-muted hover:bg-white/4 hover:text-ink"
           >
             <X className="h-4.5 w-4.5" />
           </button>
         </div>
-        <div className="flex-1 overflow-y-auto p-5">{children}</div>
+        <div className="ag-panel-body-in flex-1 overflow-y-auto p-5">{children}</div>
       </div>
     </div>
   );

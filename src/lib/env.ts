@@ -25,3 +25,22 @@ export function supabaseUrl(): string {
 export function supabaseAnonKey(): string {
   return required("NEXT_PUBLIC_SUPABASE_ANON_KEY");
 }
+
+/**
+ * The public address of this deployment, without a trailing slash.
+ *
+ * Unlike the Supabase keys this one does not throw when it is missing, because
+ * nothing breaks without it — `metadataBase`, the sitemap and robots.txt simply need
+ * an absolute origin to write down, and a localhost one is correct while developing.
+ * Vercel exports `VERCEL_PROJECT_PRODUCTION_URL` on every deployment, so the fallback
+ * chain lands on the right host by itself on the platform the app deploys to.
+ */
+export function siteUrl(): string {
+  const explicit = process.env.NEXT_PUBLIC_SITE_URL;
+  if (explicit) return explicit.replace(/\/+$/, "");
+
+  const vercel = process.env.VERCEL_PROJECT_PRODUCTION_URL || process.env.VERCEL_URL;
+  if (vercel) return `https://${vercel.replace(/\/+$/, "")}`;
+
+  return "http://localhost:3000";
+}

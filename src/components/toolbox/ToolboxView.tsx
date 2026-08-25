@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Plus, Wrench, Pencil, ExternalLink, Tag } from "lucide-react";
 import { SlideOver } from "@/components/ui/SlideOver";
 import { Panel } from "@/components/ui/Panel";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Button, buttonClasses } from "@/components/ui/Button";
 import type { Tool } from "@/lib/types";
@@ -42,15 +43,21 @@ export function ToolboxView({
 
   return (
     <div className="mx-auto max-w-275">
-      <div className="mb-4 flex items-center justify-between">
-        <h1 className="font-display text-[22px] font-extrabold tracking-[-0.5px] text-ink">
-          Toolbox
-        </h1>
-        <Link href="/toolbox?new=1" className={buttonClasses("primary")}>
-          <Plus className="h-4 w-4" />
-          New tool
-        </Link>
-      </div>
+      <PageHeader
+        kicker="Your kit"
+        title="Toolbox"
+        lede="The links, logins and licences you keep having to go and find."
+        stats={[
+          { label: "Tools", value: String(tools.length) },
+          { label: "Categories", value: String(categories.length), tone: "gold" },
+        ]}
+        actions={
+          <Link href="/toolbox?new=1" className={buttonClasses("primary", "zv-turn")}>
+            <Plus className="h-4 w-4" />
+            New tool
+          </Link>
+        }
+      />
 
       {tools.length === 0 ? (
         <Panel>

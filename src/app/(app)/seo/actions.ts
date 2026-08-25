@@ -25,6 +25,20 @@ export async function runCheck(
   const uid = await userId(supabase);
   if (!uid) return { error: "Not signed in." };
 
+  // Spend the budget before making the request, not after. `runCheck` is the only
+  // action that makes the server fetch an address the caller chose, so without a
+  // limit a signed-in account is an unmetered outbound request primitive pointed at
+  // whatever survives the SSRF guard. The count is held in the database because a
+  // counter in this process resets on deploy and does not exist across instances.
+  const { error: budget } = await supabase.rpc("claim_seo_check");
+  if (budget) {
+    if (budget.message.includes("too fast"))
+      return { error: "One check at a time — give the last one a few seconds." };
+    if (budget.message.includes("daily limit"))
+      return { error: "That is today's checks used up. The count resets at midnight." };
+    return { error: saveErrorMessage(budget) };
+  }
+
   const result = await fetchAndAnalyze(url);
   if (!result.ok) return { error: result.error };
 

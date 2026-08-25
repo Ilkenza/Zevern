@@ -28,7 +28,7 @@ export function Textarea({
         id={textareaId}
         rows={3}
         className={cn(
-          "w-full resize-y rounded-ctrl border bg-white/[0.035] px-3 py-2.5 text-[13.5px] text-ink placeholder:text-faint focus:outline-none",
+          "zv-field w-full resize-y rounded-ctrl border bg-white/[0.035] px-3 py-2.5 text-[13.5px] text-ink placeholder:text-faint focus:outline-none",
           error
             ? "border-danger focus:shadow-ring-danger"
             : "border-line focus:border-gold focus:shadow-ring",

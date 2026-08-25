@@ -4,6 +4,7 @@ import { Panel } from "@/components/ui/Panel";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Badge } from "@/components/ui/Badge";
 import { buttonClasses } from "@/components/ui/Button";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { quoteStatusBadge } from "@/lib/status";
 import { quoteTotal } from "@/lib/quotes/total";
 import { formatMoney, formatDate } from "@/lib/format";
@@ -12,21 +13,24 @@ import type { QuoteWithClient } from "@/lib/types";
 export function QuotesView({ quotes }: { quotes: QuoteWithClient[] }) {
   return (
     <div className="mx-auto max-w-300">
-      <div className="mb-4 flex items-center justify-between">
-        <h1 className="font-display text-[22px] font-extrabold tracking-[-0.5px] text-ink">
-          Quotes
-        </h1>
-        <div className="flex items-center gap-2">
-          <Link href="/quotes/catalog" className={buttonClasses("secondary")}>
-            <LayoutList className="h-4 w-4" />
-            Catalog
-          </Link>
-          <Link href="/quotes/new" className={buttonClasses("primary")}>
-            <Plus className="h-4 w-4" />
-            New quote
-          </Link>
-        </div>
-      </div>
+      <PageHeader
+        kicker="Before the work"
+        title="Quotes"
+        lede="What you offered, for how much, and whether it turned into a job."
+        stats={[{ label: "Quotes", value: String(quotes.length) }]}
+        actions={
+          <>
+            <Link href="/quotes/catalog" className={buttonClasses("secondary")}>
+              <LayoutList className="h-4 w-4" />
+              Catalog
+            </Link>
+            <Link href="/quotes/new" className={buttonClasses("primary", "zv-turn")}>
+              <Plus className="h-4 w-4" />
+              New quote
+            </Link>
+          </>
+        }
+      />
 
       <Panel>
         {quotes.length === 0 ? (
@@ -65,11 +69,12 @@ export function QuotesView({ quotes }: { quotes: QuoteWithClient[] }) {
                   return (
                     <tr
                       key={q.id}
-                      className="transition-colors hover:bg-white/2"
+                      className="zv-row"
                     >
                       <td className="border-b border-line-soft px-4 py-3 font-semibold text-ink">
                         <Link
                           href={`/quotes/${q.id}`}
+                          transitionTypes={["zv-forward"]}
                           className="hover:text-gold-hi"
                         >
                           {q.title}

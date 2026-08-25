@@ -1,4 +1,4 @@
-/* Agency OS — Lead Collector popup.
+/* Zevern — Lead Collector popup.
  *
  * Flow: load config → detect Instagram profile / Google Maps place → scrape the
  * open item → check if the lead already exists → let the user edit → save via
@@ -156,7 +156,7 @@ async function syncExisting(contact, name) {
       // Keep the auto channel if the stored one is empty.
       fillForm({ ...found, channel: found.channel || els.form.channel.value });
       els.exists.className = "exists dupe";
-      els.exists.innerHTML = '<span class="mark">✓</span> Already in Agency OS';
+      els.exists.innerHTML = '<span class="mark">✓</span> Already in Zevern';
     } else {
       els.exists.className = "exists new";
       els.exists.innerHTML = '<span class="mark">✗</span> New lead';
@@ -335,7 +335,7 @@ els.form.addEventListener("submit", async (e) => {
       notes: els.form.notes.value.trim(),
     };
     await rpc("ext_add_lead", toRpcArgs(lead, cfg.token));
-    setMsg("Saved to Agency OS ✓", "ok", 5000);
+    setMsg("Saved to Zevern ✓", "ok", 5000);
     await clearDraft(); // saved → drop the unsaved-draft copy
     syncExisting(lead.contact, lead.name);
   } catch (e2) {
