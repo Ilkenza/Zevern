@@ -3357,3 +3357,6 @@ body > * { min-width: 0; }
 @media (max-width: 560px) {
   .task-row > .task-actions { order: 3; }
 }
+
+/* The drawer's close button lives over the brand row, so the brand keeps clear of it. */
+.zv-drawer .zv-brand { padding-right: 60px; }
