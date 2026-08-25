@@ -1,7 +1,14 @@
 "use client";
 
-import { useActionState, useState } from "react";
-import { deleteAccount, saveAccount, type MoneyState } from "@/app/(app)/private/actions";
+import { useActionState, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { Star } from "lucide-react";
+import {
+  deleteAccount,
+  saveAccount,
+  setDefaultAccount,
+  type MoneyState,
+} from "@/app/(app)/private/actions";
 import { Button } from "@/components/ui/Button";
 import { ACCOUNT_KIND_OPTIONS, CURRENCIES, formatRsd } from "@/lib/money";
 import { cn } from "@/lib/utils";
@@ -18,6 +25,41 @@ import {
   rowMotion,
   useSavedPulse,
 } from "./kit";
+
+/**
+ * Which account every form should start on.
+ *
+ * A star rather than a "Default" button, because it is a state before it is an action:
+ * filled means this is the one, and there is exactly one filled star on the screen.
+ */
+function DefaultStar({ account }: { account: AccountBalance }) {
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  const on = account.is_default;
+
+  return (
+    <button
+      type="button"
+      disabled={pending || on}
+      onClick={() =>
+        startTransition(async () => {
+          await setDefaultAccount(account.id);
+          router.refresh();
+        })
+      }
+      aria-pressed={on}
+      aria-label={on ? `${account.name} is the default account` : `Make ${account.name} the default`}
+      title={
+        on
+          ? "Every form starts on this account"
+          : `Start every form on ${account.name} instead`
+      }
+      className={cn("zv-rowctrl", on && "zv-rowctrl-on")}
+    >
+      <Star className={cn("h-3.75 w-3.75", on && "fill-current")} />
+    </button>
+  );
+}
 
 export function AccountRow({ account, arrived }: { account?: AccountBalance; arrived?: boolean }) {
   const [state, formAction, pending] = useActionState<MoneyState, FormData>(saveAccount, undefined);
@@ -122,6 +164,7 @@ export function AccountRow({ account, arrived }: { account?: AccountBalance; arr
           </div>
         ) : (
           <div className="flex items-center justify-end gap-1">
+            <DefaultStar account={account} />
             <Button
               type="submit"
               variant="secondary"
@@ -153,7 +196,7 @@ export function AccountHead() {
       aria-hidden="true"
       className={cn(
         "hidden border-b border-line-soft bg-white/[0.02] px-4 py-2",
-        "min-[720px]:grid min-[720px]:grid-cols-[minmax(0,1fr)_8.5rem_9.5rem_7rem_7.5rem] min-[720px]:items-center min-[720px]:gap-3",
+        "min-[720px]:grid min-[720px]:grid-cols-[minmax(0,1fr)_8.5rem_9.5rem_7rem_10rem] min-[720px]:items-center min-[720px]:gap-3",
       )}
     >
       <span className={caps}>Account</span>

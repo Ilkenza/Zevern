@@ -135,9 +135,9 @@ export function Overall({ goals, onHand }: { goals: GoalLine[]; onHand: OnHand }
           />
         </div>
         <p className="mt-2 text-[11.5px] leading-relaxed text-muted">
-          Money put aside has not left the accounts — it is still there, it is just
-          spoken for. Upcoming plans from what is free, so a goal can never be spent
-          twice.
+          Setting money aside moves nothing. The dinars stay on the account and only
+          stop counting as free to spend — and free to spend is the figure every other
+          screen plans against, so the same dinar can never be promised twice.
         </p>
       </div>
     </Panel>

@@ -192,6 +192,7 @@ export type Database = {
           created_at: string
           currency: string
           id: string
+          is_default: boolean
           kind: string
           name: string
           opening_balance: number
@@ -204,6 +205,7 @@ export type Database = {
           created_at?: string
           currency?: string
           id?: string
+          is_default?: boolean
           kind?: string
           name: string
           opening_balance?: number
@@ -216,6 +218,7 @@ export type Database = {
           created_at?: string
           currency?: string
           id?: string
+          is_default?: boolean
           kind?: string
           name?: string
           opening_balance?: number

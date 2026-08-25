@@ -32,7 +32,7 @@ export const caps = "text-[10.5px] font-semibold uppercase tracking-wider text-f
  * that an account is one line, read left to right: what it is, what is in it.
  */
 export const accountCols =
-  "grid grid-cols-1 gap-2 min-[420px]:grid-cols-2 min-[720px]:grid-cols-[minmax(0,1fr)_8.5rem_9.5rem_7rem_7.5rem] min-[720px]:items-center min-[720px]:gap-3";
+  "grid grid-cols-1 gap-2 min-[420px]:grid-cols-2 min-[720px]:grid-cols-[minmax(0,1fr)_8.5rem_9.5rem_7rem_10rem] min-[720px]:items-center min-[720px]:gap-3";
 
 /*
   On a phone this was two equal halves, which put a colour swatch in one and a Save

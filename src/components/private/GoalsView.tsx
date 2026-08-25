@@ -94,7 +94,7 @@ export function GoalsView({
             Goals
           </h1>
           <p className="mt-1 max-w-md text-[13px] leading-5 text-muted">
-            Give every saved dinar a destination and watch the distance close.
+            Name what the money is for, and it stops being available for something else.
           </p>
         </div>
         <div className="goals-head-side">

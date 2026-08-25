@@ -49,10 +49,13 @@ export async function getAccounts(includeArchived = false): Promise<MoneyAccount
   const supabase = await createClient();
   const uid = await userId(supabase);
   if (!uid) return [];
+  // The default first, and every form that reaches for `accounts[0]` gets it without
+  // having to know the flag exists.
   let q = supabase
     .from("money_accounts")
     .select("*")
     .eq("user_id", uid)
+    .order("is_default", { ascending: false })
     .order("sort")
     .order("created_at");
   if (!includeArchived) q = q.eq("archived", false);

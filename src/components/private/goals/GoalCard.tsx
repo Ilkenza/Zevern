@@ -3,7 +3,7 @@
 import { useTransition, type CSSProperties } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronDown, ChevronUp, Pencil } from "lucide-react";
+import { ChevronDown, ChevronUp, Pencil, Trophy } from "lucide-react";
 import { DeleteButton } from "@/components/ui/DeleteButton";
 import { deleteGoal, moveGoal } from "@/app/(app)/private/actions";
 import { Badge } from "@/components/ui/Badge";
@@ -81,7 +81,7 @@ export function GoalCard({
     <article
       className={cn(
         "money-card-premium goal-card-premium relative flex flex-col overflow-hidden rounded-card border",
-        r.done ? "goal-card-reached border-ok/35 bg-ok-bg" : "border-line bg-surface",
+        r.done ? "goal-card-reached border-gold/45" : "border-line bg-surface",
       )}
       style={{ "--goal-accent": colour } as CSSProperties}
     >
@@ -137,7 +137,7 @@ export function GoalCard({
             </div>
             <div>
               <dt>{r.done ? "Above target" : "Remaining"}</dt>
-              <dd className={cn("mono", r.done && goal.saved > target && "text-ok")}>
+              <dd className={cn("mono", r.done && goal.saved > target && "text-gold-hi")}>
                 {r.done ? formatRsd(Math.max(goal.saved - target, 0)) : formatRsd(remaining)}
               </dd>
             </div>
@@ -169,7 +169,24 @@ export function GoalCard({
           </div>
         )}
 
-        {(target === 0 || r.done) && <p className="mt-2 text-[12px] text-muted">{r.note}</p>}
+        {/*
+          Reaching a target used to be a green tint and a badge — the app saying "valid"
+          where a person would say "you did it". This says it, and then says the one
+          thing that is easy to get wrong next: the money is still only reserved, and
+          closing the goal is what hands it back.
+        */}
+        {r.done ? (
+          <div className="goal-reached-note">
+            <Trophy className="h-4 w-4" aria-hidden />
+            <span>
+              <b>You got there.</b>
+              {r.note}. Buy it whenever you like — the money is still on the account, so
+              close the goal when you do and it goes back to being free to spend.
+            </span>
+          </div>
+        ) : (
+          target === 0 && <p className="mt-2 text-[12px] text-muted">{r.note}</p>
+        )}
         {goal.target_date && r.pace && (
           <p className="mt-0.5 text-[11.5px] text-faint">
             <span className="mono">{goal.target_date}</span> · {r.pace}

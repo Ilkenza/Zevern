@@ -369,9 +369,57 @@ export async function saveAccount(_prev: MoneyState, formData: FormData): Promis
 
   const payload = { name, kind, currency, opening_balance: openingBalance, color };
 
-  const { error } = id
-    ? await supabase.from("money_accounts").update(payload).eq("id", id).eq("user_id", uid)
-    : await supabase.from("money_accounts").insert(payload);
+  if (id) {
+    const { error } = await supabase
+      .from("money_accounts")
+      .update(payload)
+      .eq("id", id)
+      .eq("user_id", uid);
+    if (error) return { error: saveErrorMessage(error) };
+  } else {
+    // The first account is the default by definition — there is nothing to choose
+    // between, and asking would be a question with one answer.
+    const { count } = await supabase
+      .from("money_accounts")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", uid);
+    const { error } = await supabase
+      .from("money_accounts")
+      .insert({ ...payload, is_default: (count ?? 0) === 0 });
+    if (error) return { error: saveErrorMessage(error) };
+  }
+
+  refresh();
+  return { ok: true };
+}
+
+/**
+ * Name the account every form starts on.
+ *
+ * Before this, "which account" was answered by whichever row sorted first, so the one
+ * you actually spend from was the default only by accident — and stopped being it as
+ * soon as you added another. The old default is cleared first because the database
+ * refuses a second one outright.
+ */
+export async function setDefaultAccount(id: string): Promise<MoneyState> {
+  const supabase = await createSupabaseServerClient();
+  const uid = await userId(supabase);
+  if (!uid) return { error: "Not signed in." };
+  if (!(await ownsMoneyRow(supabase, "money_accounts", id, uid)))
+    return { error: "That account is not on your profile." };
+
+  const { error: clearErr } = await supabase
+    .from("money_accounts")
+    .update({ is_default: false })
+    .eq("user_id", uid)
+    .eq("is_default", true);
+  if (clearErr) return { error: saveErrorMessage(clearErr) };
+
+  const { error } = await supabase
+    .from("money_accounts")
+    .update({ is_default: true })
+    .eq("id", id)
+    .eq("user_id", uid);
   if (error) return { error: saveErrorMessage(error) };
 
   refresh();
