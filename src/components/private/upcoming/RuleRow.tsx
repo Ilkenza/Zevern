@@ -16,7 +16,7 @@ import { Dot, NO_COLOUR, caps } from "./ui";
 import { EVERY_LABEL, EVERY_SHORT, read, ruleCols } from "./rules-reading";
 
 export function RuleRow({ item, rates, today }: { item: RecurringRow; rates: Rates; today: string }) {
-  const { fmt } = useMoney();
+  const { fmt, code } = useMoney();
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const r = read(item, rates);
@@ -125,9 +125,9 @@ export function RuleRow({ item, rates, today }: { item: RecurringRow; rates: Rat
       </div>
 
       <div className="flex items-baseline justify-between gap-2 min-[760px]:justify-end">
-        <span className={cn(caps, "min-[760px]:hidden")}>Per month</span>
+        <span className={cn(caps, "min-[760px]:hidden")}>What you pay</span>
         <div className="text-right">
-          {r.monthly === null ? (
+          {r.charged === null ? (
             <span className="text-[12.5px] text-faint">changes</span>
           ) : (
             <>
@@ -144,11 +144,23 @@ export function RuleRow({ item, rates, today }: { item: RecurringRow; rates: Rat
                 )}
               >
                 {income && "+ "}
-                {fmt(r.monthly)}
+                {fmt(r.charged)}{" "}
+                <span className="rule-cadence">{EVERY_SHORT[item.every] ?? ""}</span>
               </div>
-              {(item.currency !== "RSD" || item.every !== "month") && (
+              {/*
+                The average underneath, and only when it is a different number: a rule
+                that already bills monthly has nothing to average.
+              */}
+              {(item.every !== "month" || item.currency !== code) && (
                 <div className="mono text-[11px] text-faint">
-                  {formatAmount(Number(item.amount), item.currency)} {EVERY_SHORT[item.every] ?? ""}
+                  {item.every !== "month" && r.monthly !== null && <>≈ {fmt(r.monthly)} a month</>}
+                  {item.every !== "month" && r.monthly !== null && item.currency !== code && " · "}
+                  {item.currency !== code && (
+                    <>
+                      {formatAmount(Number(item.amount), item.currency)}{" "}
+                      {EVERY_SHORT[item.every] ?? ""}
+                    </>
+                  )}
                 </div>
               )}
             </>
@@ -185,7 +197,7 @@ export function RuleHead() {
       className="hidden border-b border-line-soft px-4 py-1.5 min-[760px]:grid min-[760px]:grid-cols-[minmax(0,1fr)_8.5rem_9.5rem_6.5rem] min-[760px]:items-center min-[760px]:gap-x-3"
     >
       <span className={caps}>Rule</span>
-      <span className={cn(caps, "text-right")}>Per month</span>
+      <span className={cn(caps, "text-right")}>What you pay</span>
       <span className={cn(caps, "text-right")}>Next due</span>
       <span />
     </div>

@@ -17,9 +17,9 @@ const EVERY_LABEL: Record<string, string> = {
   year: "Every year",
 };
 
-const EVERY_SHORT: Record<string, string> = { week: "a week", month: "a month", year: "a year" };
+export const EVERY_SHORT: Record<string, string> = { week: "a week", month: "a month", year: "a year" };
 
-export { EVERY_LABEL, EVERY_SHORT };
+export { EVERY_LABEL };
 
 /**
  * One column template, shared by the head strip and every row — they only line up if
@@ -34,6 +34,8 @@ export type Reading = {
   settled: boolean;
   /** Dinars in an average month. Null when the amount is not known in advance. */
   monthly: number | null;
+  /** What actually leaves the account each time this fires, in dinars. */
+  charged: number | null;
   /** The instalment countdown, when the rule keeps one. */
   countdown: { status: "ok" | "draft"; label: string } | null;
   /** True when this one puts money aside instead of paying for something. */
@@ -75,6 +77,17 @@ export function read(item: RecurringRow, rates: Rates): Reading {
       ? { status: "draft" as const, label: `${left} of ${total} left` }
       : null;
 
-  return { running: isRunning(item), settled, monthly, countdown, toGoal: item.goal != null };
+  /*
+    What you pay, as opposed to what it averages out to.
+
+    A domain billed once a year showed "€0.75" in the column that leads the row — a
+    figure that never appears on a statement and never leaves the account. The average
+    is a real and useful number, but it is the comparison, not the fact, so the fact
+    leads and the average follows it.
+  */
+  const amount = Number(item.amount);
+  const charged = item.variable || !(amount > 0) ? null : toRsd(amount, item.currency, rates);
+
+  return { running: isRunning(item), settled, monthly, charged, countdown, toGoal: item.goal != null };
 }
 
