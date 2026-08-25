@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState, useTransition } from "react";
+import { useActionState, useState, useTransition, type CSSProperties } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -232,12 +232,12 @@ function GoalHistory({ goal }: { goal: GoalLine }) {
   const shown = goal.entries.length;
 
   return (
-    <div className="border-t border-line-soft px-5 py-2">
+    <div className="goal-history border-t border-line-soft px-5 py-2">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        className="flex w-full items-center gap-1.5 text-left text-[11.5px] font-semibold text-muted transition-colors hover:text-ink"
+        className="goal-history-trigger flex w-full items-center gap-1.5 text-left text-[11.5px] font-semibold text-muted transition-colors hover:text-ink"
       >
         <History className="h-3.25 w-3.25 shrink-0" />
         <span className="min-w-0 flex-1 truncate">
@@ -257,7 +257,7 @@ function GoalHistory({ goal }: { goal: GoalLine }) {
       </button>
 
       {open && (
-        <div className="mt-1">
+        <div className="goal-history-content mt-1">
           {goal.entries.map((entry) => (
             <EntryRow key={entry.id} entry={entry} goalName={goal.name} />
           ))}
@@ -312,7 +312,7 @@ function MoveMoney({
   return (
     <form
       action={formAction}
-      className="border-t border-line-soft bg-white/[0.02] py-3 pr-4 pl-5"
+      className="goal-move-panel border-t border-line-soft bg-white/[0.02] py-3 pr-4 pl-5"
     >
       <input type="hidden" name="kind" value={taking ? "withdraw" : "saving"} />
       <input type="hidden" name="goal_id" value={goal.id} />
@@ -323,7 +323,7 @@ function MoveMoney({
         {/* With nothing in the goal yet there is only one thing to do here, so the
             caption stays a caption rather than pretending to be a choice. */}
         {canTakeOut ? (
-          <div className="flex min-w-0 items-center gap-1">
+          <div className="goal-money-toggle flex min-w-0 items-center gap-1" role="group" aria-label={`Money direction for ${goal.name}`}>
             <button
               type="button"
               onClick={() => setOut(false)}
@@ -381,7 +381,7 @@ function MoveMoney({
         <Button
           type="submit"
           variant="secondary"
-          className="w-24 shrink-0 px-2 py-2 text-[12.5px]"
+          className="money-premium-button w-24 shrink-0 px-2 py-2 text-[12.5px]"
           disabled={pending}
         >
           {pending ? "Saving…" : taking ? "Take out" : "Put aside"}
@@ -471,6 +471,8 @@ function GoalCard({
 }) {
   const r = read(goal, today);
   const colour = goal.color ?? NO_COLOUR;
+  const target = Math.max(Number(goal.target_rsd) || 0, 0);
+  const remaining = Math.max(target - goal.saved, 0);
   // Rounded down, and capped at 99 until the target is actually met — a goal one
   // dinar short should never claim to be finished.
   const shown = r.pct === null ? null : r.done ? 100 : Math.min(Math.floor(r.pct * 100), 99);
@@ -479,13 +481,15 @@ function GoalCard({
     <article
       className={cn(
         "money-card-premium goal-card-premium relative flex flex-col overflow-hidden rounded-card border",
-        r.done ? "border-ok/35 bg-ok-bg" : "border-line bg-surface",
+        r.done ? "goal-card-reached border-ok/35 bg-ok-bg" : "border-line bg-surface",
       )}
+      style={{ "--goal-accent": colour } as CSSProperties}
     >
+      <span className="goal-card-orb" aria-hidden="true" />
       {/* The goal's own colour, down the whole edge — its identity in the grid. */}
       <span
         aria-hidden="true"
-        className="absolute inset-y-0 left-0 w-1"
+        className="goal-accent-rail absolute inset-y-0 left-0 w-1"
         style={{ background: colour }}
       />
 
@@ -506,11 +510,29 @@ function GoalCard({
         </div>
 
         <div className="mt-2 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1.5">
-          <span className="mono text-[21px] font-semibold tracking-[-0.5px] text-ink">
-            {formatRsd(goal.saved)}
+          <span>
+            <small className="goal-saved-label">Saved</small>
+            <b className="mono goal-saved-value block text-[24px] font-semibold tracking-[-0.7px] text-ink">
+              {formatRsd(goal.saved)}
+            </b>
           </span>
           {r.badge && <Badge status={r.badge.status}>{r.badge.label}</Badge>}
         </div>
+
+        {target > 0 && (
+          <dl className="goal-card-metrics">
+            <div>
+              <dt>Target</dt>
+              <dd className="mono">{formatRsd(target)}</dd>
+            </div>
+            <div>
+              <dt>{r.done ? "Above target" : "Remaining"}</dt>
+              <dd className={cn("mono", r.done && goal.saved > target && "text-ok")}>
+                {r.done ? formatRsd(Math.max(goal.saved - target, 0)) : formatRsd(remaining)}
+              </dd>
+            </div>
+          </dl>
+        )}
 
         {r.pct !== null && shown !== null && (
           <div className="mt-2.5 flex items-center gap-2.5">
@@ -520,7 +542,7 @@ function GoalCard({
               aria-valuemax={100}
               aria-valuenow={shown}
               aria-label={`${goal.name} progress`}
-              className="h-2 min-w-0 flex-1 overflow-hidden rounded-pill bg-white/6"
+              className="goal-progress-track h-2 min-w-0 flex-1 overflow-hidden rounded-pill bg-white/6"
             >
               {/* A first deposit that rounds to nothing still deserves to be visible. */}
               <div
@@ -537,7 +559,7 @@ function GoalCard({
           </div>
         )}
 
-        <p className="mt-2 text-[12px] text-muted">{r.note}</p>
+        {(target === 0 || r.done) && <p className="mt-2 text-[12px] text-muted">{r.note}</p>}
         {goal.target_date && r.pace && (
           <p className="mt-0.5 text-[11.5px] text-faint">
             <span className="mono">{goal.target_date}</span> · {r.pace}
@@ -572,7 +594,7 @@ function ClosedRow({ goal }: { goal: GoalLine }) {
   };
 
   return (
-    <div className="border-b border-line-soft last:border-b-0">
+    <div className="goal-closed-row border-b border-line-soft last:border-b-0">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-2.5">
         <span
           aria-hidden="true"
@@ -647,7 +669,7 @@ function Figure({
   tone?: "info" | "danger";
 }) {
   return (
-    <div className="bg-surface px-3 py-2.5">
+    <div className="goal-figure bg-surface px-3 py-2.5">
       <div className={caps}>{label}</div>
       <div
         className={cn(
@@ -686,7 +708,7 @@ function Overall({ goals, onHand }: { goals: GoalLine[]; onHand: OnHand }) {
       // With one goal the card below is already the whole picture, so the panel drops
       // back to the only thing the card cannot say: how this sits against the accounts.
       title={many ? "Put aside so far" : "Where this money is"}
-      className="money-summary-panel"
+      className="money-summary-panel goal-overall-panel"
       action={
         <PanelMeta>
           {goals.length} {goals.length === 1 ? "goal" : "goals"}
@@ -837,10 +859,13 @@ export function GoalsView({
   const open = goals.filter(isOpen);
   const closed = goals.filter((g) => !isOpen(g) && !g.archived);
   const archived = goals.filter((g) => !isOpen(g) && g.archived);
+  const openSaved = open.reduce((sum, goal) => sum + goal.saved, 0);
+  const openTarget = open.reduce((sum, goal) => sum + Math.max(Number(goal.target_rsd) || 0, 0), 0);
+  const reached = open.filter((goal) => Number(goal.target_rsd) > 0 && goal.saved >= Number(goal.target_rsd)).length;
 
   return (
     <div className="money-premium money-goals mx-auto max-w-220 space-y-5">
-      <div className="money-page-head flex flex-wrap items-end justify-between gap-5">
+      <div className="money-page-head goals-page-head flex flex-wrap items-end justify-between gap-5">
         <div className="min-w-0">
           <span className="money-page-kicker">Private wealth</span>
           <h1 className="mt-2 font-display text-[32px] font-extrabold tracking-[-1.2px] text-ink sm:text-[38px]">
@@ -850,10 +875,20 @@ export function GoalsView({
             Give every saved dinar a destination and watch the distance close.
           </p>
         </div>
-        <Link href={`${GOALS_HREF}?new=1`} className={buttonClasses("primary", "money-premium-button shrink-0")}>
-          <Plus className="h-4 w-4" />
-          New goal
-        </Link>
+        <div className="goals-head-side">
+          {goals.length > 0 && (
+            <div className="goals-head-stats" aria-label="Goals summary">
+              <span><small>Active</small><b>{open.length}</b></span>
+              <span><small>Saved</small><b className="mono">{formatRsd(openSaved)}</b></span>
+              <span><small>Target</small><b className="mono">{formatRsd(openTarget)}</b></span>
+              <span className="goals-reached"><small>Reached</small><b>{reached}</b></span>
+            </div>
+          )}
+          <Link href={`${GOALS_HREF}?new=1`} className={buttonClasses("primary", "money-premium-button shrink-0")}>
+            <Plus className="h-4 w-4" />
+            New goal
+          </Link>
+        </div>
       </div>
 
       {goals.length === 0 ? (
@@ -877,7 +912,7 @@ export function GoalsView({
           </div>
 
           {open.length === 0 && (
-            <Panel>
+            <Panel className="goal-secondary-panel">
               <EmptyState
                 icon={PiggyBank}
                 title="Nothing being saved for right now"
@@ -893,6 +928,7 @@ export function GoalsView({
 
           {closed.length > 0 && (
             <Panel
+              className="goal-secondary-panel"
               title="Closed"
               action={
                 <PanelMeta>
@@ -909,6 +945,7 @@ export function GoalsView({
           {archived.length > 0 &&
             (showArchived ? (
               <Panel
+                className="goal-secondary-panel"
                 title="Archived"
                 action={
                   <Link href={GOALS_HREF} className="text-[12px] font-semibold text-gold-hi">
@@ -923,7 +960,7 @@ export function GoalsView({
             ) : (
               <Link
                 href={ARCHIVE_HREF}
-                className="flex items-center justify-center gap-1.5 rounded-card border border-line bg-surface px-4 py-2.5 text-[12px] font-semibold text-muted transition-colors hover:text-ink"
+                className="goal-archive-link flex items-center justify-center gap-1.5 rounded-card border border-line bg-surface px-4 py-2.5 text-[12px] font-semibold text-muted transition-colors hover:text-ink"
               >
                 <Archive className="h-3.5 w-3.5" />
                 Show {archived.length} archived {archived.length === 1 ? "goal" : "goals"}
