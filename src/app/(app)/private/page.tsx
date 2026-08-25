@@ -1,5 +1,11 @@
 import Link from "next/link";
-import { ListChecks, Wallet } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  CornerUpLeft,
+  ListChecks,
+  Wallet,
+} from "lucide-react";
 import {
   getBudgetLines,
   getDueRecurring,
@@ -17,10 +23,26 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { buttonClasses } from "@/components/ui/Button";
 import { TaskCheckbox } from "@/components/tasks/TaskCheckbox";
 import { DueRecurringPanel } from "@/components/private/DueRecurringPanel";
-import { formatRsd, formatRsdShort, monthKey, monthLabel, monthProgress } from "@/lib/money";
+import {
+  formatRsd,
+  formatRsdShort,
+  monthKey,
+  monthLabel,
+  monthProgress,
+  shiftMonth,
+  shortMonthLabel,
+} from "@/lib/money";
 
-export default async function PrivateOverviewPage() {
-  const month = monthKey();
+export default async function PrivateOverviewPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ month?: string }>;
+}) {
+  // The month was fixed to today, which left the page showing a month it gave you no
+  // way to leave — while Money and Budgets both let you walk back through them.
+  const params = await searchParams;
+  const current = monthKey();
+  const month = /^\d{4}-\d{2}$/.test(params.month ?? "") ? (params.month as string) : current;
   const [summary, lines, allGoals, due, recent, tasks, onHand, trend] = await Promise.all([
     getMonthSummary(month),
     getBudgetLines(month),
@@ -40,25 +62,57 @@ export default async function PrivateOverviewPage() {
   const peak = Math.max(1, ...trend.map((t) => t.expense));
 
   return (
-    <div className="mx-auto max-w-300 space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="font-display text-[22px] font-extrabold tracking-[-0.5px] text-ink">
-            Private
+    <div className="money-premium mx-auto max-w-300 space-y-4">
+      <div className="money-page-head mb-1 flex flex-wrap items-end justify-between gap-4">
+        <div className="min-w-0">
+          <span className="money-page-kicker">Private · Overview</span>
+          <h1 className="mt-2 font-display text-[32px] font-extrabold tracking-[-1.2px] text-ink sm:text-[38px]">
+            {monthLabel(month)}
           </h1>
-          <p className="text-[12.5px] text-muted">{monthLabel(month)}</p>
+          <p className="upcoming-blurb">
+            What the month has cost so far, what is left on the accounts, and what is
+            about to book itself.
+          </p>
+          <div className="money-month-nav mt-3">
+            <Link
+              href={`/private?month=${shiftMonth(month, -1)}`}
+              aria-label={`Go to ${monthLabel(shiftMonth(month, -1))}`}
+              className="money-month-arrow"
+            >
+              <ChevronLeft className="h-4 w-4" />
+              <span>{shortMonthLabel(shiftMonth(month, -1), month)}</span>
+            </Link>
+            <Link
+              href={`/private?month=${shiftMonth(month, 1)}`}
+              aria-label={`Go to ${monthLabel(shiftMonth(month, 1))}`}
+              className="money-month-arrow"
+            >
+              <span>{shortMonthLabel(shiftMonth(month, 1), month)}</span>
+              <ChevronRight className="h-4 w-4" />
+            </Link>
+            {month !== current && (
+              <Link href="/private" className="money-month-back">
+                <CornerUpLeft className="h-3.5 w-3.5" aria-hidden />
+                This month
+              </Link>
+            )}
+          </div>
         </div>
         <div className="flex gap-2">
-          <Link href="/private/quick" className={buttonClasses("primary")}>
+          <Link
+            href="/private/quick"
+            className={buttonClasses("primary", "money-premium-button")}
+          >
             Quick add
           </Link>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Kpi label="Spent this month" value={formatRsd(summary.expense)} />
-        <Kpi label="Income" value={formatRsd(summary.income)} />
+      <div className="money-card-grid grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <Kpi className="money-card-premium" label="Spent this month" value={formatRsd(summary.expense)} />
+        <Kpi className="money-card-premium" label="Income" value={formatRsd(summary.income)} />
         <Kpi
+          className="money-card-premium"
           label="Left over"
           value={formatRsd(summary.net)}
           hint={summary.net < 0 ? <span className="text-danger">In the red</span> : undefined}
@@ -67,6 +121,7 @@ export default async function PrivateOverviewPage() {
             less whatever the open goals have a claim on — said here rather than left
             for the goals screen to contradict later. */}
         <Kpi
+          className="money-card-premium"
           label="On accounts"
           value={formatRsd(onHand.total)}
           hint={

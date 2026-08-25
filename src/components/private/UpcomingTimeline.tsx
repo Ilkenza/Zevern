@@ -442,10 +442,10 @@ function NothingDue({
         description="Rent, hosting, a phone paid off in instalments — enter each one once. A dentist bill or an invoice you know is landing goes on as a one-off."
         action={
           <div className="flex flex-wrap justify-center gap-2">
-            <Link href={NEW_RULE_HREF} className={buttonClasses("primary")}>
+            <Link href={NEW_RULE_HREF} className={buttonClasses("primary", "money-premium-button")}>
               New recurring
             </Link>
-            <Link href={NEW_PLAN_HREF} className={buttonClasses("secondary")}>
+            <Link href={NEW_PLAN_HREF} className={buttonClasses("secondary", "money-premium-button")}>
               Plan a one-off
             </Link>
           </div>
@@ -493,10 +493,10 @@ function NothingDue({
         description={`${items.length} recurring ${items.length === 1 ? "rule exists" : "rules exist"}, and none of them lands inside this window.`}
         action={
           <div className="flex flex-wrap justify-center gap-2">
-            <Link href={RULES_HREF} className={buttonClasses("secondary")}>
+            <Link href={RULES_HREF} className={buttonClasses("secondary", "money-premium-button")}>
               Open the rules
             </Link>
-            <Link href={NEW_PLAN_HREF} className={buttonClasses("secondary")}>
+            <Link href={NEW_PLAN_HREF} className={buttonClasses("secondary", "money-premium-button")}>
               Plan a one-off
             </Link>
           </div>
@@ -529,6 +529,7 @@ function BeyondHorizon({ items, horizon }: { items: PlannedRow[]; horizon: strin
 
   return (
     <Panel
+      className="money-summary-panel upcoming-panel"
       title="Further out"
       action={
         <PanelMeta>
@@ -681,6 +682,7 @@ export function UpcomingTimeline({
       )}
 
       <Panel
+        className="money-summary-panel upcoming-panel"
         title={longest > 0 ? `Next ${longest} days` : "Timeline"}
         action={
           <PanelMeta>

@@ -139,7 +139,7 @@ export function MoneyView({
       <div className="money-page-head mb-5 flex flex-wrap items-end justify-between gap-3">
         <div className="min-w-0">
           <span className="money-page-kicker">Private · Money</span>
-          <h1 className="mt-2 font-display text-[28px] font-extrabold tracking-[-0.8px] text-ink">
+          <h1 className="mt-2 font-display text-[32px] font-extrabold tracking-[-1.2px] text-ink sm:text-[38px]">
             {monthLabel(month)}
           </h1>
           {/*

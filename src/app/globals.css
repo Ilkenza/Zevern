@@ -1341,6 +1341,438 @@ body {
   .attention-arrow { transition: none; }
 }
 
+/*
+  Hooks the markup already reached for and the stylesheet never answered. Each one
+  earns its place rather than being deleted: the chip row wants to arrive with the
+  rest of the screen, and a row that is over its limit deserves a rail the colour of
+  the verdict its own badge is wearing.
+*/
+.money-chips {
+  animation: money-head-in 560ms cubic-bezier(0.22, 1, 0.36, 1) 200ms both;
+}
+
+.budget-panel-premium .budget-rows { position: relative; }
+
+.budget-row.budget-is-over::before,
+.budget-row.budget-is-ahead::before { transform: scaleY(1); }
+.budget-row.budget-is-over::before { background: var(--color-danger); }
+.budget-row.budget-is-ahead::before { background: var(--color-active); }
+
+/* ========================================================= Upcoming: two views
+   The screen answers two questions at two addresses, so the switch between them
+   is the one control that has to feel deliberate.
+   ========================================================================== */
+.upcoming-blurb {
+  max-width: 46rem;
+  margin-top: 6px;
+  color: var(--color-muted);
+  font-size: 13px;
+  animation: money-head-in 620ms cubic-bezier(0.22, 1, 0.36, 1) 170ms both;
+}
+
+.upcoming-tabs {
+  position: relative;
+  animation: money-head-in 620ms cubic-bezier(0.22, 1, 0.36, 1) 240ms both;
+}
+
+.upcoming-tab {
+  position: relative;
+  transition:
+    color 200ms ease,
+    background-color 220ms ease,
+    transform 280ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.upcoming-tab:hover { transform: translateY(-1px); }
+.upcoming-tab-on { box-shadow: inset 0 0 0 1px rgba(217, 164, 65, 0.22); }
+
+/* A hairline under the view you are on, so the pair reads as a switch. */
+.upcoming-tab-on::after {
+  content: "";
+  position: absolute;
+  right: 12px;
+  bottom: 3px;
+  left: 12px;
+  height: 1.5px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, transparent, var(--color-gold), transparent);
+  animation: money-progress-in 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  transform-origin: center;
+}
+
+/*
+  The panel bodies here are built by three different components with three different
+  row shapes, so the stagger is applied to whatever the body's direct children are
+  rather than to a row class that does not exist in all of them.
+*/
+.upcoming-panel > div > * {
+  animation: task-in 480ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.upcoming-panel > div > :nth-child(1) { animation-delay: 170ms; }
+.upcoming-panel > div > :nth-child(2) { animation-delay: 215ms; }
+.upcoming-panel > div > :nth-child(3) { animation-delay: 260ms; }
+.upcoming-panel > div > :nth-child(4) { animation-delay: 305ms; }
+.upcoming-panel > div > :nth-child(n + 5) { animation-delay: 350ms; }
+
+/* ============================================================ Tasks: the board
+   Today takes the top and the width; the three columns are the context for it.
+   ========================================================================== */
+.task-summary {
+  margin-top: 6px;
+  color: var(--color-muted);
+  font-size: 13px;
+  font-weight: 600;
+  animation: money-head-in 620ms cubic-bezier(0.22, 1, 0.36, 1) 180ms both;
+}
+
+.task-summary-late { color: var(--color-danger); }
+
+/* ------------------------------------------------------------- Today panel */
+.task-focus {
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 18px;
+  border: 1px solid rgba(217, 164, 65, 0.18);
+  border-radius: var(--radius-card);
+  background:
+    radial-gradient(circle at 92% -10%, rgba(217, 164, 65, 0.12), transparent 44%),
+    linear-gradient(150deg, rgba(255, 255, 255, 0.025), transparent 46%),
+    var(--color-surface);
+  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.2);
+  animation: money-card-in 640ms cubic-bezier(0.22, 1, 0.36, 1) 70ms both;
+}
+
+.task-focus-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 13px 16px 11px;
+  border-bottom: 1px solid var(--color-line-soft);
+}
+
+.task-focus-count { color: var(--color-faint); font-size: 11px; font-weight: 600; }
+.task-focus-body { padding: 4px 0; }
+
+.task-focus-empty {
+  padding: 16px;
+  color: var(--color-muted);
+  font-size: 12.5px;
+}
+
+/* ------------------------------------------------------------- Quick add */
+.task-quickadd {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--color-line-soft);
+  background: rgba(255, 255, 255, 0.018);
+  transition: background-color 240ms ease;
+}
+
+.task-quickadd:focus-within { background: rgba(255, 255, 255, 0.04); }
+.task-quickadd-icon { flex: none; color: var(--color-faint); transition: color 240ms ease; }
+.task-quickadd:focus-within .task-quickadd-icon { color: var(--color-gold); }
+
+.task-quickadd-input {
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  background: transparent;
+  color: var(--color-ink);
+  font-size: 13.5px;
+  outline: none;
+}
+
+.task-quickadd-input::placeholder { color: var(--color-faint); }
+
+/* The button is a promise, not a decoration: it appears once there is text to submit. */
+.task-quickadd-go {
+  flex: none;
+  padding: 5px 12px;
+  border-radius: var(--radius-pill);
+  background: var(--color-gold);
+  color: var(--color-on-gold);
+  font-size: 11.5px;
+  font-weight: 700;
+  opacity: 0;
+  transform: translateX(6px);
+  pointer-events: none;
+  transition: opacity 240ms ease, transform 300ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.task-quickadd:focus-within .task-quickadd-go,
+.task-quickadd-input:not(:placeholder-shown) ~ .task-quickadd-go {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+}
+
+/* --------------------------------------------------------------- The rows */
+@keyframes task-in {
+  from { opacity: 0; transform: translateY(7px); }
+  to { opacity: 1; transform: none; }
+}
+
+.task-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--color-line-soft);
+  animation: task-in 460ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  transition: background-color 200ms ease, padding-left 320ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.task-row:last-child { border-bottom: 0; }
+.task-row:hover { padding-left: 20px; background: rgba(255, 255, 255, 0.025); }
+
+.task-focus-body > .task-row:nth-child(1) { animation-delay: 170ms; }
+.task-focus-body > .task-row:nth-child(2) { animation-delay: 215ms; }
+.task-focus-body > .task-row:nth-child(3) { animation-delay: 260ms; }
+.task-focus-body > .task-row:nth-child(n + 4) { animation-delay: 305ms; }
+
+.task-row-title {
+  overflow: hidden;
+  color: var(--color-ink);
+  font-size: 13.5px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.task-row-date { flex: none; color: var(--color-muted); font-size: 12px; }
+
+/* -------------------------------------------------------------- The board */
+.task-board {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.task-column {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+  animation: money-card-in 620ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  transition: border-color 300ms ease;
+}
+
+.task-board > :nth-child(1) { animation-delay: 150ms; }
+.task-board > :nth-child(2) { animation-delay: 225ms; }
+.task-board > :nth-child(3) { animation-delay: 300ms; }
+
+.task-column:hover { border-color: rgba(255, 255, 255, 0.14); }
+.task-column-late { border-color: rgba(222, 107, 94, 0.22); }
+.task-column-late:hover { border-color: rgba(222, 107, 94, 0.4); }
+
+.task-column-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--color-line-soft);
+  background: var(--color-surface-2);
+  color: var(--color-muted);
+}
+
+.task-column-late .task-column-head { color: var(--color-danger); }
+.task-column-week .task-column-head { color: var(--color-active); }
+
+.task-column-title {
+  flex: 1;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.task-column-count { color: var(--color-faint); font-size: 11px; font-weight: 700; }
+
+.task-column-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+}
+
+.task-column-empty {
+  padding: 14px 4px;
+  color: var(--color-faint);
+  font-size: 12px;
+}
+
+/* ------------------------------------------------------------- The cards */
+.task-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 11px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-ctrl);
+  background: rgba(255, 255, 255, 0.022);
+  animation: task-in 440ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  transition:
+    transform 300ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 240ms ease,
+    background-color 240ms ease,
+    box-shadow 300ms ease;
+}
+
+.task-column-body > :nth-child(1) { animation-delay: 220ms; }
+.task-column-body > :nth-child(2) { animation-delay: 265ms; }
+.task-column-body > :nth-child(3) { animation-delay: 310ms; }
+.task-column-body > :nth-child(n + 4) { animation-delay: 355ms; }
+
+.task-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(217, 164, 65, 0.28);
+  background: rgba(255, 255, 255, 0.045);
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.22);
+}
+
+.task-card-done { opacity: 0.55; }
+
+.task-card-body {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.task-card-title {
+  color: var(--color-ink);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.35;
+  /* Two lines, then an ellipsis — a long title must not make one card twice as tall. */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+.task-card-project {
+  overflow: hidden;
+  color: var(--color-muted);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: color 200ms ease;
+}
+
+.task-card-project:hover { color: var(--color-gold-hi); }
+
+.task-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.task-card-date { color: var(--color-faint); font-size: 10.5px; }
+
+/* The mark only exists for a priority that is not the default. */
+.task-prio {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 5px;
+  padding: 1px 7px 1px 6px;
+  border-radius: var(--radius-pill);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.task-prio i { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+.task-prio-high { background: var(--color-danger-bg); color: var(--color-danger); }
+.task-prio-low { background: var(--color-draft-bg); color: var(--color-draft); }
+
+.task-edit {
+  display: inline-flex;
+  flex: none;
+  padding: 5px;
+  border-radius: var(--radius-ctrl);
+  color: var(--color-faint);
+  opacity: 0;
+  transition: opacity 200ms ease, color 200ms ease, background-color 200ms ease;
+}
+
+.task-card:hover .task-edit,
+.task-row:hover .task-edit,
+.task-edit:focus-visible { opacity: 1; }
+.task-edit:hover { background: rgba(255, 255, 255, 0.06); color: var(--color-ink); }
+
+/* --------------------------------------------------------------- The done */
+.task-done {
+  margin-top: 16px;
+  overflow: hidden;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+}
+
+.task-done-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 11px 16px;
+  color: var(--color-muted);
+  font-size: 12px;
+  font-weight: 600;
+  list-style: none;
+  transition: background-color 200ms ease, color 200ms ease;
+}
+
+.task-done-summary::-webkit-details-marker { display: none; }
+.task-done-summary:hover { background: rgba(255, 255, 255, 0.025); color: var(--color-ink); }
+
+/* A chevron drawn from two borders, so it can rotate when the section opens. */
+.task-done-summary i {
+  width: 7px;
+  height: 7px;
+  margin-right: 3px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(45deg) translate(-2px, -2px);
+  transition: transform 300ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.task-done[open] .task-done-summary i { transform: rotate(-135deg) translate(-1px, -1px); }
+.task-done-body { border-top: 1px solid var(--color-line-soft); }
+
+@media (max-width: 1000px) {
+  .task-board { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .task-summary,
+  .task-focus,
+  .task-row,
+  .task-column,
+  .task-card {
+    animation: none !important;
+    opacity: 1;
+    transform: none;
+  }
+
+  .task-card,
+  .task-row,
+  .task-edit,
+  .task-quickadd,
+  .task-quickadd-go,
+  .task-done-summary i { transition: none; }
+}
+
 /* Setup — premium control room for the financial model. */
 .setup-page-head {
   min-height: 138px;

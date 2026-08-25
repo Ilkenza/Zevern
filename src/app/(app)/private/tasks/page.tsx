@@ -1,5 +1,6 @@
 import { getTasks, getTask } from "@/lib/data/tasks";
 import { TasksView, type TasksPanel } from "@/components/tasks/TasksView";
+import { todayISO } from "@/lib/format";
 
 export default async function PrivateTasksPage({
   searchParams,
@@ -17,5 +18,13 @@ export default async function PrivateTasksPage({
     if (task) panel = { mode: "edit", task };
   }
 
-  return <TasksView tasks={tasks} projects={[]} panel={panel} workspace="personal" />;
+  return (
+    <TasksView
+      tasks={tasks}
+      projects={[]}
+      panel={panel}
+      workspace="personal"
+      today={todayISO()}
+    />
+  );
 }

@@ -813,7 +813,7 @@ function NoGoals() {
         title="Nothing being saved for yet"
         description="A goal is a name, an amount and — if you know it — a date. A laptop, a deposit, three months of rent in reserve."
         action={
-          <Link href={`${GOALS_HREF}?new=1`} className={buttonClasses("primary")}>
+          <Link href={`${GOALS_HREF}?new=1`} className={buttonClasses("primary", "money-premium-button")}>
             New goal
           </Link>
         }
@@ -918,7 +918,7 @@ export function GoalsView({
                 title="Nothing being saved for right now"
                 description="Every goal has been closed. Start another one, or reopen one below."
                 action={
-                  <Link href={`${GOALS_HREF}?new=1`} className={buttonClasses("primary")}>
+                  <Link href={`${GOALS_HREF}?new=1`} className={buttonClasses("primary", "money-premium-button")}>
                     New goal
                   </Link>
                 }

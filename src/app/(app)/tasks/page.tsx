@@ -1,6 +1,7 @@
 import { getTasks, getTask } from "@/lib/data/tasks";
 import { getProjects } from "@/lib/data/projects";
 import { TasksView, type TasksPanel } from "@/components/tasks/TasksView";
+import { todayISO } from "@/lib/format";
 
 export default async function TasksPage({
   searchParams,
@@ -24,5 +25,14 @@ export default async function TasksPage({
     client: p.client?.name ?? null,
   }));
 
-  return <TasksView tasks={tasks} projects={projectOptions} panel={panel} />;
+  // The day is settled on the server, so the board cannot bucket a task differently
+  // after hydration than it did in the HTML.
+  return (
+    <TasksView
+      tasks={tasks}
+      projects={projectOptions}
+      panel={panel}
+      today={todayISO()}
+    />
+  );
 }

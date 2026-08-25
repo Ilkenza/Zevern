@@ -244,7 +244,7 @@ export default async function OverviewPage() {
                 action={
                   <Link
                     href="/projects?new=1"
-                    className={buttonClasses("primary")}
+                    className={buttonClasses("primary", "money-premium-button")}
                   >
                     New project
                   </Link>
@@ -323,7 +323,7 @@ export default async function OverviewPage() {
                 action={
                   <Link
                     href="/invoices?new=1"
-                    className={buttonClasses("secondary")}
+                    className={buttonClasses("secondary", "money-premium-button")}
                   >
                     New invoice
                   </Link>

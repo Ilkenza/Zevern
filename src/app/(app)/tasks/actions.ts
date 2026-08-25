@@ -58,6 +58,40 @@ export async function saveTask(
   redirect(listPath(workspace));
 }
 
+/**
+ * Add a task from the board, without leaving it.
+ *
+ * Deliberately not `saveTask`: that one redirects, and a redirect is the opposite of
+ * what a quick add is for. You are standing in a list, thinking of the next thing —
+ * the page should stay where it is and the row should appear. Priority defaults to
+ * medium and the date comes from the column you typed into, so there is one field to
+ * fill and nothing to decide.
+ */
+export async function quickAddTask(formData: FormData): Promise<void> {
+  const title = String(formData.get("title") ?? "").trim();
+  if (!title) return;
+
+  const workspace =
+    String(formData.get("workspace") ?? "work") === "personal" ? "personal" : "work";
+  const dueAt = String(formData.get("due_at") ?? "").trim() || null;
+
+  const supabase = await createSupabaseServerClient();
+  const uid = await userId(supabase);
+  if (!uid) return;
+
+  const { error } = await supabase.from("tasks").insert({
+    project_id: null,
+    title,
+    priority: "med",
+    due_at: dueAt,
+    workspace,
+  });
+  if (error) console.error("quickAddTask:", error.message);
+
+  revalidatePath(listPath(workspace));
+  revalidatePath("/");
+}
+
 export async function deleteTask(id: string, workspace = "work") {
   const supabase = await createSupabaseServerClient();
   const uid = await userId(supabase);

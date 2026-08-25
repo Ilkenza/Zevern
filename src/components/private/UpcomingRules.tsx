@@ -416,7 +416,7 @@ function NoRules() {
         title="Nothing repeats yet"
         description="Hosting, domains, subscriptions, rent, a phone paid off in instalments — enter each one once and never type it again."
         action={
-          <Link href={NEW_RULE_HREF} className={buttonClasses("primary")}>
+          <Link href={NEW_RULE_HREF} className={buttonClasses("primary", "money-premium-button")}>
             New recurring
           </Link>
         }
@@ -646,6 +646,7 @@ export function UpcomingRules({
       )}
 
       <Panel
+        className="money-summary-panel upcoming-panel"
         title="What repeats"
         action={
           items.length > 0 ? (

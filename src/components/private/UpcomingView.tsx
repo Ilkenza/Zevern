@@ -60,8 +60,8 @@ function Tab({
       href={href}
       aria-current={current ? "page" : undefined}
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-pill px-3 py-1.5 text-[12.5px] font-semibold transition-colors",
-        current ? "bg-active-bg text-gold-hi" : "text-muted hover:bg-white/5 hover:text-ink",
+        "upcoming-tab inline-flex items-center gap-1.5 rounded-pill px-3 py-1.5 text-[12.5px] font-semibold",
+        current ? "upcoming-tab-on bg-active-bg text-gold-hi" : "text-muted hover:bg-white/5 hover:text-ink",
       )}
     >
       <Icon className="h-3.75 w-3.75" />
@@ -131,25 +131,29 @@ export function UpcomingView(props: UpcomingViewProps) {
   const closePlan = () => router.push(TIMELINE_HREF);
 
   return (
-    <div className="mx-auto max-w-220 space-y-5">
-      <div className="space-y-3.5">
+    <div className="money-premium upcoming-premium mx-auto max-w-220 space-y-5">
+      <div className="money-page-head space-y-3.5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
-            <h1 className="font-display text-[22px] font-extrabold tracking-[-0.5px] text-ink">
+            <span className="money-page-kicker">Private · Upcoming</span>
+            <h1 className="mt-2 font-display text-[32px] font-extrabold tracking-[-1.2px] text-ink sm:text-[38px]">
               Upcoming
             </h1>
-            <p className="text-[12.5px] text-muted">{BLURB[props.view]}</p>
+            <p className="upcoming-blurb">{BLURB[props.view]}</p>
           </div>
           <div className="flex shrink-0 flex-wrap gap-2">
             {props.view === "timeline" && (
-              <Link href={NEW_PLAN_HREF} className={buttonClasses("primary")}>
+              <Link href={NEW_PLAN_HREF} className={buttonClasses("primary", "money-premium-button")}>
                 <Plus className="h-4 w-4" />
                 Plan a one-off
               </Link>
             )}
             <Link
               href={NEW_RULE_HREF}
-              className={buttonClasses(props.view === "timeline" ? "secondary" : "primary")}
+              className={buttonClasses(
+                props.view === "timeline" ? "secondary" : "primary",
+                "money-premium-button",
+              )}
             >
               <Plus className="h-4 w-4" />
               New recurring
@@ -159,7 +163,7 @@ export function UpcomingView(props: UpcomingViewProps) {
 
         <nav
           aria-label="Upcoming views"
-          className="inline-flex items-center gap-1 rounded-pill border border-line bg-white/[0.03] p-1"
+          className="upcoming-tabs inline-flex items-center gap-1 rounded-pill border border-line bg-white/[0.03] p-1"
         >
           <Tab
             href={TIMELINE_HREF}
