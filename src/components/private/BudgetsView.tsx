@@ -2,57 +2,32 @@
 
 import { useActionState, useMemo, useState } from "react";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, CornerUpLeft, Target, Wand2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, CornerUpLeft, Target } from "lucide-react";
 import { saveBudgets, type MoneyState } from "@/app/(app)/private/actions";
 import { Panel } from "@/components/ui/Panel";
 import { Button, buttonClasses } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
-import {
-  formatRsd,
-  monthLabel,
-  monthProgress,
-  shiftMonth,
-  shortMonthLabel,
-} from "@/lib/money";
-import { cn } from "@/lib/utils";
+import { formatRsd, monthLabel, monthProgress, shiftMonth, shortMonthLabel } from "@/lib/money";
 import type { BudgetLine } from "@/lib/types";
-
-type Status = "over" | "ahead" | "ontrack" | "untracked" | "unset";
+import { SummaryPanel } from "./budgets/SummaryPanel";
+import { CategoryRow } from "./budgets/CategoryRow";
+import { totalsOf, type Status } from "./budgets/status";
 
 /**
- * Where a category stands, in one word.
- *
- * "Ahead" is the state a plain percentage hides: 60% of the grocery budget spent is
- * fine on the 20th and a warning on the 8th. Pace is what separates those two, which
- * is why the comparison is against how much of the month has gone rather than against
- * the limit alone.
+ * The state of the whole month, in the same vocabulary a single category uses. The
+ * ring, the verdict and every row are then coloured by one function rather than three,
+ * so the ring can never be green while the sentence under it says you are over.
  */
-function statusOf(line: BudgetLine, pace: number): Status {
-  if (line.limit <= 0) return line.spent > 0 ? "untracked" : "unset";
-  if (line.spent > line.limit) return "over";
-  if (line.spent / line.limit > pace + 0.15) return "ahead";
+function overallStatus(
+  limit: number,
+  spent: number,
+  used: number,
+  pacePct: number,
+): Status {
+  if (limit <= 0) return "unset";
+  if (spent > limit) return "over";
+  if (used > pacePct + 5) return "ahead";
   return "ontrack";
-}
-
-const STATUS_LABEL: Record<Status, string> = {
-  over: "Over",
-  ahead: "Ahead of pace",
-  ontrack: "On track",
-  untracked: "No limit",
-  unset: "Unused",
-};
-
-const BAR_TONE: Record<Status, string> = {
-  over: "bg-danger",
-  ahead: "bg-gold",
-  ontrack: "bg-ok",
-  untracked: "bg-white/15",
-  unset: "bg-white/10",
-};
-
-/** Digits only — a limit is whole dinars, and this makes an unparseable one impossible. */
-function clean(value: string): string {
-  return value.replace(/\D/g, "").slice(0, 12);
 }
 
 export function BudgetsView({
@@ -99,82 +74,78 @@ export function BudgetsView({
 
   const changed = Object.keys(initial).filter((id) => (values[id] ?? "") !== initial[id]);
 
-  const totalLimit = lines.reduce((s, l) => s + l.limit, 0);
-  const totalSpent = lines.reduce((s, l) => s + l.spent, 0);
-  const totalUsed = totalLimit > 0 ? Math.round((totalSpent / totalLimit) * 100) : 0;
-  const pacePct = Math.round(pace * 100);
+  const totals = totalsOf(lines, pace, isCurrentMonth);
+  const status = overallStatus(totals.limit, totals.spent, totals.used, totals.pacePct);
 
   // Spending in categories with no ceiling at all — the part of the month no budget is
   // watching, and usually where the surprise lives.
   const untracked = lines.filter((l) => l.limit <= 0 && l.spent > 0);
-  const untrackedTotal = untracked.reduce((s, l) => s + l.spent, 0);
 
-  // Where the month lands at today's rate. Only meaningful while it is still running —
-  // a finished month has already landed wherever it landed.
-  const projected = pace > 0 && isCurrentMonth ? Math.round(totalSpent / pace) : totalSpent;
-  const overshoot = projected - totalLimit;
+  // Categories with a limit come first: they are the ones this screen is about, and a
+  // run of unused categories at the top pushes the actual budget below the fold.
+  const ordered = useMemo(() => {
+    const withLimit = lines.filter((l) => l.limit > 0);
+    const rest = lines.filter((l) => l.limit <= 0);
+    return [...withLimit, ...rest];
+  }, [lines]);
+  const tracked = ordered.filter((l) => l.limit > 0).length;
 
   const verdict = (() => {
-    if (totalLimit === 0) return "Set a limit on a category and its pace shows up here.";
+    if (totals.limit === 0) return "Set a limit on a category and its pace shows up here.";
     if (!isCurrentMonth) {
-      return totalSpent > totalLimit
-        ? `${monthLabel(month)} finished ${formatRsd(totalSpent - totalLimit)} over.`
-        : `${monthLabel(month)} finished ${formatRsd(totalLimit - totalSpent)} under.`;
+      return totals.spent > totals.limit
+        ? `${monthLabel(month)} finished ${formatRsd(totals.spent - totals.limit)} over.`
+        : `${monthLabel(month)} finished ${formatRsd(totals.limit - totals.spent)} under.`;
     }
-    if (totalUsed > pacePct + 5) {
-      return overshoot > 0
-        ? `${totalUsed - pacePct} points ahead of the month — at this rate you finish ${formatRsd(overshoot)} over.`
-        : `${totalUsed - pacePct} points ahead of the month, but still inside the limits.`;
+    if (totals.used > totals.pacePct + 5) {
+      return totals.overshoot > 0
+        ? `${totals.used - totals.pacePct} points ahead of the month — at this rate you finish ${formatRsd(totals.overshoot)} over.`
+        : `${totals.used - totals.pacePct} points ahead of the month, but still inside the limits.`;
     }
-    if (totalUsed < pacePct - 5) {
-      return `${pacePct - totalUsed} points behind the month — ${formatRsd(Math.max(totalLimit - projected, 0))} of slack at this rate.`;
+    if (totals.used < totals.pacePct - 5) {
+      return `${totals.pacePct - totals.used} points behind the month — ${formatRsd(Math.max(totals.limit - totals.projected, 0))} of slack at this rate.`;
     }
     return "Right on pace for the month.";
   })();
 
   return (
-    <div className="money-premium money-budgets mx-auto max-w-220">
-      <div className="money-page-head mb-5 flex flex-wrap items-end justify-between gap-5">
+    <div className="money-premium money-budgets mx-auto max-w-280">
+      <div className="money-page-head budget-head">
         <div className="min-w-0">
           <span className="money-page-kicker">Monthly control</span>
           <h1 className="mt-2 font-display text-[32px] font-extrabold tracking-[-1.2px] text-ink sm:text-[38px]">
             Budgets
           </h1>
-          <p className="mt-1 text-[13px] text-muted">
+          <p className="mt-1 max-w-md text-[13px] leading-5 text-muted">
             A limit applies to every month. {monthLabel(month)} is what it is being
             measured against.
           </p>
-          <div className="money-month-nav mt-3">
-            <Link
-              href={`/private/budgets?month=${prevMonth}`}
-              aria-label={`Go to ${monthLabel(prevMonth)}`}
-              className="money-month-arrow"
-            >
-              <ChevronLeft className="h-4 w-4" />
-              <span>{shortMonthLabel(prevMonth, month)}</span>
-            </Link>
-            <Link
-              href={`/private/budgets?month=${nextMonth}`}
-              aria-label={`Go to ${monthLabel(nextMonth)}`}
-              className="money-month-arrow"
-            >
-              <span>{shortMonthLabel(nextMonth, month)}</span>
-              <ChevronRight className="h-4 w-4" />
-            </Link>
-            {!isCurrentMonth && (
-              <Link href="/private/budgets" className="money-month-back">
-                <CornerUpLeft className="h-3.5 w-3.5" aria-hidden />
-                This month
-              </Link>
-            )}
-          </div>
         </div>
-        <Link
-          href={`/private/money?month=${month}`}
-          className={buttonClasses("secondary", "money-premium-button border")}
-        >
-          See entries
-        </Link>
+
+        <div className="money-month-nav budget-head-nav">
+          <Link
+            href={`/private/budgets?month=${prevMonth}`}
+            aria-label={`Go to ${monthLabel(prevMonth)}`}
+            className="money-month-arrow"
+          >
+            <ChevronLeft className="h-4 w-4" />
+            <span>{shortMonthLabel(prevMonth, month)}</span>
+          </Link>
+          <Link
+            href={`/private/budgets?month=${nextMonth}`}
+            aria-label={`Go to ${monthLabel(nextMonth)}`}
+            className="money-month-arrow"
+          >
+            <span>{shortMonthLabel(nextMonth, month)}</span>
+            <ChevronRight className="h-4 w-4" />
+          </Link>
+          {!isCurrentMonth && (
+            <Link href="/private/budgets" className="money-month-back">
+              <CornerUpLeft className="h-3.5 w-3.5" aria-hidden />
+              This month
+            </Link>
+          )}
+        </div>
       </div>
 
       {lines.length === 0 ? (
@@ -194,162 +165,57 @@ export function BudgetsView({
           />
         </Panel>
       ) : (
-        <form action={formAction}>
-          <Panel className="money-summary-panel budget-panel-premium">
-            {totalLimit > 0 && (
-              <div className="budget-overview border-b border-line-soft px-4 py-4">
-                <div className="budget-verdict">
-                  <div className="budget-verdict-main">
-                    <span className="money-page-kicker">Budget used</span>
-                    <p className="mono budget-figure">{totalUsed}%</p>
-                    <p className="budget-verdict-text">{verdict}</p>
-                  </div>
-                  <p className="budget-verdict-meta">
-                    <span className="mono">
-                      {formatRsd(totalSpent)} of {formatRsd(totalLimit)}
-                    </span>
-                    <span className="mono">
-                      {formatRsd(Math.max(totalLimit - totalSpent, 0))} available
-                    </span>
-                  </p>
-                </div>
+        <form action={formAction} className="budget-layout">
+          <SummaryPanel
+            month={month}
+            totals={totals}
+            status={status}
+            verdict={verdict}
+            showPace={isCurrentMonth}
+            untracked={untracked}
+            entriesHref={`/private/money?month=${month}`}
+          />
 
-                {/*
-                  The tick is where the month is. A bar on its own only says how much has
-                  gone; the tick is what makes it say whether that is too much yet.
-                */}
-                <div className="budget-track">
-                  <div
-                    className={cn(
-                      "money-progress-fill budget-fill",
-                      totalSpent > totalLimit
-                        ? "bg-danger"
-                        : totalUsed > pacePct + 5
-                          ? "bg-gold"
-                          : "bg-ok",
-                    )}
-                    style={{ width: `${Math.min(totalUsed, 100)}%` }}
-                  />
-                  {isCurrentMonth && (
-                    <span
-                      className="budget-pace"
-                      style={{ left: `${Math.min(pacePct, 100)}%` }}
-                      aria-hidden
-                    />
-                  )}
-                </div>
-                {isCurrentMonth && (
-                  <p className="budget-pace-legend">
-                    <i /> {pacePct}% of {monthLabel(month).split(" ")[0]} has gone
-                  </p>
-                )}
-              </div>
-            )}
-
-            {untracked.length > 0 && (
-              <div className="budget-untracked border-b border-line-soft px-4 py-3">
-                <span className="mono budget-untracked-amount">{formatRsd(untrackedTotal)}</span>{" "}
-                went to {untracked.length === 1 ? "a category" : `${untracked.length} categories`} with
-                no limit — {untracked.map((l) => l.category.name).join(", ")}.
-              </div>
-            )}
-
-            <div className="budget-rows">
-              {lines.map((line, index) => {
-                const status = statusOf(line, pace);
-                const used = line.limit > 0 ? Math.min(line.spent / line.limit, 1) : 0;
-                const left = line.limit - line.spent;
-                const value = values[line.category.id] ?? "";
-                const suggest = line.typical > 0 && String(line.typical) !== value;
-
-                return (
-                  <div
-                    key={line.category.id}
-                    className={cn("budget-row-premium budget-row", `budget-is-${status}`)}
-                    style={{ animationDelay: `${150 + index * 55}ms` }}
-                  >
-                    <div className="budget-row-main">
-                      <span
-                        className="budget-dot"
-                        style={{ background: line.category.color ?? "#565c6b" }}
-                      />
-                      <span className="budget-name">{line.category.name}</span>
-                      <span className={cn("budget-status", `budget-status-${status}`)}>
-                        {STATUS_LABEL[status]}
-                      </span>
-                      <span className="mono budget-spent">{formatRsd(line.spent)}</span>
-                      <span className="budget-of">of</span>
-                      <input
-                        name={`limit_${line.category.id}`}
-                        value={value}
-                        onChange={(e) =>
-                          setValues((v) => ({ ...v, [line.category.id]: clean(e.target.value) }))
-                        }
-                        inputMode="numeric"
-                        placeholder="no limit"
-                        aria-label={`Monthly limit for ${line.category.name}`}
-                        className="budget-input"
-                      />
-                    </div>
-
-                    {line.limit > 0 && (
-                      <div className="budget-row-bar">
-                        <div className="budget-track budget-track-sm">
-                          <div
-                            className={cn("money-progress-fill budget-fill", BAR_TONE[status])}
-                            style={{ width: `${used * 100}%` }}
-                          />
-                          {isCurrentMonth && (
-                            <span
-                              className="budget-pace budget-pace-sm"
-                              style={{ left: `${Math.min(pacePct, 100)}%` }}
-                              aria-hidden
-                            />
-                          )}
-                        </div>
-                        <span className={cn("mono budget-left", left < 0 && "text-danger")}>
-                          {left < 0 ? `${formatRsd(-left)} over` : `${formatRsd(left)} left`}
-                        </span>
-                      </div>
-                    )}
-
-                    {/*
-                      A blank field is a decision nobody has the numbers for. This one
-                      does: it is what the last six months actually cost.
-                    */}
-                    {suggest && (
-                      <button
-                        type="button"
-                        className="budget-suggest"
-                        onClick={() =>
-                          setValues((v) => ({ ...v, [line.category.id]: String(line.typical) }))
-                        }
-                      >
-                        <Wand2 className="h-3 w-3" aria-hidden />
-                        A normal month is {formatRsd(line.typical)} — use it
-                      </button>
-                    )}
-                  </div>
-                );
-              })}
+          <div className="budget-list">
+            <div className="budget-list-head">
+              <h2 className="budget-list-title">Categories</h2>
+              <span className="budget-list-meta">
+                {tracked} of {lines.length} carry a limit
+              </span>
             </div>
-          </Panel>
 
-          {state?.error && (
-            <p className="mt-3 rounded-ctrl border border-danger/40 bg-danger-bg px-3 py-2 text-[12px] text-danger">
-              {state.error}
+            <div className="budget-cards">
+              {ordered.map((line, index) => (
+                <CategoryRow
+                  key={line.category.id}
+                  line={line}
+                  pace={pace}
+                  pacePct={totals.pacePct}
+                  showPace={isCurrentMonth}
+                  value={values[line.category.id] ?? ""}
+                  onChange={(next) =>
+                    setValues((v) => ({ ...v, [line.category.id]: next }))
+                  }
+                  // The ladder is capped in CSS; this only decides the rung.
+                  style={{ animationDelay: `${90 + index * 45}ms` }}
+                />
+              ))}
+            </div>
+
+            {state?.error && (
+              <p className="budget-note is-error">{state.error}</p>
+            )}
+            {state?.ok && changed.length === 0 && (
+              <p className="budget-note is-ok">Limits saved.</p>
+            )}
+            <p className="budget-note">
+              Leave a limit empty to track a category without capping it.
             </p>
-          )}
-          {state?.ok && changed.length === 0 && (
-            <p className="mt-3 text-[12px] text-ok">Limits saved.</p>
-          )}
-          <p className="mt-3 text-[12px] text-muted">
-            Leave a limit empty to track a category without capping it.
-          </p>
+          </div>
 
           {/*
             The save bar exists only once there is something to save — it is not hidden
-            but present, so it takes up no room and no tab stop on a page you are only
+            but absent, so it takes up no room and no tab stop on a page you are only
             reading. After a save the server's numbers become the baseline again and it
             leaves on its own.
           */}

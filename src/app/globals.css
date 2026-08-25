@@ -627,275 +627,583 @@ body {
   .onhand-account { transition: none; }
 }
 
-.budget-overview {
-  background: linear-gradient(110deg, rgba(217, 164, 65, 0.055), transparent 52%);
-}
+/* ===================================================================== Budgets
+   The month on the left, the categories on the right.
 
-.budget-row-premium {
-  position: relative;
-  opacity: 0;
-  animation: money-card-in 560ms var(--ease-premium) both;
-  transition: background-color 260ms ease, padding-left 360ms var(--ease-premium);
-}
+   This screen used to be one column: a summary band, then a long list under it. The
+   band scrolled away the moment you started reading the rows, which is exactly when
+   you need it — every question a row raises ("is this the one putting me over?") can
+   only be answered against the total. So the total became a column of its own and, on
+   a wide screen, stays put while the list moves past it.
+   ========================================================================== */
 
-.budget-row-premium::before {
-  content: "";
-  position: absolute;
-  inset: 0 auto 0 0;
-  width: 2px;
-  background: var(--color-gold);
-  transform: scaleY(0);
-  transform-origin: bottom;
-  transition: transform 360ms var(--ease-premium);
-}
-
-.budget-row-premium:hover {
-  padding-left: 20px;
-  background: rgba(255, 255, 255, 0.018);
-}
-
-.budget-row-premium:hover::before { transform: scaleY(1); }
-
-.budget-row-premium input {
-  transition: border-color 220ms ease, box-shadow 220ms ease, background-color 220ms ease;
-}
-
-.budget-row-premium input:hover { background-color: rgba(255, 255, 255, 0.055); }
-
-/* ------------------------------------------------- Budgets: the pace read-out */
-.budget-verdict {
+.budget-head {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
   justify-content: space-between;
-  gap: 8px 24px;
-  margin-bottom: 14px;
+  gap: 1.25rem;
+  margin-bottom: 1.5rem;
 }
 
-.budget-figure {
-  margin-top: 4px;
-  color: var(--color-ink);
-  font-size: 30px;
-  font-weight: 700;
-  letter-spacing: -1px;
-  line-height: 1.05;
-  animation: money-head-in 700ms var(--ease-premium) 160ms both;
+.budget-head-nav { margin-top: 0; }
+
+.budget-layout {
+  display: grid;
+  gap: 1rem;
 }
 
-.budget-verdict-main { min-width: 0; flex: 1 1 22rem; }
-
-/* The sentence, not the percentage, is the thing worth reading first. */
-.budget-verdict-text {
-  max-width: 34rem;
-  margin-top: 6px;
-  color: var(--color-ink);
-  font-size: 13.5px;
-  font-weight: 600;
-  line-height: 1.4;
+@media (min-width: 1024px) {
+  .budget-layout {
+    grid-template-columns: minmax(0, 20.5rem) minmax(0, 1fr);
+    align-items: start;
+    gap: 1.25rem;
+  }
 }
 
-.budget-verdict-meta {
-  display: flex;
-  flex: none;
-  flex-direction: column;
-  gap: 2px;
-  color: var(--color-muted);
-  font-size: 11.5px;
-  text-align: right;
-}
+/* ------------------------------------------------------- Budgets: the summary */
 
-.budget-verdict-meta > :last-child { color: var(--color-faint); }
-
-.budget-track {
+.budget-summary {
   position: relative;
-  height: 8px;
-  border-radius: var(--radius-pill);
-  background: rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 1.5rem 1.25rem 1.25rem;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+  animation: money-card-in 620ms var(--ease-premium) 60ms both;
 }
 
-.budget-track-sm { height: 6px; flex: 1; }
+/* The warm wash behind the ring — depth without a shadow, which reads cheap on dark. */
+.budget-summary::before {
+  content: "";
+  position: absolute;
+  top: -30%;
+  left: 50%;
+  width: 22rem;
+  height: 22rem;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--color-gold) 10%, transparent),
+    transparent 62%
+  );
+  pointer-events: none;
+}
 
-.budget-fill {
+.budget-summary > * { position: relative; }
+
+@media (min-width: 1024px) {
+  .budget-summary {
+    position: sticky;
+    /* Clear of the topbar, which is sticky at the same time. */
+    top: 5.25rem;
+  }
+}
+
+.budget-summary-head {
+  align-self: flex-start;
+  margin-bottom: 0.75rem;
+}
+
+/* ---------------------------------------------------------- Budgets: the ring */
+
+.budget-ring {
+  position: relative;
+  display: grid;
+  place-items: center;
+}
+
+.budget-ring svg { display: block; }
+
+/*
+  The arc draws itself from nothing to its figure. `pathLength` normalised the circle
+  to 100, so the dash offset is the percentage — the animation is literally counting
+  the number up, and the same two values drive the shape and the motion.
+*/
+.budget-ring-arc {
+  stroke-dashoffset: var(--ring-gap);
+  animation: budget-arc-in 1100ms var(--ease-premium) 220ms both;
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--ring-tone) 45%, transparent));
+}
+
+@keyframes budget-arc-in {
+  from { stroke-dashoffset: 100; }
+  to { stroke-dashoffset: var(--ring-gap); }
+}
+
+/* The month marker. White, because it is a fact rather than a verdict. */
+.budget-ring-tick {
+  stroke: var(--color-ink);
+  opacity: 0.75;
+  animation: zv-fade 400ms ease-out 900ms both;
+}
+
+.budget-ring-centre {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  text-align: center;
+  animation: zv-fade 600ms ease-out 380ms both;
+}
+
+.budget-ring-figure {
+  font-size: 34px;
+  font-weight: 600;
+  letter-spacing: -1.4px;
+  line-height: 1;
+  color: var(--color-ink);
+}
+
+.budget-ring-caption {
+  max-width: 6.5rem;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  line-height: 1.3;
+  color: var(--color-faint);
+}
+
+.budget-pace-note {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.9rem;
+  font-size: 11.5px;
+  color: var(--color-muted);
+}
+
+.budget-pace-note i {
+  width: 2px;
+  height: 11px;
+  border-radius: 1px;
+  background: var(--color-ink);
+  opacity: 0.75;
+}
+
+.budget-verdict {
+  margin-top: 0.85rem;
+  text-align: center;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--color-ink);
+  text-wrap: balance;
+}
+
+/* ------------------------------------------------------- Budgets: the figures */
+
+.budget-figures {
+  width: 100%;
+  margin-top: 1.15rem;
+  padding-top: 0.35rem;
+  border-top: 1px solid var(--color-line-soft);
+}
+
+.budget-figure-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--color-line-soft);
+}
+
+.budget-figure-row:last-child { border-bottom: 0; }
+
+.budget-figure-label {
+  display: flex;
+  flex-direction: column;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-muted);
+}
+
+.budget-figure-label small {
+  font-size: 10.5px;
+  font-weight: 500;
+  color: var(--color-faint);
+}
+
+.budget-figure-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-ink);
+  white-space: nowrap;
+}
+
+.budget-figure-value.is-danger { color: var(--color-danger); }
+.budget-figure-value.is-ok { color: var(--color-ok); }
+.budget-figure-value.is-gold { color: var(--color-gold-hi); }
+
+/* The spending nothing is watching — stated plainly rather than buried in a row. */
+.budget-untracked {
+  width: 100%;
+  margin-top: 1rem;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid color-mix(in srgb, var(--color-gold) 24%, transparent);
+  border-radius: var(--radius-ctrl);
+  background: var(--color-active-bg);
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--color-muted);
+}
+
+.budget-untracked-amount {
+  display: block;
+  margin-bottom: 0.15rem;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--color-gold-hi);
+}
+
+.budget-entries-link {
+  margin-top: 1rem;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-gold-hi);
+  transition: color 200ms ease;
+}
+
+.budget-entries-link:hover { color: var(--color-gold); }
+
+/* --------------------------------------------------------- Budgets: the list */
+
+.budget-list {
+  min-width: 0;
+  animation: money-card-in 620ms var(--ease-premium) 140ms both;
+}
+
+.budget-list-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0 0.25rem 0.7rem;
+}
+
+.budget-list-title {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: -0.3px;
+  color: var(--color-ink);
+}
+
+.budget-list-meta {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--color-faint);
+  white-space: nowrap;
+}
+
+.budget-cards {
+  display: grid;
+  gap: 0.6rem;
+}
+
+/* ---------------------------------------------------------- Budgets: one card */
+
+/*
+  A card rather than a row.
+
+  Everything used to sit on one line, so the bar — the only part that answers the
+  question at a glance — was the narrowest thing on it and the first to vanish on a
+  phone. Two lines instead: identity and money on top, the bar owning the full width
+  underneath.
+*/
+.budget-card {
+  position: relative;
+  overflow: hidden;
+  padding: 0.85rem 1rem 0.85rem 1.15rem;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+  animation: money-card-in 560ms var(--ease-premium) both;
+  transition:
+    border-color 240ms ease,
+    background-color 240ms ease,
+    transform 260ms var(--ease-premium);
+}
+
+.budget-card:hover {
+  transform: translate3d(0, -1px, 0);
+  border-color: color-mix(in srgb, var(--cat-tone) 34%, var(--color-line));
+  background: color-mix(in srgb, var(--cat-tone) 4%, var(--color-surface));
+}
+
+/* The category's colour, down the whole edge. */
+.budget-card-rail {
+  position: absolute;
+  inset-block: 0;
+  left: 0;
+  width: 3px;
+  background: var(--cat-tone);
+  opacity: 0.75;
+  transition: opacity 240ms ease;
+}
+
+.budget-card:hover .budget-card-rail { opacity: 1; }
+
+/* Over budget is the one state worth colouring the whole card for. */
+.budget-card.budget-is-over {
+  border-color: color-mix(in srgb, var(--color-danger) 32%, var(--color-line));
+  background: color-mix(in srgb, var(--color-danger) 5%, var(--color-surface));
+}
+
+.budget-card-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 0.75rem;
+}
+
+.budget-card-id {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.budget-card-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--cat-tone);
+  transition: transform 280ms var(--ease-premium), filter 280ms ease;
+}
+
+.budget-card:hover .budget-card-dot {
+  transform: scale(1.4);
+  filter: brightness(1.25);
+}
+
+.budget-card-name {
+  min-width: 0;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--color-ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.budget-card-status {
+  flex: none;
+  padding: 0.15rem 0.5rem;
+  border-radius: var(--radius-pill);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  color: var(--status-tone);
+  background: color-mix(in srgb, var(--status-tone) 14%, transparent);
+}
+
+.budget-card-money {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-left: auto;
+}
+
+.budget-card-spent {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-ink);
+  white-space: nowrap;
+}
+
+.budget-card-of { font-size: 11.5px; color: var(--color-faint); }
+
+/*
+  The limit is a field, not a figure that opens one. This screen is a form, and being
+  able to type straight into it is worth more than a tidier row.
+*/
+.budget-card-field {
+  display: inline-flex;
+  align-items: stretch;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-ctrl);
+  background: rgba(255, 255, 255, 0.035);
+  transition: border-color 200ms ease, box-shadow 200ms ease, background-color 200ms ease;
+}
+
+.budget-card-field:hover { background: rgba(255, 255, 255, 0.06); }
+
+.budget-card-field:focus-within {
+  border-color: var(--color-gold);
+  box-shadow: var(--shadow-ring);
+}
+
+.budget-card-input {
+  width: 5.5rem;
+  padding: 0.3rem 0.5rem;
+  background: transparent;
+  border: 0;
+  outline: none;
+  text-align: right;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-ink);
+}
+
+.budget-card-input::placeholder {
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-faint);
+}
+
+.budget-card-unit {
+  display: flex;
+  align-items: center;
+  padding: 0 0.45rem;
+  border-left: 1px solid var(--color-line-soft);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--color-faint);
+}
+
+.budget-card-bottom {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.7rem;
+}
+
+/* ----------------------------------------------------------- Budgets: the bar */
+
+.budget-bar {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  height: 7px;
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.055);
+  overflow: visible;
+}
+
+.budget-bar-fill {
   display: block;
   height: 100%;
   border-radius: var(--radius-pill);
+  background: var(--status-tone);
+  transform-origin: left;
+  animation: budget-bar-in 900ms var(--ease-premium) 260ms both;
+}
+
+@keyframes budget-bar-in {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
 }
 
 /*
-  Where the month itself has got to. It sits above the fill rather than inside it, so
-  a full bar cannot hide the very mark that says the bar filled too early.
+  The month marker, on the bar as well as on the ring. Drawn over the fill so it stays
+  visible once spending passes it — which is the moment it matters most.
 */
-.budget-pace {
+.budget-bar-pace {
   position: absolute;
   top: -3px;
   bottom: -3px;
   width: 2px;
-  margin-left: -1px;
-  border-radius: 2px;
+  border-radius: 1px;
   background: var(--color-ink);
-  box-shadow: 0 0 0 2px var(--color-surface);
-  opacity: 0.75;
-  animation: budget-pace-in 760ms var(--ease-premium) 520ms both;
+  opacity: 0.55;
+  animation: zv-fade 400ms ease-out 800ms both;
 }
 
-.budget-pace-sm { top: -2px; bottom: -2px; opacity: 0.5; }
-
-@keyframes budget-pace-in {
-  from { opacity: 0; transform: scaleY(0.4); }
-  to { opacity: 0.75; transform: scaleY(1); }
-}
-
-.budget-pace-legend {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  margin-top: 9px;
-  color: var(--color-faint);
-  font-size: 11px;
-  font-weight: 600;
-}
-
-.budget-pace-legend i {
-  width: 2px;
-  height: 10px;
-  border-radius: 2px;
-  background: var(--color-ink);
-  opacity: 0.75;
-}
-
-/* The spending no limit is watching. */
-.budget-untracked {
-  background: linear-gradient(100deg, rgba(217, 164, 65, 0.06), transparent 60%);
-  color: var(--color-muted);
-  font-size: 12px;
-}
-
-.budget-untracked-amount { color: var(--color-gold-hi); font-weight: 700; }
-
-/* --------------------------------------------------------- Budgets: the rows */
-.budget-row {
-  padding: 14px 16px;
-  border-bottom: 1px solid var(--color-line-soft);
-}
-
-.budget-row:last-child { border-bottom: 0; }
-
-.budget-row-main {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.budget-dot {
-  width: 10px;
-  height: 10px;
+.budget-card-left {
   flex: none;
-  border-radius: 50%;
-  transition: transform 320ms var(--ease-premium), filter 320ms ease;
-}
-
-.budget-row:hover .budget-dot { transform: scale(1.35); filter: brightness(1.25); }
-
-.budget-name {
-  min-width: 0;
-  flex: 1;
-  overflow: hidden;
-  color: var(--color-ink);
-  font-size: 13.5px;
-  font-weight: 600;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* The word carries the state; colour only agrees with it. */
-.budget-status {
-  flex: none;
-  padding: 2px 8px;
-  border-radius: var(--radius-pill);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  white-space: nowrap;
-}
-
-.budget-status-over { background: var(--color-danger-bg); color: var(--color-danger); }
-.budget-status-ahead { background: var(--color-active-bg); color: var(--color-active); }
-.budget-status-ontrack { background: var(--color-ok-bg); color: var(--color-ok); }
-.budget-status-untracked { background: var(--color-pending-bg); color: var(--color-muted); }
-.budget-status-unset { background: transparent; color: var(--color-faint); }
-
-.budget-spent { flex: none; color: var(--color-muted); font-size: 12.5px; }
-.budget-of { flex: none; color: var(--color-faint); font-size: 12px; }
-
-.budget-input {
-  width: 96px;
-  flex: none;
-  padding: 6px 9px;
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius-ctrl);
-  background: rgba(255, 255, 255, 0.035);
-  color: var(--color-ink);
-  font-family: var(--font-mono);
-  font-size: 12.5px;
-  text-align: right;
-}
-
-.budget-input::placeholder { color: var(--color-faint); font-family: var(--font-ui); }
-.budget-input:focus { border-color: var(--color-gold); box-shadow: var(--shadow-ring); outline: none; }
-
-.budget-row-bar {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-top: 10px;
-}
-
-.budget-left {
-  width: 7.5rem;
-  flex: none;
-  color: var(--color-muted);
   font-size: 11.5px;
-  text-align: right;
+  font-weight: 600;
+  color: var(--color-muted);
+  white-space: nowrap;
 }
+
+.budget-card-left.is-over { color: var(--color-danger); }
+
+.budget-card-nolimit {
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--color-faint);
+}
+
+/* ---------------------------------------------------- Budgets: the suggestion */
 
 .budget-suggest {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  margin-top: 9px;
-  padding: 4px 10px;
-  border: 1px dashed rgba(217, 164, 65, 0.32);
+  gap: 0.4rem;
+  margin-top: 0.65rem;
+  padding: 0.25rem 0.6rem;
+  border: 1px dashed color-mix(in srgb, var(--color-gold) 32%, transparent);
   border-radius: var(--radius-pill);
-  color: var(--color-gold-hi);
   font-size: 11px;
   font-weight: 600;
-  transition: background-color 220ms ease, border-color 220ms ease, transform 260ms var(--ease-premium);
+  color: var(--color-muted);
+  transition: border-color 200ms ease, background-color 200ms ease, color 200ms ease;
 }
 
 .budget-suggest:hover {
-  transform: translateY(-1px);
-  border-color: rgba(217, 164, 65, 0.6);
   border-style: solid;
+  border-color: var(--color-gold);
   background: var(--color-active-bg);
+  color: var(--color-ink);
 }
 
-/* ------------------------------------------------------- Budgets: the save bar */
+.budget-suggest-cta {
+  color: var(--color-gold-hi);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* ---------------------------------------------------------- Budgets: the rest */
+
+.budget-note {
+  margin-top: 0.85rem;
+  font-size: 12px;
+  color: var(--color-muted);
+}
+
+.budget-note.is-error {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid color-mix(in srgb, var(--color-danger) 40%, transparent);
+  border-radius: var(--radius-ctrl);
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+}
+
+.budget-note.is-ok { color: var(--color-ok); }
+
 .budget-savebar {
   position: sticky;
-  bottom: 14px;
+  bottom: 1rem;
   z-index: 20;
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-top: 14px;
-  padding: 10px 12px 10px 16px;
-  border: 1px solid rgba(217, 164, 65, 0.24);
-  border-radius: var(--radius-pill);
-  background: rgba(26, 29, 36, 0.92);
-  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(10px);
+  gap: 0.75rem;
+  margin-top: 1rem;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid color-mix(in srgb, var(--color-gold) 30%, var(--color-line));
+  border-radius: var(--radius-card);
+  background: color-mix(in srgb, var(--color-surface) 88%, transparent);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 18px 40px -18px rgba(0, 0, 0, 0.85);
   animation: budget-savebar-in 420ms var(--ease-premium) both;
+}
+
+@media (min-width: 1024px) {
+  /* It belongs to the list, not to the summary beside it. */
+  .budget-savebar { grid-column: 2; }
 }
 
 @keyframes budget-savebar-in {
@@ -922,44 +1230,47 @@ body {
 @media (max-width: 640px) {
   .money-page-head { min-height: 0; padding-top: 0; }
   .money-premium::before { right: -150px; opacity: 0.7; }
-  .budget-row-premium:hover { padding-left: 16px; }
-  .budget-verdict-meta { text-align: left; }
-  .budget-row-main { flex-wrap: wrap; }
-  .budget-name { flex: 1 0 100%; order: -1; }
-  .budget-input { margin-left: auto; }
-  .budget-left { width: auto; }
+  /*
+    On one line the figures sit at the right end together. Wrapped onto their own
+    line they were spread edge to edge by `space-between`, which put "of" adrift in
+    the middle of the card with a gap on either side. The amount and the word belong
+    to each other; only the field goes to the far side.
+  */
+  .budget-card-money { width: 100%; margin-left: 0; }
+  .budget-card-field { margin-left: auto; }
+  .budget-card-input { width: 5rem; }
+  .budget-summary { padding: 1.25rem 1rem 1rem; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .money-page-head,
-  .money-summary-panel,
-  .money-empty-panel,
-  .money-card-premium,
-  .money-progress-fill,
-  .money-progress-segment,
-  .budget-row-premium {
-    animation: none !important;
-    opacity: 1;
-    transform: none;
-  }
-
-  .budget-figure,
-  .budget-pace,
+  .budget-summary,
+  .budget-list,
+  .budget-card,
+  .budget-ring-arc,
+  .budget-ring-tick,
+  .budget-ring-centre,
+  .budget-bar-fill,
+  .budget-bar-pace,
   .budget-savebar {
     animation: none !important;
     opacity: 1;
     transform: none;
   }
 
-  .money-summary-panel::after,
-  .money-premium-button::after { display: none; }
+  /* The arc still has to end up at its figure — it simply arrives there drawn. */
+  .budget-ring-arc { stroke-dashoffset: var(--ring-gap); }
+  .budget-bar-fill { transform: scaleX(1); }
 
-  .money-card-premium,
-  .money-premium-button,
-  .budget-row-premium,
-  .budget-dot,
+  .budget-card,
+  .budget-card-rail,
+  .budget-card-dot,
+  .budget-card-field,
   .budget-suggest,
-  .budget-savebar { transition: none; }
+  .budget-entries-link,
+  .budget-savebar-undo { transition: none; }
+
+  .budget-card:hover,
+  .budget-card:hover .budget-card-dot { transform: none; }
 }
 
 /* Overview — executive dashboard treatment. */
