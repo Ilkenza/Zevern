@@ -1996,120 +1996,7 @@ body {
 
 .task-row-date { flex: none; color: var(--color-muted); font-size: 12px; }
 
-/* -------------------------------------------------------------- The board */
-.task-board {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
-}
-
-.task-column {
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius-card);
-  background: var(--color-surface);
-  animation: money-card-in 620ms var(--ease-premium) both;
-  transition: border-color 300ms ease;
-}
-
-.task-board > :nth-child(1) { animation-delay: 150ms; }
-.task-board > :nth-child(2) { animation-delay: 225ms; }
-.task-board > :nth-child(3) { animation-delay: 300ms; }
-
-.task-column:hover { border-color: rgba(255, 255, 255, 0.14); }
-.task-column-late { border-color: rgba(222, 107, 94, 0.22); }
-.task-column-late:hover { border-color: rgba(222, 107, 94, 0.4); }
-
-.task-column-head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 11px 14px;
-  border-bottom: 1px solid var(--color-line-soft);
-  background: var(--color-surface-2);
-  color: var(--color-muted);
-}
-
-.task-column-late .task-column-head { color: var(--color-danger); }
-.task-column-week .task-column-head { color: var(--color-active); }
-
-.task-column-title {
-  flex: 1;
-  font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
-}
-
-.task-column-count { color: var(--color-faint); font-size: 11px; font-weight: 700; }
-
-.task-column-body {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  gap: 8px;
-  padding: 10px;
-}
-
-.task-column-empty {
-  padding: 14px 4px;
-  color: var(--color-faint);
-  font-size: 12px;
-}
-
-/* ------------------------------------------------------------- The cards */
-.task-card {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 10px 11px;
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius-ctrl);
-  background: rgba(255, 255, 255, 0.022);
-  animation: task-in 440ms var(--ease-premium) both;
-  transition:
-    transform 300ms var(--ease-premium),
-    border-color 240ms ease,
-    background-color 240ms ease,
-    box-shadow 300ms ease;
-}
-
-.task-column-body > :nth-child(1) { animation-delay: 220ms; }
-.task-column-body > :nth-child(2) { animation-delay: 265ms; }
-.task-column-body > :nth-child(3) { animation-delay: 310ms; }
-.task-column-body > :nth-child(n + 4) { animation-delay: 355ms; }
-
-.task-card:hover {
-  transform: translateY(-2px);
-  border-color: rgba(217, 164, 65, 0.28);
-  background: rgba(255, 255, 255, 0.045);
-  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.22);
-}
-
-.task-card-done { opacity: 0.55; }
-
-.task-card-body {
-  display: flex;
-  min-width: 0;
-  flex: 1;
-  flex-direction: column;
-  gap: 3px;
-}
-
-.task-card-title {
-  color: var(--color-ink);
-  font-size: 13px;
-  font-weight: 500;
-  line-height: 1.35;
-  /* Two lines, then an ellipsis — a long title must not make one card twice as tall. */
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  overflow: hidden;
-}
-
+/* Project line and exact date, shared by the Today rows and the agenda lines. */
 .task-card-project {
   overflow: hidden;
   color: var(--color-muted);
@@ -2118,19 +2005,9 @@ body {
   white-space: nowrap;
   transition: color 200ms ease;
 }
-
 .task-card-project:hover { color: var(--color-gold-hi); }
-
-.task-card-meta {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 2px;
-}
-
 .task-card-date { color: var(--color-faint); font-size: 10.5px; }
 
-/* The mark only exists for a priority that is not the default. */
 .task-prio {
   display: inline-flex;
   flex: none;
@@ -2200,21 +2077,20 @@ body {
 .task-done-body { border-top: 1px solid var(--color-line-soft); }
 
 @media (max-width: 1000px) {
-  .task-board { grid-template-columns: minmax(0, 1fr); }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .task-summary,
   .task-focus,
   .task-row,
-  .task-column,
-  .task-card {
+  .task-group,
+  .task-line {
     animation: none !important;
     opacity: 1;
     transform: none;
   }
 
-  .task-card,
+  .task-line,
   .task-row,
   .task-edit,
   .task-quickadd,
@@ -3321,17 +3197,6 @@ body > * { min-width: 0; }
   .task-quickadd-hint { display: none; }
 }
 
-/*
-  A column with nothing in it should cost a line, not a card's worth of height. It
-  still appears — knowing that nothing is late is worth something — but it stops
-  reserving room for entries that are not there.
-*/
-.task-column-body:has(> .task-column-empty) {
-  flex: 0 0 auto;
-  padding: 4px 10px 12px;
-}
-
-.task-column-empty { padding: 6px 4px; }
 
 /* Edit and delete travel together, and on a touch screen they are simply there. */
 .task-actions {
@@ -3346,7 +3211,6 @@ body > * { min-width: 0; }
   transition: opacity 200ms ease;
 }
 
-.task-card:hover .task-actions > *,
 .task-row:hover .task-actions > *,
 .task-actions:focus-within > * { opacity: 1; }
 
@@ -3361,88 +3225,246 @@ body > * { min-width: 0; }
 /* The drawer's close button lives over the brand row, so the brand keeps clear of it. */
 .zv-drawer .zv-brand { padding-right: 60px; }
 
-/* ==================================================== Tasks: the three columns
-   They were four grey rectangles with a machine-readable date. Nothing on a card
-   said which column it was in, how late it was, or which of them to read first.
+
+/* ==================================================== Tasks: the agenda bands
+   Three columns side by side gave each task about 300px, so every card stacked
+   title / project / priority / phrase / date into a narrow tower, and the three
+   towers ended at three different heights. Nothing lined up with anything.
+
+   The same three groups, laid out along the page instead of across it: a label
+   held on the left, the tasks full width beside it. Now "3 weeks late" sits in a
+   column of its own down the right-hand edge, which is the comparison you make.
    ========================================================================== */
-
-/* An empty column is short. The grid was stretching it to match its neighbour, so
-   "Nothing parked." floated at the top of a tall grey void. */
-.task-board { align-items: start; }
-
-.task-card {
-  position: relative;
-  padding-left: 15px;
+.task-agenda {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 18px;
 }
 
-/* The rail: the column's tone, running down the card that belongs to it. */
-.task-card-rail {
-  position: absolute;
-  top: 9px;
-  bottom: 9px;
-  left: 0;
-  width: 2.5px;
-  border-radius: 0 3px 3px 0;
-  background: var(--color-faint);
-  opacity: 0.5;
-  transition: opacity 260ms ease, box-shadow 300ms ease;
+.task-group {
+  display: grid;
+  grid-template-columns: 196px minmax(0, 1fr);
+  overflow: hidden;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+  animation: money-card-in 620ms var(--ease-premium) both;
+  transition: border-color 320ms ease;
 }
 
-.task-column-late .task-card-rail {
-  background: var(--color-danger);
-  opacity: 0.8;
+.task-agenda > :nth-child(1) { animation-delay: 150ms; }
+.task-agenda > :nth-child(2) { animation-delay: 220ms; }
+.task-agenda > :nth-child(3) { animation-delay: 290ms; }
+
+.task-group:hover { border-color: rgba(255, 255, 255, 0.13); }
+.task-group-late { border-color: rgba(222, 107, 94, 0.24); }
+.task-group-late:hover { border-color: rgba(222, 107, 94, 0.42); }
+
+/* A band with nothing in it stops taking up a band's worth of room. */
+.task-group-quiet { opacity: 0.72; }
+.task-group-quiet:hover { opacity: 1; }
+
+/* The label column, with the band's tone as a bar down its outer edge — one mark
+   per group instead of one per card, which is where it belonged all along. */
+.task-group-side {
+  display: flex;
+  padding: 16px 16px 16px 19px;
+  border-right: 1px solid var(--color-line-soft);
+  background: var(--color-surface-2);
+  box-shadow: inset 3px 0 0 var(--color-line);
 }
 
-.task-column-week .task-card-rail {
-  background: var(--color-active);
-  opacity: 0.65;
+.task-group-late .task-group-side { box-shadow: inset 3px 0 0 var(--color-danger); }
+.task-group-week .task-group-side { box-shadow: inset 3px 0 0 var(--color-active); }
+
+/* On a band of twenty tasks the heading follows you down rather than scrolling off. */
+.task-group-sticky {
+  position: sticky;
+  top: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  align-self: flex-start;
+  width: 100%;
 }
 
-.task-card:hover .task-card-rail {
-  opacity: 1;
-  box-shadow: 0 0 10px -1px currentColor;
-}
-
-.task-column-late .task-card:hover { border-color: rgba(222, 107, 94, 0.34); }
-.task-column-week .task-card:hover { border-color: rgba(230, 180, 87, 0.32); }
-
-/*
-  The phrase leads and the date follows. "19 days late" is the fact; "2026-08-06" is
-  the footnote, and it only matters when the answer is "which Saturday".
-*/
-.task-when {
+.task-group-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
   color: var(--color-muted);
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 700;
-  letter-spacing: 0.01em;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
 }
 
-.task-when-late { color: var(--color-danger); }
+.task-group-late .task-group-label { color: var(--color-danger); }
+.task-group-week .task-group-label { color: var(--color-active); }
 
-.task-card-meta {
-  flex-wrap: wrap;
-  gap: 4px 8px;
+.task-group-count {
+  color: var(--color-ink);
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: -0.6px;
 }
 
-.task-card-date {
+.task-group-quiet .task-group-count { color: var(--color-faint); }
+
+.task-group-note {
   color: var(--color-faint);
-  font-size: 10px;
-  opacity: 0.75;
+  font-size: 11.5px;
+  line-height: 1.45;
 }
 
-/* Late is the column you are meant to clear, so it carries a little more weight. */
-.task-column-late {
-  background:
-    linear-gradient(180deg, rgba(222, 107, 94, 0.045), transparent 38%),
-    var(--color-surface);
+.task-group-list { display: flex; flex-direction: column; }
+
+.task-group-empty {
+  padding: 16px;
+  color: var(--color-faint);
+  font-size: 12.5px;
 }
 
-.task-column-week {
-  background:
-    linear-gradient(180deg, rgba(230, 180, 87, 0.035), transparent 38%),
-    var(--color-surface);
+/* ------------------------------------------------------------- The lines */
+.task-line {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 16px;
+  border-bottom: 1px solid var(--color-line-soft);
+  transition: background 220ms ease, padding-left 260ms var(--ease-premium);
+}
+
+.task-line:last-child { border-bottom: 0; }
+.task-line:hover { padding-left: 22px; background: rgba(255, 255, 255, 0.028); }
+.task-line-done { opacity: 0.55; }
+
+.task-line-body {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.task-line-title {
+  overflow: hidden;
+  color: var(--color-ink);
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The right-hand block: priority, then the phrase you read with the exact date
+   underneath it for when the phrase is not precise enough. Both fixed width, so
+   they make two straight columns down the band instead of drifting with the length
+   of each title. */
+.task-line-meta {
+  display: flex;
+  flex: none;
+  width: 218px;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.task-line-when {
+  display: flex;
+  flex: none;
+  width: 128px;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+  text-align: right;
+}
+
+.task-line:hover .task-actions > * { opacity: 1; }
+
+@media (max-width: 900px) {
+  .task-group { grid-template-columns: minmax(0, 1fr); }
+
+  .task-group-side {
+    padding: 10px 14px;
+    border-right: 0;
+    border-bottom: 1px solid var(--color-line-soft);
+    box-shadow: inset 0 3px 0 var(--color-line);
+  }
+
+  .task-group-late .task-group-side { box-shadow: inset 0 3px 0 var(--color-danger); }
+  .task-group-week .task-group-side { box-shadow: inset 0 3px 0 var(--color-active); }
+
+  .task-group-sticky {
+    position: static;
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .task-group-label { flex: 1; }
+  .task-group-count { font-size: 14px; }
+  .task-group-note { display: none; }
+}
+
+@media (max-width: 560px) {
+  /*
+    A grid rather than a wrap, so every line has the same shape: checkbox, title and
+    the controls across the top, and the priority and the date on a second row under
+    the title. Flex-wrapping put the date beside short titles and under long ones,
+    which made a list of ten tasks look like ten different components.
+  */
+  .task-line {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 4px 10px;
+    padding: 12px 14px;
+  }
+
+  .task-line:hover { padding-left: 18px; }
+  .task-line-title { white-space: normal; }
+  .task-line-body { grid-column: 2; grid-row: 1; }
+  .task-line > .task-actions { grid-column: 3; grid-row: 1; }
+
+  .task-line-meta {
+    grid-column: 2 / 4;
+    grid-row: 2;
+    width: auto;
+    justify-content: flex-start;
+    gap: 8px;
+  }
+
+  /* The old row layout reorders `.task-prio` on a phone; inside the meta block that
+     would put the priority chip after the date it belongs in front of. */
+  .task-line-meta > .task-prio { order: 0; }
+
+  .task-line-when {
+    width: auto;
+    flex-direction: row;
+    align-items: baseline;
+    gap: 8px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .task-card-rail { transition: none; }
+  .task-group,
+  .task-line { animation: none; transition: none; }
+  .task-group-sticky { position: static; }
+}
+
+/* The delete confirmation, now portalled to the body so nothing above it in the tree
+   can fade it out — a task row hides its own icons on mouseout, and the dialog used
+   to be one of them, so it vanished on the way to the Cancel button. */
+@keyframes zv-confirm-in {
+  from { opacity: 0; transform: translate3d(0, 10px, 0) scale(0.97); }
+  to   { opacity: 1; transform: none; }
+}
+
+.zv-confirm-card { animation: zv-confirm-in 260ms var(--ease-premium) both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .zv-confirm-card { animation: none; }
 }

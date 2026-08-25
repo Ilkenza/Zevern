@@ -121,8 +121,16 @@ function RowActions({
   );
 }
 
-/** A task as a card, for the three columns. */
-function TaskCard({
+/**
+ * A task as a full-width line, for the agenda below Today.
+ *
+ * The three side-by-side columns were fighting for about 300px each, so every card
+ * had to stack the title, the project and three pieces of meta on top of one another
+ * — three narrow towers of ragged height, and the eye had nowhere to run. Given the
+ * whole width the same task is one line: what it is on the left, when it is due on
+ * the right, and the columns of "when" line up down the page.
+ */
+function TaskLine({
   task,
   basePath,
   workspace,
@@ -137,27 +145,28 @@ function TaskCard({
   const when = whenPhrase(dayOf(task), today);
 
   return (
-    <div className={cn("task-card group", done && "task-card-done")}>
-      {/* The rail takes the column's tone, so a card belongs to its column even when
-          it has been dragged into the corner of your eye. */}
-      <span className="task-card-rail" aria-hidden />
+    <div className={cn("task-line group", done && "task-line-done")}>
       <TaskCheckbox id={task.id} done={done} />
-      <div className="task-card-body">
-        <span className={cn("task-card-title", done && "line-through")}>{task.title}</span>
+      <div className="task-line-body">
+        <span className={cn("task-line-title", done && "line-through")}>{task.title}</span>
         {task.project?.title && (
           <Link href={`/projects/${task.project_id}`} className="task-card-project">
             {task.project.client?.name ? `${task.project.client.name} · ` : ""}
             {task.project.title}
           </Link>
         )}
-        <span className="task-card-meta">
-          <PriorityDot priority={task.priority} />
+      </div>
+      {/* Fixed width, so priority and "when" make two straight columns down the band
+          rather than drifting with the length of each title. */}
+      <span className="task-line-meta">
+        <PriorityDot priority={task.priority} />
+        <span className="task-line-when">
           {when && (
             <span className={cn("task-when", when.late && "task-when-late")}>{when.text}</span>
           )}
           {task.due_at && <span className="mono task-card-date">{formatDateTime(task.due_at)}</span>}
         </span>
-      </div>
+      </span>
       <RowActions task={task} basePath={basePath} workspace={workspace} />
     </div>
   );
@@ -252,10 +261,18 @@ function QuickAdd({
   );
 }
 
-function Column({
+/**
+ * One band of the agenda: a label held on the left, its tasks stacked on the right.
+ *
+ * The heading stays beside the list instead of on top of it, so scanning down the
+ * page you always know which band you are in without a heading interrupting the
+ * rows — and on a long list it sticks, so the answer stays on screen.
+ */
+function Group({
   title,
   icon: Icon,
   tone,
+  note,
   tasks,
   basePath,
   workspace,
@@ -265,6 +282,8 @@ function Column({
   title: string;
   icon: typeof Sun;
   tone: "late" | "week" | "later";
+  /** What this band actually holds, in a few words. */
+  note: string;
   tasks: TaskWithProject[];
   basePath: string;
   workspace: TaskWorkspace;
@@ -272,18 +291,25 @@ function Column({
   empty: string;
 }) {
   return (
-    <section className={cn("task-column", `task-column-${tone}`)}>
-      <header className="task-column-head">
-        <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden />
-        <span className="task-column-title">{title}</span>
-        <span className="mono task-column-count">{tasks.length}</span>
-      </header>
-      <div className="task-column-body">
+    <section
+      className={cn("task-group", `task-group-${tone}`, tasks.length === 0 && "task-group-quiet")}
+    >
+      <div className="task-group-side">
+        <div className="task-group-sticky">
+          <span className="task-group-label">
+            <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden />
+            {title}
+          </span>
+          <span className="mono task-group-count">{tasks.length}</span>
+          <span className="task-group-note">{note}</span>
+        </div>
+      </div>
+      <div className="task-group-list">
         {tasks.length === 0 ? (
-          <p className="task-column-empty">{empty}</p>
+          <p className="task-group-empty">{empty}</p>
         ) : (
           tasks.map((t) => (
-            <TaskCard
+            <TaskLine
               key={t.id}
               task={t}
               basePath={basePath}
@@ -431,43 +457,45 @@ export function TasksView({
           </section>
 
           {/*
-            Three columns reporting nothing is three ways of saying what the panel
-            above already said. They come back the moment there is something to put
-            in one of them.
+            Three bands reporting nothing is three ways of saying what the panel above
+            already said. They come back the moment there is something to put in one.
           */}
           {open.length > 0 && (
-          <div className="task-board">
-            <Column
-              title="Late"
-              icon={AlertTriangle}
-              tone="late"
-              tasks={overdue}
-              basePath={basePath}
-              workspace={workspace}
-              today={today}
-              empty="Nothing is late."
-            />
-            <Column
-              title="This week"
-              icon={CalendarDays}
-              tone="week"
-              tasks={week}
-              basePath={basePath}
-              workspace={workspace}
-              today={today}
-              empty="Nothing due in the next seven days."
-            />
-            <Column
-              title="Later & undated"
-              icon={Archive}
-              tone="later"
-              tasks={later}
-              basePath={basePath}
-              workspace={workspace}
-              today={today}
-              empty="Nothing parked."
-            />
-          </div>
+            <div className="task-agenda">
+              <Group
+                title="Late"
+                icon={AlertTriangle}
+                tone="late"
+                note="Past their date. Start here."
+                tasks={overdue}
+                basePath={basePath}
+                workspace={workspace}
+                today={today}
+                empty="Nothing is late."
+              />
+              <Group
+                title="This week"
+                icon={CalendarDays}
+                tone="week"
+                note="Due in the next seven days."
+                tasks={week}
+                basePath={basePath}
+                workspace={workspace}
+                today={today}
+                empty="Nothing due in the next seven days."
+              />
+              <Group
+                title="Later & undated"
+                icon={Archive}
+                tone="later"
+                note="Parked, or waiting on a date."
+                tasks={later}
+                basePath={basePath}
+                workspace={workspace}
+                today={today}
+                empty="Nothing parked."
+              />
+            </div>
           )}
 
           {done.length > 0 && (
