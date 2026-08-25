@@ -158,6 +158,10 @@ export async function saveTransaction(_prev: MoneyState, formData: FormData): Pr
   const categoryId = String(formData.get("category_id") ?? "").trim() || null;
   const goalId = String(formData.get("goal_id") ?? "").trim() || null;
   const note = String(formData.get("note") ?? "").trim() || null;
+  // What the entry actually was — "Maxi, weekly shop", not just "Groceries". The full
+  // form asks for it and will not submit without one; quick add offers it and lets you
+  // skip, so null is a real answer here and the list falls back to the category name.
+  const title = String(formData.get("title") ?? "").trim().slice(0, 80) || null;
   const occurredOn = String(formData.get("occurred_on") ?? "").trim() || today();
   const returnTo = String(formData.get("return_to") ?? "").trim();
 
@@ -239,6 +243,7 @@ export async function saveTransaction(_prev: MoneyState, formData: FormData): Pr
 
   const payload = {
     kind,
+    title,
     amount,
     currency,
     rate,
@@ -569,7 +574,7 @@ export async function closeGoal(_prev: MoneyState, formData: FormData): Promise<
       rate: 1,
       account_id: accountId,
       goal_id: goalId,
-      note: "Closed the goal",
+      title: "Closed the goal",
       occurred_on: on,
     });
     if (error) return { error: saveErrorMessage(error) };
@@ -898,7 +903,8 @@ export async function postRecurring(id: string, amountOverride?: number): Promis
       category_id: toGoal ? null : item.category_id,
       goal_id: item.goal_id,
       recurring_id: item.id,
-      note: item.name,
+      // The rule already has a name; the entry it books carries it as its own.
+      title: item.name,
       occurred_on: item.next_on,
     })
     .select("id")
@@ -1173,7 +1179,7 @@ export async function settlePlanned(_prev: MoneyState, formData: FormData): Prom
       rate: rateFor(plan.currency, rates),
       account_id: accountId,
       category_id: plan.category_id,
-      note: plan.name,
+      title: plan.name,
       occurred_on: on,
     })
     .select("id")

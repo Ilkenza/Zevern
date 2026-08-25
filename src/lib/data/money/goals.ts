@@ -30,7 +30,7 @@ export async function getGoalLines(): Promise<GoalLine[]> {
       .order("created_at"),
     supabase
       .from("money_transactions")
-      .select("id, goal_id, kind, amount_rsd, occurred_on, note, account_id, recurring_id")
+      .select("id, goal_id, kind, amount_rsd, occurred_on, title, note, account_id, recurring_id")
       .eq("user_id", uid)
       .in("kind", ["saving", "withdraw"])
       .order("occurred_on", { ascending: true })
@@ -53,7 +53,8 @@ export async function getGoalLines(): Promise<GoalLine[]> {
       kind: m.kind,
       amount: Number(m.amount_rsd) || 0,
       occurred_on: m.occurred_on,
-      note: m.note,
+      // What the movement was called; the note stays a fallback for older entries.
+      note: m.title ?? m.note,
       account: m.account_id ? (accountName.get(m.account_id) ?? null) : null,
       recurring: m.recurring_id != null,
     });

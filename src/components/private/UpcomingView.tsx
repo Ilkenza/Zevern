@@ -60,16 +60,16 @@ function Tab({
       href={href}
       aria-current={current ? "page" : undefined}
       className={cn(
-        "upcoming-tab inline-flex items-center gap-1.5 rounded-pill px-3 py-1.5 text-[12.5px] font-semibold",
-        current ? "upcoming-tab-on bg-active-bg text-gold-hi" : "text-muted hover:bg-white/5 hover:text-ink",
+        "upcoming-tab inline-flex items-center justify-center gap-2 rounded-pill px-4 py-2 text-[13px] font-semibold",
+        current ? "upcoming-tab-on text-gold-hi" : "text-muted hover:text-ink",
       )}
     >
-      <Icon className="h-3.75 w-3.75" />
-      {label}
+      <Icon className="upcoming-tab-icon h-4 w-4" />
+      <span className="upcoming-tab-label">{label}</span>
       {count > 0 && (
         <span
           className={cn(
-            "mono rounded-pill px-1.5 py-px text-[10.5px] font-semibold",
+            "upcoming-tab-count mono inline-flex min-w-6 items-center justify-center rounded-pill px-2 py-0.5 text-[10.5px] font-semibold",
             alert ? "bg-danger-bg text-danger" : "bg-white/6 text-faint",
           )}
         >
@@ -163,7 +163,7 @@ export function UpcomingView(props: UpcomingViewProps) {
 
         <nav
           aria-label="Upcoming views"
-          className="upcoming-tabs inline-flex items-center gap-1 rounded-pill border border-line bg-white/[0.03] p-1"
+          className="upcoming-tabs inline-flex items-center gap-1.5 rounded-pill border border-line p-1.5"
         >
           <Tab
             href={TIMELINE_HREF}

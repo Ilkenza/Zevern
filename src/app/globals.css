@@ -1823,32 +1823,141 @@ body {
 
 .upcoming-tabs {
   position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  min-height: 54px;
+  padding: 6px;
+  border-color: rgba(255, 255, 255, 0.10);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.038), rgba(255, 255, 255, 0.012)),
+    rgba(12, 14, 18, 0.55);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.045),
+    0 16px 38px rgba(0, 0, 0, 0.18);
+  backdrop-filter: blur(14px);
   animation: money-head-in 620ms var(--ease-premium) 240ms both;
+}
+
+.upcoming-tabs::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  top: -30px;
+  right: 10%;
+  width: 130px;
+  height: 72px;
+  border-radius: 50%;
+  background: rgba(217, 164, 65, 0.07);
+  filter: blur(24px);
+  pointer-events: none;
 }
 
 .upcoming-tab {
   position: relative;
+  isolation: isolate;
+  min-width: 142px;
+  min-height: 42px;
+  border: 1px solid transparent;
   transition:
     color 200ms ease,
     background-color 220ms ease,
+    border-color 260ms ease,
+    box-shadow 320ms ease,
     transform 280ms var(--ease-premium);
 }
 
-.upcoming-tab:hover { transform: translateY(-1px); }
-.upcoming-tab-on { box-shadow: inset 0 0 0 1px rgba(217, 164, 65, 0.22); }
+.upcoming-tab:not(.upcoming-tab-on):hover {
+  background: rgba(255, 255, 255, 0.035);
+  border-color: rgba(255, 255, 255, 0.055);
+  transform: translateY(-1px);
+}
 
-/* A hairline under the view you are on, so the pair reads as a switch. */
+.upcoming-tab-on {
+  overflow: hidden;
+  border-color: rgba(217, 164, 65, 0.34);
+  background:
+    linear-gradient(135deg, rgba(217, 164, 65, 0.20), rgba(217, 164, 65, 0.085)),
+    rgba(217, 164, 65, 0.06);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 232, 178, 0.10),
+    0 8px 22px rgba(217, 164, 65, 0.10),
+    0 0 0 1px rgba(217, 164, 65, 0.05);
+}
+
+.upcoming-tab-on::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  top: -80%;
+  bottom: -80%;
+  left: -28px;
+  width: 22px;
+  background: linear-gradient(90deg, transparent, rgba(255, 235, 190, 0.18), transparent);
+  transform: skewX(-18deg) translateX(-50px);
+  animation: upcoming-tab-sheen 900ms var(--ease-premium) 360ms both;
+}
+
+@keyframes upcoming-tab-sheen {
+  from { opacity: 0; transform: skewX(-18deg) translateX(-50px); }
+  25% { opacity: 1; }
+  to { opacity: 0; transform: skewX(-18deg) translateX(210px); }
+}
+
+.upcoming-tab-icon {
+  transition: color 220ms ease, transform 360ms var(--ease-spring), filter 280ms ease;
+}
+
+.upcoming-tab:hover .upcoming-tab-icon { transform: scale(1.08) rotate(-4deg); }
+.upcoming-tab-on .upcoming-tab-icon {
+  color: var(--color-gold-hi);
+  filter: drop-shadow(0 0 7px rgba(217, 164, 65, 0.25));
+  animation: upcoming-icon-in 520ms var(--ease-spring) 180ms both;
+}
+
+@keyframes upcoming-icon-in {
+  from { opacity: 0; transform: scale(0.72) rotate(-16deg); }
+  to { opacity: 1; transform: scale(1) rotate(0); }
+}
+
+.upcoming-tab-count {
+  border: 1px solid rgba(255, 255, 255, 0.045);
+  transition: color 220ms ease, background-color 220ms ease, border-color 220ms ease, transform 300ms var(--ease-premium);
+}
+
+.upcoming-tab-on .upcoming-tab-count {
+  border-color: rgba(217, 164, 65, 0.16);
+  background: rgba(255, 255, 255, 0.075);
+  color: var(--color-gold-hi);
+}
+
+.upcoming-tab:hover .upcoming-tab-count { transform: translateY(-1px); }
+
+/* A restrained light line anchors the selected view. */
 .upcoming-tab-on::after {
   content: "";
   position: absolute;
-  right: 12px;
-  bottom: 3px;
-  left: 12px;
-  height: 1.5px;
+  right: 22px;
+  bottom: 4px;
+  left: 22px;
+  height: 1px;
   border-radius: 2px;
-  background: linear-gradient(90deg, transparent, var(--color-gold), transparent);
+  background: linear-gradient(90deg, transparent, var(--color-gold-hi), transparent);
+  box-shadow: 0 0 8px rgba(217, 164, 65, 0.3);
   animation: money-progress-in 520ms var(--ease-premium) both;
   transform-origin: center;
+}
+
+@media (max-width: 520px) {
+  .upcoming-tabs { display: grid; width: 100%; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .upcoming-tab { min-width: 0; padding-inline: 12px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .upcoming-tab-on::before,
+  .upcoming-tab-on .upcoming-tab-icon { animation: none !important; }
+  .upcoming-tab,
+  .upcoming-tab-icon,
+  .upcoming-tab-count { transition: none; }
 }
 
 /*

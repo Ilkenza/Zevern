@@ -493,6 +493,7 @@ export type Database = {
           note: string | null
           occurred_on: string
           rate: number
+          title: string | null
           recurring_id: string | null
           to_account_id: string | null
           user_id: string
@@ -509,6 +510,7 @@ export type Database = {
           note?: string | null
           occurred_on?: string
           rate?: number
+          title?: string | null
           recurring_id?: string | null
           to_account_id?: string | null
           user_id?: string
@@ -525,6 +527,7 @@ export type Database = {
           note?: string | null
           occurred_on?: string
           rate?: number
+          title?: string | null
           recurring_id?: string | null
           to_account_id?: string | null
           user_id?: string

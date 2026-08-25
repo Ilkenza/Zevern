@@ -25,6 +25,18 @@ export type TxFormData = {
   rates: Rates;
 };
 
+/**
+ * What the name field asks for depends on what the entry is. "Name" is accurate and
+ * says nothing; "What did you buy?" gets a real answer typed into it.
+ */
+const TITLE_LABEL: Record<string, string> = {
+  expense: "What did you buy?",
+  income: "Where is it from?",
+  transfer: "What is this move?",
+  saving: "What is this for?",
+  withdraw: "What is it going on?",
+};
+
 export function TransactionForm({
   tx,
   data,
@@ -110,6 +122,20 @@ export function TransactionForm({
           />
         </div>
 
+        {/*
+          Directly under the amount, because the amount is what you came to type and
+          this is the next thing you know. Required: an entry with no name is the row
+          you cannot account for three weeks later.
+        */}
+        <Field
+          label={TITLE_LABEL[kind] ?? "Name"}
+          name="title"
+          defaultValue={tx?.title ?? ""}
+          maxLength={80}
+          placeholder={kind === "income" ? "Client, invoice, gift…" : "Shop, bill, ticket…"}
+          required
+        />
+
         {currency !== "RSD" && (
           <Field
             label={`Rate (1 ${currency} in RSD)`}
@@ -180,7 +206,12 @@ export function TransactionForm({
           defaultValue={tx?.occurred_on ?? todayISO()}
         />
 
-        <Field label="Note" name="note" defaultValue={tx?.note ?? ""} placeholder="Optional" />
+        <Field
+          label="Note"
+          name="note"
+          defaultValue={tx?.note ?? ""}
+          placeholder="Anything the name does not say"
+        />
 
         {state?.error && (
           <p className="mb-3 rounded-ctrl border border-danger/40 bg-danger-bg px-3 py-2 text-[12px] text-danger">

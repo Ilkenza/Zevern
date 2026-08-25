@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, Search, Plus, Zap } from "lucide-react";
+import { Menu, Search, Plus, Zap, X } from "lucide-react";
 import { buttonClasses } from "@/components/ui/Button";
 import { NEW_ITEMS, PRIVATE_NEW_ITEMS, workspaceFor } from "@/lib/nav";
 import { cn } from "@/lib/utils";
@@ -102,6 +102,25 @@ export function Topbar({
               role="menu"
               className="zv-menu absolute right-0 z-50 mt-2 w-44 rounded-card border border-line bg-surface p-1 shadow-[0_16px_40px_-12px_rgba(0,0,0,0.6)]"
             >
+              {/*
+                Tapping the page behind it closed the menu, but nothing on screen said
+                so — on a phone that reads as a menu with no way out. The X is the way
+                out that says it, and it sits where every other panel keeps one.
+              */}
+              <div className="flex items-center justify-between gap-2 border-b border-line-soft px-2 pb-1.5 pt-1">
+                <span className="mono text-[10.5px] uppercase tracking-[0.14em] text-faint">
+                  New
+                </span>
+                <button
+                  onClick={() => setMenuOpen(false)}
+                  aria-label="Close menu"
+                  title="Close"
+                  className="zv-press flex h-7 w-7 items-center justify-center rounded-ctrl border border-line bg-white/[0.045] text-muted hover:border-danger/50 hover:bg-danger-bg hover:text-danger"
+                >
+                  <X className="h-3.75 w-3.75" strokeWidth={2.25} />
+                </button>
+              </div>
+
               {newItems.map((item) => (
                 <Link
                   key={item.href}

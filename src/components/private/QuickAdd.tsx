@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Check } from "lucide-react";
+import { Check, X } from "lucide-react";
 import { saveTransaction, type MoneyState } from "@/app/(app)/private/actions";
 import { buttonClasses } from "@/components/ui/Button";
 import { CURRENCIES, formatRsd, rateFor, type Rates } from "@/lib/money";
@@ -31,6 +31,7 @@ export function QuickAdd({
   const [currency, setCurrency] = useState("RSD");
   const [categoryId, setCategoryId] = useState("");
   const [accountId, setAccountId] = useState(accounts[0]?.id ?? "");
+  const [title, setTitle] = useState("");
   const [saved, setSaved] = useState(false);
 
   const visible = categories.filter((c) => c.kind === kind);
@@ -46,6 +47,7 @@ export function QuickAdd({
       if (!next?.ok) return;
       setAmount("");
       setCategoryId("");
+      setTitle("");
       setSaved(true);
       router.refresh();
       setTimeout(() => setSaved(false), 1800);
@@ -58,9 +60,25 @@ export function QuickAdd({
         <h1 className="font-display text-[22px] font-extrabold tracking-[-0.5px] text-ink">
           Quick add
         </h1>
-        <Link href="/private/money" className="text-[12.5px] font-semibold text-gold-hi">
-          All entries
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link href="/private/money" className="text-[12.5px] font-semibold text-gold-hi">
+            All entries
+          </Link>
+          {/*
+            Quick add is a whole screen rather than a panel, so it had no X — and the
+            way out of a screen you opened by mistake should not be the browser's back
+            arrow. Same control, same corner, same size as every panel's.
+          */}
+          <button
+            type="button"
+            onClick={() => router.push("/private")}
+            aria-label="Close quick add"
+            title="Close"
+            className="zv-press flex h-9 w-9 items-center justify-center rounded-ctrl border border-line bg-white/[0.045] text-ink hover:border-danger/50 hover:bg-danger-bg hover:text-danger"
+          >
+            <X className="h-4.5 w-4.5" strokeWidth={2.25} />
+          </button>
+        </div>
       </div>
 
       <form action={submit} className="rounded-card border border-line bg-surface p-4">
@@ -164,6 +182,21 @@ export function QuickAdd({
             ))}
           </div>
         )}
+
+        {/*
+          Quick add is two taps and stays two taps, so this is one optional line rather
+          than a required field: type what it was if you know, leave it and the entry
+          still goes in under its category.
+        */}
+        <input
+          name="title"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          maxLength={80}
+          placeholder={kind === "income" ? "Where from? (optional)" : "What was it? (optional)"}
+          aria-label="Name"
+          className="zv-field mt-3 w-full rounded-ctrl border border-line bg-white/[0.035] px-3 py-2.5 text-[13.5px] text-ink placeholder:text-faint focus:border-gold focus:shadow-ring focus:outline-none"
+        />
 
         {result?.error && (
           <p className="mt-3 rounded-ctrl border border-danger/40 bg-danger-bg px-3 py-2 text-[12px] text-danger">

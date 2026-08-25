@@ -51,8 +51,13 @@ const TONE: Record<string, string> = {
 function Row({ tx, month }: { tx: TransactionRow; month: string }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
+  // The name the entry was given leads; the category is what it belongs to, and it
+  // moves to the line underneath rather than standing in for what was bought.
   const label =
-    tx.category?.name ?? (isGoalKind(tx.kind) ? tx.goal?.name : null) ?? tx.note ?? "—";
+    tx.title ?? tx.category?.name ?? (isGoalKind(tx.kind) ? tx.goal?.name : null) ?? tx.note ?? "—";
+  const belongsTo = tx.title
+    ? (tx.category?.name ?? (isGoalKind(tx.kind) ? (tx.goal?.name ?? null) : null))
+    : null;
   return (
     <div className="money-row group border-b border-line-soft last:border-b-0">
       <div className="flex items-center gap-3 px-4 py-2.5">
@@ -63,6 +68,7 @@ function Row({ tx, month }: { tx: TransactionRow; month: string }) {
         <div className="min-w-0 flex-1">
           <div className="truncate text-[13.5px] font-medium text-ink">{label}</div>
           <div className="truncate text-[11.5px] text-muted">
+            {belongsTo ? `${belongsTo} · ` : ""}
             {tx.account?.name ?? "No account"}
             {tx.note && label !== tx.note ? ` · ${tx.note}` : ""}
           </div>
