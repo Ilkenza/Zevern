@@ -1123,6 +1123,15 @@ export async function saveRecurring(_prev: MoneyState, formData: FormData): Prom
   const variable = goalId ? false : formData.get("variable") != null;
   const amount = variable ? 0 : num(formData.get("amount"));
   const currency = currencyOf(formData.get("currency"));
+  /*
+    What this one is *shown* in, which is a different question from what it is billed
+    in. Empty means "whatever the profile says", and that is the answer for almost every
+    rule — so it is stored as null rather than as a copy of the current default, which
+    would silently stop following it the day that changes.
+  */
+  const shownRaw = String(formData.get("display_currency") ?? "").trim();
+  const displayCurrency =
+    shownRaw && (CURRENCIES as readonly string[]).includes(shownRaw) ? shownRaw : null;
   const every = ["week", "month", "year"].includes(String(formData.get("every")))
     ? String(formData.get("every"))
     : "month";
@@ -1167,6 +1176,7 @@ export async function saveRecurring(_prev: MoneyState, formData: FormData): Prom
   }
 
   const payload = {
+    display_currency: displayCurrency,
     name,
     kind,
     amount,

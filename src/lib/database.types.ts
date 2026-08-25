@@ -422,6 +422,7 @@ export type Database = {
           category_id: string | null
           created_at: string
           currency: string
+          display_currency: string | null
           ends_on: string | null
           every: string
           goal_id: string | null
@@ -442,6 +443,7 @@ export type Database = {
           category_id?: string | null
           created_at?: string
           currency?: string
+          display_currency?: string | null
           ends_on?: string | null
           every?: string
           goal_id?: string | null
@@ -462,6 +464,7 @@ export type Database = {
           category_id?: string | null
           created_at?: string
           currency?: string
+          display_currency?: string | null
           ends_on?: string | null
           every?: string
           goal_id?: string | null

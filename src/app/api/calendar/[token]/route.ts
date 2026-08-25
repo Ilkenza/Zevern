@@ -122,6 +122,8 @@ function asRecurringRow(rule: FeedRule): RecurringRow {
     kind: rule.kind,
     amount: Number(rule.amount) || 0,
     currency: rule.currency,
+    // The feed prints dates, not money, so it has no display currency to honour.
+    display_currency: null,
     variable: Boolean(rule.variable),
     every: rule.every,
     next_on: rule.next_on,

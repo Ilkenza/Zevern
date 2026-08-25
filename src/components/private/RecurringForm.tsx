@@ -120,6 +120,26 @@ export function RecurringForm({
           />
         )}
 
+        {/*
+          Billed in one currency, read in another.
+
+          "Currency" above is what the biller charges — the fact. This is what the row
+          in the register says it in, for the rules you think about in their own money:
+          a subscription is remembered as "$27 a month", not as whatever that came to in
+          euros this week. Left on the default it follows the profile, including later
+          when the profile changes.
+        */}
+        <Select
+          label="Show it as"
+          name="display_currency"
+          defaultValue={item?.display_currency ?? ""}
+          options={[
+            { value: "", label: `Default (${fallback})` },
+            ...CURRENCY_OPTIONS,
+          ]}
+          help="Only changes how this one is displayed, never what is charged."
+        />
+
         <Select
           label="Repeats"
           name="every"

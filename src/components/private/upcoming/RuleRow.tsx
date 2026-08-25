@@ -7,8 +7,9 @@ import { Pause, Pencil, Play } from "lucide-react";
 import { removeRecurring, toggleRecurring } from "@/app/(app)/private/actions";
 import { Badge } from "@/components/ui/Badge";
 import { DeleteButton } from "@/components/ui/DeleteButton";
-import { type Rates } from "@/lib/money";
+import { type Currency, type Rates } from "@/lib/money";
 import { useMoney } from "@/lib/money/currency";
+import { makeMoney } from "@/lib/money/display";
 import { cn } from "@/lib/utils";
 import type { RecurringRow } from "@/lib/types";
 import { RULES_HREF, daysBetween, whenLabel } from "./index";
@@ -16,7 +17,17 @@ import { Dot, NO_COLOUR, caps } from "./ui";
 import { EVERY_LABEL, EVERY_TICK, read, ruleCols } from "./rules-reading";
 
 export function RuleRow({ item, rates, today }: { item: RecurringRow; rates: Rates; today: string }) {
-  const { fmt } = useMoney();
+  const money = useMoney();
+  /*
+    A rule can ask to be read in its own currency. Everything else on the screen — the
+    totals above, the timeline — stays in the profile's, because those are sums across
+    rules and a sum has to have one unit.
+  */
+  const shown =
+    item.display_currency && item.display_currency !== money.code
+      ? makeMoney({ currency: item.display_currency as Currency, rates })
+      : money;
+  const fmt = shown.fmt;
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const r = read(item, rates);
