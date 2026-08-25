@@ -26,7 +26,7 @@ export function AuthForm() {
             type="button"
             onClick={() => setMode(m)}
             className={cn(
-              "rounded-md py-2 text-[13px] font-semibold transition-colors",
+              "min-h-11 rounded-md px-3 py-2 text-[13px] font-semibold transition-colors",
               mode === m ? "bg-gold text-on-gold" : "text-muted hover:text-ink",
             )}
           >
@@ -74,7 +74,7 @@ export function AuthForm() {
           <div className="mb-3 -mt-1 text-right">
             <Link
               href="/forgot-password"
-              className="text-[11.5px] font-semibold text-muted hover:text-gold-hi"
+              className="inline-flex min-h-6 items-center text-[11.5px] font-semibold text-muted hover:text-gold-hi"
             >
               Forgot password?
             </Link>
@@ -95,7 +95,7 @@ export function AuthForm() {
         <Button
           type="submit"
           variant="primary"
-          className="w-full"
+          className="min-h-11 w-full"
           disabled={pending}
         >
           {pending
@@ -115,7 +115,7 @@ export function AuthForm() {
       <Button
         type="button"
         variant="secondary"
-        className="w-full"
+        className="min-h-11 w-full"
         disabled
         title="Google sign-in coming soon"
       >
