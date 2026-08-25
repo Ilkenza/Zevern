@@ -561,13 +561,19 @@ export async function saveBudgets(_prev: MoneyState, formData: FormData): Promis
   const uid = await userId(supabase);
   if (!uid) return { error: "Not signed in." };
 
+  // The boxes are typed in whatever currency the screen is read in; the column they
+  // land in is dinars, and every other figure on that screen is measured against it.
+  const currency = currencyOf(formData.get("currency"));
+  const rates = await getRates();
+  const rate = currency === "RSD" ? 1 : rateFor(currency, rates);
+
   const upserts: { user_id: string; category_id: string; amount_rsd: number }[] = [];
   const clears: string[] = [];
 
   for (const [key, value] of formData.entries()) {
     if (!key.startsWith("limit_")) continue;
     const categoryId = key.slice("limit_".length);
-    const amount = num(value);
+    const amount = Math.round(num(value) * rate * 100) / 100;
     if (amount > 0) upserts.push({ user_id: uid, category_id: categoryId, amount_rsd: amount });
     else clears.push(categoryId);
   }
@@ -715,6 +721,7 @@ export async function spendGoal(_prev: MoneyState, formData: FormData): Promise<
   const categoryId = String(formData.get("category_id") ?? "").trim() || null;
   const on = String(formData.get("occurred_on") ?? "").trim() || today();
   const spent = num(formData.get("amount"));
+  const spentCurrency = currencyOf(formData.get("currency"));
 
   if (!goalId) return { error: "No goal to spend." };
   if (!accountId) return { error: "Say which account it was paid from." };
@@ -776,8 +783,8 @@ export async function spendGoal(_prev: MoneyState, formData: FormData): Promise<
     .insert({
       kind: "expense",
       amount: spent,
-      currency: "RSD",
-      rate: 1,
+      currency: spentCurrency,
+      rate: spentCurrency === "RSD" ? 1 : rateFor(spentCurrency, await getRates()),
       account_id: accountId,
       category_id: categoryId,
       title: goal.name,
@@ -825,6 +832,7 @@ export async function moveBetweenGoals(_prev: MoneyState, formData: FormData): P
   const accountId = String(formData.get("account_id") ?? "").trim() || null;
   const on = String(formData.get("occurred_on") ?? "").trim() || today();
   const amount = num(formData.get("amount"));
+  const currency = currencyOf(formData.get("currency"));
 
   if (!fromId || !toId) return { error: "Say which goal it is going to." };
   if (fromId === toId) return { error: "That is the same goal." };
@@ -857,7 +865,14 @@ export async function moveBetweenGoals(_prev: MoneyState, formData: FormData): P
   const held = await goalBalance(supabase, uid, fromId);
   if (held === null) return { error: "Could not read what that goal holds. Try again." };
   const { fmt } = await getMoney();
-  if (amount > held + PENNY)
+
+  // What a goal holds is a dinar figure, so the amount is measured in dinars even
+  // though both entries keep the currency it was typed in.
+  const rates = await getRates();
+  const rate = currency === "RSD" ? 1 : rateFor(currency, rates);
+  const amountRsd = Math.round(amount * rate * 100) / 100;
+
+  if (amountRsd > held + PENNY)
     return {
       error:
         held > 0
@@ -870,8 +885,8 @@ export async function moveBetweenGoals(_prev: MoneyState, formData: FormData): P
     .insert({
       kind: "withdraw",
       amount,
-      currency: "RSD",
-      rate: 1,
+      currency,
+      rate,
       account_id: accountId,
       goal_id: fromId,
       title: `Moved to ${to.name}`,
@@ -884,8 +899,8 @@ export async function moveBetweenGoals(_prev: MoneyState, formData: FormData): P
   const { error: inErr } = await supabase.from("money_transactions").insert({
     kind: "saving",
     amount,
-    currency: "RSD",
-    rate: 1,
+    currency,
+    rate,
     account_id: accountId,
     goal_id: toId,
     title: `Moved from ${from.name}`,

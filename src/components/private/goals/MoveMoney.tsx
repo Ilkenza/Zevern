@@ -16,6 +16,8 @@ import { cn } from "@/lib/utils";
 import type { AccountBalance } from "@/lib/data/money";
 import type { GoalLine } from "@/lib/types";
 import { caps, field } from "./shared";
+import { toRsd } from "@/lib/money";
+import { fromRsd } from "@/lib/money/display";
 
 /**
  * The one deliberate act on this screen: money moving between an account and a goal.
@@ -38,7 +40,7 @@ export function MoveMoney({
   siblings: GoalLine[];
   done: boolean;
 }) {
-  const { fmt } = useMoney();
+  const { fmt, code, display } = useMoney();
   const router = useRouter();
   const [state, setState] = useState<MoneyState>();
   const [pending, startTransition] = useTransition();
@@ -88,7 +90,15 @@ export function MoveMoney({
   const [amount, setAmount] = useState("");
   const [chosen, setChosen] = useState(preferred);
   const account = accounts.find((a) => a.id === (only?.id ?? chosen)) ?? null;
-  const typed = Number(amount) || 0;
+  /*
+    Typed in the currency being read, measured in dinars.
+
+    The account balance, the goal's target and everything `goalBalance` knows are dinar
+    figures, so a euro typed here becomes dinars before it is compared to any of them —
+    at the same rate the rest of the screen is being converted with. The entry itself
+    keeps the currency it was typed in, exactly like an ordinary entry does.
+  */
+  const typed = toRsd(Number(amount) || 0, code, display.rates);
   const target = Math.max(Number(goal.target_rsd) || 0, 0);
   const needs = target > 0 ? Math.max(target - goal.saved, 0) : null;
 
@@ -112,7 +122,7 @@ export function MoveMoney({
     const tenth = target / 10;
     const step = tenth >= 10000 ? 5000 : tenth >= 2000 ? 1000 : tenth >= 500 ? 500 : 100;
     const rounded = Math.max(Math.round(tenth / step) * step, step);
-    return rounded < target ? rounded : 0;
+    return rounded < target ? rounded : 0; // dinars; printed and filled in below
   })();
   /** What this goal is holding above its own target — the obvious thing to move. */
   const excess = needs !== null ? Math.max(goal.saved - target, 0) : 0;
@@ -132,7 +142,7 @@ export function MoveMoney({
         <>
           <input type="hidden" name="kind" value={taking ? "withdraw" : "saving"} />
           <input type="hidden" name="goal_id" value={goal.id} />
-          <input type="hidden" name="currency" value="RSD" />
+          <input type="hidden" name="currency" value={code} />
           <input type="hidden" name="return_to" value="stay" />
         </>
       )}
@@ -200,7 +210,7 @@ export function MoveMoney({
             inputClassName="mono min-w-0 flex-1 bg-transparent px-2.5 py-2 text-right text-[14px] text-ink placeholder:text-faint focus:outline-none"
           />
           <span className="mono border-l border-line-soft px-2 py-2 text-[11.5px] font-semibold text-muted">
-            RSD
+            {code}
           </span>
         </div>
         {/* Fixed width so "Adding…" does not shrink the control mid-submit. */}
@@ -265,7 +275,7 @@ export function MoveMoney({
       {firstStep > 0 && !amount && (
         <p className="mt-2 text-[11px] leading-relaxed text-muted">
           Nothing in yet.{" "}
-          <button type="button" onClick={() => setAmount(String(firstStep))} className="goal-first-step">
+          <button type="button" onClick={() => setAmount(String(Math.round(fromRsd(firstStep, display))))} className="goal-first-step">
             Start with {fmt(firstStep)}
           </button>{" "}
           — that is {Math.round((firstStep / target) * 100)}% of the way.

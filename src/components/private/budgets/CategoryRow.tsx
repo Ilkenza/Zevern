@@ -7,6 +7,7 @@ import { useMoney } from "@/lib/money/currency";
 import { cn } from "@/lib/utils";
 import type { BudgetLine } from "@/lib/types";
 import { STATUS_LABEL, STATUS_TONE, clean, shouldSuggest, statusOf } from "./status";
+import { fromRsd } from "@/lib/money/display";
 
 /**
  * One category, laid out on two lines rather than one.
@@ -38,12 +39,15 @@ export function CategoryRow({
   /** The caller's rung on the entrance ladder. Merged with the colours below. */
   style?: React.CSSProperties;
 }) {
-  const { fmt } = useMoney();
+  const { fmt, code, display } = useMoney();
   const status = statusOf(line, pace);
   const tone = STATUS_TONE[status];
   const used = line.limit > 0 ? Math.min(line.spent / line.limit, 1) : 0;
   const left = line.limit - line.spent;
-  const suggest = shouldSuggest(line.typical, value);
+  // `typical` is a dinar figure and `value` is typed in the reader's currency, so the
+  // two are compared in the same one before either is believed.
+  const typicalHere = Math.round(fromRsd(line.typical, display));
+  const suggest = shouldSuggest(typicalHere, value);
 
   return (
     <article
@@ -80,7 +84,7 @@ export function CategoryRow({
               inputClassName="mono budget-card-input"
             />
             <span aria-hidden="true" className="budget-card-unit">
-              RSD
+              {code}
             </span>
           </span>
         </span>
@@ -121,7 +125,7 @@ export function CategoryRow({
         the median of what the last six months actually cost.
       */}
       {suggest && (
-        <button type="button" className="budget-suggest" onClick={() => onChange(String(line.typical))}>
+        <button type="button" className="budget-suggest" onClick={() => onChange(String(typicalHere))}>
           <Wand2 className="h-3 w-3" aria-hidden />
           A normal month is {fmt(line.typical)}
           <span className="budget-suggest-cta">use it</span>

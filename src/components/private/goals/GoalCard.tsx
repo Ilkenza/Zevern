@@ -78,13 +78,20 @@ export function GoalCard({
   compact?: boolean;
   onOpen?: () => void;
 }) {
-  const { fmt } = useMoney();
+  const { fmt, code } = useMoney();
   const r = read(goal, today, fmt);
   const colour = goal.color ?? NO_COLOUR;
   const target = Math.max(Number(goal.target_rsd) || 0, 0);
-  // A goal aimed at euros says euros, with the dinar figure it was converted at
-  // underneath — that is the number the progress bar is actually measuring.
-  const foreign = goal.currency !== "RSD" && Number(goal.target_amount) > 0;
+  /*
+    A target says the currency it was set in, and converts underneath only when that is
+    not the currency being read.
+
+    A goal aimed at €700 is a fact about euros and stays one; the second line is what
+    that means in the money this screen is counting. When the two are the same there is
+    nothing to convert, and "€700 ≈ €700" is a line that only makes a card longer.
+  */
+  const aimedAt = Number(goal.target_amount) || 0;
+  const foreign = aimedAt > 0 && goal.currency !== code;
   const remaining = Math.max(target - goal.saved, 0);
   // Rounded down, and capped at 99 until the target is actually met — a goal one
   // dinar short should never claim to be finished.
@@ -176,9 +183,7 @@ export function GoalCard({
             <div>
               <dt>Target</dt>
               <dd className="mono">
-                {foreign
-                  ? formatAmount(Number(goal.target_amount), goal.currency)
-                  : fmt(target)}
+                {foreign ? formatAmount(aimedAt, goal.currency) : fmt(target)}
               </dd>
               {foreign && <dd className="mono goal-card-metric-note">≈ {fmt(target)}</dd>}
             </div>

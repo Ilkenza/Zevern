@@ -13,6 +13,7 @@ import { SummaryPanel } from "./budgets/SummaryPanel";
 import { CategoryRow } from "./budgets/CategoryRow";
 import { totalsOf, type Status } from "./budgets/status";
 import { useMoney } from "@/lib/money/currency";
+import { fromRsd } from "@/lib/money/display";
 
 /**
  * The state of the whole month, in the same vocabulary a single category uses. The
@@ -41,7 +42,7 @@ export function BudgetsView({
   currentMonth: string;
   lines: BudgetLine[];
 }) {
-  const { fmt } = useMoney();
+  const { fmt, code, display } = useMoney();
   const [state, formAction, pending] = useActionState<MoneyState, FormData>(saveBudgets, undefined);
   const pace = monthProgress(month);
   const isCurrentMonth = month === currentMonth;
@@ -58,13 +59,22 @@ export function BudgetsView({
     every month — so it does not throw away edits in progress either.
   */
   const signature = lines.map((l) => `${l.category.id}:${l.limit}`).join("|");
+  /*
+    Limits are stored in dinars and typed in whatever currency this screen is read in.
+    The conversion happens here, once, on the way into the fields — and again on the
+    server on the way back out — so the number in the box is always the same kind of
+    number as the spending printed beside it.
+  */
   const initial = useMemo(
     () =>
       Object.fromEntries(
-        lines.map((l) => [l.category.id, l.limit > 0 ? String(l.limit) : ""]),
+        lines.map((l) => [
+          l.category.id,
+          l.limit > 0 ? String(Math.round(fromRsd(l.limit, display))) : "",
+        ]),
       ) as Record<string, string>,
     // eslint-disable-next-line react-hooks/exhaustive-deps -- the signature is `lines`, compared by value
-    [signature],
+    [signature, display],
   );
 
   const [values, setValues] = useState<Record<string, string>>(initial);
@@ -168,6 +178,8 @@ export function BudgetsView({
         </Panel>
       ) : (
         <form action={formAction} className="budget-layout">
+          {/* What the numbers in the boxes are denominated in. */}
+          <input type="hidden" name="currency" value={code} />
           <SummaryPanel
             month={month}
             totals={totals}

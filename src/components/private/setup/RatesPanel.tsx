@@ -66,7 +66,7 @@ function DefaultCurrency() {
 
   return (
     <div className="border-b border-line-soft px-4 py-3.5">
-      <span className={caps}>Forms open on</span>
+      <span className={caps}>Your currency</span>
       <div className="mt-2 flex flex-wrap gap-1.5">
         {CURRENCIES.map((code) => {
           const on = code === current;
@@ -90,8 +90,10 @@ function DefaultCurrency() {
         })}
       </div>
       <p className="mt-2 text-[11.5px] leading-relaxed text-muted">
-        Every new entry, rule, plan, goal and account starts on this one. You can still
-        change it on any single one of them, and totals stay in dinars either way.
+        Every figure in the private workspace is shown in this currency, and every new
+        entry, rule, plan and goal opens on it. Dinars stay the unit underneath — each
+        entry keeps the rate it was written at — so choosing another one changes what
+        you read, never what is recorded.
       </p>
     </div>
   );
@@ -131,7 +133,7 @@ export function RatesPanel({ eur, usd, updatedOn }: { eur: number; usd: number; 
           </span>
           {stale && (
             <span className="ml-2 text-draft">
-              — not today&apos;s, pull the NBS rate before you trust a total in dinars
+              — not today&apos;s, pull the NBS rate before you trust a converted total
             </span>
           )}
         </p>
@@ -155,9 +157,10 @@ export function RatesPanel({ eur, usd, updatedOn }: { eur: number; usd: number; 
         </div>
 
         <p className="mt-3.5 border-t border-line-soft pt-3 text-[12.5px] leading-relaxed text-muted">
-          Everything is totalled in dinars. These are the rates used when you enter something in
-          euros or dollars — the rate is stored with each entry, so past months never move when you
-          update them here.
+          Everything is totalled in dinars underneath. These are the rates used to write an
+          entry made in euros or dollars, and to show your figures back in the currency
+          above. Each entry keeps the rate it was written at, so past months never move
+          when you update these.
         </p>
       </form>
     </div>

@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils";
 import type { GoalLine, MoneyAccount, MoneyCategory } from "@/lib/types";
 import { todayISO } from "@/lib/format";
 import { useDefaultCurrency, useMoney } from "@/lib/money/currency";
+import { fromRsd } from "@/lib/money/display";
 
 /**
  * Every goal fills in the same gold.
@@ -52,7 +53,7 @@ function SpendGoal({
   categories: MoneyCategory[];
   onDone?: () => void;
 }) {
-  const { fmt } = useMoney();
+  const { fmt, code, display } = useMoney();
   const [state, formAction, pending] = useActionState<MoneyState, FormData>(spendGoal, undefined);
   const [open, setOpen] = useState(false);
 
@@ -79,6 +80,8 @@ function SpendGoal({
   return (
     <form action={formAction} className="rounded-ctrl border border-gold/35 bg-gold/[0.06] p-3">
       <input type="hidden" name="goal_id" value={goal.id} />
+      {/* Typed in the currency this screen is read in, stored the way every entry is. */}
+      <input type="hidden" name="currency" value={code} />
 
       <div className="text-[13px] font-semibold text-ink">I bought it</div>
       <p className="mt-1 text-[11.5px] leading-relaxed text-muted">
@@ -90,9 +93,9 @@ function SpendGoal({
       <div className="mt-2.5 grid gap-2.5">
         <MoneyField
           className="mb-0"
-          label="What it cost"
+          label={`What it cost (${code})`}
           name="amount"
-          defaultValue={held || ""}
+          defaultValue={held > 0 ? Math.round(fromRsd(held, display)) : ""}
           placeholder="0"
           required
         />
