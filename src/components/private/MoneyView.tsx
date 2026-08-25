@@ -23,6 +23,7 @@ import { cn } from "@/lib/utils";
 import type { MoneyCategory, TransactionRow } from "@/lib/types";
 import { TransactionForm, type TxFormData } from "./TransactionForm";
 import { OnHandBand } from "./OnHandBand";
+import { NetKpi } from "./NetKpi";
 import { SpendBreakdown } from "./SpendBreakdown";
 import type { AccountBalance, MonthSummary, OnHand } from "@/lib/data/money";
 
@@ -210,28 +211,7 @@ export function MoneyView({
               : undefined
           }
         />
-        {/*
-          "Over budget" was a lie this page had no way of telling.
-
-          `net` is income less spending less what was put aside. It has never consulted
-          a budget — this screen does not load one, and the limits that do exist live on
-          Budgets. So a month with no income recorded said "Over budget" after a single
-          grocery run, to someone comfortably inside every limit they had set.
-
-          What the figure actually says is the sentence below, and it is worth saying:
-          a month that takes out more than it brings in is a real thing to notice, it
-          is just not a budget being broken.
-        */}
-        <Kpi
-          className="money-card-premium"
-          label="Left over"
-          value={formatRsd(summary.net)}
-          hint={
-            summary.net < 0 ? (
-              <span className="text-danger">More went out than came in</span>
-            ) : undefined
-          }
-        />
+        <NetKpi className="money-card-premium" net={summary.net} income={summary.income} />
       </div>
 
       {/*

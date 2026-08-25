@@ -6,6 +6,7 @@ import {
   isTxKind,
   monthKey,
   monthLabel,
+  monthNetNote,
   monthRange,
   nextDate,
   rateFor,
@@ -159,5 +160,32 @@ describe("vocabulary", () => {
     expect(isGoalKind("withdraw")).toBe(true);
     expect(isGoalKind("expense")).toBe(false);
     expect(isGoalKind("transfer")).toBe(false);
+  });
+});
+
+describe("monthNetNote", () => {
+  it("says nothing at all when the month is in the black", () => {
+    expect(monthNetNote(12000, 90000)).toBeNull();
+    expect(monthNetNote(0, 0)).toBeNull();
+  });
+
+  /**
+   * The case that started this: a month with the salary not entered yet showed
+   * "Left over −670" beside "On accounts 149.503", so the app appeared to be arguing
+   * with itself. The minus is real, but it is the spending mirrored back off an empty
+   * income column — a bookkeeping fact, not a warning.
+   */
+  it("explains a minus that is only an empty income column, and does not shout", () => {
+    expect(monthNetNote(-670, 0)).toEqual({
+      text: "Nothing came in this month",
+      tone: "muted",
+    });
+  });
+
+  it("is red only when money did come in and it still went negative", () => {
+    expect(monthNetNote(-670, 90000)).toEqual({
+      text: "More went out than came in",
+      tone: "danger",
+    });
   });
 });

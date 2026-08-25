@@ -217,3 +217,29 @@ export const DEFAULT_CATEGORIES: { name: string; kind: "expense" | "income"; col
   { name: "Freelance", kind: "income", color: "#d9a441" },
   { name: "Gift", kind: "income", color: "#a98bd6" },
 ];
+
+/* ------------------------------------------------------------- the month's net */
+
+/**
+ * What to say under the month's net figure, and how loudly.
+ *
+ * The figure is `income − spending − put aside`: a statement about one month's
+ * movement, not about what you have. Those two got confused because the card used to
+ * be called "Left over" and sat next to a balance — so a month with no salary entered
+ * yet showed "Left over −670" beside "On accounts 149.503", and the app appeared to be
+ * arguing with itself.
+ *
+ * The note is what settles it, and the two negative cases are genuinely different:
+ *
+ *  - Nothing came in. The minus is the spending mirrored back, because the income
+ *    column is empty. That is a bookkeeping fact, not a warning, and colouring it red
+ *    cries wolf at someone who is paid on the 30th.
+ *  - Money came in and it still went negative. That is the real one, and it is red.
+ */
+export type NetNote = { text: string; tone: "danger" | "muted" } | null;
+
+export function monthNetNote(net: number, income: number): NetNote {
+  if (net >= 0) return null;
+  if (income <= 0) return { text: "Nothing came in this month", tone: "muted" };
+  return { text: "More went out than came in", tone: "danger" };
+}

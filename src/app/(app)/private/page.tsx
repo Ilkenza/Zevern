@@ -19,6 +19,7 @@ import {
 import { getTasksForToday } from "@/lib/data/tasks";
 import { Panel } from "@/components/ui/Panel";
 import { Kpi } from "@/components/ui/Kpi";
+import { NetKpi } from "@/components/private/NetKpi";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { buttonClasses } from "@/components/ui/Button";
 import { TaskCheckbox } from "@/components/tasks/TaskCheckbox";
@@ -111,12 +112,7 @@ export default async function PrivateOverviewPage({
       <div className="money-card-grid grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Kpi className="money-card-premium" label="Spent this month" value={formatRsd(summary.expense)} />
         <Kpi className="money-card-premium" label="Income" value={formatRsd(summary.income)} />
-        <Kpi
-          className="money-card-premium"
-          label="Left over"
-          value={formatRsd(summary.net)}
-          hint={summary.net < 0 ? <span className="text-danger">In the red</span> : undefined}
-        />
+        <NetKpi className="money-card-premium" net={summary.net} income={summary.income} />
         {/* The total is what the bank says. What can actually be spent is the total
             less whatever the open goals have a claim on — said here rather than left
             for the goals screen to contradict later. */}
