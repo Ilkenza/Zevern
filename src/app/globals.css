@@ -310,6 +310,282 @@ body {
   transition: transform 720ms cubic-bezier(0.22, 1, 0.36, 1), opacity 140ms ease;
 }
 
+/* ------------------------------------------------------- Money: month switcher */
+.money-month-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.money-month-arrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 5px 11px 5px 7px;
+  border-radius: var(--radius-pill);
+  color: var(--color-muted);
+  font-size: 12px;
+  font-weight: 600;
+  transition: background-color 200ms ease, color 200ms ease, transform 260ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.money-month-arrow:last-of-type { padding: 5px 7px 5px 11px; }
+
+.money-month-arrow:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--color-ink);
+}
+
+.money-month-arrow:first-of-type:hover { transform: translateX(-2px); }
+.money-month-arrow:last-of-type:hover { transform: translateX(2px); }
+
+/* The way back to the month you are actually living in. */
+.money-month-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: 4px;
+  padding: 5px 11px 5px 9px;
+  border-radius: var(--radius-pill);
+  background: var(--color-active-bg);
+  color: var(--color-gold-hi);
+  font-size: 11.5px;
+  font-weight: 700;
+  white-space: nowrap;
+  transition: background-color 220ms ease, transform 260ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.money-month-back:hover {
+  background: rgba(217, 164, 65, 0.24);
+  transform: translateX(-1px);
+}
+
+/* --------------------------------------------------------- Money: what you have */
+.onhand-band {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 24px;
+  overflow: hidden;
+  padding: 18px 20px;
+  border: 1px solid rgba(217, 164, 65, 0.17);
+  border-radius: var(--radius-card);
+  background:
+    radial-gradient(circle at 88% 0%, rgba(217, 164, 65, 0.1), transparent 42%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.025), transparent 46%),
+    var(--color-surface);
+  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.18);
+  animation: money-card-in 640ms cubic-bezier(0.22, 1, 0.36, 1) 60ms both;
+}
+
+.onhand-empty { align-items: center; }
+
+.money-page-kicker em {
+  color: var(--color-faint);
+  font-style: normal;
+  letter-spacing: 0.12em;
+}
+
+.onhand-figure { min-width: 240px; flex: 1 1 300px; }
+
+.onhand-value {
+  margin-top: 6px;
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: -1.2px;
+  line-height: 1.1;
+  animation: money-head-in 720ms cubic-bezier(0.22, 1, 0.36, 1) 180ms both;
+}
+
+.onhand-caption {
+  margin-top: 3px;
+  color: var(--color-muted);
+  font-size: 12.5px;
+}
+
+.onhand-track {
+  display: flex;
+  gap: 2px;
+  height: 6px;
+  max-width: 420px;
+  margin-top: 14px;
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.05);
+  overflow: hidden;
+}
+
+.onhand-seg { display: block; height: 100%; border-radius: var(--radius-pill); }
+.onhand-free { background: var(--color-gold); }
+.onhand-reserved { background: var(--color-info); }
+
+.onhand-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin-top: 10px;
+  color: var(--color-muted);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.onhand-legend > span { display: inline-flex; align-items: center; gap: 6px; }
+.onhand-total { color: var(--color-faint); }
+
+.onhand-key {
+  width: 8px;
+  height: 8px;
+  border-radius: 3px;
+}
+
+.onhand-accounts {
+  display: flex;
+  flex: 0 1 auto;
+  flex-direction: column;
+  gap: 6px;
+  align-items: stretch;
+  min-width: 210px;
+}
+
+.onhand-account {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: baseline;
+  gap: 2px 12px;
+  padding: 8px 12px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-ctrl);
+  background: rgba(255, 255, 255, 0.022);
+  animation: money-card-in 560ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  transition: border-color 240ms ease, background-color 240ms ease, transform 300ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.onhand-accounts > :nth-child(1) { animation-delay: 200ms; }
+.onhand-accounts > :nth-child(2) { animation-delay: 260ms; }
+.onhand-accounts > :nth-child(3) { animation-delay: 320ms; }
+.onhand-accounts > :nth-child(n + 4) { animation-delay: 380ms; }
+
+.onhand-account:hover {
+  transform: translateX(-2px);
+  border-color: rgba(217, 164, 65, 0.26);
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.onhand-account-name {
+  color: var(--color-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.onhand-account-value { color: var(--color-ink); font-size: 13px; font-weight: 600; }
+
+.onhand-account-note {
+  grid-column: 1 / -1;
+  color: var(--color-faint);
+  font-size: 10.5px;
+}
+
+.onhand-manage {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 2px;
+  color: var(--color-faint);
+  font-size: 11px;
+  font-weight: 600;
+  transition: color 200ms ease;
+}
+
+.onhand-manage:hover { color: var(--color-gold-hi); }
+
+/* ------------------------------------------------------------ Money: the ledger */
+.money-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition:
+    color 200ms ease,
+    border-color 200ms ease,
+    background-color 200ms ease,
+    transform 260ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.money-chip:hover { transform: translateY(-1px); border-color: rgba(217, 164, 65, 0.3); }
+.money-chip-on { box-shadow: 0 0 0 1px rgba(217, 164, 65, 0.14); }
+
+.money-chip-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  opacity: 0.85;
+}
+
+/* A raised bar rather than a tint, so a day reads as a section and not a stripe. */
+.money-day-head { background: var(--color-surface-2); }
+
+@keyframes money-row-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
+.money-ledger .money-row {
+  animation: money-row-in 460ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  transition: background-color 200ms ease;
+}
+
+.money-ledger .money-day:nth-child(1) .money-row:nth-child(2) { animation-delay: 150ms; }
+.money-ledger .money-day:nth-child(1) .money-row:nth-child(3) { animation-delay: 195ms; }
+.money-ledger .money-day:nth-child(1) .money-row:nth-child(4) { animation-delay: 240ms; }
+.money-ledger .money-day:nth-child(1) .money-row:nth-child(n + 5) { animation-delay: 285ms; }
+.money-ledger .money-day:nth-child(2) .money-row { animation-delay: 230ms; }
+.money-ledger .money-day:nth-child(3) .money-row { animation-delay: 300ms; }
+.money-ledger .money-day:nth-child(n + 4) .money-row { animation-delay: 360ms; }
+
+.money-row:hover { background: rgba(255, 255, 255, 0.025); }
+
+/*
+  The category colour grows a little on hover. Brightness rather than a glow: the
+  colour is set inline per row, so `currentColor` here would be the text ink and any
+  shadow would come out the wrong colour.
+*/
+.money-row-spine {
+  transition: transform 300ms cubic-bezier(0.22, 1, 0.36, 1), filter 300ms ease;
+}
+
+.money-row:hover .money-row-spine {
+  transform: scaleY(1.18);
+  filter: brightness(1.3) saturate(1.1);
+}
+
+@media (max-width: 760px) {
+  .onhand-band { flex-direction: column; gap: 16px; }
+  .onhand-accounts { min-width: 0; }
+  .onhand-value { font-size: 28px; }
+  .money-month-nav { flex-wrap: wrap; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .onhand-band,
+  .onhand-value,
+  .onhand-account,
+  .money-ledger .money-row {
+    animation: none !important;
+    opacity: 1;
+    transform: none;
+  }
+
+  .money-chip,
+  .money-row-spine,
+  .money-month-arrow,
+  .money-month-back,
+  .onhand-account { transition: none; }
+}
+
 .budget-overview {
   background: linear-gradient(110deg, rgba(217, 164, 65, 0.055), transparent 52%);
 }

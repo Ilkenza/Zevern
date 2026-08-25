@@ -86,6 +86,18 @@ export function monthLabel(key: string): string {
   return `${MONTH_NAMES[(m - 1 + 12) % 12]} ${y}`;
 }
 
+/**
+ * "Jun" — or "Jun 2027" once it leaves the year of `relativeTo`. It sits on the month
+ * arrows, so a step shows you where it lands before you take it.
+ */
+export function shortMonthLabel(key: string, relativeTo: string): string {
+  const [y, m] = key.split("-").map(Number);
+  if (!Number.isFinite(y) || !Number.isFinite(m)) return key;
+  const name = MONTH_NAMES[(m - 1 + 12) % 12].slice(0, 3);
+  const [ry] = relativeTo.split("-").map(Number);
+  return y === ry ? name : `${name} ${y}`;
+}
+
 export function shiftMonth(key: string, delta: number): string {
   const [y, m] = key.split("-").map(Number);
   const d = new Date(Date.UTC(y, m - 1 + delta, 1));

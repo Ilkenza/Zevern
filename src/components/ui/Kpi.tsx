@@ -1,5 +1,6 @@
 import { ArrowUpRight, ArrowDownRight, Minus } from "lucide-react";
 import { Sparkline } from "@/components/ui/Sparkline";
+import { cn } from "@/lib/utils";
 
 /**
  * A figure without a direction is trivia. `delta` is what turns "€4,200" into
@@ -45,6 +46,7 @@ export function Kpi({
   delta,
   spark,
   sparkLabel,
+  className,
 }: {
   label: string;
   value: string;
@@ -53,12 +55,19 @@ export function Kpi({
   /** A short series ending on the figure shown above. Drawn only if it moves. */
   spark?: number[];
   sparkLabel?: string;
+  /** Lets a screen add its own treatment — Money uses `money-card-premium`. */
+  className?: string;
 }) {
   // A flat line of zeros says nothing and still costs a row of height.
   const showSpark = !!spark && spark.length > 1 && spark.some((v) => v !== 0);
 
   return (
-    <div className="overview-kpi rounded-card border border-line bg-surface p-4">
+    <div
+      className={cn(
+        "overview-kpi relative rounded-card border border-line bg-surface p-4",
+        className,
+      )}
+    >
       <div className="text-[11px] font-semibold uppercase tracking-wider text-muted">
         {label}
       </div>
