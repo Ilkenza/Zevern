@@ -1,4 +1,4 @@
-import { getAccountBalances, getGoalLines, getOnHand } from "@/lib/data/money";
+import { getAccountBalances, getCategories, getGoalLines, getOnHand } from "@/lib/data/money";
 import { GoalsView, type GoalsPanel } from "@/components/private/GoalsView";
 
 export default async function GoalsPage({
@@ -10,10 +10,11 @@ export default async function GoalsPage({
   // Balances rather than bare accounts: putting money aside has to know what each
   // account actually has free, or the screen will happily reserve dinars that are not
   // there.
-  const [goals, accounts, onHand] = await Promise.all([
+  const [goals, accounts, onHand, categories] = await Promise.all([
     getGoalLines(),
     getAccountBalances(),
     getOnHand(),
+    getCategories(),
   ]);
 
   let panel: GoalsPanel = null;
@@ -28,6 +29,7 @@ export default async function GoalsPage({
     <GoalsView
       goals={goals}
       accounts={accounts}
+      categories={categories.filter((c) => c.kind === "expense")}
       onHand={onHand}
       panel={panel}
       showArchived={Boolean(params.archived)}

@@ -57,6 +57,7 @@ function Reorder({ goal, first, last }: { goal: GoalLine; first: boolean; last: 
 export function GoalCard({
   goal,
   accounts,
+  siblings,
   today,
   first,
   last,
@@ -64,6 +65,8 @@ export function GoalCard({
 }: {
   goal: GoalLine;
   accounts: AccountBalance[];
+  /** The other open goals — where an overshoot can go instead. */
+  siblings: GoalLine[];
   today: string;
   first: boolean;
   last: boolean;
@@ -188,8 +191,12 @@ export function GoalCard({
             <Trophy className="h-4 w-4" aria-hidden />
             <span>
               <b>You made it.</b>{" "}
-              {r.note} — your goal is fully funded. When you are ready, make it happen,
-              then close the goal to release the reserved amount.
+              {r.note} — your goal is fully funded. The money is still on the account, so
+              when you buy the thing, say so once and Zevern logs the purchase and closes
+              the goal together.{" "}
+              <Link href={`${GOALS_HREF}?edit=${goal.id}`} className="goal-reached-link">
+                I bought it →
+              </Link>
             </span>
           </div>
         ) : (
@@ -203,7 +210,7 @@ export function GoalCard({
       </div>
 
       <GoalHistory goal={goal} />
-      <MoveMoney goal={goal} accounts={accounts} done={r.done} />
+      <MoveMoney goal={goal} accounts={accounts} siblings={siblings} done={r.done} />
     </article>
   );
 }

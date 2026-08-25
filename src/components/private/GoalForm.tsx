@@ -1,8 +1,14 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
-import { CheckCircle2 } from "lucide-react";
-import { saveGoal, closeGoal, deleteGoal, type MoneyState } from "@/app/(app)/private/actions";
+import { CheckCircle2, ShoppingBag } from "lucide-react";
+import {
+  saveGoal,
+  closeGoal,
+  deleteGoal,
+  spendGoal,
+  type MoneyState,
+} from "@/app/(app)/private/actions";
 import { Field } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
 import { Select } from "@/components/ui/Select";
@@ -10,7 +16,7 @@ import { DeleteButton } from "@/components/ui/DeleteButton";
 import { CURRENCY_OPTIONS, formatRsd } from "@/lib/money";
 import { MoneyField } from "@/components/ui/MoneyField";
 import { cn } from "@/lib/utils";
-import type { GoalLine, MoneyAccount } from "@/lib/types";
+import type { GoalLine, MoneyAccount, MoneyCategory } from "@/lib/types";
 import { todayISO } from "@/lib/format";
 
 /**
@@ -21,6 +27,125 @@ import { todayISO } from "@/lib/format";
  * never told anyone anything — it just stood between naming a goal and creating it.
  */
 const GOAL_COLOUR = "#d9a441";
+
+/**
+ * The end every goal is actually saving towards: you buy the thing.
+ *
+ * This was the one question the screen had no answer to. Closing the goal frees the
+ * money but records no purchase; logging the purchase in Money leaves the goal still
+ * holding what you just spent. Doing them in the wrong order, or forgetting one, is
+ * how a ledger starts disagreeing with a bank account.
+ *
+ * One act, three entries' worth of bookkeeping: the reservation goes back to the
+ * account, the purchase lands in Money under the goal's own name, and the goal closes.
+ * Anything left over stays free rather than vanishing with it.
+ */
+function SpendGoal({
+  goal,
+  accounts,
+  categories,
+  onDone,
+}: {
+  goal: GoalLine;
+  accounts: MoneyAccount[];
+  categories: MoneyCategory[];
+  onDone?: () => void;
+}) {
+  const [state, formAction, pending] = useActionState<MoneyState, FormData>(spendGoal, undefined);
+  const [open, setOpen] = useState(false);
+
+  const held = goal.saved;
+  const preferred = goal.lastAccountId ?? accounts[0]?.id ?? "";
+
+  useEffect(() => {
+    if (state?.ok) onDone?.();
+  }, [state, onDone]);
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="flex w-full items-center gap-2 rounded-ctrl border border-gold/40 bg-gold/10 px-3 py-2.5 text-left text-[13px] font-semibold text-gold-hi transition-colors hover:bg-gold/15"
+      >
+        <ShoppingBag className="h-4 w-4 shrink-0" />
+        I bought it
+      </button>
+    );
+  }
+
+  return (
+    <form action={formAction} className="rounded-ctrl border border-gold/35 bg-gold/[0.06] p-3">
+      <input type="hidden" name="goal_id" value={goal.id} />
+
+      <div className="text-[13px] font-semibold text-ink">I bought it</div>
+      <p className="mt-1 text-[11.5px] leading-relaxed text-muted">
+        The {formatRsd(held)} this goal holds goes back to the account, the purchase is
+        logged in Money under <span className="text-ink">{goal.name}</span>, and the goal
+        closes. Anything it cost less than stays free to spend.
+      </p>
+
+      <div className="mt-2.5 grid gap-2.5">
+        <MoneyField
+          className="mb-0"
+          label="What it cost"
+          name="amount"
+          defaultValue={held || ""}
+          placeholder="0"
+          required
+        />
+
+        <Select
+          className="mb-0"
+          label="Category"
+          name="category_id"
+          defaultValue={categories[0]?.id ?? ""}
+          placeholder={categories.length ? "No category" : "No categories yet"}
+          options={categories.map((c) => ({ value: c.id, label: c.name }))}
+        />
+
+        <Select
+          className="mb-0"
+          label="Paid from"
+          name="account_id"
+          defaultValue={preferred}
+          placeholder={accounts.length ? "No account" : "No accounts yet"}
+          options={accounts.map((a) => ({ value: a.id, label: a.name }))}
+        />
+
+        <Field
+          className="mb-0 scheme-dark"
+          label="Bought on"
+          name="occurred_on"
+          type="date"
+          defaultValue={todayISO()}
+        />
+      </div>
+
+      {state?.error && <p className="mt-2 text-[11.5px] text-danger">{state.error}</p>}
+
+      <div className="mt-3 flex gap-2">
+        <Button
+          type="submit"
+          variant="primary"
+          className="flex-1 py-2 text-[12.5px]"
+          disabled={pending}
+        >
+          {pending ? "Logging…" : "Log it and close the goal"}
+        </Button>
+        <Button
+          type="button"
+          variant="secondary"
+          className="px-3 py-2 text-[12.5px]"
+          onClick={() => setOpen(false)}
+          disabled={pending}
+        >
+          Cancel
+        </Button>
+      </div>
+    </form>
+  );
+}
 
 /**
  * Closing a goal, said once and honestly.
@@ -132,10 +257,12 @@ function CloseGoal({
 export function GoalForm({
   goal,
   accounts,
+  categories,
   onDone,
 }: {
   goal?: GoalLine;
   accounts: MoneyAccount[];
+  categories: MoneyCategory[];
   onDone?: () => void;
 }) {
   const [state, formAction, pending] = useActionState<MoneyState, FormData>(saveGoal, undefined);
@@ -206,10 +333,26 @@ export function GoalForm({
 
       {goal && goal.completed_at === null && (
         <div className="mt-4 border-t border-line pt-4">
-          <CloseGoal goal={goal} accounts={accounts} onDone={onDone} />
+          <div className="mb-2 text-[10.5px] font-semibold uppercase tracking-wider text-faint">
+            Finishing this goal
+          </div>
+
+          {/* Two endings, and they are not the same act. */}
+          <div className="grid gap-2">
+            <SpendGoal
+              goal={goal}
+              accounts={accounts}
+              categories={categories}
+              onDone={onDone}
+            />
+            <CloseGoal goal={goal} accounts={accounts} onDone={onDone} />
+          </div>
+
           <p className="mt-2.5 text-[11.5px] leading-relaxed text-muted">
-            Closing is the end of the goal, not the end of its record. It keeps every deposit it
-            ever took and moves to the closed list, where it can be reopened or archived.
+            Bought the thing? The first one records the purchase and closes the goal in one go.
+            Changed your mind? The second just hands the money back. Either way the goal keeps
+            every deposit it ever took and moves to the closed list, where it can be reopened or
+            archived.
           </p>
         </div>
       )}

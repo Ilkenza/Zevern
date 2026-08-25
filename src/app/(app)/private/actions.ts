@@ -644,6 +644,215 @@ export async function deleteGoal(id: string) {
  * much. Reached and spent, or given up on — the accounting is the same act, and the
  * purchase itself is an ordinary expense logged in Money.
  */
+/**
+ * Buy the thing, in one act.
+ *
+ * The question every reached goal ends on was "so what do I do now", and the honest
+ * old answer was two jobs in two places: close the goal here so the money stops being
+ * reserved, then go to Money and log the purchase as an expense. Do only the first and
+ * the money looks spendable again while the thing is already bought; do only the
+ * second and the goal goes on holding money that has been spent.
+ *
+ * So this does both. The reservation is handed back to the account, the purchase is
+ * written into the ledger as an ordinary expense — under the goal's own name — and the
+ * goal is closed. The account moves by exactly what the thing cost: the withdrawal
+ * frees the money and the expense takes it out, and anything left over stays free
+ * rather than disappearing with the goal.
+ */
+export async function spendGoal(_prev: MoneyState, formData: FormData): Promise<MoneyState> {
+  const goalId = String(formData.get("goal_id") ?? "").trim();
+  const accountId = String(formData.get("account_id") ?? "").trim() || null;
+  const categoryId = String(formData.get("category_id") ?? "").trim() || null;
+  const on = String(formData.get("occurred_on") ?? "").trim() || today();
+  const spent = num(formData.get("amount"));
+
+  if (!goalId) return { error: "No goal to spend." };
+  if (!accountId) return { error: "Say which account it was paid from." };
+  if (!(spent > 0)) return { error: "What did it actually cost?" };
+
+  const supabase = await createSupabaseServerClient();
+  const uid = await userId(supabase);
+  if (!uid) return { error: "Not signed in." };
+
+  const [ownsGoal, ownsAccount, ownsCategory] = await Promise.all([
+    ownsMoneyRow(supabase, "money_goals", goalId, uid),
+    ownsMoneyRow(supabase, "money_accounts", accountId, uid),
+    ownsMoneyRow(supabase, "money_categories", categoryId, uid),
+  ]);
+  if (!ownsGoal) return { error: "That goal is not on your profile." };
+  if (!ownsAccount) return { error: "That account is not on your profile." };
+  if (!ownsCategory) return { error: "That category is not on your profile." };
+
+  const { data: goal } = await supabase
+    .from("money_goals")
+    .select("name, completed_at")
+    .eq("id", goalId)
+    .eq("user_id", uid)
+    .maybeSingle();
+  if (!goal) return { error: "That goal is not on your profile." };
+  if (goal.completed_at) return { error: "That goal is already closed." };
+
+  const held = await goalBalance(supabase, uid, goalId);
+  if (held === null) return { error: "Could not read what that goal holds. Try again." };
+
+  // The withdrawal comes first and is taken back out if anything after it fails, so a
+  // half-finished purchase can never leave the goal empty with nothing recorded.
+  let freed: string | null = null;
+  if (held > PENNY) {
+    const { data: back, error } = await supabase
+      .from("money_transactions")
+      .insert({
+        kind: "withdraw",
+        amount: held,
+        currency: "RSD",
+        rate: 1,
+        account_id: accountId,
+        goal_id: goalId,
+        title: `Spent on ${goal.name}`,
+        occurred_on: on,
+      })
+      .select("id")
+      .maybeSingle();
+    if (error) return { error: saveErrorMessage(error) };
+    freed = back?.id ?? null;
+  }
+
+  const undo = async () => {
+    if (freed) await supabase.from("money_transactions").delete().eq("id", freed).eq("user_id", uid);
+  };
+
+  const { data: bought, error: buyErr } = await supabase
+    .from("money_transactions")
+    .insert({
+      kind: "expense",
+      amount: spent,
+      currency: "RSD",
+      rate: 1,
+      account_id: accountId,
+      category_id: categoryId,
+      title: goal.name,
+      occurred_on: on,
+    })
+    .select("id")
+    .maybeSingle();
+  if (buyErr) {
+    await undo();
+    return { error: saveErrorMessage(buyErr) };
+  }
+
+  const { error: closeErr } = await supabase
+    .from("money_goals")
+    .update({ completed_at: on })
+    .eq("id", goalId)
+    .eq("user_id", uid)
+    .is("completed_at", null);
+  if (closeErr) {
+    if (bought?.id)
+      await supabase.from("money_transactions").delete().eq("id", bought.id).eq("user_id", uid);
+    await undo();
+    return { error: saveErrorMessage(closeErr) };
+  }
+
+  refresh();
+  return { ok: true };
+}
+
+/**
+ * Overshoot on one goal, shortfall on another — move the difference across.
+ *
+ * Putting aside more than a goal needs is easy and often deliberate: a round number, a
+ * standing order that kept running. What you cannot then do is spend it, because the
+ * goal still holds it. Taking it out and putting it back into another goal is two
+ * entries in two places, and between them the money reads as free to spend when it
+ * never was.
+ *
+ * This writes both at once, on the same account and the same day, so the pair nets to
+ * nothing anywhere except in the two goals it was meant to move between.
+ */
+export async function moveBetweenGoals(_prev: MoneyState, formData: FormData): Promise<MoneyState> {
+  const fromId = String(formData.get("from_goal_id") ?? "").trim();
+  const toId = String(formData.get("to_goal_id") ?? "").trim();
+  const accountId = String(formData.get("account_id") ?? "").trim() || null;
+  const on = String(formData.get("occurred_on") ?? "").trim() || today();
+  const amount = num(formData.get("amount"));
+
+  if (!fromId || !toId) return { error: "Say which goal it is going to." };
+  if (fromId === toId) return { error: "That is the same goal." };
+  if (!(amount > 0)) return { error: "How much is moving?" };
+  if (!accountId) return { error: "Say which account is holding it." };
+
+  const supabase = await createSupabaseServerClient();
+  const uid = await userId(supabase);
+  if (!uid) return { error: "Not signed in." };
+
+  const [ownsFrom, ownsTo, ownsAccount] = await Promise.all([
+    ownsMoneyRow(supabase, "money_goals", fromId, uid),
+    ownsMoneyRow(supabase, "money_goals", toId, uid),
+    ownsMoneyRow(supabase, "money_accounts", accountId, uid),
+  ]);
+  if (!ownsFrom || !ownsTo) return { error: "That goal is not on your profile." };
+  if (!ownsAccount) return { error: "That account is not on your profile." };
+
+  const { data: goals } = await supabase
+    .from("money_goals")
+    .select("id, name, completed_at")
+    .eq("user_id", uid)
+    .in("id", [fromId, toId]);
+
+  const from = (goals ?? []).find((g) => g.id === fromId);
+  const to = (goals ?? []).find((g) => g.id === toId);
+  if (!from || !to) return { error: "That goal is not on your profile." };
+  if (to.completed_at) return { error: `${to.name} is closed. Reopen it before moving money in.` };
+
+  const held = await goalBalance(supabase, uid, fromId);
+  if (held === null) return { error: "Could not read what that goal holds. Try again." };
+  if (amount > held + PENNY)
+    return {
+      error:
+        held > 0
+          ? `${from.name} only holds ${formatRsd(held)}.`
+          : `${from.name} is empty — there is nothing to move.`,
+    };
+
+  const { data: out, error: outErr } = await supabase
+    .from("money_transactions")
+    .insert({
+      kind: "withdraw",
+      amount,
+      currency: "RSD",
+      rate: 1,
+      account_id: accountId,
+      goal_id: fromId,
+      title: `Moved to ${to.name}`,
+      occurred_on: on,
+    })
+    .select("id")
+    .maybeSingle();
+  if (outErr) return { error: saveErrorMessage(outErr) };
+
+  const { error: inErr } = await supabase.from("money_transactions").insert({
+    kind: "saving",
+    amount,
+    currency: "RSD",
+    rate: 1,
+    account_id: accountId,
+    goal_id: toId,
+    title: `Moved from ${from.name}`,
+    occurred_on: on,
+  });
+
+  if (inErr) {
+    // Half a move is worse than none: the money would read as free to spend while it
+    // was never anywhere but between two goals.
+    if (out?.id)
+      await supabase.from("money_transactions").delete().eq("id", out.id).eq("user_id", uid);
+    return { error: saveErrorMessage(inErr) };
+  }
+
+  refresh();
+  return { ok: true };
+}
+
 export async function closeGoal(_prev: MoneyState, formData: FormData): Promise<MoneyState> {
   const goalId = String(formData.get("goal_id") ?? "").trim();
   const accountId = String(formData.get("account_id") ?? "").trim() || null;

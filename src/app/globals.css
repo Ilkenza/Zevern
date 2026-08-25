@@ -1988,10 +1988,16 @@ body {
   justify-content: center;
   width: 30px;
   height: 30px;
-  border: 1px solid rgba(255, 255, 255, 0.045);
+  /*
+    Faint grey on a near-transparent square was still asking to be found. These are the
+    only way to reorder, edit or delete anything, so at rest they read as controls:
+    a border you can see, a surface under it, and an icon in `muted` rather than the
+    colour reserved for text nobody has to read.
+  */
+  border: 1px solid rgba(255, 255, 255, 0.11);
   border-radius: 9px;
-  background: rgba(255, 255, 255, 0.022);
-  color: var(--color-faint);
+  background: rgba(255, 255, 255, 0.055);
+  color: var(--color-muted);
   cursor: pointer;
   transition:
     color 180ms ease,
@@ -2002,7 +2008,7 @@ body {
 }
 
 .zv-rowctrl:hover {
-  border-color: rgba(217, 164, 65, 0.34);
+  border-color: rgba(217, 164, 65, 0.55);
   background: linear-gradient(135deg, rgba(217, 164, 65, 0.16), rgba(217, 164, 65, 0.055));
   color: var(--color-gold-hi);
   box-shadow:
@@ -2019,8 +2025,9 @@ body {
   box-shadow: var(--shadow-ring);
 }
 
+/* Off is off: the arrow at the top of the list should look like it cannot move. */
 .zv-rowctrl:disabled {
-  opacity: 0.45;
+  opacity: 0.3;
   cursor: default;
   transform: none;
 }
@@ -2998,6 +3005,18 @@ body {
 }
 
 .goal-reached-note b { display: block; font-size: 12.5px; font-weight: 700; }
+
+.goal-reached-link {
+  display: inline-block;
+  color: var(--color-gold-hi);
+  font-weight: 700;
+  text-decoration: underline;
+  text-decoration-color: rgba(230, 180, 87, 0.4);
+  text-underline-offset: 2px;
+  transition: text-decoration-color 200ms ease;
+}
+
+.goal-reached-link:hover { text-decoration-color: var(--color-gold-hi); }
 .goal-reached-note span { color: var(--color-muted); }
 .goal-reached-note svg { flex: none; margin-top: 1px; }
 

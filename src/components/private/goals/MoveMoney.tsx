@@ -3,7 +3,11 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
-import { saveTransaction, type MoneyState } from "@/app/(app)/private/actions";
+import {
+  moveBetweenGoals,
+  saveTransaction,
+  type MoneyState,
+} from "@/app/(app)/private/actions";
 import { Button } from "@/components/ui/Button";
 import { MoneyField } from "@/components/ui/MoneyField";
 import { formatRsd } from "@/lib/money";
@@ -24,16 +28,25 @@ import { caps, field } from "./shared";
 export function MoveMoney({
   goal,
   accounts,
+  siblings,
   done,
 }: {
   goal: GoalLine;
   accounts: AccountBalance[];
+  /** The other open goals — where an overshoot can go instead of coming back out. */
+  siblings: GoalLine[];
   done: boolean;
 }) {
   const router = useRouter();
   const [state, setState] = useState<MoneyState>();
   const [pending, startTransition] = useTransition();
-  const [out, setOut] = useState(false);
+  /*
+    Three things can happen to money here, not two. Overshooting a goal is ordinary —
+    a round number, a standing order that kept running — and the answer was to take it
+    out and put it into the other goal by hand, two entries with the money reading as
+    free to spend in between. "Move" does both at once.
+  */
+  const [mode, setMode] = useState<"in" | "out" | "move">("in");
 
   /*
     Submitting through a transition rather than `useActionState`, so the field can be
@@ -43,7 +56,9 @@ export function MoveMoney({
   */
   const submit = (formData: FormData) => {
     startTransition(async () => {
-      const next = await saveTransaction(undefined, formData);
+      const next = moving
+        ? await moveBetweenGoals(undefined, formData)
+        : await saveTransaction(undefined, formData);
       setState(next);
       if (!next?.ok) return;
       setAmount("");
@@ -52,7 +67,9 @@ export function MoveMoney({
   };
 
   const canTakeOut = goal.saved > 0;
-  const taking = out && canTakeOut;
+  const canMove = canTakeOut && siblings.length > 0;
+  const taking = mode === "out" && canTakeOut;
+  const moving = mode === "move" && canMove;
   // The account this goal used last is the one it will almost certainly use again.
   const preferred = goal.lastAccountId ?? accounts[0]?.id ?? "";
   const only = accounts.length === 1 ? accounts[0] : null;
@@ -73,9 +90,13 @@ export function MoveMoney({
   const target = Math.max(Number(goal.target_rsd) || 0, 0);
   const needs = target > 0 ? Math.max(target - goal.saved, 0) : null;
 
-  const beyondAccount = !taking && account !== null && typed > account.free + 0.5;
+  // A move nets to nothing on the account — the same dinars leave one goal and land on
+  // another — so neither warning applies to it.
+  const beyondAccount = !taking && !moving && account !== null && typed > account.free + 0.5;
   const beyondTarget =
-    !taking && !beyondAccount && needs !== null && typed > needs + 0.5 && typed > 0;
+    !taking && !moving && !beyondAccount && needs !== null && typed > needs + 0.5 && typed > 0;
+  /** What this goal is holding above its own target — the obvious thing to move. */
+  const excess = needs !== null ? Math.max(goal.saved - target, 0) : 0;
 
   // The amount is left uncontrolled on purpose: React empties an uncontrolled field
   // once its form action settles, so the box clears itself and the same figure cannot
@@ -86,38 +107,50 @@ export function MoveMoney({
       action={submit}
       className="goal-move-panel border-t border-line-soft bg-white/[0.02] py-3 pr-4 pl-5"
     >
-      <input type="hidden" name="kind" value={taking ? "withdraw" : "saving"} />
-      <input type="hidden" name="goal_id" value={goal.id} />
-      <input type="hidden" name="currency" value="RSD" />
-      <input type="hidden" name="return_to" value="stay" />
+      {moving ? (
+        <input type="hidden" name="from_goal_id" value={goal.id} />
+      ) : (
+        <>
+          <input type="hidden" name="kind" value={taking ? "withdraw" : "saving"} />
+          <input type="hidden" name="goal_id" value={goal.id} />
+          <input type="hidden" name="currency" value="RSD" />
+          <input type="hidden" name="return_to" value="stay" />
+        </>
+      )}
 
       <div className="mb-2 flex items-center justify-between gap-2">
         {/* With nothing in the goal yet there is only one thing to do here, so the
             caption stays a caption rather than pretending to be a choice. */}
         {canTakeOut ? (
-          <div className="goal-money-toggle flex min-w-0 items-center gap-1" role="group" aria-label={`Money direction for ${goal.name}`}>
-            <button
-              type="button"
-              onClick={() => setOut(false)}
-              aria-pressed={!taking}
-              className={cn(
-                "rounded-pill px-2 py-0.5 text-[10.5px] font-semibold uppercase tracking-wider transition-colors",
-                taking ? "text-faint hover:text-muted" : "bg-active-bg text-gold-hi",
-              )}
-            >
-              Put aside
-            </button>
-            <button
-              type="button"
-              onClick={() => setOut(true)}
-              aria-pressed={taking}
-              className={cn(
-                "rounded-pill px-2 py-0.5 text-[10.5px] font-semibold uppercase tracking-wider transition-colors",
-                taking ? "bg-active-bg text-gold-hi" : "text-faint hover:text-muted",
-              )}
-            >
-              Take out
-            </button>
+          <div
+            className="goal-money-toggle flex min-w-0 items-center gap-1"
+            role="group"
+            aria-label={`What happens to money on ${goal.name}`}
+          >
+            {(
+              [
+                { key: "in", label: "Put aside", on: !taking && !moving },
+                { key: "out", label: "Take out", on: taking },
+                ...(canMove ? [{ key: "move", label: "Move", on: moving }] : []),
+              ] as { key: "in" | "out" | "move"; label: string; on: boolean }[]
+            ).map((tab) => (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => {
+                  setMode(tab.key);
+                  // The overshoot is what you came to move, so it is already typed in.
+                  if (tab.key === "move" && !amount && excess > 0) setAmount(String(excess));
+                }}
+                aria-pressed={tab.on}
+                className={cn(
+                  "rounded-pill px-2 py-0.5 text-[10.5px] font-semibold uppercase tracking-wider transition-colors",
+                  tab.on ? "bg-active-bg text-gold-hi" : "text-faint hover:text-muted",
+                )}
+              >
+                {tab.label}
+              </button>
+            ))}
           </div>
         ) : (
           <span className="flex min-w-0 items-center gap-1.5">
@@ -158,9 +191,24 @@ export function MoveMoney({
           className="money-premium-button w-24 shrink-0 px-2 py-2 text-[12.5px]"
           disabled={pending || beyondAccount}
         >
-          {pending ? "Saving…" : taking ? "Take out" : "Put aside"}
+          {pending ? "Saving…" : moving ? "Move" : taking ? "Take out" : "Put aside"}
         </Button>
       </div>
+
+      {moving && (
+        <select
+          name="to_goal_id"
+          defaultValue={siblings[0]?.id ?? ""}
+          aria-label={`Goal the money from ${goal.name} is moving to`}
+          className={cn(field, "mt-2 w-full scheme-dark")}
+        >
+          {siblings.map((g) => (
+            <option key={g.id} value={g.id} className="bg-surface">
+              To {g.name}
+            </option>
+          ))}
+        </select>
+      )}
 
       {only || accounts.length === 0 ? (
         <input type="hidden" name="account_id" value={only?.id ?? ""} />
@@ -183,6 +231,15 @@ export function MoveMoney({
       {taking && (
         <p className="mt-2 text-[11px] text-faint">
           Holds {formatRsd(goal.saved)}. Taking it out frees it to spend again.
+        </p>
+      )}
+
+      {moving && (
+        <p className="mt-2 text-[11px] leading-relaxed text-faint">
+          Holds {formatRsd(goal.saved)}
+          {excess > 0 && <>, {formatRsd(excess)} of it above the target</>}. It leaves this goal
+          and lands on the other one the same day, on the same account — so it never passes
+          through being free to spend.
         </p>
       )}
 
