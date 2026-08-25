@@ -99,7 +99,13 @@ export function ColorPicker({
       {open && (
         <div
           id={panelId}
-          className="absolute right-0 z-40 mt-2 w-62 rounded-card border border-line bg-surface p-3 shadow-2xl"
+          /*
+            `right-0` hangs the panel off the trigger's right edge, so a 248px panel
+            opened from a control near the left of a phone starts at a negative x and
+            half the swatches are unreachable. Anchoring left on narrow screens and
+            capping the width to the viewport keeps it on screen at any size.
+          */
+          className="absolute left-0 z-40 mt-2 w-[min(15.5rem,calc(100vw-2rem))] rounded-card border border-line bg-surface p-3 shadow-2xl min-[420px]:left-auto min-[420px]:right-0"
         >
           <Group title="Palette">
             {SWATCHES.map((hex) => (

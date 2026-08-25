@@ -144,6 +144,13 @@ function QuickAdd({
         aria-label={placeholder}
         className="task-quickadd-input"
       />
+      {/*
+        Two ways to add a task is fine as long as they are visibly two different jobs.
+        This one takes a title and nothing else, and says so: it lands on today at
+        normal priority. Anything that needs a date, a project or a priority is what
+        the New task button is for.
+      */}
+      <span className="task-quickadd-hint">adds to today</span>
       <button type="submit" className="task-quickadd-go">
         Add
       </button>

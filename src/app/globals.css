@@ -3221,3 +3221,106 @@ a.breakdown-row:hover .breakdown-name i { transform: scale(1.35); }
   .breakdown-row,
   .breakdown-name i { transition: none; }
 }
+
+/* ==========================================================================
+   Narrow screens, and the two marks that were sitting on top of each other.
+
+   Everything below is a fix for something visible on a phone or a complaint
+   about crowding on a desktop — no new decoration.
+   ========================================================================== */
+
+/*
+  The page never scrolls sideways.
+
+  This is a guard, not a cure: every known cause below is fixed on its own. It is
+  here because a single wide child anywhere in the app turns every screen into a
+  page that slides, and that is a worse failure than clipping one element. `clip`
+  rather than `hidden` so it cannot silently create a scroll container and break
+  `position: sticky` on the topbar and the save bar.
+*/
+html, body { overflow-x: clip; }
+body > * { min-width: 0; }
+
+/*
+  Setup's header stats were three max-content columns with a 134px floor on the
+  last one — around 400px of demand on a 390px screen, which is exactly the
+  sideways scroll. Equal fractional columns ask for nothing they cannot have.
+*/
+.setup-head-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+@media (max-width: 560px) {
+  .setup-head-stats { grid-template-columns: minmax(0, 1fr); }
+  .setup-head-stats > span { border-right: 0; border-bottom: 1px solid var(--color-line-soft); }
+  .setup-head-stats > span:last-child { min-width: 0; border-bottom: 0; }
+  .setup-head-stats > span:nth-child(2),
+  .setup-head-stats > span:nth-child(3) { min-width: 0; }
+}
+
+@media (max-width: 760px) {
+  /* Left over from the desktop layout: a 240px floor inside a column that is now
+     the full width of a phone. */
+  .onhand-figure { min-width: 0; flex: 1 1 auto; }
+}
+
+/*
+  A task title was getting about ninety pixels on a phone — "kod lek…" — because the
+  badge and the date beside it are both `flex: none`. Below 560px the meta drops to
+  its own line and the title gets the row.
+*/
+@media (max-width: 560px) {
+  .task-row {
+    flex-wrap: wrap;
+    row-gap: 4px;
+  }
+
+  .task-row > div:first-of-type { flex: 1 1 100%; order: 1; }
+  .task-row > .task-prio,
+  .task-row > .task-row-date { order: 2; }
+  .task-row-date { margin-left: auto; }
+  .task-row:hover { padding-left: 16px; }
+
+  /* On a touch screen there is no hover to reveal it, so it is simply always there. */
+  .task-edit { opacity: 0.5; }
+}
+
+/*
+  Two gold marks were landing about sixteen pixels apart — the rule under the page
+  head, then the lit top edge of the first card directly below it. Read together
+  they looked like one doubled line. The head keeps its rule and takes more air; the
+  cards give theirs up, because the one that says "this is the top of the page" is
+  worth more than the one repeated four times in a row.
+*/
+.money-page-head { padding-bottom: 30px; }
+.overview-kpi::before { display: none; }
+
+/*
+  The ring inside a KPI was 130px across in a 126px-tall card, so it crossed the
+  label and ran behind the figure. Smaller, pushed further into its corner, and
+  faint enough to read as depth rather than as something drawn by mistake.
+*/
+.overview-kpi::after {
+  right: -46px;
+  bottom: -62px;
+  width: 104px;
+  height: 104px;
+  border-color: rgba(217, 164, 65, 0.05);
+  box-shadow: 0 0 0 14px rgba(217, 164, 65, 0.012);
+}
+
+.overview-kpi:hover::after { border-color: rgba(217, 164, 65, 0.1); }
+
+/* The quick add says what it does, so it does not read as the New task button twice. */
+.task-quickadd-hint {
+  flex: none;
+  color: var(--color-faint);
+  font-size: 10.5px;
+  font-weight: 600;
+  opacity: 0;
+  transition: opacity 220ms ease;
+}
+
+.task-quickadd:focus-within .task-quickadd-hint { opacity: 1; }
+
+@media (max-width: 480px) {
+  .task-quickadd-hint { display: none; }
+}

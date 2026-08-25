@@ -1,8 +1,20 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { X } from "lucide-react";
 
+/**
+ * The panel that slides in from the side — and, on a phone, covers the screen.
+ *
+ * Three things about it were wrong there. `inset-y-0` resolves against the layout
+ * viewport, which on a mobile browser is taller than what you can actually see while
+ * the address bar is showing, so the bottom of a long form — the Save button — sat
+ * underneath the browser chrome with no way to reach it. Locking the page behind it
+ * left the scroll position behind too, so closing dropped you back at the top of a
+ * list you had scrolled halfway down. And it was a plain `div`, so a screen reader
+ * never announced that anything had opened and the keyboard could still tab into the
+ * page behind it.
+ */
 export function SlideOver({
   open,
   onClose,
@@ -14,16 +26,66 @@ export function SlideOver({
   title: string;
   children: React.ReactNode;
 }) {
+  const panel = useRef<HTMLDivElement>(null);
+  const returnTo = useRef<HTMLElement | null>(null);
+
   useEffect(() => {
     if (!open) return;
+
+    returnTo.current = document.activeElement as HTMLElement | null;
+
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") {
+        onClose();
+        return;
+      }
+      if (e.key !== "Tab" || !panel.current) return;
+
+      // Keep the keyboard inside the panel: tabbing past the last control of a form
+      // that covers the whole screen should not land on a link nobody can see.
+      const focusable = panel.current.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      );
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      } else if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      }
     };
+
+    /*
+      Freeze the page without losing where it was. `overflow: hidden` on its own lets
+      the body jump to the top on iOS; pinning it at the offset it already had, and
+      putting that offset back on close, is what keeps the list underneath still.
+    */
+    const scrollY = window.scrollY;
+    const body = document.body;
+    const previous = {
+      position: body.style.position,
+      top: body.style.top,
+      width: body.style.width,
+      overflow: body.style.overflow,
+    };
+    body.style.position = "fixed";
+    body.style.top = `-${scrollY}px`;
+    body.style.width = "100%";
+    body.style.overflow = "hidden";
+
     document.addEventListener("keydown", onKey);
-    document.body.style.overflow = "hidden";
+
     return () => {
       document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = "";
+      body.style.position = previous.position;
+      body.style.top = previous.top;
+      body.style.width = previous.width;
+      body.style.overflow = previous.overflow;
+      window.scrollTo(0, scrollY);
+      returnTo.current?.focus?.();
     };
   }, [open, onClose]);
 
@@ -36,20 +98,37 @@ export function SlideOver({
         onClick={onClose}
         className="ag-overlay-in absolute inset-0 bg-black/60"
       />
-      <div className="ag-panel-in absolute inset-y-0 right-0 flex w-full max-w-110 flex-col border-l border-line bg-surface shadow-[0_0_60px_rgba(0,0,0,0.6)]">
-        <div className="flex items-center justify-between border-b border-line px-5 py-4">
-          <h2 className="font-display text-[17px] font-extrabold tracking-[-0.3px] text-ink">
+      {/*
+        `100dvh` rather than the layout viewport: on a phone the difference is exactly
+        the height of the address bar, and what goes missing under it is always the
+        bottom of the form — which is where the button that saves it lives.
+      */}
+      <div
+        ref={panel}
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        className="ag-panel-in absolute right-0 top-0 flex h-[100dvh] w-full max-w-110 flex-col border-l border-line bg-surface shadow-[0_0_60px_rgba(0,0,0,0.6)]"
+      >
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-line px-5 py-4">
+          <h2 className="min-w-0 truncate font-display text-[17px] font-extrabold tracking-[-0.3px] text-ink">
             {title}
           </h2>
           <button
             onClick={onClose}
             aria-label="Close panel"
-            className="zv-press rounded-ctrl p-1.5 text-muted hover:bg-white/4 hover:text-ink"
+            className="zv-press -mr-1.5 shrink-0 rounded-ctrl p-2 text-muted hover:bg-white/4 hover:text-ink"
           >
             <X className="h-4.5 w-4.5" />
           </button>
         </div>
-        <div className="ag-panel-body-in flex-1 overflow-y-auto p-5">{children}</div>
+        {/*
+          The bottom padding clears the home indicator on a phone that has one, so the
+          last control in a form is not sitting underneath it.
+        */}
+        <div className="ag-panel-body-in flex-1 overflow-y-auto overscroll-contain p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+          {children}
+        </div>
       </div>
     </div>
   );

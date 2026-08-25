@@ -47,7 +47,13 @@ function LeverRow({ lever, on }: { lever: Lever; on: string }) {
   return (
     <div className="border-t border-danger/20 px-4 py-2.5">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-        <div className="min-w-0 flex-1">
+        {/*
+          `min-w-0` means this column never demands room, so `flex-wrap` never fired
+          and the date picker beside it squeezed the sentence into a seven-character
+          column. A basis gives it something to ask for, and below that the control
+          takes its own line.
+        */}
+        <div className="min-w-0 flex-1 basis-64">
           <div className="flex min-w-0 items-center gap-1.5">
             <Icon aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-muted" />
             <span className="min-w-0 truncate text-[12.5px] font-semibold text-ink">
@@ -83,13 +89,13 @@ function LeverRow({ lever, on }: { lever: Lever; on: string }) {
           </p>
         </div>
 
-        <div className="flex shrink-0 items-center gap-1.5">
+        <div className="flex w-full shrink-0 items-center gap-1.5 min-[560px]:w-auto">
           <input
             type="date"
             value={date}
             onChange={(e) => setDate(e.target.value)}
             aria-label={`New date for ${lever.name}`}
-            className={cn(field, "w-36")}
+            className={cn(field, "w-full min-[560px]:w-36")}
           />
           <button
             type="button"
