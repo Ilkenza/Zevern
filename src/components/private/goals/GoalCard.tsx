@@ -17,6 +17,7 @@ import { GOALS_HREF, NO_COLOUR } from "./shared";
 import { read, firstStepFor } from "./reading";
 import { GoalHistory } from "./GoalHistory";
 import { MoveMoney } from "./MoveMoney";
+import { PayOff } from "./PayOff";
 
 /** Move a goal up or down the list — priority the owner chose, not creation order. */
 function Reorder({ goal, first, last }: { goal: GoalLine; first: boolean; last: boolean }) {
@@ -106,11 +107,13 @@ export function GoalCard({
   */
   const aimedAt = Number(goal.target_amount) || 0;
   const foreign = aimedAt > 0 && goal.currency !== code;
-  const remaining = Math.max(target - goal.saved, 0);
+  const remaining = Math.max(target - goal.progress, 0);
   // Rounded down, and capped at 99 until the target is actually met — a goal one
   // dinar short should never claim to be finished.
   const shown = r.pct === null ? null : r.done ? 100 : Math.min(Math.floor(r.pct * 100), 99);
-  const firstStep = firstStepFor(target, goal.saved);
+  // Only a goal that collects has an opening deposit to suggest; the first payment
+  // against a debt is whatever the instalment is, and this card does not know it.
+  const firstStep = goal.paying ? 0 : firstStepFor(target, goal.progress);
 
   return (
     <article
@@ -173,7 +176,7 @@ export function GoalCard({
 
         <div className="mt-2 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1.5">
           <span>
-            <small className="goal-saved-label">Saved</small>
+            <small className="goal-saved-label">{goal.paying ? "Paid" : "Saved"}</small>
             {/*
               A goal nothing has gone into has no amount to report, and `0 RSD` in
               24px bold claims one. The dash says the same truth in the register the
@@ -181,10 +184,10 @@ export function GoalCard({
               screen of failures.
             */}
             <b className="mono goal-saved-value block text-[24px] font-semibold tracking-[-0.7px] text-ink">
-              {goal.saved === 0 ? (
+              {goal.progress === 0 ? (
                 <span className="text-faint">—</span>
               ) : (
-                fmt(goal.saved)
+                fmt(goal.progress)
               )}
             </b>
           </span>
@@ -215,16 +218,24 @@ export function GoalCard({
               </dd>
             </div>
             <div>
-              <dt>{r.done ? "Above target" : "Remaining"}</dt>
+              <dt>
+                {r.done
+                  ? goal.paying
+                    ? "Overpaid"
+                    : "Above target"
+                  : goal.paying
+                    ? "Left to pay"
+                    : "Remaining"}
+              </dt>
               {/*
                 `ABOVE TARGET 0 RSD` is the same zero removed everywhere else: a goal that
                 landed exactly on its target has overshot by nothing, and printing the
                 nothing claims a measurement. The dash says it without the claim.
               */}
-              <dd className={cn("mono", r.done && goal.saved > target && "text-gold-hi")}>
+              <dd className={cn("mono", r.done && goal.progress > target && "text-gold-hi")}>
                 {r.done ? (
-                  goal.saved > target ? (
-                    fmt(goal.saved - target)
+                  goal.progress > target ? (
+                    fmt(goal.progress - target)
                   ) : (
                     <span className="text-faint">—</span>
                   )
@@ -266,7 +277,7 @@ export function GoalCard({
               <div
                 className="money-progress-fill h-full rounded-pill transition-[width] duration-700 motion-reduce:transition-none"
                 style={{
-                  width: `${goal.saved > 0 ? Math.max(r.pct * 100, 2) : 0}%`,
+                  width: `${goal.progress > 0 ? Math.max(r.pct * 100, 2) : 0}%`,
                   background: colour,
                 }}
               />
@@ -305,12 +316,22 @@ export function GoalCard({
               — that is {Math.round((firstStep / target) * 100)}% of the way.
             </>
           ) : r.done ? (
-            <>
-              <span>Fully funded.</span>
-              <Link href={`${GOALS_HREF}?edit=${goal.id}`} className="goal-reached-link">
-                I bought it →
-              </Link>
-            </>
+            goal.paying ? (
+              /*
+                A debt that is clear has nothing left to do, so the line says so and
+                stops. The "I bought it" door belongs to the other direction: it exists
+                because a funded goal is still holding money that has to be spent and
+                released in one act, and a paid-off one is holding nothing.
+              */
+              <span>Nothing left to pay.</span>
+            ) : (
+              <>
+                <span>Fully funded.</span>
+                <Link href={`${GOALS_HREF}?edit=${goal.id}`} className="goal-reached-link">
+                  I bought it →
+                </Link>
+              </>
+            )
           ) : goal.target_date && r.pace ? (
             <span className="min-w-0 truncate">
               <span className="mono">{goal.target_date}</span> · {r.pace}
@@ -363,19 +384,23 @@ export function GoalCard({
         */}
         {expanded && r.done && (
           <p className="mt-2 text-[11.5px] leading-relaxed text-faint">
-            {r.note} — the money has not moved. When you buy the thing, say so once and
-            Zevern logs the purchase and closes the goal together.
+            {r.note}
+            {goal.paying
+              ? " — nothing is owed on it any more. Close it and it stops taking up room here."
+              : " — the money has not moved. When you buy the thing, say so once and Zevern logs the purchase and closes the goal together."}
           </p>
         )}
 
         {expanded && !r.done && goal.deposited > 0 && (
           <p className="mt-1.5 text-[11.5px] text-muted">
-            <span className="mono text-ink">{fmt(goal.deposited)}</span> in across{" "}
-            {goal.movements} {goal.movements === 1 ? "move" : "moves"}
+            <span className="mono text-ink">{fmt(goal.deposited)}</span>{" "}
+            {goal.paying ? "paid across" : "in across"} {goal.movements}{" "}
+            {goal.movements === 1 ? "move" : "moves"}
             {goal.withdrawn > 0 && (
               <span className="text-faint">
                 {" "}
-                · <span className="mono">{fmt(goal.withdrawn)}</span> taken back
+                · <span className="mono">{fmt(goal.withdrawn)}</span>{" "}
+                {goal.paying ? "refunded" : "taken back"}
               </span>
             )}
           </p>
@@ -397,7 +422,11 @@ export function GoalCard({
       */}
       {(expanded || closing) && (
         <div className={cn("goal-money-reveal", closing && "is-closing")}>
-          <MoveMoney goal={goal} accounts={accounts} siblings={siblings} done={r.done} />
+          {goal.paying ? (
+            <PayOff goal={goal} accounts={accounts} done={r.done} />
+          ) : (
+            <MoveMoney goal={goal} accounts={accounts} siblings={siblings} done={r.done} />
+          )}
         </div>
       )}
 
@@ -407,7 +436,9 @@ export function GoalCard({
         aria-expanded={expanded}
         className="goal-card-toggle"
       >
-        <span>{expanded ? "Done" : r.done ? "Details" : "Put money aside"}</span>
+        <span>
+          {expanded ? "Done" : r.done ? "Details" : goal.paying ? "Log a payment" : "Put money aside"}
+        </span>
         <ChevronDown className={cn("h-3.5 w-3.5", expanded && "is-open")} aria-hidden />
       </button>
     </article>

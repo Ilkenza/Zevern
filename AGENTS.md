@@ -27,7 +27,7 @@ Check it rather than guessing:
 
 It reads `globals.css`, and for every declaration and selector that survives
 minification unchanged, asks whether the newest built stylesheet contains it. It prints
-`SVEŽE` or names what is missing, and exits non-zero when the browser is behind. That
+`FRESH` or names what is missing, and exits non-zero when the browser is behind. That
 turns "is my change live?" from an argument into a command.
 
 Restarting is the cure, not the routine. Do not tell anyone to run `dev:clean` after

@@ -10,7 +10,7 @@ import type { PlannedRow, RecurringRow } from "@/lib/types";
 import { DueRecurringPanel } from "./DueRecurringPanel";
 import { PlannedDuePanel } from "./PlannedDuePanel";
 import { SpendingBasisPanel } from "./SpendingBasisPanel";
-import { ForecastCurve } from "./ForecastCurve";
+import { ForecastOutlook } from "./ForecastOutlook";
 import { addDays, isRunning } from "./upcoming";
 import { PanelMeta, caps } from "./upcoming/ui";
 import { Row, Shortfall } from "./upcoming/TimelineRow";
@@ -91,14 +91,10 @@ export function UpcomingTimeline({
       <DueRecurringPanel due={due} />
       <PlannedDuePanel due={plannedDue} />
 
-      {/*
-        The windows below say what each period does to the balance. This says the shape
-        of it — where the money dips, how long it stays down, whether the line ever
-        crosses zero. That is what a column of dates cannot answer at a glance, and
-        every figure it draws was already being computed and thrown away.
-      */}
+      {/* One answer here: how long the current money covers the schedule. The detailed
+          totals and dated items already live directly below it. */}
       {lines.length > 0 && (
-        <ForecastCurve forecast={forecast} days={longest || 90} outgoingOnly={noIncome} />
+        <ForecastOutlook forecast={forecast} days={longest || 90} outgoingOnly={noIncome} />
       )}
 
       {/* Three zeroes above an empty timeline say nothing the empty state does not. */}

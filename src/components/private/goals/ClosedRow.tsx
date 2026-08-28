@@ -20,8 +20,8 @@ export function ClosedRow({ goal }: { goal: GoalLine }) {
   const [error, setError] = useState<string | null>(null);
 
   const target = Number(goal.target_rsd) || 0;
-  // Reached means it actually held the whole amount at once, which is not the same as
-  // the sum of everything that ever went in.
+  // Reached means it actually stood at the whole amount at once, which is not the same
+  // as the sum of everything that ever counted toward it.
   const reached = target > 0 && goal.peak >= target;
 
   const run = (fn: () => Promise<MoneyState>) => {
@@ -46,10 +46,13 @@ export function ClosedRow({ goal }: { goal: GoalLine }) {
             <span className="min-w-0 truncate text-[13px] font-semibold text-muted">
               {goal.name}
             </span>
-            <Badge status={reached ? "ok" : "draft"}>{reached ? "Reached" : "Closed"}</Badge>
+            <Badge status={reached ? "ok" : "draft"}>
+              {reached ? (goal.paying ? "Paid off" : "Reached") : "Closed"}
+            </Badge>
           </div>
           <div className="mt-0.5 text-[11.5px] text-faint">
-            <span className="mono">{fmt(goal.deposited)}</span> went in
+            <span className="mono">{fmt(goal.deposited)}</span>{" "}
+            {goal.paying ? "paid" : "went in"}
             {target > 0 && (
               <>
                 {" "}

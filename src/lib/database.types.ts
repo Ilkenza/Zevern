@@ -230,6 +230,117 @@ export type Database = {
         }
         Relationships: []
       }
+      money_budget_plans: {
+        Row: {
+          amount_rsd: number
+          archived: boolean
+          color: string | null
+          created_at: string
+          ends_on: string | null
+          id: string
+          kind: string
+          membership: string
+          name: string
+          period: string
+          period_count: number
+          sort: number
+          starts_on: string
+          user_id: string
+        }
+        Insert: {
+          amount_rsd?: number
+          archived?: boolean
+          color?: string | null
+          created_at?: string
+          ends_on?: string | null
+          id?: string
+          kind?: string
+          membership?: string
+          name: string
+          period?: string
+          period_count?: number
+          sort?: number
+          starts_on?: string
+          user_id?: string
+        }
+        Update: {
+          amount_rsd?: number
+          archived?: boolean
+          color?: string | null
+          created_at?: string
+          ends_on?: string | null
+          id?: string
+          kind?: string
+          membership?: string
+          name?: string
+          period?: string
+          period_count?: number
+          sort?: number
+          starts_on?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      money_budget_categories: {
+        Row: {
+          budget_id: string
+          category_id: string
+        }
+        Insert: {
+          budget_id: string
+          category_id: string
+        }
+        Update: {
+          budget_id?: string
+          category_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "money_budget_categories_budget_id_fkey"
+            columns: ["budget_id"]
+            isOneToOne: false
+            referencedRelation: "money_budget_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "money_budget_categories_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "money_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      money_budget_accounts: {
+        Row: {
+          account_id: string
+          budget_id: string
+        }
+        Insert: {
+          account_id: string
+          budget_id: string
+        }
+        Update: {
+          account_id?: string
+          budget_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "money_budget_accounts_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "money_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "money_budget_accounts_budget_id_fkey"
+            columns: ["budget_id"]
+            isOneToOne: false
+            referencedRelation: "money_budget_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       money_budgets: {
         Row: {
           amount_rsd: number
@@ -340,6 +451,7 @@ export type Database = {
           color: string | null
           created_at: string
           completed_at: string | null
+          direction: string
           sort: number
           id: string
           name: string
@@ -355,6 +467,7 @@ export type Database = {
           color?: string | null
           created_at?: string
           completed_at?: string | null
+          direction?: string
           sort?: number
           id?: string
           name: string
@@ -370,6 +483,7 @@ export type Database = {
           color?: string | null
           created_at?: string
           completed_at?: string | null
+          direction?: string
           sort?: number
           id?: string
           name?: string
@@ -540,6 +654,7 @@ export type Database = {
         Row: {
           loan_id: string | null
           account_id: string | null
+          budget_id: string | null
           amount: number | null
           amount_rsd: number | null
           category_id: string | null
@@ -559,6 +674,7 @@ export type Database = {
         Insert: {
           loan_id?: string | null
           account_id?: string | null
+          budget_id?: string | null
           amount?: number | null
           category_id?: string | null
           created_at?: string
@@ -577,6 +693,7 @@ export type Database = {
         Update: {
           loan_id?: string | null
           account_id?: string | null
+          budget_id?: string | null
           amount?: number | null
           category_id?: string | null
           created_at?: string

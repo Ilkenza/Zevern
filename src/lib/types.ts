@@ -1,4 +1,5 @@
 import type { Tables } from "./database.types";
+import type { BudgetWindow } from "./money/budget-periods";
 import type { TxItem } from "./money/items";
 
 export type Client = Tables<"clients">;
@@ -52,6 +53,7 @@ export type MoneyGoal = Tables<"money_goals">;
 export type MoneyLoan = Tables<"money_loans">;
 export type MoneyRecurring = Tables<"money_recurring">;
 export type MoneyBudget = Tables<"money_budgets">;
+export type MoneyBudgetPlan = Tables<"money_budget_plans">;
 export type MoneyTransaction = Tables<"money_transactions">;
 export type MoneyPlanned = Tables<"money_planned">;
 
@@ -141,7 +143,7 @@ export type BudgetLine = {
 /** One movement between an account and a goal — the goal's own history. */
 export type GoalEntry = {
   id: string;
-  /** "saving" or "withdraw". */
+  /** "saving"/"withdraw" on a saving goal, "expense"/"income" on a paying-off one. */
   kind: string;
   /** RSD, always positive; the kind carries the direction. */
   amount: number;
@@ -155,13 +157,28 @@ export type GoalEntry = {
 /**
  * A goal with everything derived from its own movements.
  *
- * `saved` is what it holds right now — deposits less withdrawals. `deposited` is what
- * ever went in, which is what a closed goal has to show, since closing empties it.
- * `peak` is the most it ever held, which is the only honest test of whether the target
- * was actually reached: putting in 100 twice with a withdrawal in between is not the
- * same as holding 200.
+ * Two goals read the same way and mean different things. A saving goal collects money
+ * it then holds; a paying-off goal counts money that has already gone. The arithmetic
+ * is identical — a running figure against a target — so it is done once, into
+ * `progress`, and only the words on the card change.
+ *
+ * `saved` is the part of that figure that is still money: what the goal holds right
+ * now, and therefore what it reserves on the accounts. On a paying-off goal it is
+ * always zero, because the dinars left when they were spent.
+ *
+ * `deposited` and `withdrawn` are the two directions taken separately — put in and
+ * taken back out on a saving goal, paid and refunded on a paying-off one. `deposited`
+ * is what a closed goal has to show, since closing empties it.
+ *
+ * `peak` is the highest `progress` ever reached, which is the only honest test of
+ * whether the target was actually met: putting in 100 twice with a withdrawal in
+ * between is not the same as holding 200.
  */
 export type GoalLine = MoneyGoal & {
+  /** True when the goal is paid off rather than saved up — `direction` as a question. */
+  paying: boolean;
+  /** Where the goal stands against its target, whichever direction it runs in. */
+  progress: number;
   saved: number;
   deposited: number;
   withdrawn: number;
@@ -171,4 +188,26 @@ export type GoalLine = MoneyGoal & {
   entries: GoalEntry[];
   /** The account the last movement used — what the deposit box should offer first. */
   lastAccountId: string | null;
+};
+
+/**
+ * A budget with its clock already walked: which window today falls in, what the budget
+ * watches, and what has happened inside it.
+ *
+ * `used` means the opposite thing on the two kinds, on purpose. On an expense budget it
+ * is what has gone out and the target is a ceiling; on a savings budget it is what is
+ * left over — income less spending — and the target is a floor. One field rather than
+ * two because every screen wants "the figure this budget is about", and splitting it
+ * would only move the `if` somewhere less careful.
+ */
+export type BudgetPlanLine = {
+  plan: MoneyBudgetPlan;
+  window: BudgetWindow;
+  /** What it watches. Empty means no restriction on that axis, not "nothing". */
+  categoryIds: string[];
+  accountIds: string[];
+  /** Dinars: spent, for an expense budget; kept, for a savings one. */
+  used: number;
+  /** How many entries are behind that figure. */
+  entries: number;
 };

@@ -1,6 +1,7 @@
 import {
   getAccountBalances,
   getAccounts,
+  getAddableBudgets,
   getBudgetLines,
   getCategories,
   getGoals,
@@ -23,7 +24,7 @@ export default async function MoneyPage({
   const params = await searchParams;
   const month = /^\d{4}-\d{2}$/.test(params.month ?? "") ? (params.month as string) : monthKey();
 
-  const [transactions, summary, accounts, categories, goals, loans, rates, balances, onHand, incomeOnFile, budgetLines] =
+  const [transactions, summary, accounts, categories, goals, loans, rates, balances, onHand, incomeOnFile, budgetLines, budgets] =
     await Promise.all([
       getTransactions({ month, categoryId: params.cat }),
       getMonthSummary(month),
@@ -44,6 +45,7 @@ export default async function MoneyPage({
         overview: the split is the panel, and the limit is a property of a row in it.
       */
       getBudgetLines(month),
+      getAddableBudgets(),
     ]);
 
   /*
@@ -71,7 +73,7 @@ export default async function MoneyPage({
       transactions={transactions}
       summary={summary}
       categories={categories.filter((c) => c.kind === "expense")}
-      data={{ accounts, categories, goals, loans, rates }}
+      data={{ accounts, categories, goals, loans, rates, budgets }}
       balances={balances}
       onHand={onHand}
       incomeOnFile={incomeOnFile}

@@ -24,6 +24,7 @@ import {
 } from "@/lib/data/money";
 import { getMoney } from "@/lib/data/money";
 import { getTasksForToday } from "@/lib/data/tasks";
+import { todayISO } from "@/lib/format";
 import { Panel } from "@/components/ui/Panel";
 import { Kpi } from "@/components/ui/Kpi";
 import { NetKpi } from "@/components/private/NetKpi";
@@ -80,6 +81,31 @@ const TODAY_SHOWN = 5;
 const CATS_SHOWN = 5;
 const GOALS_SHOWN = 5;
 
+const SHORT_MONTHS = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+] as const;
+
+/** A ledger date in the amount of space an Overview row can honestly spend on it. */
+function recentDateLabel(value: string, today: string) {
+  if (value === today) return "Today";
+  const [year, month, day] = today.split("-").map(Number);
+  const yesterday = new Date(Date.UTC(year, month - 1, day - 1)).toISOString().slice(0, 10);
+  if (value === yesterday) return "Yesterday";
+  const [, valueMonth, valueDay] = value.split("-").map(Number);
+  return `${valueDay} ${SHORT_MONTHS[valueMonth - 1] ?? ""}`.trim();
+}
+
 export default async function PrivateOverviewPage({
   searchParams,
 }: {
@@ -91,6 +117,7 @@ export default async function PrivateOverviewPage({
   const { fmt, fmtShort } = await getMoney();
 
   const current = monthKey();
+  const today = todayISO();
   const month = /^\d{4}-\d{2}$/.test(params.month ?? "") ? (params.month as string) : current;
 
   /*
@@ -208,10 +235,10 @@ export default async function PrivateOverviewPage({
     Where there is no target to be near, the larger balance goes first — it is the only
     ordering the numbers support.
   */
-  const savedOn = (g: (typeof allGoals)[number]) => g.saved;
+  const savedOn = (g: (typeof allGoals)[number]) => g.progress;
   const progressOf = (g: (typeof allGoals)[number]) => {
     const target = Number(g.target_rsd) || 0;
-    return target > 0 ? g.saved / target : 0;
+    return target > 0 ? g.progress / target : 0;
   };
   const goals = allGoals.filter(isGoalOpen).sort((a, b) => {
     const started = Number(savedOn(b) > 0) - Number(savedOn(a) > 0);
@@ -684,7 +711,7 @@ export default async function PrivateOverviewPage({
               <div className="space-y-3 px-4 py-3.5">
                 {goals.slice(0, GOALS_SHOWN).map((g) => {
                   const target = Number(g.target_rsd);
-                  const pct = target > 0 ? Math.min(g.saved / target, 1) : 0;
+                  const pct = target > 0 ? Math.min(g.progress / target, 1) : 0;
                   /*
                     A goal at zero is not a measurement, it is an untouched goal.
 
@@ -695,7 +722,7 @@ export default async function PrivateOverviewPage({
                     the same truth without pretending to have measured it, and the bar
                     simply is not drawn until there is something to draw.
                   */
-                  const untouched = g.saved === 0;
+                  const untouched = g.progress === 0;
                   return (
                     <div key={g.id}>
                       <div className="flex items-center justify-between text-[12.5px]">
@@ -711,15 +738,23 @@ export default async function PrivateOverviewPage({
                             */
                             <span
                               className="zv-tip text-faint"
-                              data-tip="Nothing has been moved into this goal yet"
+                              data-tip={
+                                g.paying
+                                  ? "Nothing has been paid against this goal yet"
+                                  : "Nothing has been moved into this goal yet"
+                              }
                               tabIndex={0}
                               role="img"
-                              aria-label="Nothing has been moved into this goal yet"
+                              aria-label={
+                                g.paying
+                                  ? "Nothing has been paid against this goal yet"
+                                  : "Nothing has been moved into this goal yet"
+                              }
                             >
                               —
                             </span>
                           ) : (
-                            fmtShort(g.saved)
+                            fmtShort(g.progress)
                           )}
                           {target > 0 ? ` / ${fmtShort(target)}` : ""}
                         </span>
@@ -1008,8 +1043,13 @@ export default async function PrivateOverviewPage({
                     /* Rhythm, not identity — see `@/lib/money/tone`. */
                     style={{ background: "var(--color-faint)" }}
                   />
-                  <span className="min-w-0 flex-1 truncate text-[13px] text-ink">
-                    {t.title ?? t.category?.name ?? t.goal?.name ?? t.note ?? "—"}
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[13px] text-ink">
+                      {t.title ?? t.category?.name ?? t.goal?.name ?? t.note ?? "—"}
+                    </span>
+                    <span className="mono mt-0.5 block text-[10.5px] text-faint">
+                      {recentDateLabel(t.occurred_on, today)}
+                    </span>
                   </span>
                   {/*
                     A deposit into a goal was getting the same minus sign as a purchase,

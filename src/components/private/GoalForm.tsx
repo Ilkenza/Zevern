@@ -273,23 +273,63 @@ export function GoalForm({
 }) {
   const fallback = useDefaultCurrency();
   const [state, formAction, pending] = useActionState<MoneyState, FormData>(saveGoal, undefined);
+  /*
+    Asked first, because it changes what every field under it means — and asked only
+    once, because every movement on a goal is typed to the answer. An existing goal
+    states which it is and offers no switch; turning one around would leave its entries
+    in the ledger attached to a goal that no longer counts them.
+  */
+  const [paying, setPaying] = useState(goal?.direction === "expense");
+  const locked = Boolean(goal);
 
   return (
     <div className="flex h-full flex-col">
       <form action={formAction} className="flex-1">
         {goal && <input type="hidden" name="id" value={goal.id} />}
+        <input type="hidden" name="direction" value={paying ? "expense" : "income"} />
+
+        {locked ? (
+          <p className="goal-kind-locked">
+            {paying ? "Being paid off" : "Being saved up"} — a goal cannot change
+            direction once entries are attached to it.
+          </p>
+        ) : (
+          <div className="zv-seg" role="group" aria-label="Which way does this goal run?">
+            {(
+              [
+                { key: false, label: "Saving up" },
+                { key: true, label: "Paying off" },
+              ] as { key: boolean; label: string }[]
+            ).map((o) => (
+              <button
+                key={o.label}
+                type="button"
+                onClick={() => setPaying(o.key)}
+                aria-pressed={paying === o.key}
+                className={cn(paying === o.key && "is-on")}
+              >
+                {o.label}
+              </button>
+            ))}
+          </div>
+        )}
 
         <p className="mb-4 text-[12.5px] leading-relaxed text-muted">
-          A name is all it takes. An amount turns it into progress, and a date turns that into a
-          pace.
+          {paying
+            ? "A name is all it takes. An amount turns it into progress, and a date turns that into a pace. Payments against it are ordinary expenses — the money leaves the account when you make them."
+            : "A name is all it takes. An amount turns it into progress, and a date turns that into a pace."}
         </p>
 
         <Field
           label="Name"
           name="name"
           defaultValue={goal?.name ?? ""}
-          placeholder="MacBook instalments"
-          help="What the money is for, in the words you would use yourself."
+          placeholder={paying ? "Laptop instalments" : "New laptop"}
+          help={
+            paying
+              ? "What is being paid off, in the words you would use yourself."
+              : "What the money is for, in the words you would use yourself."
+          }
           autoFocus
           required
         />
@@ -305,7 +345,11 @@ export function GoalForm({
             name="target_amount"
             defaultValue={goal?.target_amount ?? goal?.target_rsd ?? ""}
             placeholder="0"
-            help="Leave empty to just count what goes in."
+            help={
+              paying
+                ? "The whole amount to clear. Leave empty to just count what goes out."
+                : "Leave empty to just count what goes in."
+            }
           />
           <Select
             label="Currency"
@@ -338,7 +382,13 @@ export function GoalForm({
         </Button>
       </form>
 
-      {goal && goal.completed_at === null && (
+      {/*
+        Both endings are about money the goal is still holding: one spends it and closes,
+        the other hands it back. A goal that is being paid off holds nothing — the money
+        went as it was paid — so neither act exists for it, and it is closed from the card
+        instead.
+      */}
+      {goal && goal.completed_at === null && !paying && (
         <div className="mt-4 border-t border-line pt-4">
           <div className="mb-2 text-[10.5px] font-semibold uppercase tracking-wider text-faint">
             Finishing this goal
@@ -369,12 +419,12 @@ export function GoalForm({
           <DeleteButton
             action={deleteGoal.bind(null, goal.id)}
             label="Delete goal"
-            confirmText={`Delete "${goal.name}"? Saved entries stay in the ledger.`}
+            confirmText={`Delete "${goal.name}"? Its entries stay in the ledger.`}
           />
           <p className="mt-2.5 text-[11.5px] text-muted">
-            Deleting removes the target, not the money. Everything you put aside stays in the
-            ledger — those entries just stop pointing at anything, and the money counts as free
-            again. To keep the record, close it instead.
+            {paying
+              ? "Deleting removes the target, not the payments. Every payment stays in the ledger as the expense it was — the entries just stop pointing at anything. To keep the record, close it instead."
+              : "Deleting removes the target, not the money. Everything you put aside stays in the ledger — those entries just stop pointing at anything, and the money counts as free again. To keep the record, close it instead."}
           </p>
         </div>
       )}

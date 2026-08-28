@@ -14,16 +14,22 @@ import { CAT_REST, catTone } from "@/lib/money/tone";
  * question that actually changes behaviour, and the one the ledger below can only
  * answer by being read line by line.
  *
- * Bars are the share of the month, which is what the figure at the end of the row says
- * too — and that agreement is the whole point. They used to be scaled to the largest
- * category instead, on the argument that the comparison worth making is between
- * categories. The argument does not survive the column next to it: a bar drawn at full
- * width beside the number "55%" is a chart contradicting its own caption, and of the
- * two the caption is the one people believe.
+ * Every bar has one meaning and one only: that category's share of this month's
+ * spending. Length says it, the percentage beside the amount says it in figures, and
+ * nothing else on the row is allowed to touch either.
  *
- * The old reasoning also cut both ways. A month split evenly across nine categories
- * draws nine stubs on a total scale — and nine identical full-length bars on a peak
- * scale, which says just as little and looks confident about it.
+ * The bar used to turn red when a category passed its limit, which put two unrelated
+ * questions on one object — length answering "where did it go", colour answering "was
+ * that too much". A 72%-of-the-month fill in the colour that means "over" reads as 72%
+ * of a limit, and then the words beside it say "867 over", and the two disagree in
+ * front of the person. So the warning moves off the bar and onto the row: a red edge
+ * at its left, where it cannot be mistaken for a measurement.
+ *
+ * That split is also how the rest of the world builds this. Copilot keeps "where it
+ * went" in Cash Flow, deliberately free of budgets, and puts the meters in a separate
+ * Categories tab where every bar is measured against its own limit; YNAB is
+ * budget-first and does not pretend its bars are proportions. Here the same division
+ * already existed — Budgets is the meter, this is the picture — it had just leaked.
  *
  * Strength follows rank, the same gold at the same steps the overview's band uses, so
  * the two screens draw one month in one language.
@@ -32,16 +38,9 @@ import { CAT_REST, catTone } from "@/lib/money/tone";
  * category, which is the natural next question after seeing a number you did not
  * expect.
  *
- * A capped category says its cap here too. The panel used to answer how much a
- * category cost and stay silent on whether that was more than you meant — an answer
- * that lived on the Budgets screen, one navigation away from the only moment anybody
- * wants it. It is one number on the end of a figure that was already being printed.
- *
- * The cap does not get a bar of its own. The bar in this row is measured against the
- * largest category, and a second bar measured against a limit would be two scales
- * stacked in one row — which is how a chart starts lying quietly. What the limit
- * changes is the colour: past it, the figure and the fill both go red, and that reads
- * from across the room.
+ * A capped category still answers the useful budget question in plain language:
+ * "4,000 left", "limit reached", or "867 over limit". The detailed meter remains on
+ * Budgets, where every bar is measured against a limit and can be compared honestly.
  */
 
 const SHOWN = 8;
@@ -80,7 +79,14 @@ export function SpendBreakdown({
     ...categorized.slice(0, uncategorized ? SHOWN - 1 : SHOWN),
     ...(uncategorized ? [uncategorized] : []),
   ].sort((a, b) => b.spent - a.spent);
-  const shownIds = new Set(shown.map((row) => row.id));
+  /*
+    A row under a fiftieth of the month is a two-pixel fill and a name: it says "small"
+    and nothing else, and four of them in a row are four empty troughs. They fold into
+    the tail whether or not the list was long enough to need folding.
+  */
+  const shownIds = new Set(
+    shown.filter((r) => r.id === UNCATEGORIZED_CATEGORY_ID || r.spent / total >= 0.02).map((r) => r.id),
+  );
   const rest = rows.filter((row) => !shownIds.has(row.id));
   const restTotal = rest.reduce((sum, r) => sum + r.spent, 0);
 
@@ -92,12 +98,30 @@ export function SpendBreakdown({
       </div>
 
       <div className="breakdown-rows">
-        {shown.map((row, index) => {
+        {shown
+          .filter((row) => shownIds.has(row.id))
+          .map((row, index) => {
           const isUncategorized = row.id === UNCATEGORIZED_CATEGORY_ID;
           const name = isUncategorized ? "Uncategorized" : row.category?.name ?? "Unknown category";
           const on = activeCategory === row.id;
           const limit = limits?.[row.id] ?? 0;
           const over = limit > 0 && row.spent > limit;
+          /*
+            A limit you are nowhere near is not news.
+
+            Learning had spent a twentieth of its cap and printed "18,956 left" — the
+            largest secondary figure on the panel, attached to the row that mattered
+            least, while the one that mattered said "867 over" in smaller type. Under
+            half used, the limit says nothing at all.
+          */
+          const limitStatus =
+            limit <= 0 || row.spent < limit * 0.5
+              ? null
+              : over
+                ? `${fmt(row.spent - limit)} over limit`
+                : row.spent === limit
+                  ? "Limit reached"
+                  : `${fmt(limit - row.spent)} left`;
           return (
             <Link
               key={row.id}
@@ -106,11 +130,13 @@ export function SpendBreakdown({
                   ? `/private/money?month=${month}`
                   : `/private/money?month=${month}&cat=${row.id}`
               }
-              className={`breakdown-row${on ? " breakdown-row-on" : ""}`}
+              className={`breakdown-row${on ? " breakdown-row-on" : ""}${
+                over ? " breakdown-row-over" : ""
+              }`}
               style={{ animationDelay: `${180 + index * 45}ms` }}
-              aria-label={
+              aria-label={`${name}, ${fmt(row.spent)}${limitStatus ? `, ${limitStatus}` : ""}. ${
                 on ? `Clear the ${name} filter` : `Show only ${name} in the entries below`
-              }
+              }`}
             >
               {/*
                 No dot. The name is written right there — a coloured mark beside a word
@@ -118,33 +144,43 @@ export function SpendBreakdown({
                 that had run out of distinct colours to be.
               */}
               <span className="breakdown-name">{name}</span>
-              <span className="breakdown-track" aria-hidden>
+              <span
+                className="breakdown-track"
+                role="img"
+                aria-label={`${Math.round((row.spent / total) * 100)}% of this month's spending`}
+              >
                 <span
                   className="breakdown-fill money-progress-segment"
                   style={{
                     width: `${(row.spent / total) * 100}%`,
                     /*
-                      One tone for every category, and red for exactly one thing.
-
-                      This bar used to take the category's own colour — which is how
-                      Bills & utilities, stored as the danger red itself, ended up
-                      indistinguishable from a category that had blown its limit.
+                      Rank, or the grey of the unnamed. Never a status: the moment this
+                      takes a colour that means something about limits, its length
+                      starts being read as a limit too.
                     */
-                    background: over
-                      ? "var(--color-danger)"
-                      : isUncategorized
-                        ? "var(--color-muted)"
-                        : catTone(index),
+                    background: isUncategorized ? "var(--color-muted)" : catTone(index),
                   }}
                 />
               </span>
-              <span className={`mono breakdown-amount${over ? " is-over" : ""}`}>
-                {fmt(row.spent)}
-                {limit > 0 && <i>/ {fmt(limit)}</i>}
+              <span className="breakdown-amount">
+                <span className="mono breakdown-amount-value">
+                  {fmt(row.spent)}
+                  {/*
+                    The proportion, written down. A 1350px track with a 1% fill is not
+                    something anyone measures by eye, and the bar was the only place
+                    the share existed.
+                  */}
+                  <i className="breakdown-share">{Math.round((row.spent / total) * 100)}%</i>
+                </span>
+                {limitStatus && (
+                  <span className={`mono breakdown-limit-status${over ? " is-over" : ""}`}>
+                    {limitStatus}
+                  </span>
+                )}
               </span>
             </Link>
-          );
-        })}
+            );
+          })}
 
         {rest.length > 0 && (
           <div className="breakdown-row breakdown-rest">

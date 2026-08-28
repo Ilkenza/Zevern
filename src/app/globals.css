@@ -2575,6 +2575,279 @@ body::after {
   .forecast-curve { animation: none !important; opacity: 1; transform: none; }
 }
 
+/* ===================================================== Upcoming: 90-day outlook
+   A runway answers the decision first, then shows the checkpoints and arithmetic.
+   ========================================================================== */
+.forecast-outlook {
+  position: relative;
+  overflow: hidden;
+  padding: 18px;
+  border: 1px solid rgba(217, 164, 65, 0.16);
+  border-radius: var(--radius-card);
+  background:
+    radial-gradient(circle at 92% -30%, rgba(217, 164, 65, 0.13), transparent 45%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.026), transparent 42%),
+    var(--color-surface);
+  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.18);
+  animation: money-card-in 660ms var(--ease-premium) 80ms both;
+}
+
+.forecast-outlook::before {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(115deg, transparent 20%, rgba(255, 255, 255, 0.018), transparent 70%);
+  content: "";
+  pointer-events: none;
+}
+
+.forecast-outlook-risk {
+  background:
+    radial-gradient(circle at 96% -20%, rgba(226, 104, 91, 0.1), transparent 43%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.026), transparent 42%),
+    var(--color-surface);
+}
+
+.forecast-outlook-head {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 7px 16px;
+  margin-bottom: 14px;
+}
+
+.forecast-outlook-state {
+  color: var(--color-muted);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.forecast-outlook-state.is-risk { color: var(--color-danger); }
+
+.forecast-outlook-hero {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 16px;
+}
+
+.forecast-outlook-eyebrow {
+  display: block;
+  margin-bottom: 2px;
+  color: var(--color-faint);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.forecast-outlook-runway-value {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+}
+
+.forecast-outlook-runway-value strong {
+  color: var(--color-ink);
+  font-size: clamp(34px, 4vw, 48px);
+  line-height: 1;
+  letter-spacing: -0.045em;
+}
+
+.forecast-outlook-runway-value span {
+  color: var(--color-muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.forecast-outlook-hero p {
+  margin-top: 6px;
+  color: var(--color-muted);
+  font-size: 11px;
+}
+
+.forecast-outlook-ending {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  text-align: right;
+}
+
+.forecast-outlook-ending > span,
+.forecast-outlook-ending small {
+  color: var(--color-muted);
+  font-size: 10.5px;
+}
+
+.forecast-outlook-ending strong {
+  color: var(--color-ink);
+  font-size: clamp(20px, 2.4vw, 28px);
+  line-height: 1.15;
+  letter-spacing: -0.025em;
+}
+
+.forecast-outlook-ending strong.is-risk { color: var(--color-danger); }
+.forecast-outlook-ending small span { color: var(--color-faint); }
+
+.forecast-runway-track {
+  position: relative;
+  height: 8px;
+  overflow: visible;
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.055);
+}
+
+.forecast-runway-safe,
+.forecast-runway-risk {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+}
+
+.forecast-runway-safe {
+  left: 0;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(90deg, rgba(217, 164, 65, 0.58), var(--color-gold-hi));
+  box-shadow: 0 0 20px rgba(217, 164, 65, 0.17);
+  animation: forecast-runway-in 800ms var(--ease-premium) 180ms both;
+  transform-origin: left;
+}
+
+.forecast-runway-risk {
+  right: 0;
+  border-radius: 0 var(--radius-pill) var(--radius-pill) 0;
+  background: linear-gradient(90deg, rgba(226, 104, 91, 0.36), rgba(226, 104, 91, 0.68));
+}
+
+.forecast-runway-crossing {
+  position: absolute;
+  top: 50%;
+  width: 12px;
+  height: 12px;
+  border: 3px solid var(--color-surface);
+  border-radius: 50%;
+  background: var(--color-danger);
+  box-shadow: 0 0 0 1px rgba(226, 104, 91, 0.4), 0 0 16px rgba(226, 104, 91, 0.32);
+  transform: translate(-50%, -50%);
+}
+
+@keyframes forecast-runway-in {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+.forecast-checkpoints {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  margin-top: 11px;
+}
+
+.forecast-checkpoint {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+  opacity: 0;
+  animation: money-head-in 480ms var(--ease-premium) both;
+}
+
+.forecast-checkpoint:not(:first-child) { text-align: center; }
+.forecast-checkpoint:last-child { align-items: flex-end; text-align: right; }
+
+.forecast-checkpoint span {
+  color: var(--color-faint);
+  font-size: 9.5px;
+  font-weight: 650;
+  text-transform: uppercase;
+}
+
+.forecast-checkpoint strong {
+  overflow: hidden;
+  color: var(--color-muted);
+  font-size: 11px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.forecast-checkpoint strong.is-risk { color: var(--color-danger); }
+
+.forecast-flow {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--color-line-soft);
+}
+
+.forecast-flow > div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+  padding: 0 14px;
+  border-left: 1px solid var(--color-line-soft);
+}
+
+.forecast-flow > div:first-child { padding-left: 0; border-left: 0; }
+.forecast-flow > div:last-child { padding-right: 0; }
+
+.forecast-flow span { color: var(--color-faint); font-size: 10px; }
+.forecast-flow strong {
+  overflow: hidden;
+  color: var(--color-muted);
+  font-size: 11.5px;
+  text-overflow: ellipsis;
+}
+.forecast-flow strong.is-positive { color: var(--color-positive); }
+
+.forecast-balance-change {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 14px;
+  margin-top: 15px;
+  padding-top: 14px;
+  border-top: 1px solid var(--color-line-soft);
+}
+
+.forecast-balance-change > div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.forecast-balance-change > div:last-child { align-items: flex-end; text-align: right; }
+.forecast-balance-change span { color: var(--color-faint); font-size: 10px; }
+.forecast-balance-change strong {
+  overflow: hidden;
+  color: var(--color-ink);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.forecast-balance-change strong.is-risk { color: var(--color-danger); }
+.forecast-balance-arrow { font-size: 15px !important; }
+
+@media (max-width: 620px) {
+  .forecast-outlook { padding: 15px; }
+  .forecast-flow { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 0; }
+  .forecast-flow > div:nth-child(3) { padding-left: 0; border-left: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .forecast-outlook,
+  .forecast-checkpoint,
+  .forecast-runway-safe { animation: none !important; opacity: 1; transform: none; }
+}
+
 /* ========================================================= Upcoming: two views
    The screen answers two questions at two addresses, so the switch between them
    is the one control that has to feel deliberate.
@@ -4004,6 +4277,64 @@ body::after {
   font-weight: 500;
 }
 
+/*
+  The heading over the second kind of goal.
+
+  Not a Panel: the cards under it sit on the page, and wrapping them would put a card
+  grid inside a card. What it needs is a line that separates without enclosing — a rule
+  the width of the section, the name on it, the count at the far end — which is the same
+  device the ledger uses for a column head, at the size a section deserves.
+*/
+/*
+  A goal states its direction instead of offering it, once it has entries.
+
+  Drawn as a sentence rather than a disabled segmented control: a control greyed out is
+  still a control, and it invites the click it is going to refuse. This says the same
+  thing and asks for nothing.
+*/
+.goal-kind-locked {
+  margin-bottom: 13px;
+  padding: 7px 11px;
+  border-left: 2px solid var(--color-gold);
+  border-radius: 0 6px 6px 0;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--color-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.goals-group {
+  display: grid;
+  gap: 3px;
+  margin-top: 26px;
+}
+
+.goals-group-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+  padding-bottom: 9px;
+  border-bottom: 1px solid var(--color-line);
+}
+
+.goals-group-title {
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
+  color: var(--color-ink);
+}
+
+/* The one sentence that keeps these figures from being read as money still in hand. */
+.goals-group-note {
+  margin-bottom: 14px;
+  max-width: 46ch;
+  color: var(--color-faint);
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+
 .goals-order {
   display: inline-flex;
   gap: 4px;
@@ -4747,8 +5078,8 @@ body::after {
   Every row used to be its own grid, and the last column is `auto` — so it sized itself
   to that row's own figure. Once the figure grew a limit, `€40.27 / €170` and `€17.04`
   were different widths, each row kept a different amount of space for the two flexible
-  columns before it, and the bars stopped starting on one line. Nothing was wrong with
-  any single row; they simply had never been asked to agree.
+  columns before it, and the bars stopped starting on one line. The amount now carries
+  a second-line limit status instead, but it still needs one shared column.
 
   `subgrid` is the fix in one word: the rows stop computing columns and inherit the
   list's, so the amount column is as wide as the widest figure in the panel and every
@@ -4757,7 +5088,7 @@ body::after {
 */
 .breakdown-rows {
   display: grid;
-  grid-template-columns: minmax(96px, 1.35fr) minmax(60px, 3fr) auto;
+  grid-template-columns: minmax(120px, 160px) minmax(60px, 1fr) auto;
 }
 
 .breakdown-row {
@@ -4775,12 +5106,12 @@ body::after {
 
 /*
   Where subgrid is missing, a fixed amount column buys the same alignment. Wide enough
-  for a dinar figure carrying a dinar limit, which is the longest this row ever prints.
+  for a dinar figure carrying a short limit status, which is the longest this row prints.
 */
 @supports not (grid-template-columns: subgrid) {
   .breakdown-rows { display: block; }
   .breakdown-row {
-    grid-template-columns: minmax(96px, 1.35fr) minmax(60px, 3fr) 11rem;
+    grid-template-columns: minmax(120px, 160px) minmax(60px, 1fr) 11rem;
   }
 }
 
@@ -4809,6 +5140,35 @@ a.breakdown-row-on:hover { background: rgba(217, 164, 65, 0.2); }
   background: rgba(255, 255, 255, 0.05);
 }
 
+/*
+  The warning lives on the line, not in the measurement.
+
+  A red bar was the panel answering two questions with one object: how long says where
+  the money went, what colour says whether it was too much. An edge at the row's left
+  says the second without touching the first — and it sits in the card's own padding,
+  so it costs no width and pushes nothing.
+*/
+.breakdown-row-over { position: relative; }
+
+.breakdown-row-over::before {
+  content: "";
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  left: -5px;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--color-danger);
+}
+
+/* The proportion in figures, since the bar is the only other place it exists. */
+.breakdown-share {
+  margin-left: 7px;
+  color: var(--color-faint);
+  font-size: 11px;
+  font-style: normal;
+}
+
 .breakdown-fill {
   display: block;
   height: 100%;
@@ -4817,28 +5177,28 @@ a.breakdown-row-on:hover { background: rgba(217, 164, 65, 0.2); }
 }
 
 .breakdown-amount {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
   color: var(--color-ink);
-  font-size: 12px;
   text-align: right;
   white-space: nowrap;
 }
 
-/*
-  The cap, on the end of the figure it applies to.
+.breakdown-amount-value { font-size: 12px; }
 
-  Quiet, and deliberately: the spend is the measurement and the limit is the frame
-  around it, so at a glance the row still reads as one number. It only stops being
-  quiet when it has been passed.
-*/
-.breakdown-amount i {
-  margin-left: 5px;
+.breakdown-limit-status {
   color: var(--color-faint);
-  font-size: 11px;
-  font-style: normal;
+  font-size: 9.5px;
+  line-height: 1.2;
 }
 
-.breakdown-amount.is-over,
-.breakdown-amount.is-over i { color: var(--color-danger); }
+.breakdown-limit-status.is-over {
+  color: var(--color-danger);
+  font-weight: 600;
+}
 
 /*
   The list of what was actually bought.
@@ -4993,31 +5353,32 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
   So the line carries two things. A name on the left, what it cost on the right, both
   with room. Everything else — how many, what one of them came to, the way to remove
   the line — goes to a second, quieter line that only appears when it has something to
-  say. And it says it in words: `10 kom · 20,00 po komadu`, not a column you have to
+  say. And it says it in words: `10 items · 20,00 each`, not a column you have to
   work out from its position.
 */
 .tx-items-rows { display: grid; }
 
 .tx-items-row {
   position: relative;
-  padding: 9px 0;
+  /*
+    Inset to the same 13px a field indents its text, so a line here starts where the
+    text in every box above and below it starts — and the wash behind it, which is the
+    only rectangle this block draws, lands exactly on the outline of those boxes. The
+    list stops being a thing that hangs out of the form's column and becomes one more
+    region in it.
+  */
+  padding: 9px 13px;
   border-bottom: 1px solid var(--color-line-soft);
   animation: task-in 320ms var(--ease-premium) both;
 }
 
 .tx-items-row:last-child { border-bottom-color: transparent; }
 
-/*
-  The wash under a line stands clear of it.
-
-  Ending exactly at the first letter and the last figure, it read as text stuffed into
-  a box. Twelve pixels out on each side and the text sits inside it instead — and the
-  panel's own padding is twenty, so it still has margin to live in.
-*/
+/* The wash is the row itself now — the padding above is what keeps it off the text. */
 .tx-items-row::before {
   content: "";
   position: absolute;
-  inset: 0 -12px;
+  inset: 0;
   border-radius: 9px;
   background: transparent;
   transition: background 180ms ease;
@@ -5033,7 +5394,7 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
   position: absolute;
   top: 0;
   bottom: 0;
-  left: -12px;
+  left: 0;
   width: 2px;
   border-radius: 2px;
   background: var(--color-gold);
@@ -5102,7 +5463,7 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
   font-size: 11.5px;
 }
 
-/* "10 kom" is one phrase, so it holds together tighter than the line it sits on. */
+/* "10 items" is one phrase, so it holds together tighter than the line it sits on. */
 .tx-it-kom { margin-left: -5px; }
 
 .tx-it-dot { color: var(--color-faint); }
@@ -5112,25 +5473,6 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
   font-variant-numeric: tabular-nums;
 }
 
-/* How many, at rest: a figure you can press. */
-.tx-it-count {
-  padding: 2px 5px;
-  margin-left: -5px;
-  border-radius: 6px;
-  color: var(--color-muted);
-  font-variant-numeric: tabular-nums;
-  cursor: pointer;
-  transition: color 160ms ease, background-color 160ms ease;
-}
-
-.tx-it-count:hover { color: var(--color-gold-hi); background: rgba(217, 164, 65, 0.10); }
-
-.tx-it-count:focus-visible {
-  outline: none;
-  color: var(--color-gold-hi);
-  box-shadow: inset 0 0 0 1px var(--color-gold);
-}
-
 /*
   Two buttons and a figure, and no box around them.
 
@@ -5138,28 +5480,78 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
   rather than four actions with a keyboard. Down here there is nothing to be confused
   with and nothing to be separated from — a frame would be the only frame in the whole
   block, which is how a control ends up looking like the loudest thing on a screen.
+
+  The figure is always the same element, closed or open. Swapping a button for a field
+  meant the count blinked out and a control blinked in at the same instant, which is
+  the one thing a person notices and cannot follow. Instead the two steps are always
+  there at zero width, and opening unfolds them either side of a number that never
+  moves out from under the eye.
+*/
+/*
+  A box, because at rest this is the one thing on the line you are meant to press.
+
+  Bare, the count was a figure among words — nothing said it could be pressed until
+  the cursor happened to land on it, and a control that only looks like a control
+  while you are touching it is not a control. It is the only frame in the block, so it
+  is not a box inside anything; the row around it draws nothing.
+
+  The same box holds both states. Closed it hugs the figure; opening widens the padding
+  as the two steps unfold inside it, so the thing you pressed grows into the thing you
+  asked for rather than being replaced by it.
 */
 .tx-qty {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  margin-left: -4px;
+  height: 26px;
+  padding: 0 7px;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.05);
+  cursor: pointer;
+  transition:
+    padding 190ms var(--ease-premium),
+    background-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.tx-qty:hover { background: rgba(217, 164, 65, 0.12); }
+
+.tx-items-row.is-open .tx-qty {
+  padding: 0 2px;
+  background: rgba(255, 255, 255, 0.055);
+  box-shadow: inset 0 0 0 1px var(--color-line);
+  cursor: default;
 }
 
 .tx-qty-step {
   display: grid;
   place-items: center;
-  width: 22px;
+  width: 0;
   height: 22px;
+  margin: 0;
   border-radius: 6px;
+  opacity: 0;
+  overflow: hidden;
   color: var(--color-faint);
   cursor: pointer;
-  transition: color 160ms ease, background-color 160ms ease;
+  transition:
+    width 190ms var(--ease-premium),
+    margin 190ms var(--ease-premium),
+    opacity 130ms ease,
+    color 160ms ease,
+    background-color 160ms ease;
 }
+
+.tx-items-row.is-open .tx-qty-step { width: 22px; opacity: 1; }
+.tx-items-row.is-open .tx-qty-step:first-child { margin-right: 4px; }
+.tx-items-row.is-open .tx-qty-step:last-child { margin-left: 4px; }
+
+/* Off-width means off: nothing to press, and nothing for a keyboard to land on. */
+.tx-qty-step svg { flex: none; }
 
 .tx-qty-step:hover:not(:disabled) { color: var(--color-gold-hi); background: rgba(217, 164, 65, 0.13); }
 .tx-qty-step:active:not(:disabled) { background: rgba(217, 164, 65, 0.20); }
 .tx-qty-step:disabled { opacity: 0.3; cursor: default; }
+.tx-items-row:not(.is-open) .tx-qty-step:disabled { opacity: 0; }
 
 .tx-qty-step:focus-visible {
   outline: none;
@@ -5168,20 +5560,29 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
 }
 
 .tx-qty input {
-  width: 2rem;
-  color: var(--color-ink);
+  /* Sized to its digits, so a closed count starts where the name above it starts. */
+  field-sizing: content;
+  min-width: 1ch;
+  max-width: 4ch;
+  color: var(--color-muted);
   font-size: 12.5px;
   font-weight: 600;
   text-align: center;
   font-variant-numeric: tabular-nums;
   caret-color: var(--color-gold);
   outline: none;
+  cursor: pointer;
+  transition: color 160ms ease;
 }
+
+.tx-items-row.is-open .tx-qty input { color: var(--color-ink); cursor: text; }
+.tx-qty:hover input { color: var(--color-gold-hi); }
+.tx-items-row.is-open .tx-qty:hover input { color: var(--color-ink); }
 
 /*
   Removing a line, at the end of the line it removes.
 
-  Written out, "Obriši" four times down a short block was the loudest thing in it, for
+  Written out, "Delete" four times down a short block was the loudest thing in it, for
   the rarest thing anybody does. The bin says the same and says it once.
 */
 .tx-it-del {
@@ -5190,7 +5591,7 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
   width: 24px;
   height: 24px;
   margin-left: auto;
-  margin-right: -3px;
+  margin-right: -4px;
   border-radius: 6px;
   color: var(--color-faint);
   cursor: pointer;
@@ -5222,7 +5623,7 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
 .tx-items-add:disabled { opacity: 0.35; cursor: default; }
 
 /*
-  The sum closes the list and names it. With `Ukupno` written under the names and the
+  The sum closes the list and names it. With `Total` written under the names and the
   figure under the figures, the block needs no caption over it saying "Items": you can
   see what it is by how it ends.
 */
@@ -5435,20 +5836,6 @@ a.overview-cat:hover { background: rgba(255, 255, 255, 0.035); }
 
 @media (prefers-reduced-motion: reduce) {
   .money-row-items { animation: none; }
-}
-
-/*
-  A figure the form worked out rather than one you typed.
-
-  It reads as a readout, not as an empty box waiting for you — otherwise a field that
-  refuses your keystrokes looks broken rather than decided.
-*/
-.is-derived input[type="text"],
-.is-derived input:not([type="hidden"]) {
-  border-color: rgba(217, 164, 65, 0.28);
-  background: rgba(217, 164, 65, 0.06);
-  color: var(--color-gold-hi);
-  cursor: default;
 }
 
 /*
@@ -7116,6 +7503,73 @@ body > * { min-width: 0; }
 
 /* Owing more than the account holds is the one state that has to be unmistakable. */
 .setup-bal-now.is-short { color: var(--color-danger); }
+
+/*
+  Repairing a balance, offered as a word rather than a control.
+
+  It is rare, and it is not an edit of this row: the starting balance next to it
+  reaches backwards through the whole ledger, this adds one entry to the end. Two acts
+  that different should not be two identical boxes side by side — so one is a figure
+  you can press, and this is a question you can answer.
+*/
+.setup-bal-fix {
+  margin-left: 8px;
+  color: var(--color-faint);
+  font-size: 10.5px;
+  transition: color 160ms ease;
+}
+
+.setup-bal-fix:hover { color: var(--color-gold-hi); }
+
+/*
+  Given the row rather than the balance cell, because it does not fit there: the cell
+  is 176px and this is 232px of controls. On the row it reads as one line — why this
+  is not spending on the left, what the account actually holds on the right.
+*/
+.setup-bal-fixer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 9px;
+  margin-top: 9px;
+  padding-top: 10px;
+  border-top: 1px solid var(--color-line-soft);
+}
+
+.setup-bal-fix-label {
+  color: var(--color-muted);
+  font-size: 11.5px;
+}
+
+.setup-bal-fix-cur {
+  color: var(--color-faint);
+  font-size: 10.5px;
+  font-weight: 600;
+}
+
+.setup-bal-fix-go {
+  padding: 5px 11px;
+  font-size: 12px;
+}
+
+.setup-bal-fix-cancel {
+  color: var(--color-faint);
+  font-size: 11.5px;
+  transition: color 160ms ease;
+}
+
+.setup-bal-fix-cancel:hover { color: var(--color-muted); }
+
+/* The one sentence that explains why this is not an expense. */
+.setup-bal-fix-help {
+  /* Takes the slack so the answer stays hard right, under the figure it repairs. */
+  margin-right: auto;
+  max-width: 26rem;
+  color: var(--color-faint);
+  font-size: 11px;
+  line-height: 1.5;
+}
 
 .setup-bal-note {
   max-width: 100%;

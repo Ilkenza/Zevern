@@ -4,6 +4,7 @@ import { useActionState, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, Star } from "lucide-react";
 import {
+  correctBalance,
   deleteAccount,
   saveAccount,
   setAccountOnOverview,
@@ -12,6 +13,7 @@ import {
 } from "@/app/(app)/private/actions";
 import { Button } from "@/components/ui/Button";
 import { ACCOUNT_KIND_OPTIONS, CURRENCIES, formatAmount } from "@/lib/money";
+import { cleanMoney, groupMoney, plainMoney } from "@/components/ui/MoneyField";
 import { cn } from "@/lib/utils";
 import type { AccountBalance } from "@/lib/data/money";
 import { useDefaultCurrency, useMoney } from "@/lib/money/currency";
@@ -134,7 +136,134 @@ function AmountBox({
  * the computed one and the opening figure steps down to a footnote, still reachable
  * because a typo on day one has to be fixable, but no longer the obvious lever.
  */
-function BalanceCell({ account }: { account: AccountBalance }) {
+/**
+ * "The app says this, and my wallet says that."
+ *
+ * The gap opens the first time something is not written down, and the repair people
+ * reach for is an invented expense — which closes the gap and poisons everything it
+ * touches: the month's spending, the category's limit, the picture of where the money
+ * went. All of it now containing a purchase that never happened.
+ *
+ * So the repair is offered here, beside the figure that is wrong, and it is logged as
+ * a correction: it moves the balance and enters no total. What it asks for is the
+ * fact, not the difference — nobody knows they are 600 short, they know they have
+ * 9,400 — and the arithmetic is the app's to do.
+ *
+ * It sits behind a word rather than in the open because it is rare and it is not an
+ * edit of this row: the starting balance beside it reaches backwards through the
+ * ledger, this adds one entry to the end of it. Two different acts should not look
+ * like one control.
+ */
+function BalanceFixWord({
+  account,
+  onOpen,
+}: {
+  account: AccountBalance;
+  onOpen: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className="setup-bal-fix"
+      title={`Log what ${account.name} actually holds`}
+    >
+      does not match?
+    </button>
+  );
+}
+
+/*
+  The panel is a strip under the row, not something inside the balance cell.
+
+  Measured, it is 232px of question, answer, unit, verb and way out; that column is
+  176px wide, so in the cell it overhung the colour field by 56px. Given the row it
+  becomes one sentence read left to right — why this is not spending, then what the
+  account actually holds — which is also the order someone thinks it in.
+*/
+function BalanceFixer({
+  account,
+  onClose,
+}: {
+  account: AccountBalance;
+  onClose: () => void;
+}) {
+  const router = useRouter();
+  const [typed, setTyped] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  const value = Number(plainMoney(typed));
+  const ready = typed !== "" && Number.isFinite(value);
+
+  const submit = () => {
+    if (!ready) return;
+    setError(null);
+    startTransition(async () => {
+      const result = await correctBalance(account.id, value);
+      if (result?.error) {
+        setError(result.error);
+        return;
+      }
+      onClose();
+      router.refresh();
+    });
+  };
+
+  return (
+    <div className="setup-bal-fixer">
+      {/*
+        Said here because it is the whole reason this is not an expense: the difference
+        lands in the ledger as its own kind, and is counted by nothing.
+      */}
+      <p className="setup-bal-fix-help">
+        {error ?? "The difference is logged as a correction — not as spending."}
+      </p>
+      <label className="setup-bal-fix-label" htmlFor={`fix-${account.id}`}>
+        {account.name} actually holds
+      </label>
+      <input
+        id={`fix-${account.id}`}
+        value={groupMoney(typed)}
+        onChange={(e) => setTyped(cleanMoney(e.target.value))}
+        onKeyDown={(e) => {
+          // Enter belongs to this question, not to the account form around it.
+          if (e.key === "Enter") {
+            e.preventDefault();
+            submit();
+          }
+          if (e.key === "Escape") onClose();
+        }}
+        inputMode="decimal"
+        autoFocus
+        placeholder="0"
+        className={cn(field, "mono w-24 text-right")}
+      />
+      <span className="setup-bal-fix-cur mono">{account.currency}</span>
+      <Button
+        type="button"
+        onClick={submit}
+        disabled={!ready || pending}
+        className="setup-bal-fix-go"
+      >
+        {pending ? "Fixing…" : "Fix"}
+      </Button>
+      <button type="button" onClick={onClose} className="setup-bal-fix-cancel">
+        Cancel
+      </button>
+    </div>
+  );
+}
+
+function BalanceCell({
+  account,
+  fixing,
+  onFix,
+}: {
+  account: AccountBalance;
+  fixing: boolean;
+  onFix: () => void;
+}) {
   const { fmt } = useMoney();
   const [editing, setEditing] = useState(false);
   const fresh = account.entries === 0;
@@ -176,6 +305,7 @@ function BalanceCell({ account }: { account: AccountBalance }) {
             >
               started with {formatAmount(Number(account.opening_balance), account.currency)}
             </button>
+            {!fixing && <BalanceFixWord account={account} onOpen={onFix} />}
           </>
         )}
       </div>
@@ -189,6 +319,7 @@ export function AccountRow({ account, arrived }: { account?: AccountBalance; arr
   const isNew = !account;
   const [leaving, setLeaving] = useState(false);
   const [warn, setWarn] = useState(false);
+  const [fixing, setFixing] = useState(false);
   const [overviewError, setOverviewError] = useState<string | null>(null);
   // The composer confirms by producing a row, not by lighting itself up.
   const saved = useSavedPulse(account ? state : undefined);
@@ -265,7 +396,11 @@ export function AccountRow({ account, arrived }: { account?: AccountBalance; arr
         </select>
 
         {account ? (
-          <BalanceCell account={account} />
+          <BalanceCell
+            account={account}
+            fixing={fixing}
+            onFix={() => setFixing(true)}
+          />
         ) : (
           <div className="flex items-center justify-between gap-2 min-[720px]:justify-end">
             <span className={cn(caps, "min-[720px]:hidden")}>Balance</span>
@@ -317,10 +452,14 @@ export function AccountRow({ account, arrived }: { account?: AccountBalance; arr
         thing people actually want when today's figure is wrong is an entry for the
         difference, which is a normal expense or income with a category of its own.
       */}
+      {account && fixing && (
+        <BalanceFixer account={account} onClose={() => setFixing(false)} />
+      )}
+
       {warn && (
         <p className="setup-open-warn">
           This moves every balance in the app, past months included. If it is only
-          today&apos;s figure that is off, add an entry for the difference instead.
+          today&apos;s figure that is off, use &ldquo;does not match?&rdquo; instead.
         </p>
       )}
 

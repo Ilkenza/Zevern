@@ -14,6 +14,7 @@ import {
   TX_KIND_ALL,
   TX_KIND_OPTIONS,
   isGoalKind,
+  isPayingKind,
   isLoanKind,
   rateFor,
   type Rates,
@@ -22,10 +23,12 @@ import { cn } from "@/lib/utils";
 import type {
   LoanLine,
   MoneyAccount,
+  MoneyBudgetPlan,
   MoneyCategory,
   MoneyGoal,
   TransactionRow,
 } from "@/lib/types";
+import { ChipPicker } from "@/components/ui/ChipPicker";
 import { todayISO } from "@/lib/format";
 import { useDefaultCurrency, useMoney } from "@/lib/money/currency";
 
@@ -33,6 +36,8 @@ export type TxFormData = {
   accounts: MoneyAccount[];
   categories: MoneyCategory[];
   goals: MoneyGoal[];
+  /** The 'added only' budgets whose period covers today — see `getAddableBudgets`. */
+  budgets?: MoneyBudgetPlan[];
   /** Open debts, so a movement can say which one it belongs to. */
   loans: LoanLine[];
   rates: Rates;
@@ -75,6 +80,7 @@ export function TransactionForm({
     undefined,
   );
   const [kind, setKind] = useState(tx?.kind ?? defaultKind);
+  const [budgetId, setBudgetId] = useState<string[]>(tx?.budget_id ? [tx.budget_id] : []);
   const [currency, setCurrency] = useState(tx?.currency ?? fallback);
   // `tx.amount` is null on an entry logged without a price, and `String(null)` is the
   // word "null" — which is what the field would have opened with.
@@ -114,7 +120,7 @@ export function TransactionForm({
   */
   const [loanChoice, setLoanChoice] = useState<string>(tx?.loan_id ?? "");
 
-  const { accounts, categories, goals, loans, rates } = data;
+  const { accounts, categories, goals, loans, rates, budgets = [] } = data;
 
   /*
     The row offers five, plus whatever this entry already is.
@@ -156,10 +162,22 @@ export function TransactionForm({
   const categoryOptions = categories
     .filter((c) => (kind === "income" ? c.kind === "income" : c.kind === "expense"))
     .map((c) => ({ value: c.id, label: c.name }));
+  /*
+    Only the goals this kind can belong to.
+
+    A goal that collects is fed by money set aside; one being paid off is fed by an
+    ordinary expense. Offering both lists to both kinds would let an instalment land on
+    a savings pot, where it would read as money still held — so the list is narrowed
+    here, and the pairing is checked again on the server.
+  */
+  const payingGoals = goals.filter((g) => g.direction === "expense");
+  const goalPool = isPayingKind(kind)
+    ? payingGoals
+    : goals.filter((g) => g.direction !== "expense");
   // A goal that has since been closed is no longer offered, but an entry already
   // pointing at one still has to be able to name it — otherwise editing that entry
   // would quietly move the money to whatever sat at the top of the list.
-  const goalOptions = goals.map((g) => ({ value: g.id, label: g.name }));
+  const goalOptions = goalPool.map((g) => ({ value: g.id, label: g.name }));
   const loanOptions = loans
     .filter((l) => l.settled_on == null)
     .map((l) => ({
@@ -167,7 +185,7 @@ export function TransactionForm({
       label: `${l.name} — ${l.direction === "lent" ? "owed to you" : "you owe"}`,
     }));
   if (isLoanKind(kind)) loanOptions.push({ value: NEW_LOAN, label: "＋ A new debt" });
-  if (tx?.goal_id && !goals.some((g) => g.id === tx.goal_id)) {
+  if (tx?.goal_id && !goalPool.some((g) => g.id === tx.goal_id)) {
     goalOptions.unshift({ value: tx.goal_id, label: `${tx.goal?.name ?? "Goal"} (closed)` });
   }
   /*
@@ -256,27 +274,29 @@ export function TransactionForm({
 
         <div className="grid grid-cols-[1fr_110px] gap-2">
           {/*
-            One number, not two.
+            The field is yours; the list only offers.
 
-            The moment a priced list exists, the amount is arithmetic — and a field you
-            can type into beside a list that already decides it is two sources for one
-            figure, which is the disagreement this app spends most of its comments
-            avoiding. So the field goes read-only and prints the sum, and the way to
-            change it is to change a line.
+            It used to take itself over the moment a priced list existed — read-only,
+            printing the sum, rewriting itself while you were still typing a price two
+            fields below. Which is the app filling in a form over your shoulder, and it
+            is startling even when the figure it writes is right.
+
+            Now nothing is written for you. The list says what it adds up to underneath,
+            and if you leave the field empty that sum is what gets saved. Type something
+            and yours is kept — the two are allowed to differ, because sometimes a
+            receipt total really is not the sum of the lines you bothered to write down.
           */}
           <MoneyField
-            label={fromItems ? "Amount" : kind === "expense" ? "Amount (optional)" : "Amount"}
+            label={kind === "expense" ? "Amount (optional)" : "Amount"}
             name="amount"
-            value={fromItems ? String(itemsSum) : amount}
+            value={amount}
             onValueChange={setAmount}
             placeholder={kind === "expense" ? "Leave empty if you do not know" : "0"}
-            autoFocus={!fromItems}
-            readOnly={fromItems}
+            autoFocus
             required={kind !== "expense" && !fromItems}
-            className={fromItems ? "is-derived" : undefined}
             help={
               fromItems
-                ? `Added up from ${itemCount} ${itemCount === 1 ? "item" : "items"} below`
+                ? `${itemCount} ${itemCount === 1 ? "item" : "items"} below add up to ${fmt(itemsSum)} — leave this empty to use it`
                 : kind === "expense"
                   /*
                     One line, not three.
@@ -432,8 +452,27 @@ export function TransactionForm({
           <Select
             label={kind === "withdraw" ? "Out of goal" : "Goal"}
             name="goal_id"
-            defaultValue={tx?.goal_id ?? goals[0]?.id ?? ""}
+            defaultValue={tx?.goal_id ?? goalPool[0]?.id ?? ""}
             placeholder={goalOptions.length ? "Pick a goal" : "No goals yet"}
+            options={goalOptions}
+          />
+        )}
+
+        {/*
+          Which goal this pays down — offered, never required, and only once there is
+          one to name.
+
+          The same shape as the debt picker below it: an ordinary expense that also
+          clears something has to be able to say what, and an expense that clears
+          nothing must not be made to answer a question about it. So the field appears
+          with the first paying-off goal and starts on nothing.
+        */}
+        {isPayingKind(kind) && payingGoals.length > 0 && (
+          <Select
+            label={kind === "income" ? "Refund on" : "Towards"}
+            name="goal_id"
+            defaultValue={tx?.goal_id ?? ""}
+            placeholder={kind === "income" ? "Not a refund" : "Not towards a goal"}
             options={goalOptions}
           />
         )}
@@ -502,6 +541,27 @@ export function TransactionForm({
           type="date"
           defaultValue={tx?.occurred_on ?? todayISO()}
         />
+
+        {/*
+          Putting an entry in a budget you keep by hand.
+
+          Only the 'added only' budgets are offered, and only the ones whose current
+          period covers today: filing a dinner into a holiday that ended in July would
+          look like it worked and would be counted by nothing. The 'all transactions'
+          budgets are deliberately absent — they decide for themselves what belongs to
+          them, and a control that appeared to let you overrule that would be lying.
+        */}
+        {budgets.length > 0 && (
+          <ChipPicker
+            label="Add to a budget"
+            name="budget_id"
+            chips={budgets.map((b) => ({ value: b.id, label: b.name, color: b.color }))}
+            selected={budgetId}
+            onChange={setBudgetId}
+            emptyLabel="No budget"
+            emptyMeans="Counted by your standing budgets in the usual way."
+          />
+        )}
 
         <Field
           label="Note"

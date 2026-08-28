@@ -63,9 +63,16 @@ export function Overall({ goals, onHand }: { goals: GoalLine[]; onHand: OnHand }
 
   return (
     <Panel
-      // With one goal the card below is already the whole picture, so the panel drops
-      // back to the only thing the card cannot say: how this sits against the accounts.
-      title={many ? "Put aside so far" : "Where this money is"}
+      /*
+        Not "Put aside so far", which is the page subtitle said a second time twenty
+        pixels lower — and a heading that repeats the line above it teaches the reader
+        that headings here are decoration.
+
+        What the panel actually is, is the sum: every goal at once, against the
+        accounts they draw on. With one goal there is no sum to take, so it drops back
+        to the only thing the card below cannot say — where this money sits.
+      */
+      title={many ? "All goals together" : "Where this money is"}
       className="money-summary-panel goal-overall-panel"
       action={
         <PanelMeta>

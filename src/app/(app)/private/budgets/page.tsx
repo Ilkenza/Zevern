@@ -1,17 +1,18 @@
-import { getBudgetLines } from "@/lib/data/money";
-import { BudgetsView } from "@/components/private/BudgetsView";
-import { monthKey } from "@/lib/money";
+import { getAccounts, getBudgetPlanLines, getCategories } from "@/lib/data/money";
+import { BudgetPlansView } from "@/components/private/BudgetPlansView";
+import { todayISO } from "@/lib/format";
 
-export default async function BudgetsPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ month?: string }>;
-}) {
-  const params = await searchParams;
-  const month = /^\d{4}-\d{2}$/.test(params.month ?? "") ? (params.month as string) : monthKey();
-  const lines = await getBudgetLines(month);
+export default async function BudgetsPage() {
+  // Today is settled on the server — the same rule the rest of the private workspace
+  // follows — so which period a budget is in cannot change under hydration.
+  const today = todayISO();
+  const [lines, categories, accounts] = await Promise.all([
+    getBudgetPlanLines(today),
+    getCategories(),
+    getAccounts(),
+  ]);
 
-  // Which month counts as "now" is settled on the server, so the client cannot
-  // disagree with it after hydration.
-  return <BudgetsView month={month} currentMonth={monthKey()} lines={lines} />;
+  return (
+    <BudgetPlansView lines={lines} categories={categories} accounts={accounts} today={today} />
+  );
 }

@@ -21,6 +21,7 @@ import { GoalCard } from "./goals/GoalCard";
 import { ClosedRow } from "./goals/ClosedRow";
 import { Overall } from "./goals/Overall";
 import { todayISO } from "@/lib/format";
+import { useMoney } from "@/lib/money/currency";
 
 export type GoalsPanel = { mode: "new" } | { mode: "edit"; goal: GoalLine } | null;
 
@@ -76,6 +77,7 @@ export function GoalsView({
   showArchived: boolean;
 }) {
   const router = useRouter();
+  const { fmt } = useMoney();
   const close = () => router.push(GOALS_HREF);
 
   // Read the same way Setup reads today — UTC on both sides, so nothing disagrees.
@@ -84,6 +86,18 @@ export function GoalsView({
   // Open is measured by completed_at alone, never by the archive flag: a goal still
   // holding money back has to stay visible, whatever else has been done to it.
   const open = goals.filter(isOpen);
+  /*
+    Two lists, because they are two objects that happen to share a card.
+
+    A goal that collects holds money: it reserves part of an account, and the panel
+    above it reconciles that claim against what is actually there. A goal that clears
+    holds nothing — the money went when it was spent — so it has nothing to reconcile
+    and no business inside a sum whose whole purpose is to say what is still free to
+    spend. Mixed into one list they would read as one kind of thing and quietly make
+    that sum wrong.
+  */
+  const saving = open.filter((g) => !g.paying);
+  const paying = open.filter((g) => g.paying);
   const closed = goals.filter((g) => !isOpen(g) && !g.archived);
   const archived = goals.filter((g) => !isOpen(g) && g.archived);
   // The totals these three lines produced now live in `Overall`, which draws them once.
@@ -152,9 +166,14 @@ export function GoalsView({
   // stopped it from optimising the component at all.
   const share = (g: GoalLine) => {
     const target = Math.max(Number(g.target_rsd) || 0, 0);
-    return target > 0 ? Math.min(g.saved / target, 1) : -1;
+    return target > 0 ? Math.min(g.progress / target, 1) : -1;
   };
-  const ordered = order === "mine" ? open : [...open].sort((a, b) => share(b) - share(a));
+  const ordered = order === "mine" ? saving : [...saving].sort((a, b) => share(b) - share(a));
+  // Only goals with an amount to reach can be short of one; the rest are just counting.
+  const leftToPay = paying.reduce(
+    (sum, g) => sum + Math.max((Number(g.target_rsd) || 0) - g.progress, 0),
+    0,
+  );
 
 
   return (
@@ -203,9 +222,9 @@ export function GoalsView({
         <NoGoals />
       ) : (
         <>
-          {open.length > 0 && <Overall goals={open} onHand={onHand} />}
+          {saving.length > 0 && <Overall goals={saving} onHand={onHand} />}
 
-          {open.length > 1 && (
+          {saving.length > 1 && (
             <div className="goals-order" role="group" aria-label="Order the goals">
               {(
                 [
@@ -306,6 +325,48 @@ export function GoalsView({
             >
               Show {Math.min(PAGE, ordered.length - shown)} more of {ordered.length}
             </button>
+          )}
+
+          {/*
+            The second kind, under its own heading rather than mixed into the grid.
+
+            They share a card because they answer the same question — how far along is
+            this — and they are separated here because they answer it about different
+            money. Above this line the figures are claims on an account; below it they
+            are money that has already gone. One heading is cheaper than teaching every
+            card to explain which it is.
+          */}
+          {paying.length > 0 && (
+            <section className="goals-group">
+              <div className="goals-group-head">
+                <h2 className="goals-group-title">Paying off</h2>
+                <PanelMeta>
+                  {paying.length} {paying.length === 1 ? "goal" : "goals"}
+                  {leftToPay > 0 && ` · ${fmt(leftToPay)} left`}
+                </PanelMeta>
+              </div>
+              <p className="goals-group-note">
+                This money has already left the account — these count what has gone, not
+                what is being held back.
+              </p>
+              <div className="money-card-grid grid items-start gap-x-3 gap-y-5 sm:grid-cols-2">
+                {paying.map((goal, i) => (
+                  <GoalCard
+                    key={goal.id}
+                    goal={goal}
+                    accounts={accounts}
+                    siblings={[]}
+                    today={today}
+                    first={i === 0}
+                    last={i === paying.length - 1}
+                    reorderable={order === "mine" && paying.length > 1}
+                    expanded={openId === goal.id}
+                    closing={closingId === goal.id}
+                    onToggle={() => toggle(goal.id)}
+                  />
+                ))}
+              </div>
+            </section>
           )}
 
           {open.length === 0 && (

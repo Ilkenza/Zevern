@@ -73,6 +73,8 @@ export {
 
 export { getBudgetLines } from "./budgets";
 
+export { clockOf, getAddableBudgets, getBudgetPlanLines } from "./budget-plans";
+
 export { getGoalLines, getGoals, isGoalOpen } from "./goals";
 
 export {

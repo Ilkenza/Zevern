@@ -93,6 +93,14 @@ export const getAccountBalances = cache(async (): Promise<AccountBalance[]> => {
         does not recognise as money leaving, which for this one is backwards.
       */
       add(delta, r.account_id, value);
+    } else if (r.kind === "correction") {
+      /*
+        The one kind whose figure carries its own sign, so it is added as it stands.
+        It also has to be named here rather than left to the fall-through below, which
+        treats anything it does not recognise as money leaving — and would turn every
+        upward correction into a second, larger error.
+      */
+      add(delta, r.account_id, value);
     } else add(delta, r.account_id, -value); // expense, loan_out
   }
 

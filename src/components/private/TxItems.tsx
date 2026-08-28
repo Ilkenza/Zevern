@@ -191,8 +191,8 @@ export function TxItems({
   return (
     <div className="tx-items">
       {/*
-        No caption over the list. It is named by how it ends — `Ukupno` under the
-        names, the sum under the figures — which is one label instead of two.
+        No caption over the list. It is named by how it ends — `Total` under the names,
+        the sum under the figures — which is one label instead of two.
       */}
       <div className="tx-items-rows">
         {rows.map((row) => (
@@ -224,7 +224,7 @@ export function TxItems({
             className="tx-items-add"
           >
             <Plus className="h-3.5 w-3.5" aria-hidden />
-            Dodaj stavku
+            Add another
           </button>
         ) : (
           <span />
@@ -237,7 +237,7 @@ export function TxItems({
       */}
       {filled.length > 0 && total > 0 && (
         <div className="tx-items-foot">
-          <span className="tx-items-foot-label">Ukupno</span>
+          <span className="tx-items-foot-label">Total</span>
           <span className="mono tx-items-total" aria-live="polite">
             {formatAmount(total, currency)}
           </span>
@@ -279,9 +279,6 @@ function ItemRow({
 }) {
   const repeat = useRepeat(onBump);
   const qtyRef = useRef<HTMLInputElement>(null);
-  const countRef = useRef<HTMLButtonElement>(null);
-  /* Set when the row is closed from the keyboard, so focus follows it back. */
-  const returning = useRef(false);
   /*
     True from the moment the stepper opens until the first thing you do in it.
 
@@ -318,16 +315,16 @@ function ItemRow({
   };
 
   useEffect(() => {
-    if (open) {
-      fresh.current = true;
-      qtyRef.current?.focus();
-      /* Caret at the end, so it reads as a field waiting rather than a field shouting. */
-      const n = qtyRef.current?.value.length ?? 0;
-      qtyRef.current?.setSelectionRange(n, n);
-    } else if (returning.current) {
-      returning.current = false;
-      countRef.current?.focus();
-    }
+    if (!open) return;
+    fresh.current = true;
+    /*
+      Caret at the end, not a selection: pressing a small control and having a block of
+      colour land on a number you did not ask to highlight is startling. The first
+      digit still replaces — see the keydown below — so the arithmetic survives without
+      the picture.
+    */
+    const n = qtyRef.current?.value.length ?? 0;
+    qtyRef.current?.setSelectionRange(n, n);
   }, [open]);
 
   /*
@@ -354,7 +351,7 @@ function ItemRow({
           value={row.name}
           onChange={(e) => onPatch({ name: e.target.value })}
           onKeyDown={onKey}
-          placeholder="Šta si kupio"
+          placeholder="Kafa 3 u 1"
           aria-label="Item"
           maxLength={80}
           autoFocus={autoFocus}
@@ -393,96 +390,100 @@ function ItemRow({
         words, at a weight that reaches the eye second.
       */}
       <div className="tx-it-sub">
-        {open ? (
-          <div
-            className="tx-qty"
-            onBlur={(e) => {
-              if (!e.currentTarget.contains(e.relatedTarget as Node | null)) onClose();
+        {/*
+          The figure and its two steps, always the same elements.
+
+          Swapping a button for a field meant the count vanished and a control appeared
+          in the same instant — the one kind of change a person notices and cannot
+          follow. The steps are always here at no width; focus unfolds them either side
+          of a number that stays where the eye left it.
+        */}
+        <div
+          className="tx-qty"
+          /*
+            The whole box opens it, not just the digits inside. A 6px-wide "1" is a
+            poor target for a finger, and the frame is drawn precisely to say "press
+            here" — so pressing anywhere in it has to do what it promises.
+          */
+          onPointerDown={(e) => {
+            if (open || (e.target as HTMLElement).closest("button")) return;
+            e.preventDefault();
+            qtyRef.current?.focus();
+          }}
+          onBlur={(e) => {
+            if (!e.currentTarget.contains(e.relatedTarget as Node | null)) onClose();
+          }}
+          onKeyDown={(e) => {
+            if (e.key !== "Escape") return;
+            e.stopPropagation();
+            onClose();
+            qtyRef.current?.blur();
+          }}
+        >
+          <button
+            type="button"
+            onPointerDown={press(-1)}
+            onPointerUp={repeat.stop}
+            onPointerLeave={repeat.stop}
+            onPointerCancel={repeat.stop}
+            disabled={!open || row.qty <= 1}
+            tabIndex={open ? 0 : -1}
+            aria-hidden={!open}
+            aria-label="One fewer"
+            className="tx-qty-step"
+          >
+            <Minus className="h-3.5 w-3.5" />
+          </button>
+          <input
+            ref={qtyRef}
+            value={row.qty}
+            onFocus={onOpen}
+            onChange={(e) => {
+              fresh.current = false;
+              onPatch({ qty: clampQty(Number(e.target.value)) });
+            }}
+            onPointerDown={() => {
+              fresh.current = false;
             }}
             onKeyDown={(e) => {
-              if (e.key !== "Escape") return;
-              e.stopPropagation();
-              returning.current = true;
-              onClose();
-            }}
-          >
-            {/*
-              Two buttons and a figure. Quantity is one or two on nearly every line and
-              it changes by one — typing it means aiming at a small target, selecting
-              what is there and replacing it, four actions for a number that wanted a
-              tap. The field stays typable, and the arrow keys step it, for the line
-              that really is twenty.
-            */}
-            <button
-              type="button"
-              onPointerDown={press(-1)}
-              onPointerUp={repeat.stop}
-              onPointerLeave={repeat.stop}
-              onPointerCancel={repeat.stop}
-              disabled={row.qty <= 1}
-              aria-label="One fewer"
-              className="tx-qty-step"
-            >
-              <Minus className="h-3.5 w-3.5" />
-            </button>
-            <input
-              ref={qtyRef}
-              value={row.qty}
-              onChange={(e) => {
-                fresh.current = false;
-                onPatch({ qty: clampQty(Number(e.target.value)) });
-              }}
-              onPointerDown={() => {
-                fresh.current = false;
-              }}
-              onKeyDown={(e) => {
-                if (fresh.current && /^\d$/.test(e.key) && !e.metaKey && !e.ctrlKey) {
-                  /* The first digit after opening replaces; everything after it appends. */
-                  e.preventDefault();
-                  fresh.current = false;
-                  onPatch({ qty: clampQty(Number(e.key)) });
-                  return;
-                }
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  returning.current = true;
-                  onClose();
-                  return;
-                }
-                if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
+              if (fresh.current && /^\d$/.test(e.key) && !e.metaKey && !e.ctrlKey) {
+                /* The first digit after opening replaces; everything after it appends. */
                 e.preventDefault();
                 fresh.current = false;
-                onBump(e.key === "ArrowUp" ? 1 : -1);
-              }}
-              inputMode="numeric"
-              aria-label="How many"
-              className="mono"
-            />
-            <button
-              type="button"
-              onPointerDown={press(1)}
-              onPointerUp={repeat.stop}
-              onPointerLeave={repeat.stop}
-              onPointerCancel={repeat.stop}
-              disabled={row.qty >= MAX_QTY}
-              aria-label="One more"
-              className="tx-qty-step"
-            >
-              <Plus className="h-3.5 w-3.5" />
-            </button>
-          </div>
-        ) : (
+                onPatch({ qty: clampQty(Number(e.key)) });
+                return;
+              }
+              if (e.key === "Enter") {
+                e.preventDefault();
+                onClose();
+                e.currentTarget.blur();
+                return;
+              }
+              if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
+              e.preventDefault();
+              fresh.current = false;
+              onBump(e.key === "ArrowUp" ? 1 : -1);
+            }}
+            inputMode="numeric"
+            aria-label="How many"
+            className="mono"
+          />
           <button
-            ref={countRef}
             type="button"
-            onClick={onOpen}
-            aria-label={`Change how many — now ${row.qty}`}
-            className="tx-it-count mono"
+            onPointerDown={press(1)}
+            onPointerUp={repeat.stop}
+            onPointerLeave={repeat.stop}
+            onPointerCancel={repeat.stop}
+            disabled={!open || row.qty >= MAX_QTY}
+            tabIndex={open ? 0 : -1}
+            aria-hidden={!open}
+            aria-label="One more"
+            className="tx-qty-step"
           >
-            {row.qty}
+            <Plus className="h-3.5 w-3.5" />
           </button>
-        )}
-        <span className="tx-it-kom">kom</span>
+        </div>
+        <span className="tx-it-kom">{row.qty === 1 ? "item" : "items"}</span>
 
         {/*
           What one of them came to. The only arithmetic in this block that a person
@@ -495,7 +496,7 @@ function ItemRow({
               ·
             </span>
             <span className="tx-it-unit mono">
-              {groupMoney(typedMoney(Math.round((row.amount / row.qty) * 100) / 100))} po komadu
+              {groupMoney(typedMoney(Math.round((row.amount / row.qty) * 100) / 100))} each
             </span>
           </>
         )}

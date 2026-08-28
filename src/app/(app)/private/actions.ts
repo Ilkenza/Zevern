@@ -167,6 +167,12 @@ const PENNY = 0.01;
 
 /* ------------------------------------------------------------ transactions */
 
+/** The kinds that clear a goal rather than fill one. */
+const PAYING_GOAL_KINDS = new Set(["expense", "income"]);
+
+/** Every kind that is allowed to name a goal at all. */
+const GOAL_KINDS = new Set(["saving", "withdraw", ...PAYING_GOAL_KINDS]);
+
 export async function saveTransaction(_prev: MoneyState, formData: FormData): Promise<MoneyState> {
   const id = String(formData.get("id") ?? "").trim();
   const kind = String(formData.get("kind") ?? "expense");
@@ -194,10 +200,22 @@ export async function saveTransaction(_prev: MoneyState, formData: FormData): Pr
   */
   const items = parseItems(formData.get("items"));
   const rawAmount = String(formData.get("amount") ?? "").trim();
-  const amount = itemsArePriced(items)
-    ? itemsTotal(items)
-    : rawAmount === ""
-      ? null
+  /*
+    A typed figure wins; an empty one is filled in by the list.
+
+    The list used to win outright, which meant a priced breakdown quietly discarded
+    whatever had been typed above it — and the form had to take the field over and hold
+    it read-only to stop the two disagreeing on screen. Both halves of that were wrong:
+    a number somebody typed should not vanish, and a field should not start writing
+    itself while they work in the one below it. So the rule is the ordinary one —
+    what you put in is what is kept, and leaving it empty is how you ask the lines to
+    add themselves up.
+  */
+  const amount =
+    rawAmount === ""
+      ? itemsArePriced(items)
+        ? itemsTotal(items)
+        : null
       : num(formData.get("amount"));
   const currency = currencyOf(formData.get("currency"));
   const accountId = String(formData.get("account_id") ?? "").trim() || null;
@@ -213,6 +231,9 @@ export async function saveTransaction(_prev: MoneyState, formData: FormData): Pr
   // skip, so null is a real answer here and the list falls back to the category name.
   const title = String(formData.get("title") ?? "").trim().slice(0, 80) || null;
   const occurredOn = String(formData.get("occurred_on") ?? "").trim() || today();
+  // Only an 'added only' budget can be chosen; checked below rather than trusted, since
+  // this id arrives from a browser like every other.
+  const budgetId = String(formData.get("budget_id") ?? "").trim() || null;
   const returnTo = String(formData.get("return_to") ?? "").trim();
 
   if (!isTxKind(kind)) return { error: "Unknown kind." };
@@ -280,7 +301,15 @@ export async function saveTransaction(_prev: MoneyState, formData: FormData): Pr
   // Only the links the kind actually keeps are worth checking — the rest are dropped.
   const toAccount = kind === "transfer" ? toAccountId : null;
   const category = kind === "expense" || kind === "income" ? categoryId : null;
-  const goal = kind === "saving" || kind === "withdraw" ? goalId : null;
+  /*
+    Four kinds may name a goal, and which four depends on the goal.
+
+    A goal that collects is fed by `saving` and emptied by `withdraw`; a goal that
+    clears is fed by `expense` and reversed by `income`. The pairing is checked below
+    rather than trusted, because crossing it puts an entry into a total that is not
+    measuring it — held money counted as paid off, or spent money still reserved.
+  */
+  const goal = GOAL_KINDS.has(kind) ? goalId : null;
   /*
     An expense keeps its loan link too, and that link is what an instalment is.
 
@@ -308,12 +337,19 @@ export async function saveTransaction(_prev: MoneyState, formData: FormData): Pr
     // would put dinars somewhere no account is reserving them.
     const { data: goalRow } = await supabase
       .from("money_goals")
-      .select("completed_at")
+      .select("completed_at, direction")
       .eq("id", goal)
       .eq("user_id", uid)
       .maybeSingle();
     if (goalRow?.completed_at)
       return { error: "That goal is closed. Reopen it before moving money in or out." };
+    const paying = goalRow?.direction === "expense";
+    if (paying !== PAYING_GOAL_KINDS.has(kind))
+      return {
+        error: paying
+          ? "That goal is being paid off — put an expense towards it, not money set aside."
+          : "That goal is being saved up — set money aside against it, not an expense.",
+      };
   }
 
   // amount_rsd is generated in the database as round(amount * rate, 2); worked out the
@@ -411,10 +447,26 @@ export async function saveTransaction(_prev: MoneyState, formData: FormData): Pr
     loanRef = created.id;
   }
 
+  if (budgetId) {
+    const { data: budget } = await supabase
+      .from("money_budget_plans")
+      .select("membership")
+      .eq("id", budgetId)
+      .eq("user_id", uid)
+      .maybeSingle();
+    if (!budget) return { error: "That budget is not on your profile." };
+    // An 'all transactions' budget decides for itself what belongs to it. Filing an
+    // entry into one by hand would store a link nothing reads, and would quietly start
+    // meaning something the day its type was changed.
+    if (budget.membership !== "added")
+      return { error: "That budget counts matching entries on its own — nothing is added to it." };
+  }
+
   const payload = {
     kind,
     title,
     amount,
+    budget_id: budgetId,
     currency,
     rate,
     account_id: accountId,
@@ -629,6 +681,66 @@ export async function setDefaultAccount(id: string): Promise<MoneyState> {
   return { ok: true };
 }
 
+/**
+ * Tell the app what an account actually holds, and let it write down the difference.
+ *
+ * The alternative people reach for is an invented expense, and it is worse than the
+ * gap it closes: it lands in "where it went", eats a category's limit, and joins the
+ * month's spending as something that was spent. The figures agree again and every one
+ * of them is now wrong.
+ *
+ * So the difference is logged as what it is. It moves the balance and nothing else —
+ * every total in the app names the kinds it counts, and `correction` is not among
+ * them. The figure carries its own sign, because a correction has no story to take a
+ * direction from: it is the distance between belief and fact, and that distance goes
+ * either way.
+ */
+export async function correctBalance(
+  accountId: string,
+  actual: number,
+  note?: string,
+): Promise<MoneyState> {
+  const supabase = await createSupabaseServerClient();
+  const uid = await userId(supabase);
+  if (!uid) return { error: "Not signed in." };
+  if (!(await ownsMoneyRow(supabase, "money_accounts", accountId, uid)))
+    return { error: "That account is not on your profile." };
+  if (!Number.isFinite(actual)) return { error: "That is not a figure." };
+
+  /*
+    Measured against the balance the app computes, not against a figure the form sent
+    up with it. Between opening the screen and pressing the button an entry may have
+    landed, and a difference worked out from a stale total would bake that entry's
+    value into the correction — quietly doubling it.
+  */
+  const accounts = await getAccountBalances();
+  const account = accounts.find((a) => a.id === accountId);
+  if (!account) return { error: "That account is not on your profile." };
+
+  const rate = rateFor(account.currency as Currency, await getRates());
+  const believedInAccountCurrency = Math.round((account.balance / rate) * 100) / 100;
+  const difference = Math.round((actual - believedInAccountCurrency) * 100) / 100;
+
+  /* Nothing to repair is not an error, and it should not leave a row saying nothing. */
+  if (difference === 0) return { ok: true };
+
+  const { error } = await supabase.from("money_transactions").insert({
+    user_id: uid,
+    kind: "correction",
+    account_id: accountId,
+    amount: difference,
+    currency: account.currency,
+    rate,
+    title: "Balance correction",
+    note: note?.trim() || null,
+    occurred_on: todayISO(),
+  });
+  if (error) return { error: saveErrorMessage(error) };
+
+  refresh();
+  return { ok: true };
+}
+
 /** Put an account in one of the two Overview slots, or remove it from both. */
 export async function setAccountOnOverview(id: string, visible: boolean): Promise<MoneyState> {
   const supabase = await createSupabaseServerClient();
@@ -757,6 +869,140 @@ export async function seedDefaults(): Promise<MoneyState> {
 /* ----------------------------------------------------------------- budgets */
 
 /** Save every category limit in one submit; a limit of 0 removes the budget. */
+/* --------------------------------------------------------------- budget plans */
+
+const BUDGET_PERIODS = ["custom", "day", "week", "month", "year"] as const;
+
+/**
+ * Create or update one named budget, and the two sets of ids that say what it watches.
+ *
+ * The links are rewritten wholesale rather than diffed. A budget has a handful of
+ * categories, the form always posts the complete answer, and "delete what is there,
+ * insert what was sent" cannot drift out of step with the form the way a diff can. The
+ * ownership check on every id is the part that matters: those ids arrive from a browser,
+ * and the row-level policy on the link tables only ever checks the budget end of the
+ * pair — the database trigger refuses a foreign category too, but a clear sentence back
+ * beats a constraint violation.
+ */
+export async function saveBudgetPlan(_prev: MoneyState, formData: FormData): Promise<MoneyState> {
+  const id = String(formData.get("id") ?? "").trim();
+  const name = String(formData.get("name") ?? "").trim().slice(0, 60);
+  const kind = String(formData.get("kind") ?? "expense");
+  const membership = String(formData.get("membership") ?? "all");
+  const period = String(formData.get("period") ?? "month");
+  const periodCount = Math.min(60, Math.max(1, Math.floor(num(formData.get("period_count"), 1))));
+  const startsOn = String(formData.get("starts_on") ?? "").trim() || today();
+  const endsOnRaw = String(formData.get("ends_on") ?? "").trim();
+  const color = hexColor(formData.get("color"));
+  const categoryIds = formData.getAll("category_ids").map((v) => String(v)).filter(Boolean);
+  const accountIds = formData.getAll("account_ids").map((v) => String(v)).filter(Boolean);
+
+  if (!name) return { error: "Give the budget a name." };
+  if (kind !== "expense" && kind !== "savings") return { error: "Unknown budget type." };
+  if (membership !== "all" && membership !== "added") return { error: "Unknown budget type." };
+  if (!(BUDGET_PERIODS as readonly string[]).includes(period)) return { error: "Unknown period." };
+
+  // A custom budget is one window with two ends; a repeating one has no end at all, and
+  // letting it carry a stale `ends_on` would give the period arithmetic two answers.
+  const endsOn = period === "custom" ? endsOnRaw : null;
+  if (period === "custom" && !endsOn) return { error: "A custom budget needs an end date." };
+  if (endsOn && endsOn < startsOn) return { error: "The end date is before the start date." };
+
+  const currency = currencyOf(formData.get("currency"));
+  const rates = await getRates();
+  const rate = currency === "RSD" ? 1 : rateFor(currency, rates);
+  const amountRsd = Math.round(num(formData.get("amount")) * rate * 100) / 100;
+  if (!(amountRsd >= 0)) return { error: "That is not an amount." };
+  if (amountRsd >= MAX_AMOUNT) return { error: "That is not an amount." };
+
+  const supabase = await createSupabaseServerClient();
+  const uid = await userId(supabase);
+  if (!uid) return { error: "Not signed in." };
+
+  // Filters belong to an 'all' budget. On an 'added' one they would sit in the database
+  // meaning nothing, and mean something again the day somebody flips the type.
+  const cats = membership === "all" ? categoryIds : [];
+  const accs = membership === "all" ? accountIds : [];
+
+  const owned = await Promise.all([
+    ...cats.map((c) => ownsMoneyRow(supabase, "money_categories", c, uid)),
+    ...accs.map((a) => ownsMoneyRow(supabase, "money_accounts", a, uid)),
+  ]);
+  if (owned.some((ok) => !ok)) return { error: "That category or account is not on your profile." };
+
+  const payload = {
+    name,
+    kind,
+    membership,
+    amount_rsd: amountRsd,
+    period,
+    period_count: periodCount,
+    starts_on: startsOn,
+    ends_on: endsOn,
+    color,
+  };
+
+  let budgetId = id;
+  if (id) {
+    const { error } = await supabase
+      .from("money_budget_plans")
+      .update(payload)
+      .eq("id", id)
+      .eq("user_id", uid);
+    if (error) return { error: saveErrorMessage(error) };
+  } else {
+    const { data, error } = await supabase
+      .from("money_budget_plans")
+      .insert(payload)
+      .select("id")
+      .single();
+    if (error) return { error: saveErrorMessage(error) };
+    budgetId = data.id;
+  }
+
+  await supabase.from("money_budget_categories").delete().eq("budget_id", budgetId);
+  await supabase.from("money_budget_accounts").delete().eq("budget_id", budgetId);
+
+  if (cats.length) {
+    const { error } = await supabase
+      .from("money_budget_categories")
+      .insert(cats.map((c) => ({ budget_id: budgetId, category_id: c })));
+    if (error) return { error: saveErrorMessage(error) };
+  }
+  if (accs.length) {
+    const { error } = await supabase
+      .from("money_budget_accounts")
+      .insert(accs.map((a) => ({ budget_id: budgetId, account_id: a })));
+    if (error) return { error: saveErrorMessage(error) };
+  }
+
+  refresh();
+  return { ok: true };
+}
+
+/**
+ * Delete a budget.
+ *
+ * The links go with it — they describe the budget and nothing else. The entries do not:
+ * `budget_id` on a transaction is `on delete set null`, so deleting a holiday budget
+ * forgets the holiday and keeps every flight you paid for.
+ */
+export async function deleteBudgetPlan(id: string): Promise<MoneyState> {
+  const supabase = await createSupabaseServerClient();
+  const uid = await userId(supabase);
+  if (!uid) return { error: "Not signed in." };
+
+  const { error } = await supabase
+    .from("money_budget_plans")
+    .delete()
+    .eq("id", id)
+    .eq("user_id", uid);
+  if (error) return { error: saveErrorMessage(error) };
+
+  refresh();
+  return { ok: true };
+}
+
 export async function saveBudgets(_prev: MoneyState, formData: FormData): Promise<MoneyState> {
   const supabase = await createSupabaseServerClient();
   const uid = await userId(supabase);
@@ -814,6 +1060,16 @@ export async function saveGoal(_prev: MoneyState, formData: FormData): Promise<M
   const targetAmount = num(formData.get("target_amount"));
   const currency = currencyOf(formData.get("currency"));
   const targetDate = String(formData.get("target_date") ?? "").trim() || null;
+  /*
+    Which way the goal runs, and only ever answered once.
+
+    Every movement on a goal is typed to its direction — money set aside on one, an
+    expense on the other — so turning a goal around later would not convert its history,
+    it would orphan it: the figure on the card would drop to nothing and the entries
+    behind it would still be in the ledger, attached to a goal that no longer counts
+    them. The form does not offer the change and this does not accept it.
+  */
+  const direction = formData.get("direction") === "expense" ? "expense" : "income";
 
   // A target below zero is not a smaller goal, it is a broken one: every percentage on
   // the card is `saved / target`, and a negative divisor turns progress inside out.
@@ -852,6 +1108,7 @@ export async function saveGoal(_prev: MoneyState, formData: FormData): Promise<M
 
   let error;
   if (id) {
+    // `direction` is deliberately not in the update — see the note where it is read.
     ({ error } = await supabase
       .from("money_goals")
       .update(payload)
@@ -870,7 +1127,7 @@ export async function saveGoal(_prev: MoneyState, formData: FormData): Promise<M
       .maybeSingle();
     ({ error } = await supabase
       .from("money_goals")
-      .insert({ ...payload, sort: (last?.sort ?? -1) + 1 }));
+      .insert({ ...payload, direction, sort: (last?.sort ?? -1) + 1 }));
   }
   if (error) return { error: saveErrorMessage(error) };
 

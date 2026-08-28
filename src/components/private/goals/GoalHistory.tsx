@@ -61,7 +61,10 @@ export function GoalHistory({ goal }: { goal: GoalLine }) {
 
   if (goal.movements === 0) return null;
 
-  const deposits = goal.entries.filter((e) => e.kind === "saving").length;
+  // The entries that moved it toward its target, whichever kind those are for it.
+  const deposits = goal.entries.filter((e) =>
+    goal.paying ? e.kind === "expense" : e.kind === "saving",
+  ).length;
   const shown = goal.entries.length;
 
   return (
@@ -78,7 +81,7 @@ export function GoalHistory({ goal }: { goal: GoalLine }) {
           {goal.withdrawn > 0 && (
             <span className="font-normal text-faint">
               {" "}
-              · {fmt(goal.withdrawn)} taken back out
+              · {fmt(goal.withdrawn)} {goal.paying ? "refunded" : "taken back out"}
             </span>
           )}
         </span>
@@ -98,7 +101,7 @@ export function GoalHistory({ goal }: { goal: GoalLine }) {
             {shown < goal.movements
               ? `The last ${shown} of ${goal.movements}. `
               : deposits > 1
-                ? `${deposits} deposits, ${fmt(goal.deposited)} in total. `
+                ? `${deposits} ${goal.paying ? "payments" : "deposits"}, ${fmt(goal.deposited)} in total. `
                 : ""}
             Every one of these is an entry in Money.
           </p>

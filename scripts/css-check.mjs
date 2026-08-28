@@ -45,7 +45,7 @@ try {
   if (!newest) throw new Error("nothing built");
   chunk = { name: newest.f, text: readFileSync(join(DIR, newest.f), "utf8"), t: newest.t };
 } catch {
-  console.log("Dev server nije pokrenut — nema izgrađenog CSS-a za poređenje.");
+  console.log("Dev server is not running — there is no built stylesheet to compare against.");
   process.exit(0);
 }
 
@@ -74,19 +74,19 @@ const sel = new Set(
 const noSel = [...sel].filter((s) => !hay.includes(s));
 
 const skew = Math.round((statSync(SRC).mtimeMs - chunk.t) / 1000);
-console.log(`izvor:  ${SRC}`);
-console.log(`chunk:  ${chunk.name}`);
-console.log(`        ${skew > 0 ? `${skew}s stariji od izvora` : `${-skew}s noviji od izvora`}`);
-console.log(`provereno: ${wanted.size} deklaracija, ${sel.size} selektora`);
+console.log(`source: ${SRC}`);
+console.log(`built:  ${chunk.name}`);
+console.log(`        ${skew > 0 ? `${skew}s older than the source` : `${-skew}s newer than the source`}`);
+console.log(`checked: ${wanted.size} declarations, ${sel.size} selectors`);
 
 if (missing.length === 0 && noSel.length === 0) {
-  console.log("\n✓ SVEŽE — ono što vidiš u pregledaču je ono što je u fajlu.");
+  console.log("\n✓ FRESH — what the browser is showing is what is in the file.");
 } else {
-  console.log(`\n✗ ZASTARELO — nije stiglo u pregledač:`);
-  noSel.slice(0, 6).forEach((s) => console.log("   selektor  " + s));
-  missing.slice(0, 6).forEach((d) => console.log("   pravilo   " + d));
+  console.log(`\n✗ STALE — these never reached the browser:`);
+  noSel.slice(0, 6).forEach((s) => console.log("   selector  " + s));
+  missing.slice(0, 6).forEach((d) => console.log("   rule      " + d));
   const more = missing.length + noSel.length - Math.min(6, noSel.length) - Math.min(6, missing.length);
-  if (more > 0) console.log(`   … i još ${more}`);
-  console.log("\nUgasi dev server pa: npm run dev:clean");
+  if (more > 0) console.log(`   … and ${more} more`);
+  console.log("\nStop the dev server, then: npm run dev:clean");
   process.exitCode = 1;
 }

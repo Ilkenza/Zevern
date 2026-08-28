@@ -142,6 +142,7 @@ export const TX_KINDS = [
   "withdraw",
   "loan_out",
   "loan_in",
+  "correction",
 ] as const;
 export type TxKind = (typeof TX_KINDS)[number];
 
@@ -152,6 +153,31 @@ export function isTxKind(value: string): value is TxKind {
 /** The two kinds that move money between an account and a goal. */
 export function isGoalKind(kind: string): boolean {
   return kind === "saving" || kind === "withdraw";
+}
+
+/**
+ * The kinds that move a goal being paid off rather than one being saved up.
+ *
+ * An expense clears it and an income reverses that, and neither reserves anything —
+ * the money left the account when it was spent. Kept next to `isGoalKind` because the
+ * pair is the whole rule: these two lists must never overlap, or an entry would count
+ * on both sides of the same question.
+ */
+export function isPayingKind(kind: string): boolean {
+  return kind === "expense" || kind === "income";
+}
+
+/**
+ * The distance between what the app believes an account holds and what it actually
+ * holds.
+ *
+ * Not spending and not earning — nothing happened in the world, the record was simply
+ * incomplete. Every total in this app names the kinds it adds, so a correction stays
+ * out of all of them by not being named; the only sum that has to know about it is the
+ * account balance, which is the one thing it exists to move.
+ */
+export function isCorrection(kind: string): boolean {
+  return kind === "correction";
 }
 
 /**
@@ -198,6 +224,13 @@ export const TX_KIND_ALL: { value: TxKind; label: string }[] = [
   ...TX_KIND_OPTIONS,
   { value: "saving", label: "Put aside" },
   { value: "withdraw", label: "Take out" },
+  /*
+    Never offered in the entry form. You do not sit down to log a correction the way
+    you log a coffee — you notice that a balance is wrong while looking at the account,
+    and you fix it there. It lives in this list only so an entry that already is one
+    can name itself in the ledger.
+  */
+  { value: "correction", label: "Balance correction" },
 ];
 
 export const ACCOUNT_KIND_OPTIONS = [

@@ -1,6 +1,7 @@
 /**
- * What a goal card says, worked out from what a goal actually carries: the amount
- * held, the target, the target date and the day it started.
+ * What a goal card says, worked out from what a goal actually carries: where it stands,
+ * the target, the target date and the day it started — and whether it is collecting
+ * money or clearing it, which changes every sentence and none of the arithmetic.
  *
  * Separated from the card that draws it because it is arithmetic over dates and
  * money and nothing else — no hooks, no markup — which is what lets the pace verdict,
@@ -84,8 +85,8 @@ export type Reading = {
  * it started.
  *
  * The pace verdict is deliberately shy. It shows up only once there is a fortnight of
- * history and something actually put aside — before that, a rate worked out from two
- * days and one deposit would be a guess wearing a badge.
+ * history and something actually moved — before that, a rate worked out from two days
+ * and one entry would be a guess wearing a badge.
  */
 /**
  * `fmt` is passed in rather than imported.
@@ -96,9 +97,40 @@ export type Reading = {
  * pure, keeps it testable without a provider, and makes it impossible for a card and
  * the note under it to disagree about what currency they are in.
  */
+/*
+  The same arithmetic, said two ways.
+
+  A goal that collects and a goal that clears run on one calculation — a figure against
+  a target, a date, a rate — and differ only in what the figure is called. Keeping the
+  words in one table rather than branching through the function is what stops the two
+  readings from drifting: every sentence a card can print is on this page, side by side,
+  where a change to one is read against its opposite.
+*/
+const WORDS = {
+  saving: {
+    reached: "Reached",
+    /** Said when the target is met. */
+    full: (target: string) => `The full ${target} is there`,
+    over: (target: string, over: string) => `The full ${target} is there, and ${over} over`,
+    none: "No target set — this only counts what goes in.",
+    left: (left: string, target: string) => `${left} to go of ${target}`,
+    /** The rate needed from here, in whichever unit fits the time left. */
+    rate: (amount: string, unit: string) => `${amount} a ${unit} to make it`,
+  },
+  paying: {
+    reached: "Paid off",
+    full: (target: string) => `All ${target} is paid`,
+    over: (target: string, over: string) => `All ${target} is paid, and ${over} over`,
+    none: "No amount set — this only counts what goes out.",
+    left: (left: string, target: string) => `${left} left to pay of ${target}`,
+    rate: (amount: string, unit: string) => `${amount} a ${unit} to clear it`,
+  },
+} as const;
+
 export function read(goal: GoalLine, today: string, fmt: (n: number) => string): Reading {
+  const w = goal.paying ? WORDS.paying : WORDS.saving;
   const target = Number(goal.target_rsd) || 0;
-  const saved = goal.saved;
+  const saved = goal.progress;
   const date = goal.target_date;
   const daysLeft = date ? daysBetween(today, date) : null;
 
@@ -107,11 +139,8 @@ export function read(goal: GoalLine, today: string, fmt: (n: number) => string):
     return {
       pct: 1,
       done: true,
-      badge: { status: "ok", label: "Reached" },
-      note:
-        over > 0
-          ? `The full ${fmt(target)} is there, and ${fmt(over)} over`
-          : `The full ${fmt(target)} is there`,
+      badge: { status: "ok", label: w.reached },
+      note: over > 0 ? w.over(fmt(target), fmt(over)) : w.full(fmt(target)),
       pace: date ? "the date you aimed at" : null,
       consequence: null,
     };
@@ -122,7 +151,7 @@ export function read(goal: GoalLine, today: string, fmt: (n: number) => string):
       pct: null,
       done: false,
       badge: null,
-      note: "No target set — this only counts what goes in.",
+      note: w.none,
       pace: date ? "no target amount to work towards" : null,
       consequence: null,
     };
@@ -130,7 +159,7 @@ export function read(goal: GoalLine, today: string, fmt: (n: number) => string):
 
   const left = target - saved;
   const pct = Math.min(saved / target, 1);
-  const note = `${fmt(left)} to go of ${fmt(target)}`;
+  const note = w.left(fmt(left), fmt(target));
 
   if (daysLeft === null) {
     return { pct, done: false, badge: null, note, pace: null, consequence: null };
@@ -162,9 +191,9 @@ export function read(goal: GoalLine, today: string, fmt: (n: number) => string):
   // What has to go in from here, said in whichever unit fits the time left.
   const pace =
     daysLeft >= 60
-      ? `${fmt(Math.ceil(left / (daysLeft / DAYS_PER_MONTH)))} a month to make it`
+      ? w.rate(fmt(Math.ceil(left / (daysLeft / DAYS_PER_MONTH))), "month")
       : daysLeft >= MIN_HISTORY_DAYS
-        ? `${fmt(Math.ceil(left / (daysLeft / 7)))} a week to make it`
+        ? w.rate(fmt(Math.ceil(left / (daysLeft / 7))), "week")
         : `${daysLeft} ${daysLeft === 1 ? "day" : "days"} left`;
 
   const elapsed = daysBetween(goal.created_at, today);

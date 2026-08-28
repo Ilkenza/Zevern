@@ -5,8 +5,16 @@ import { formatRsd } from "@/lib/money";
 
 const TODAY = "2026-08-25";
 
+/*
+  `progress` follows `saved` unless a case says otherwise.
+
+  Every case here was written when a goal only ever collected, and `saved` was both
+  what it held and how far along it was. Those are two facts now — a goal being paid
+  off holds nothing and is still making progress — so the fixture keeps the old cases
+  honest by deriving one from the other, and a paying case states both.
+*/
 function goal(overrides: Partial<GoalLine> = {}): GoalLine {
-  return {
+  const base = {
     id: "goal-1",
     user_id: "user-1",
     name: "New laptop",
@@ -24,9 +32,56 @@ function goal(overrides: Partial<GoalLine> = {}): GoalLine {
     movements: 0,
     entries: [],
     lastAccountId: null,
+    paying: false,
     ...overrides,
   } as GoalLine;
+  return { ...base, progress: base.progress ?? base.saved } as GoalLine;
 }
+
+describe("a goal that is being paid off", () => {
+  const debt = (over: Partial<GoalLine> = {}) =>
+    goal({ paying: true, saved: 0, name: "Laptop instalments", target_rsd: 60000, ...over });
+
+  it("counts what has been paid, not what is held", () => {
+    const r = read(debt({ progress: 25000 }), TODAY, formatRsd);
+    expect(r.pct).toBeCloseTo(25000 / 60000, 4);
+    expect(r.note).toContain("left to pay");
+    expect(r.done).toBe(false);
+  });
+
+  it("is paid off, not reached", () => {
+    const r = read(debt({ progress: 60000 }), TODAY, formatRsd);
+    expect(r.done).toBe(true);
+    expect(r.badge?.label).toBe("Paid off");
+    expect(r.note).toContain("is paid");
+    expect(r.note).not.toContain("is there");
+  });
+
+  it("says how much was overpaid", () => {
+    const r = read(debt({ progress: 62000 }), TODAY, formatRsd);
+    expect(r.done).toBe(true);
+    expect(r.note).toContain("over");
+  });
+
+  it("asks to clear it rather than to make it", () => {
+    const r = read(debt({ progress: 10000, target_date: "2027-08-25" }), TODAY, formatRsd);
+    expect(r.pace).toContain("to clear it");
+    expect(r.pace).not.toContain("to make it");
+  });
+
+  it("counts what goes out when there is no amount set", () => {
+    const r = read(debt({ target_rsd: 0, progress: 5000 }), TODAY, formatRsd);
+    expect(r.pct).toBeNull();
+    expect(r.note).toContain("goes out");
+  });
+
+  it("runs the same arithmetic as a goal that collects", () => {
+    const a = read(goal({ saved: 50000 }), TODAY, formatRsd);
+    const b = read(debt({ progress: 50000, target_rsd: 200000 }), TODAY, formatRsd);
+    expect(b.pct).toBe(a.pct);
+    expect(b.done).toBe(a.done);
+  });
+});
 
 describe("daysBetween", () => {
   it("counts whole days, and ignores the time on a timestamp", () => {
