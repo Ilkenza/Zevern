@@ -18,6 +18,15 @@ export type AccountBalance = MoneyAccount & {
   reserved: number;
   /** What is left to spend: `balance` less `reserved`. */
   free: number;
+  /**
+   * How many entries have touched this account.
+   *
+   * Zero means the balance is still exactly what was typed at setup, and the screen
+   * can say so with one figure instead of two. It counts rows rather than summing
+   * them, because an account whose entries happen to cancel out has still been used —
+   * and editing its opening balance would still rewrite that history.
+   */
+  entries: number;
 };
 
 /** The three figures for the accounts taken together. They always add up. */
@@ -56,6 +65,7 @@ export const getAccountBalances = cache(async (): Promise<AccountBalance[]> => {
 
   const delta = new Map<string, number>();
   const claimed = new Map<string, number>();
+  const touched = new Map<string, number>();
   const add = (map: Map<string, number>, id: string | null, value: number) => {
     if (!id) return;
     map.set(id, (map.get(id) ?? 0) + value);
@@ -63,6 +73,8 @@ export const getAccountBalances = cache(async (): Promise<AccountBalance[]> => {
 
   for (const r of rows ?? []) {
     const value = Number(r.amount_rsd) || 0;
+    add(touched, r.account_id, 1);
+    if (r.kind === "transfer") add(touched, r.to_account_id, 1);
     if (r.kind === "income") add(delta, r.account_id, value);
     else if (r.kind === "transfer") {
       add(delta, r.account_id, -value);
@@ -71,14 +83,24 @@ export const getAccountBalances = cache(async (): Promise<AccountBalance[]> => {
       if (r.goal_id && open.has(r.goal_id)) add(claimed, r.account_id, value);
     } else if (r.kind === "withdraw") {
       if (r.goal_id && open.has(r.goal_id)) add(claimed, r.account_id, -value);
-    } else add(delta, r.account_id, -value); // expense
+    } else if (r.kind === "loan_in") {
+      /*
+        Money arriving from a debt is money on the account like any other — a credit
+        can be spent the day it lands. It is only not *income*, which is a different
+        question, answered where income is counted rather than here.
+
+        It needs its own branch because the fall-through below treats everything it
+        does not recognise as money leaving, which for this one is backwards.
+      */
+      add(delta, r.account_id, value);
+    } else add(delta, r.account_id, -value); // expense, loan_out
   }
 
   return accounts.map((a) => {
     const balance =
       toRsd(Number(a.opening_balance) || 0, a.currency, rates) + (delta.get(a.id) ?? 0);
     const reserved = claimed.get(a.id) ?? 0;
-    return { ...a, balance, reserved, free: balance - reserved };
+    return { ...a, balance, reserved, free: balance - reserved, entries: touched.get(a.id) ?? 0 };
   });
 });
 

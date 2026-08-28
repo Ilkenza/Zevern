@@ -177,22 +177,19 @@
   animation: zv-rise var(--dur-page) var(--ease-premium) both;
 }
 
-/* The rule under the title, drawn from the left as the header settles. */
-.zv-pagehead::after {
-  content: "";
-  position: absolute;
-  inset-inline: 0;
-  bottom: 0;
-  height: 1px;
-  background: linear-gradient(
-    to right,
-    color-mix(in srgb, var(--color-gold) 42%, transparent),
-    var(--color-line) 22%,
-    transparent
-  );
-  transform-origin: left;
-  animation: zv-rule-in 900ms var(--ease-premium) 180ms both;
-}
+/*
+  The rule under the page title is gone.
+
+  It drew itself in from the left as the header settled, which was the kind of touch
+  that looks considered once and then reads as a line for the rest of the product's
+  life. Two things finished it: the private screens were rebuilt without any rules at
+  all — that was the whole argument for the masthead — and the loading skeletons use
+  this same class, so every navigation flashed a gold hairline under a grey placeholder
+  before the real header had even arrived.
+
+  A separator earns its place when two things beside each other would otherwise be
+  confused. A title and the content under it never are.
+*/
 
 .zv-pagehead-kicker {
   display: inline-flex;
@@ -446,402 +443,38 @@
   once per hover rather than looping, because a button that shimmers on its own is a
   button that is asking for attention it does not need.
 */
-.zv-sheen {
-  position: relative;
-  overflow: hidden;
-  isolation: isolate;
-}
-
-.zv-sheen::after {
-  content: "";
-  position: absolute;
-  inset-block: -60%;
-  left: 0;
-  width: 42%;
-  z-index: -1;
-  background: linear-gradient(
-    to right,
-    transparent,
-    rgba(255, 255, 255, 0.42),
-    transparent
-  );
-  transform: translate3d(-120%, 0, 0) skewX(-18deg);
-  opacity: 0;
-}
-
-.zv-sheen:hover::after {
-  opacity: 1;
-  animation: zv-sheen 720ms var(--ease-premium);
-}
-
-/* An icon that leans the way its label points. */
-.zv-nudge svg {
-  transition: transform 240ms var(--ease-premium);
-}
-
-.zv-nudge:hover svg { transform: translate3d(2px, -2px, 0); }
-
-/* A + that turns a little on hover — the one flourish allowed on an add button. */
-.zv-turn svg {
-  transition: transform 320ms var(--ease-spring);
-}
-
-.zv-turn:hover svg { transform: rotate(90deg); }
-
-
 /*
-  A field waking up.
+  The sheen is gone from every button in the app.
 
-  The gold border and the ring were already there; what was missing was the journey
-  into them. A border that snaps from grey to gold reads as a repaint. The same change
-  over 180ms reads as the field answering — and on the way out it fades rather than
-  dropping, so tabbing through a form is one continuous movement instead of a series
-  of flashes.
+  Three separate implementations of the same idea had accumulated — `zv-sheen` here,
+  `money-premium-button::after` on the money screens, and a per-variant one on the button
+  classes themselves — each added at a different time for a different screen, each
+  surviving the others' removal because it was a different class.
+
+  The argument against all three is the same: a band of light crossing a control is
+  decoration on the smallest surface in the app, and these buttons are 90 pixels wide.
+  The gesture needs room they do not have.
+
+  The class is left defined and inert so the one call site that referenced it does not
+  break, and so this note stays where the next person will look for it.
 */
-.zv-field {
-  transition:
-    border-color 180ms ease,
-    box-shadow 200ms ease,
-    background-color 180ms ease;
-}
-
-.zv-field:hover:not(:focus) {
-  border-color: color-mix(in srgb, var(--color-gold) 24%, var(--color-line));
-}
-
-/* -------------------------------------------------------------------- skeleton */
+.zv-sheen { position: relative; }
 
 /*
-  What a screen shows while its data is in flight.
+  Everything below runs only where motion is unwelcome.
 
-  A shimmer rather than a pulse: a pulsing block reads as something broken, a band of
-  light crossing left to right reads as something arriving. The block is sized by the
-  caller, so a skeleton row can be laid out to match the row it stands in for — which
-  is the whole point, since a placeholder of the wrong shape makes the real content
-  jump when it lands.
-*/
-.zv-skeleton {
-  position: relative;
-  overflow: hidden;
-  border-radius: var(--radius-ctrl);
-  background: rgba(255, 255, 255, 0.045);
-}
-
-.zv-skeleton::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    to right,
-    transparent,
-    rgba(255, 255, 255, 0.055),
-    transparent
-  );
-  animation: zv-shimmer 1.45s ease-in-out infinite;
-}
-
-/* ---------------------------------------------------------------------- shell */
-
-/*
-  The sidebar item. The active one carries a gold rail on its left edge; moving
-  between items slides nothing, because the rail belongs to the item rather than to
-  the nav — a shared rail that animates between positions looks superb and is wrong
-  the moment a navigation is slower than the animation.
-*/
-.zv-nav-item {
-  position: relative;
-  transition:
-    background-color var(--dur-hover) ease,
-    color var(--dur-hover) ease,
-    transform 240ms var(--ease-premium);
-}
-
-.zv-nav-item::before {
-  content: "";
-  position: absolute;
-  inset-block: 6px;
-  left: 0;
-  width: 2px;
-  border-radius: var(--radius-pill);
-  background: var(--color-gold);
-  transform: scaleY(0);
-  transform-origin: center;
-  transition: transform 300ms var(--ease-premium);
-}
-
-.zv-nav-item[aria-current="page"]::before { transform: scaleY(1); }
-
-.zv-nav-item:hover { transform: translate3d(2px, 0, 0); }
-
-.zv-nav-item svg {
-  transition: transform 280ms var(--ease-premium);
-}
-
-.zv-nav-item:hover svg { transform: scale(1.1); }
-
-.zv-nav-item[aria-current="page"] svg { transform: scale(1.06); }
-
-/* The nav arrives one item at a time on first paint, and never again. */
-.zv-nav-list > * {
-  animation: zv-rise 380ms var(--ease-premium) both;
-}
-
-.zv-nav-list > *:nth-child(1) { animation-delay: 30ms; }
-.zv-nav-list > *:nth-child(2) { animation-delay: 60ms; }
-.zv-nav-list > *:nth-child(3) { animation-delay: 90ms; }
-.zv-nav-list > *:nth-child(4) { animation-delay: 120ms; }
-.zv-nav-list > *:nth-child(5) { animation-delay: 150ms; }
-.zv-nav-list > *:nth-child(6) { animation-delay: 180ms; }
-.zv-nav-list > *:nth-child(7) { animation-delay: 210ms; }
-.zv-nav-list > *:nth-child(8) { animation-delay: 240ms; }
-.zv-nav-list > *:nth-child(n + 9) { animation-delay: 270ms; }
-
-/* The mark in the corner. It breathes once on hover and is otherwise still. */
-.zv-mark {
-  transition: transform 380ms var(--ease-spring), box-shadow var(--dur-hover) ease;
-}
-
-aside:hover .zv-mark {
-  transform: rotate(-6deg) scale(1.06);
-  box-shadow: 0 6px 18px -6px color-mix(in srgb, var(--color-gold) 60%, transparent);
-}
-
-/* The count beside a nav item warms with the item rather than sitting apart from it. */
-.zv-nav-count {
-  transition: color var(--dur-hover) ease, transform 240ms var(--ease-premium);
-}
-
-.zv-nav-item:hover .zv-nav-count { color: var(--color-muted); }
-.zv-nav-item[aria-current="page"] .zv-nav-count { color: var(--color-gold); }
-
-/* The workspace switch: the selected half slides, it does not blink. */
-.zv-switch-option {
-  transition:
-    background-color 260ms var(--ease-premium),
-    color 200ms ease,
-    transform 200ms var(--ease-premium);
-}
-
-.zv-switch-option:active { transform: scale(0.97); }
-
-/* The mobile drawer and the ground behind it. */
-@keyframes zv-drawer-in {
-  from { transform: translate3d(-100%, 0, 0); }
-  to { transform: none; }
-}
-
-@keyframes zv-scrim-in {
-  from { opacity: 0; backdrop-filter: blur(0); }
-  to { opacity: 1; backdrop-filter: blur(2px); }
-}
-
-.zv-drawer { animation: zv-drawer-in 340ms var(--ease-premium) both; }
-.zv-scrim  { animation: zv-scrim-in 260ms ease-out both; }
-
-/* A dropdown opens from the corner it is anchored to, not from its own middle. */
-@keyframes zv-menu-in {
-  from {
-    opacity: 0;
-    transform: translate3d(0, -6px, 0) scale(0.97);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-
-.zv-menu {
-  transform-origin: top right;
-  animation: zv-menu-in 200ms var(--ease-premium) both;
-}
-
-.zv-menu-item {
-  transition:
-    background-color 160ms ease,
-    color 160ms ease,
-    transform 200ms var(--ease-premium);
-}
-
-.zv-menu-item:hover { transform: translate3d(2px, 0, 0); }
-
-/* The search field widens when it is being used and gives the space back after. */
-.zv-search {
-  transition:
-    width 320ms var(--ease-premium),
-    border-color var(--dur-hover) ease,
-    background-color var(--dur-hover) ease;
-}
-
-.zv-search:focus { width: 18rem; }
-
-/* ------------------------------------------------------------- empty & figures */
-
-/* An empty state should feel like a room, not a failure. Its icon settles in. */
-@keyframes zv-empty-in {
-  from {
-    opacity: 0;
-    transform: translate3d(0, 8px, 0) scale(0.92);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-
-.zv-empty-icon {
-  animation: zv-empty-in 620ms var(--ease-spring) 60ms both;
-}
-
-/*
-  A figure that matters gets a moment of its own — it rises a beat after the card it
-  sits in, so the eye lands on the card and then on the number.
-*/
-.zv-figure {
-  animation: zv-rise 620ms var(--ease-premium) 200ms both;
-}
-
-/* ---------------------------------------------------- route view transitions */
-
-/*
-  Navigation, as motion.
-
-  React's <ViewTransition> is what makes this possible without a library: the browser
-  photographs the old page and the new one and animates between them, so a route
-  change becomes one continuous thing rather than a white flash and a reflow.
-
-  Direction carries the meaning, and only three cases exist here:
-
-    zv-forward  — going deeper: a client, an invoice, a lead. Content enters from the
-                  right, as though the next page were always to the right of this one.
-    zv-back     — the way out. The same motion mirrored, which is what makes "back"
-                  legible without a label.
-    zv-swap     — same place, different content: a month, a filter, a tab. A crossfade,
-                  because sliding would claim a journey that did not happen.
-
-  The exit is quick (150ms) and the entrance is slower and waits for it. Old content
-  should get out of the way; new content deserves to be read.
-*/
-
-/*
-  The root swap itself does nothing — the named parts below do all the work. Left at
-  the browser default it would crossfade the entire window underneath them, which
-  reads as the page blinking behind its own animation.
-*/
-::view-transition-old(root),
-::view-transition-new(root) {
-  animation: none;
-}
-
-/* The ordinary case: content lifts in as the last screen fades out under it. */
-::view-transition-old(.zv-in) {
-  animation: 150ms ease-in both zv-vt-fade reverse;
-}
-
-::view-transition-new(.zv-in) {
-  animation:
-    260ms ease-out 110ms both zv-vt-fade,
-    440ms var(--ease-premium) both zv-vt-lift;
-}
-
-/* Going deeper: the next page was always to the right of this one. */
-::view-transition-old(.zv-forward) {
-  --zv-slide: -44px;
-  animation:
-    150ms ease-in both zv-vt-fade reverse,
-    380ms var(--ease-premium) both zv-vt-slide reverse;
-}
-
-::view-transition-new(.zv-forward) {
-  --zv-slide: 44px;
-  animation:
-    240ms ease-out 120ms both zv-vt-fade,
-    420ms var(--ease-premium) both zv-vt-slide;
-}
-
-/* And back out again, mirrored — which is what makes "back" legible without a word. */
-::view-transition-old(.zv-back) {
-  --zv-slide: 44px;
-  animation:
-    150ms ease-in both zv-vt-fade reverse,
-    380ms var(--ease-premium) both zv-vt-slide reverse;
-}
-
-::view-transition-new(.zv-back) {
-  --zv-slide: -44px;
-  animation:
-    240ms ease-out 120ms both zv-vt-fade,
-    420ms var(--ease-premium) both zv-vt-slide;
-}
-
-@keyframes zv-vt-fade {
-  from { opacity: 0; filter: blur(2px); }
-  to   { opacity: 1; filter: blur(0); }
-}
-
-@keyframes zv-vt-slide {
-  from { translate: var(--zv-slide, 0) 0; }
-  to   { translate: 0 0; }
-}
-
-@keyframes zv-vt-lift {
-  from { translate: 0 10px; }
-  to   { translate: 0 0; }
-}
-
-/*
-  The shell is the fixed point. If the sidebar and the topbar slid with the content
-  there would be nothing on screen holding still, and the whole window would appear
-  to move — which reads as a page load, exactly the thing this is replacing.
-*/
-::view-transition-group(zv-sidebar),
-::view-transition-group(zv-topbar) {
-  animation: none;
-  z-index: 100;
-}
-
-::view-transition-old(zv-sidebar),
-::view-transition-old(zv-topbar) { display: none; }
-
-::view-transition-new(zv-sidebar),
-::view-transition-new(zv-topbar) { animation: none; }
-
-/* ------------------------------------------------------------- reduced motion */
-
-/*
-  One block, and it is deliberately blunt.
-  
-  Everything above is decoration over an interface that is complete without it, so
-  under `prefers-reduced-motion` all of it stops — including the view transitions,
-  where the browser then simply swaps the pages, which is its behaviour without any
-  of this. What survives is colour: hover states still change, focus rings still
-  appear, nothing becomes harder to use.
+  This opener was destroyed by a careless edit — a cut that removed the old `.zv-sheen`
+  rules took the `@media` line with them and left the whole block dangling, which
+  postcss reported as a stray `}` three hundred lines later at the end of the file. The
+  lesson is the one this session keeps re-learning: slicing CSS by searching for a
+  selector name is fine until the selector appears twice, and then it silently eats
+  whatever sits between the two.
 */
 @media (prefers-reduced-motion: reduce) {
   .zv-page,
   .zv-head,
   .zv-rise,
   .zv-pagehead,
-  .zv-pagehead::after,
-  .zv-panel,
-  .zv-row,
-  .zv-figure,
-  .zv-empty-icon,
-  .zv-drawer,
-  .zv-scrim,
-  .zv-menu,
-  .zv-stagger > *,
-  .zv-nav-list > * {
-    animation: none !important;
-    opacity: 1;
-    transform: none;
-  }
-
-  .zv-skeleton::after,
-  .zv-sheen:hover::after {
-    animation: none !important;
-    opacity: 0;
-  }
-
   .zv-panel,
   .zv-lift,
   .zv-press,
@@ -883,3 +516,4 @@ aside:hover .zv-mark {
     animation-delay: 0s !important;
   }
 }
+

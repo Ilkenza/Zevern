@@ -8,7 +8,7 @@ import { Select } from "@/components/ui/Select";
 import { Button } from "@/components/ui/Button";
 import { DeleteButton } from "@/components/ui/DeleteButton";
 import { CURRENCY_OPTIONS, EVERY_OPTIONS, CATEGORY_KIND_OPTIONS } from "@/lib/money";
-import type { MoneyAccount, MoneyCategory, MoneyGoal, MoneyRecurring } from "@/lib/types";
+import type { LoanLine, MoneyAccount, MoneyCategory, MoneyGoal, MoneyRecurring } from "@/lib/types";
 import { todayISO } from "@/lib/format";
 import { useDefaultCurrency } from "@/lib/money/currency";
 
@@ -17,11 +17,14 @@ export function RecurringForm({
   accounts,
   categories,
   goals,
+  loans,
 }: {
   item?: MoneyRecurring;
   accounts: MoneyAccount[];
   categories: MoneyCategory[];
   goals: MoneyGoal[];
+  /** Open debts, so a rule can be declared the instalment plan of one. */
+  loans: LoanLine[];
 }) {
   const fallback = useDefaultCurrency();
   const [state, formAction, pending] = useActionState<MoneyState, FormData>(
@@ -41,6 +44,11 @@ export function RecurringForm({
     .filter((c) => c.kind === kind)
     .map((c) => ({ value: c.id, label: c.name }));
   const goalOptions = goals.map((g) => ({ value: g.id, label: g.name }));
+  // Only the ones you owe. A rule that repeats cannot collect a debt from a friend —
+  // that is one movement whenever it happens, not a standing arrangement.
+  const loanOptions = loans
+    .filter((l) => l.settled_on == null && l.direction === "borrowed")
+    .map((l) => ({ value: l.id, label: l.name }));
 
   return (
     <div className="flex h-full flex-col">
@@ -69,6 +77,17 @@ export function RecurringForm({
                 ? "Every time this books, that amount is set aside on the account below. It stays on the account; it just stops counting as free to spend."
                 : "Pick a goal to turn this into a standing order instead of a bill."
             }
+          />
+        )}
+
+        {!toGoal && loanOptions.length > 0 && (
+          <Select
+            label="Pays off"
+            name="loan_id"
+            defaultValue={item?.loan_id ?? ""}
+            placeholder="Nothing — an ordinary bill"
+            options={loanOptions}
+            help="Set this and every booking pays the debt down by itself."
           />
         )}
 

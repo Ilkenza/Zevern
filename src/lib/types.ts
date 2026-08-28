@@ -1,4 +1,5 @@
 import type { Tables } from "./database.types";
+import type { TxItem } from "./money/items";
 
 export type Client = Tables<"clients">;
 export type Project = Tables<"projects">;
@@ -48,6 +49,7 @@ export type SeoCheckWithProject = Omit<SeoCheck, "results"> & {
 export type MoneyAccount = Tables<"money_accounts">;
 export type MoneyCategory = Tables<"money_categories">;
 export type MoneyGoal = Tables<"money_goals">;
+export type MoneyLoan = Tables<"money_loans">;
 export type MoneyRecurring = Tables<"money_recurring">;
 export type MoneyBudget = Tables<"money_budgets">;
 export type MoneyTransaction = Tables<"money_transactions">;
@@ -57,6 +59,15 @@ export type TransactionRow = MoneyTransaction & {
   category: { name: string; color: string | null; kind: string } | null;
   account: { name: string; currency: string } | null;
   goal: { name: string } | null;
+  /*
+    What was in the bag.
+
+    Declared here rather than taken from the generated database types, because the
+    column is `jsonb` and those would type it as `Json` — a union wide enough that
+    every screen touching an item would have to narrow it again. The shape is enforced
+    on the way in and on the way out instead; see `parseItems`.
+  */
+  items?: TxItem[] | null;
 };
 
 export type RecurringRow = MoneyRecurring & {
@@ -82,6 +93,26 @@ export type PlannedRow = MoneyPlanned & {
 /** How the forecast projects everyday spending. Mirrors the check on the column. */
 export type SpendingBasis = "off" | "budgets" | "history";
 
+/**
+ * A debt with what is still outstanding on it.
+ *
+ * `settled` is what has been paid against the total so far, worked out from the
+ * movements rather than stored — a stored running figure is one more thing that can
+ * drift out of step with the ledger it is supposed to describe.
+ */
+export type LoanLine = MoneyLoan & {
+  /** Paid against the total so far. */
+  settled: number;
+  /** What is still owed. Never negative — an overpayment is settled, not owed back. */
+  outstanding: number;
+  /** Movements against this loan, newest first. */
+  movements: { id: string; on: string; amount: number; kind: string; title: string | null }[];
+  /** Set when a recurring rule is paying it down: how many of its instalments are left. */
+  instalmentsLeft: number | null;
+  /** What one instalment costs, when there is a rule behind it. */
+  instalment: number | null;
+};
+
 /** A category with its monthly limit and what has been spent against it. */
 export type BudgetLine = {
   category: MoneyCategory;
@@ -93,6 +124,18 @@ export type BudgetLine = {
    * the screen then offers no suggestion rather than inventing one.
    */
   typical: number;
+  /**
+   * The dated half of this category's month: recurring charges already booked, and
+   * those still to land before it is out.
+   *
+   * Kept apart from `spent` because they behave nothing like it. Everyday spending
+   * accrues with the days and can honestly be extrapolated from a few of them; a bill
+   * does not — it is one date and one figure, known in advance. Mixing the two is what
+   * makes a budget scream on the 3rd: rent lands, a tenth of the month has gone, and
+   * dividing one by the other projects ten rents.
+   */
+  fixedPaid: number;
+  fixedDue: number;
 };
 
 /** One movement between an account and a goal — the goal's own history. */

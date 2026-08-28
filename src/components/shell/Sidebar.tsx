@@ -89,12 +89,25 @@ export function Sidebar({
               aria-current={active ? "page" : undefined}
               className={cn(
                 "zv-nav-item flex items-center gap-3 rounded-ctrl px-3 py-2 text-[13.5px] font-semibold",
-                active
-                  ? "bg-active-bg text-gold"
-                  : "text-muted hover:bg-white/3 hover:text-ink",
+                /*
+                  Only the text colour is set here. The lighting is in `zv-nav-item`,
+                  which shares its construction with the quick-add menu — a rule at the
+                  left edge and light spilling right from it, with no filled rectangle
+                  anywhere. A `bg-` utility would put the rectangle back and the two
+                  places would stop being the same object again.
+                */
+                active ? "text-gold" : "text-muted hover:text-ink",
               )}
             >
-              <Icon className="h-4.5 w-4.5 shrink-0" strokeWidth={2} />
+              {/*
+                The same tile the quick-add menu puts its icons in, at the size this row
+                works in. Sharing the class rather than copying the look is the point:
+                two places drawing the same object from two sets of numbers drift apart
+                on the first change either one gets.
+              */}
+              <span className="zv-icon-tile">
+                <Icon className="zv-nav-icon h-4.5 w-4.5" strokeWidth={2} />
+              </span>
               <span className="flex-1 truncate">{item.label}</span>
               {typeof count === "number" && count > 0 && (
                 <span className="zv-nav-count mono text-[11px] text-faint">{count}</span>

@@ -56,7 +56,24 @@ function monthTicks(from: string, days: number): { day: number; label: string }[
   return out;
 }
 
-export function ForecastCurve({ forecast, days = 90 }: { forecast: Forecast; days?: number }) {
+/**
+ * `outgoingOnly` changes what the chart claims, not how it draws.
+ *
+ * With no income on file the same curve is still worth seeing — it is every bill,
+ * deposit and day of living, laid against what is on the accounts — but it is spending
+ * drawn forward, not a balance forecast. The label says which one you are looking at, so
+ * the picture cannot be read as a prediction it is not entitled to make.
+ */
+export function ForecastCurve({
+  forecast,
+  days = 90,
+  outgoingOnly = false,
+}: {
+  forecast: Forecast;
+  days?: number;
+  /** True when no income is on file, so the curve is spending drawn forward. */
+  outgoingOnly?: boolean;
+}) {
   const { fmt, fmtShort } = useMoney();
   const [hover, setHover] = useState<Point | null>(null);
 
@@ -128,12 +145,18 @@ export function ForecastCurve({ forecast, days = 90 }: { forecast: Forecast; day
           viewBox={`0 0 ${W} ${H}`}
           preserveAspectRatio="none"
           role="img"
-          aria-label={`Free money over the next ${days} days, starting at ${fmt(
+          aria-label={`${
+            outgoingOnly ? "What goes out over" : "Free money over"
+          } the next ${days} days, starting at ${fmt(
             forecast.startingBalance,
           )}${goesNegative ? ` and running out on ${firstNegative.on}` : ""}`}
           onMouseLeave={() => setHover(null)}
         >
-          <title>Free money over the next {days} days</title>
+          <title>
+            {outgoingOnly
+              ? `What goes out over the next ${days} days`
+              : `Free money over the next ${days} days`}
+          </title>
 
           {/* Month boundaries — the only grid the eye needs to place a date. */}
           {ticks.map((t) => (

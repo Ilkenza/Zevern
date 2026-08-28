@@ -7,11 +7,11 @@ import { saveBudgets, type MoneyState } from "@/app/(app)/private/actions";
 import { Panel } from "@/components/ui/Panel";
 import { Button, buttonClasses } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { monthLabel, monthProgress, shiftMonth, shortMonthLabel } from "@/lib/money";
+import { daysLeftInMonth, monthLabel, monthProgress, shiftMonth, shortMonthLabel } from "@/lib/money";
 import type { BudgetLine } from "@/lib/types";
 import { SummaryPanel } from "./budgets/SummaryPanel";
 import { CategoryRow } from "./budgets/CategoryRow";
-import { totalsOf, type Status } from "./budgets/status";
+import { remedyFor, totalsOf, type Status } from "./budgets/status";
 import { useMoney } from "@/lib/money/currency";
 import { fromRsd } from "@/lib/money/display";
 
@@ -89,6 +89,15 @@ export function BudgetsView({
   const totals = totalsOf(lines, pace, isCurrentMonth);
   const status = overallStatus(totals.limit, totals.spent, totals.used, totals.pacePct);
 
+  /*
+    Only offered when the month is actually heading over. A lever attached to a month
+    that is going to be fine is not advice, it is a screen that cannot stop talking.
+  */
+  const remedy =
+    isCurrentMonth && totals.overshoot > 0
+      ? remedyFor(lines, pace, daysLeftInMonth(month))
+      : null;
+
   // Spending in categories with no ceiling at all — the part of the month no budget is
   // watching, and usually where the surprise lives.
   const untracked = lines.filter((l) => l.limit <= 0 && l.spent > 0);
@@ -101,9 +110,12 @@ export function BudgetsView({
     return [...withLimit, ...rest];
   }, [lines]);
   const tracked = ordered.filter((l) => l.limit > 0).length;
+  const monthName = monthLabel(month).split(" ")[0];
 
   const verdict = (() => {
-    if (totals.limit === 0) return "Set a limit on a category and its pace shows up here.";
+    if (totals.limit === 0) {
+      return "No category has a limit. Your spending is still shown below.";
+    }
     if (!isCurrentMonth) {
       return totals.spent > totals.limit
         ? `${monthLabel(month)} finished ${fmt(totals.spent - totals.limit)} over.`
@@ -111,17 +123,17 @@ export function BudgetsView({
     }
     if (totals.used > totals.pacePct + 5) {
       return totals.overshoot > 0
-        ? `${totals.used - totals.pacePct} points ahead of the month — at this rate you finish ${fmt(totals.overshoot)} over.`
-        : `${totals.used - totals.pacePct} points ahead of the month, but still inside the limits.`;
+        ? `Spending is running ahead of plan. At this pace, you’ll finish ${monthName} ${fmt(totals.overshoot)} over your limits.`
+        : `Spending is ahead of the month’s pace, but you’re still projected to finish ${monthName} within your limits.`;
     }
     if (totals.used < totals.pacePct - 5) {
-      return `${totals.pacePct - totals.used} points behind the month — ${fmt(Math.max(totals.limit - totals.projected, 0))} of slack at this rate.`;
+      return `You’re comfortably within your limits. At this pace, you’ll finish ${monthName} with ${fmt(Math.max(totals.limit - totals.projected, 0))} still available.`;
     }
-    return "Right on pace for the month.";
+    return `Spending is on pace for ${monthName}.`;
   })();
 
   return (
-    <div className="money-premium money-budgets mx-auto max-w-280">
+    <div className="money-premium money-budgets mx-auto max-w-300">
       <div className="money-page-head budget-head">
         <div className="min-w-0">
           <span className="money-page-kicker">Monthly control</span>
@@ -188,13 +200,14 @@ export function BudgetsView({
             showPace={isCurrentMonth}
             untracked={untracked}
             entriesHref={`/private/money?month=${month}`}
+            remedy={remedy}
           />
 
           <div className="budget-list">
             <div className="budget-list-head">
               <h2 className="budget-list-title">Categories</h2>
               <span className="budget-list-meta">
-                {tracked} of {lines.length} carry a limit
+                {tracked} with limits · {lines.length - tracked} without limits
               </span>
             </div>
 
@@ -204,8 +217,6 @@ export function BudgetsView({
                   key={line.category.id}
                   line={line}
                   pace={pace}
-                  pacePct={totals.pacePct}
-                  showPace={isCurrentMonth}
                   value={values[line.category.id] ?? ""}
                   onChange={(next) =>
                     setValues((v) => ({ ...v, [line.category.id]: next }))

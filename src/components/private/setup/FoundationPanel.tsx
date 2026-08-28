@@ -45,7 +45,7 @@ export function FoundationPanel({
         <p className="setup-foundation-note">
           {ready
             ? "Everything the rest of the app needs is in place."
-            : "The rest of the app leans on these three."}
+            : "The rest of the app cannot work without these."}
         </p>
       </div>
 

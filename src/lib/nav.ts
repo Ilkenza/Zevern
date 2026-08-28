@@ -1,3 +1,4 @@
+import { GoalIcon } from "@/components/icons/GoalIcon";
 import {
   LayoutDashboard,
   Send,
@@ -12,8 +13,10 @@ import {
   Wallet,
   Target,
   CalendarClock,
-  PiggyBank,
   SlidersHorizontal,
+  ArrowDownRight,
+  ArrowUpRight,
+  Banknote,
   type LucideIcon,
 } from "lucide-react";
 
@@ -81,28 +84,66 @@ export const PRIVATE_NAV_ITEMS: NavItem[] = [
   // before every real spending decision, while "what repeats" is asked only when
   // something changes. /private/recurring still works and opens the Rules view.
   { label: "Upcoming", href: "/private/upcoming", icon: CalendarClock },
-  { label: "Goals", href: "/private/goals", icon: PiggyBank },
+  // A bullseye with an arrow in it — the symbol everything from Google to a keyboard
+  // emoji reaches for when it means "goal". `Target`, on Budgets above, is the same
+  // bullseye without the arrow: related on purpose, told apart by the one mark that
+  // says something was aimed and landed.
+  { label: "Goals", href: "/private/goals", icon: GoalIcon },
   { label: "Setup", href: "/private/setup", icon: SlidersHorizontal },
 ];
 
 export type NavCounts = Partial<Record<CountKey, number>>;
 
-export const NEW_ITEMS: { label: string; href: string; moduleKey: ModuleKey }[] = [
-  { label: "New lead", href: "/leads?new=1", moduleKey: "leads" },
-  { label: "New client", href: "/clients?new=1", moduleKey: "clients" },
-  { label: "New project", href: "/projects?new=1", moduleKey: "projects" },
-  { label: "New task", href: "/tasks?new=1", moduleKey: "tasks" },
-  { label: "New invoice", href: "/invoices?new=1", moduleKey: "invoices" },
-  { label: "New quote", href: "/quotes/new", moduleKey: "quotes" },
-  { label: "New SEO check", href: "/seo?new=1", moduleKey: "seo" },
+export const NEW_ITEMS: (NewItem & { moduleKey: ModuleKey })[] = [
+  { label: "New lead", href: "/leads?new=1", icon: Send, moduleKey: "leads" },
+  { label: "New client", href: "/clients?new=1", icon: Users, moduleKey: "clients" },
+  { label: "New project", href: "/projects?new=1", icon: FolderKanban, moduleKey: "projects" },
+  { label: "New task", href: "/tasks?new=1", icon: ListChecks, moduleKey: "tasks" },
+  { label: "New invoice", href: "/invoices?new=1", icon: ReceiptText, moduleKey: "invoices" },
+  { label: "New quote", href: "/quotes/new", icon: FileSpreadsheet, moduleKey: "quotes" },
+  { label: "New SEO check", href: "/seo?new=1", icon: Sparkles, moduleKey: "seo" },
 ];
 
-export const PRIVATE_NEW_ITEMS: { label: string; href: string }[] = [
-  { label: "New expense", href: "/private/money?new=expense" },
-  { label: "New income", href: "/private/money?new=income" },
-  { label: "New task", href: "/private/tasks?new=1" },
-  { label: "New goal", href: "/private/goals?new=1" },
-  { label: "New recurring", href: "/private/upcoming?view=rules&new=1" },
+/**
+ * The quick-add menu, with an icon on every line.
+ *
+ * A menu you open every day is not read after the first week — it is aimed at. A shape
+ * in a fixed position is aimed at faster than a word, and the word then only confirms.
+ * Six labels of similar length and no other mark is the one arrangement that forces a
+ * read every single time.
+ *
+ * The vocabulary is the sidebar's, not a new one: whatever a row leads to wears the
+ * icon that place already wears. The three money actions are the exception, because all
+ * three lead to the same screen and would collide on `Wallet` — those take the
+ * direction the money goes instead, which is the same language the ledger's signs use.
+ */
+export type NewItem = { label: string; href: string; icon: LucideIcon; dividerBefore?: boolean };
+
+export const PRIVATE_NEW_ITEMS: NewItem[] = [
+  { label: "New expense", href: "/private/money?new=expense", icon: ArrowDownRight },
+  { label: "New income", href: "/private/money?new=income", icon: ArrowUpRight },
+  // Cash out of an ATM is a transfer, not a purchase — the same dinars, in a pocket
+  // instead of on a card. It is here because it is something you do standing at the
+  // machine, and because anything harder to reach than "New expense" gets logged as
+  // one, which is the mistake this line exists to stop.
+  { label: "Withdraw cash", href: "/private/money?new=transfer", icon: Banknote },
+  { label: "New goal", href: "/private/goals?new=1", icon: GoalIcon },
+  { label: "New recurring", href: "/private/upcoming?view=rules&new=1", icon: CalendarClock },
+  /*
+    The task goes last because everything above it is money.
+
+    It used to sit fourth, between `Withdraw cash` and `New goal`, which cut the list in
+    half with the one item that is not about a dinar. A menu read top to bottom should
+    change subject once, not twice — and a subject that appears, leaves and comes back
+    reads as an ordering nobody chose.
+
+    Debts are deliberately not in this list. A credit is taken once every few years and
+    money is lent to a friend once or twice; putting either here would push what is used
+    daily further down for something that gets read a hundred times and pressed once.
+    Both are two taps from `Add` on the money screen, which is the right price for how
+    often they happen.
+  */
+  { label: "New task", href: "/private/tasks?new=1", icon: ListChecks, dividerBefore: true },
 ];
 
 /** For the Settings toggle UI. */

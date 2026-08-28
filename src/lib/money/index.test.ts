@@ -232,9 +232,29 @@ describe("monthNetNote", () => {
    */
   it("explains a minus that is only an empty income column, and does not shout", () => {
     expect(monthNetNote(-670, 0)).toEqual({
-      text: "No income logged this month",
+      text: "Nothing in yet this month",
       tone: "muted",
     });
+  });
+
+  /**
+   * Zero income is two different situations and the note has to tell them apart.
+   * Nothing recorded anywhere is a gap in the setup and wants an action; money simply
+   * not in yet, on a profile that gets paid on the 10th, is what every month looks
+   * like until the 10th.
+   */
+  it("points at Setup only when there is no income on file at all", () => {
+    expect(monthNetNote(-670, 0, false)).toEqual({
+      text: "Nothing on file as income yet",
+      tone: "muted",
+      setup: true,
+    });
+  });
+
+  it("stops pointing at Setup the moment something is on file", () => {
+    // A standing rule counts, so writing the salary down silences the prompt
+    // immediately rather than a month later.
+    expect(monthNetNote(-670, 0, true)?.setup).toBeUndefined();
   });
 
   it("is red only when money did come in and it still went negative", () => {
@@ -244,3 +264,4 @@ describe("monthNetNote", () => {
     });
   });
 });
+

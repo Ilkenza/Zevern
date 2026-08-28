@@ -15,11 +15,21 @@ import { cn } from "@/lib/utils";
  * every action that already reads `amount` off the FormData keeps working untouched.
  */
 
+/*
+  Money is stored as numeric(14, 2) — twelve digits before the decimal point, a shade
+  under a thousand billion. Past that Postgres refuses the row, so a field that accepts
+  a thirteenth digit is a field that accepts a value it cannot save: the person types,
+  the form looks fine, and the save fails on something they cannot see. Stopping the
+  keystroke says the same thing at the only moment it is useful.
+*/
+const MAX_WHOLE = 12;
+
 /** Digits, and at most one comma for the decimal. Dots are grouping, so they go. */
 export function cleanMoney(input: string): string {
   const only = input.replace(/[^\d,]/g, "");
-  const [first, ...rest] = only.split(",");
-  return rest.length ? `${first},${rest.join("").slice(0, 2)}` : first;
+  const [first = "", ...rest] = only.split(",");
+  const whole = first.slice(0, MAX_WHOLE);
+  return rest.length ? `${whole},${rest.join("").slice(0, 2)}` : whole;
 }
 
 /** "1234567,5" → "1.234.567,5". The grouping is Serbian, and so is the comma. */

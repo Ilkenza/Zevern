@@ -5,7 +5,7 @@ import { monthLabel } from "@/lib/money";
 import { cn } from "@/lib/utils";
 import type { BudgetLine } from "@/lib/types";
 import { PaceRing } from "./PaceRing";
-import type { Status, Totals } from "./status";
+import type { Remedy, Status, Totals } from "./status";
 import { useMoney } from "@/lib/money/currency";
 
 /** One line of the read-out under the ring. The word carries it; colour only agrees. */
@@ -48,6 +48,7 @@ export function SummaryPanel({
   showPace,
   untracked,
   entriesHref,
+  remedy,
 }: {
   month: string;
   totals: Totals;
@@ -56,6 +57,8 @@ export function SummaryPanel({
   showPace: boolean;
   untracked: BudgetLine[];
   entriesHref: string;
+  /** The one move worth making, when the month is heading over. */
+  remedy: Remedy | null;
 }) {
   const { fmt } = useMoney();
   const untrackedTotal = untracked.reduce((s, l) => s + l.spent, 0);
@@ -75,14 +78,43 @@ export function SummaryPanel({
         caption="of the budget used"
       />
 
+      {/*
+        The tick no longer sits on the calendar, so the note has to say what it does sit
+        on — otherwise a mark at 84% on the 20th of a 31-day month looks like a bug.
+        When there is nothing dated in the month the two figures are the same, and the
+        second half would be a sentence explaining that nothing happened.
+      */}
       {showPace && (
         <p className="budget-pace-note">
           <i aria-hidden="true" />
-          {totals.pacePct}% of {monthName} has gone
+          {totals.pacePct === totals.calendarPct ? (
+            <>
+              Pace marker · {totals.calendarPct}% of {monthName} has passed
+            </>
+          ) : (
+            <>
+              Pace marker · {totals.pacePct}% of the budget is due by now ·{" "}
+              {totals.calendarPct}% of {monthName} has passed
+            </>
+          )}
         </p>
       )}
 
       <p className="budget-verdict">{verdict}</p>
+
+      {remedy && (
+        <p className="budget-remedy">
+          <b>{remedy.category}</b>{" "}
+          {remedy.room > 0 ? (
+            <>
+              is {fmt(remedy.gap)} of it. {fmt(remedy.perWeek)} a week for the rest of{" "}
+              {monthName} keeps it inside.
+            </>
+          ) : (
+            <>is {fmt(remedy.gap)} of it, and its limit is already spent.</>
+          )}
+        </p>
+      )}
 
       <div className="budget-figures">
         <Figure label="Spent" value={fmt(totals.spent)} />
@@ -94,9 +126,9 @@ export function SummaryPanel({
         />
         {showPace && (
           <Figure
-            label="At this rate"
-            hint={`by the end of ${monthName}`}
-            value={fmt(totals.projected)}
+            label={totals.overshoot > 0 ? "Projected over" : "Projected left"}
+            hint={`at the end of ${monthName}`}
+            value={fmt(totals.overshoot > 0 ? totals.overshoot : -totals.overshoot)}
             tone={totals.overshoot > 0 ? "danger" : "ok"}
           />
         )}
@@ -104,11 +136,13 @@ export function SummaryPanel({
 
       {untracked.length > 0 && (
         <div className="budget-untracked">
-          <span className="mono budget-untracked-amount">{fmt(untrackedTotal)}</span>
+          <span className="mono budget-untracked-amount">
+            {fmt(untrackedTotal)} spent without limits
+          </span>
           <span>
-            went to {untracked.length === 1 ? "one category" : `${untracked.length} categories`} with
-            no limit — {untracked.map((l) => l.category.name).join(", ")}. None of it is in the
-            figures above.
+            Across {untracked.length === 1 ? "one category" : `${untracked.length} categories`} without
+            limits — {untracked.map((l) => l.category.name).join(", ")}. This spending is not included
+            in the totals above.
           </span>
         </div>
       )}

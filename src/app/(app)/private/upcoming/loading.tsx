@@ -9,5 +9,5 @@
 import { CardsSkeleton } from "@/components/ui/Skeleton";
 
 export default function Loading() {
-  return <CardsSkeleton kpis={3} panels={2} />;
+  return <CardsSkeleton kpis={3} panels={2} maxWidth="max-w-220" />;
 }

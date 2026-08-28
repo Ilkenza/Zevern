@@ -13,6 +13,7 @@ import { getProfile } from "@/lib/data/profile";
 import { DefaultCurrencyProvider } from "@/lib/money/currency";
 import { CURRENCIES, type Currency } from "@/lib/money";
 import { getRates } from "@/lib/data/money";
+import { greetingFor } from "@/lib/format";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
@@ -64,7 +65,15 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <DefaultCurrencyProvider value={{ currency, rates }}>
-      <AppShell user={shellUser} counts={counts} hidden={hidden}>
+      <AppShell
+        user={shellUser}
+        // Decided here, on the server clock, for the same reason "today" is: read on
+        // both sides it disagrees with itself at noon, at six, and in any browser set
+        // to another zone — and React answers a disagreement by redrawing the shell.
+        greeting={greetingFor(new Date().getHours())}
+        counts={counts}
+        hidden={hidden}
+      >
         {children}
       </AppShell>
     </DefaultCurrencyProvider>

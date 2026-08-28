@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Kpi } from "@/components/ui/Kpi";
 import { monthNetNote } from "@/lib/money";
 import { useMoney } from "@/lib/money/currency";
@@ -19,16 +20,25 @@ export function NetKpi({
   net,
   income,
   saved = 0,
+  incomeOnFile = true,
   className,
 }: {
   net: number;
   income: number;
   /** Net earmarked this month. Said here so its absence from the figure is deliberate. */
   saved?: number;
+  /**
+   * Whether anything at all is on file as income — a booking or a standing rule.
+   *
+   * Without it the note cannot tell a profile that has never said what comes in from
+   * one whose pay simply lands later in the month, and the two need opposite words:
+   * the first is a gap to close, the second is Tuesday.
+   */
+  incomeOnFile?: boolean;
   className?: string;
 }) {
   const { fmt } = useMoney();
-  const note = monthNetNote(net, income);
+  const note = monthNetNote(net, income, incomeOnFile);
 
   return (
     <Kpi
@@ -38,6 +48,19 @@ export function NetKpi({
       hint={
         <span className={note?.tone === "danger" ? "text-danger" : "text-muted"}>
           {note?.text}
+          {/*
+            The one case with something to do about it gets a way to do it. The other
+            two are statements of fact and a link on them would be an invitation to fix
+            a month that is not broken.
+          */}
+          {note?.setup && (
+            <>
+              {" · "}
+              <Link href="/private/setup#setup-earning" className="zv-net-fix">
+                add what comes in
+              </Link>
+            </>
+          )}
           {note && saved > 0 && " · "}
           {/* Set aside on purpose does not belong in a figure about money that left. */}
           {saved > 0 && <>{fmt(saved)} also set aside</>}

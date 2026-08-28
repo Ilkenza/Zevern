@@ -3,7 +3,15 @@
 import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Plus, ListChecks, Pencil, AlertTriangle, Inbox, CalendarRange } from "lucide-react";
+import {
+  Plus,
+  ListChecks,
+  Pencil,
+  AlertTriangle,
+  Inbox,
+  CalendarRange,
+  ListFilter,
+} from "lucide-react";
 import { SlideOver } from "@/components/ui/SlideOver";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { buttonClasses } from "@/components/ui/Button";
@@ -18,6 +26,9 @@ import { TaskForm, type ProjectOption } from "./TaskForm";
 
 export type TasksPanel = { mode: "new" } | { mode: "edit"; task: Task } | null;
 export type TaskWorkspace = "work" | "personal";
+
+/** The main panel is a focus list, not the whole backlog. */
+const FOCUS_LIMIT = 5;
 
 /** `iso` moved by whole days, kept as a wall-clock date string. */
 function addDays(iso: string, days: number): string {
@@ -72,15 +83,18 @@ function RowActions({
   task,
   basePath,
   workspace,
+  onEdit,
 }: {
   task: TaskWithProject;
   basePath: string;
   workspace: TaskWorkspace;
+  onEdit?: () => void;
 }) {
   return (
     <span className="task-actions">
       <Link
         href={`${basePath}?edit=${task.id}`}
+        onClick={onEdit}
         aria-label={`Edit ${task.title}`}
         title="Edit"
         className="task-edit"
@@ -112,12 +126,17 @@ function TaskRow({
   basePath,
   workspace,
   note,
+  hideDate = false,
+  onEdit,
 }: {
   task: TaskWithProject;
   basePath: string;
   workspace: TaskWorkspace;
   /** Only the late band and the parked band need to say when — the rest is the rail. */
   note?: string;
+  /** A day panel already names the date once; repeating it on every row adds no information. */
+  hideDate?: boolean;
+  onEdit?: () => void;
 }) {
   const done = task.status === "done";
   return (
@@ -136,9 +155,9 @@ function TaskRow({
       {note ? (
         <span className="task-row-note">{note}</span>
       ) : (
-        task.due_at && <span className="mono task-row-date">{formatDateTime(task.due_at)}</span>
+        !hideDate && task.due_at && <span className="mono task-row-date">{formatDateTime(task.due_at)}</span>
       )}
-      <RowActions task={task} basePath={basePath} workspace={workspace} />
+      <RowActions task={task} basePath={basePath} workspace={workspace} onEdit={onEdit} />
     </div>
   );
 }
@@ -348,9 +367,16 @@ export function TasksView({
 
   // Late first, because a day you have already missed outranks the one you are in.
   const [picked, setPicked] = useState<string | null>(null);
+  const [remainingOpen, setRemainingOpen] = useState(false);
   const fallback = bands.some((b) => b.key === "late") ? "late" : today;
   const activeKey = picked && bands.some((b) => b.key === picked) ? picked : fallback;
   const band = bands.find((b) => b.key === activeKey) ?? bands[0];
+  const priorityRank: Record<string, number> = { high: 0, med: 1, low: 2 };
+  const rankedTasks = [...(band?.tasks ?? [])].sort(
+    (a, b) => (priorityRank[a.priority] ?? 1) - (priorityRank[b.priority] ?? 1),
+  );
+  const focusTasks = rankedTasks.slice(0, FOCUS_LIMIT);
+  const remainingTasks = rankedTasks.slice(FOCUS_LIMIT);
 
   const lateCount = bands.find((b) => b.key === "late")?.tasks.length ?? 0;
   const todayCount = bands.find((b) => b.key === today)?.tasks.length ?? 0;
@@ -424,8 +450,10 @@ export function TasksView({
                   )}
                   {band.title}
                 </span>
-                <span className="mono task-panel-count">
-                  {band.tasks.length === 0 ? "clear" : plural(band.tasks.length, "task", "tasks")}
+                <span className="task-panel-meta">
+                  <span className="mono task-panel-count">
+                    {band.tasks.length === 0 ? "clear" : plural(band.tasks.length, "task", "tasks")}
+                  </span>
                 </span>
               </header>
 
@@ -440,12 +468,13 @@ export function TasksView({
                 <p className="task-panel-empty">{band.empty}</p>
               ) : (
                 <div className="task-panel-body">
-                  {band.tasks.map((t) => (
+                  {focusTasks.map((t) => (
                     <TaskRow
                       key={t.id}
                       task={t}
                       basePath={basePath}
                       workspace={workspace}
+                      hideDate={band.tone === "day" || band.tone === "today"}
                       note={
                         band.tone === "late" && dayOf(t)
                           ? lateBy(dayOf(t) as string, today)
@@ -453,6 +482,17 @@ export function TasksView({
                       }
                     />
                   ))}
+                  {remainingTasks.length > 0 && (
+                    <button
+                      type="button"
+                      className="task-view-remaining"
+                      onClick={() => setRemainingOpen(true)}
+                    >
+                      <ListFilter className="h-4 w-4" aria-hidden />
+                      <span>View remaining {remainingTasks.length}</span>
+                      <small>Sorted by priority</small>
+                    </button>
+                  )}
                 </div>
               )}
             </section>
@@ -473,6 +513,30 @@ export function TasksView({
           </div>
         </details>
       )}
+
+      <SlideOver
+        open={remainingOpen}
+        onClose={() => setRemainingOpen(false)}
+        title={band ? `${band.title} · remaining tasks` : "Remaining tasks"}
+      >
+        <div className="task-remaining-list">
+          {remainingTasks.map((t) => (
+            <TaskRow
+              key={t.id}
+              task={t}
+              basePath={basePath}
+              workspace={workspace}
+              hideDate={band?.tone === "day" || band?.tone === "today"}
+              note={
+                band?.tone === "late" && dayOf(t)
+                  ? lateBy(dayOf(t) as string, today)
+                  : undefined
+              }
+              onEdit={() => setRemainingOpen(false)}
+            />
+          ))}
+        </div>
+      </SlideOver>
 
       <SlideOver
         open={panel !== null}

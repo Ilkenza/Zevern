@@ -7,6 +7,19 @@ import { buttonClasses } from "@/components/ui/Button";
 import type { AccountBalance, OnHand } from "@/lib/data/money";
 import { useMoney } from "@/lib/money/currency";
 
+/*
+  Counting the cash used to live here.
+
+  It offered to type what was in your wallet and booked the difference as an
+  uncategorised entry — the automatic version of a correction. We settled on the manual
+  version instead: when cash is short and you cannot say where it went, that is an
+  ordinary expense with a category of its own, entered like anything else. One way of
+  recording a thing beats two, and the one that survived is the one that needs no
+  special screen, no special action and no special rule.
+
+  `reconcileCash` and `cashDifference` went with it.
+*/
+
 /**
  * What is actually in your pocket.
  *

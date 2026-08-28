@@ -8,6 +8,14 @@
  */
 import { CardsSkeleton } from "@/components/ui/Skeleton";
 
+/*
+  The skeleton is measured to the page it covers.
+
+  Every one of these used the default `max-w-300` while the screens behind them run at
+  220, 280 or 300 — so a placeholder was wider than its own content and the page visibly
+  narrowed the moment the data landed. A skeleton has to be the width of the thing it is
+  standing in for, or it is announcing a layout that never arrives.
+*/
 export default function Loading() {
-  return <CardsSkeleton kpis={4} panels={2} />;
+  return <CardsSkeleton kpis={4} panels={2} maxWidth="max-w-300" />;
 }

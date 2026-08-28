@@ -4,12 +4,15 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:clean": "rm -rf .next && next dev",
+    "dev:webpack": "next dev --webpack",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "test": "TZ=Europe/Belgrade vitest run",
-    "test:watch": "TZ=Europe/Belgrade vitest"
+    "test:watch": "TZ=Europe/Belgrade vitest",
+    "css:check": "node scripts/css-check.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.0",

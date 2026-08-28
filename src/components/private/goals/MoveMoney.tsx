@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 import type { AccountBalance } from "@/lib/data/money";
 import type { GoalLine } from "@/lib/types";
 import { caps, field } from "./shared";
+import { firstStepFor } from "./reading";
 import { toRsd } from "@/lib/money";
 import { fromRsd } from "@/lib/money/display";
 
@@ -117,13 +118,8 @@ export function MoveMoney({
     enough to move the bar off nothing, which is the whole job of the first one: turn
     0% into a number, because the second deposit is never the hard one.
   */
-  const firstStep = (() => {
-    if (goal.saved > 0 || target <= 0 || taking || moving) return 0;
-    const tenth = target / 10;
-    const step = tenth >= 10000 ? 5000 : tenth >= 2000 ? 1000 : tenth >= 500 ? 500 : 100;
-    const rounded = Math.max(Math.round(tenth / step) * step, step);
-    return rounded < target ? rounded : 0; // dinars; printed and filled in below
-  })();
+  // Same figure the collapsed card offers, from the same function.
+  const firstStep = taking || moving ? 0 : firstStepFor(target, goal.saved);
   /** What this goal is holding above its own target — the obvious thing to move. */
   const excess = needs !== null ? Math.max(goal.saved - target, 0) : 0;
 
@@ -134,7 +130,7 @@ export function MoveMoney({
   return (
     <form
       action={submit}
-      className="goal-move-panel border-t border-line-soft bg-white/[0.02] py-3 pr-4 pl-5"
+      className="goal-move-panel border-t border-line-soft bg-white/[0.02] py-4 pr-4 pl-5"
     >
       {moving ? (
         <input type="hidden" name="from_goal_id" value={goal.id} />
@@ -147,12 +143,12 @@ export function MoveMoney({
         </>
       )}
 
-      <div className="mb-2 flex items-center justify-between gap-2">
+      <div className="mb-3 flex items-center justify-between gap-2">
         {/* With nothing in the goal yet there is only one thing to do here, so the
             caption stays a caption rather than pretending to be a choice. */}
         {canTakeOut ? (
           <div
-            className="goal-money-toggle flex min-w-0 items-center gap-1"
+            className="goal-move-tabs flex min-w-0 items-center gap-1"
             role="group"
             aria-label={`What happens to money on ${goal.name}`}
           >
@@ -172,10 +168,19 @@ export function MoveMoney({
                   if (tab.key === "move" && !amount && excess > 0) setAmount(String(excess));
                 }}
                 aria-pressed={tab.on}
-                className={cn(
-                  "rounded-pill px-2 py-0.5 text-[10.5px] font-semibold uppercase tracking-wider transition-colors",
-                  tab.on ? "bg-active-bg text-gold-hi" : "text-faint hover:text-muted",
-                )}
+                /*
+                  A segmented control rather than three pills in a rounded trough.
+
+                  The old set announced itself: uppercase, letter-spaced, a border around
+                  the group and a filled pill on the active one — four devices to say
+                  which of three words is current. It read louder than the amount field
+                  under it, which is the control people actually came for.
+
+                  Now the group is flat, the words are sentence case at reading size, and
+                  the only mark of state is a hairline under the active one. Same job,
+                  one device instead of four.
+                */
+                className={cn("goal-move-tab", tab.on && "is-on")}
               >
                 {tab.label}
               </button>
@@ -197,9 +202,21 @@ export function MoveMoney({
         ) : null}
       </div>
 
-      <div className="flex items-center gap-2">
+      {/*
+        Amount, account and the button on one line.
+
+        They were three stacked blocks, and that stack was most of why an open card ran
+        two hundred pixels taller than a shut one — which is the whole reason the card
+        beside it was left with space nobody could fill. Laid out across instead of down,
+        opening a card costs roughly ninety pixels, and at that size the raggedness in
+        the row stops being something to design around.
+
+        The grid collapses to one column under 480px, where three controls across would
+        each be too narrow to use.
+      */}
+      <div className="goal-move-controls">
         {/* The amount and its currency are one control — the dinars are not a second question. */}
-        <div className="flex min-w-0 flex-1 items-center rounded-ctrl border border-line bg-white/[0.035] focus-within:border-gold focus-within:shadow-ring">
+        <div className="flex min-w-0 items-center rounded-ctrl border border-line bg-white/[0.035] focus-within:border-gold focus-within:shadow-ring">
           <MoneyField
             className="contents"
             name="amount"
@@ -213,17 +230,36 @@ export function MoveMoney({
             {code}
           </span>
         </div>
-        {/* Fixed width so "Adding…" does not shrink the control mid-submit. */}
+        {only || accounts.length === 0 ? (
+          <input type="hidden" name="account_id" value={only?.id ?? ""} />
+        ) : (
+          <select
+            name="account_id"
+            value={chosen}
+            onChange={(e) => setChosen(e.target.value)}
+            aria-label={taking ? "Account the money goes back to" : "Account the money comes off"}
+            className={cn(field, "w-full min-w-0 scheme-dark")}
+          >
+            {accounts.map((a) => (
+              <option key={a.id} value={a.id} className="bg-surface">
+                {taking ? "Back to" : "From"} {a.name}
+              </option>
+            ))}
+          </select>
+        )}
+
+        {/* Fixed width so "Saving…" does not shrink the control mid-submit. */}
         <Button
           type="submit"
           variant="secondary"
-          className="money-premium-button w-24 shrink-0 px-2 py-2 text-[12.5px]"
+          className="money-premium-button goal-move-submit w-24 shrink-0 px-2 text-[12.5px]"
           disabled={pending || beyondAccount}
         >
           {pending ? "Saving…" : moving ? "Move" : taking ? "Take out" : "Put aside"}
         </Button>
       </div>
 
+      {/* Only Move has a destination, and it takes the line under the controls. */}
       {moving && (
         <select
           name="to_goal_id"
@@ -239,36 +275,23 @@ export function MoveMoney({
         </select>
       )}
 
-      {only || accounts.length === 0 ? (
-        <input type="hidden" name="account_id" value={only?.id ?? ""} />
-      ) : (
-        <select
-          name="account_id"
-          value={chosen}
-          onChange={(e) => setChosen(e.target.value)}
-          aria-label={taking ? "Account the money goes back to" : "Account the money comes off"}
-          className={cn(field, "mt-2 w-full scheme-dark")}
-        >
-          {accounts.map((a) => (
-            <option key={a.id} value={a.id} className="bg-surface">
-              {taking ? "Back to" : "From"} {a.name}
-            </option>
-          ))}
-        </select>
-      )}
-
       {taking && (
         <p className="mt-2 text-[11px] text-faint">
           Holds {fmt(goal.saved)}. Taking it out frees it to spend again.
         </p>
       )}
 
+      {/*
+        One line instead of three. The long version explained that the money never
+        becomes spendable in transit — true, and the same sentence is already on the
+        panel at the top of this screen. Repeating it inside every card is what made
+        this mode tall.
+      */}
       {moving && (
-        <p className="mt-2 text-[11px] leading-relaxed text-faint">
+        <p className="mt-2 text-[11px] text-faint">
           Holds {fmt(goal.saved)}
-          {excess > 0 && <>, {fmt(excess)} of it above the target</>}. It leaves this goal
-          and lands on the other one the same day, on the same account — so it never passes
-          through being free to spend.
+          {excess > 0 && <>, {fmt(excess)} above target</>} · moves the same day, never
+          becoming free to spend.
         </p>
       )}
 

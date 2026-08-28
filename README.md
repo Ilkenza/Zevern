@@ -76,10 +76,25 @@ are not in this repo — is in [SETUP.md](SETUP.md).
 
 - Accounts, categories, a ledger, and monthly budgets that know what a normal month
   actually costs you.
-- Recurring items, including instalments and end dates, that walk real dates rather
-  than assuming twelve of everything a year.
-- Savings goals that hold real money out of the spendable balance.
+- Recurring items — instalments, end dates, and an anchor day, so rent due on the 28th
+  stays on the 28th instead of drifting to the month end every February.
+- Savings goals that hold real money out of the spendable balance, and that can be
+  aimed at a figure in euros or dollars rather than a dinar amount you converted once
+  and then watched go stale.
+- **Loans**, in both directions. Lending someone 10.000 is not spending — the money is
+  still yours, in their pocket. Taking a credit is not earning. Both used to be forced
+  into an expense or an income; they now have a shape of their own.
 - A 90-day forecast, and an `.ics` feed you can subscribe to from Google Calendar.
+
+**Money in more than one currency** — a base currency on the profile that every form
+starts on, a target currency per goal, and a display currency per recurring rule, so a
+subscription billed in dollars reads as "$27 a month" while every total stays in dinars.
+Each entry stores the rate it was booked at, so history never moves.
+
+**An export of everything** — Settings hands back every table the account owns as one
+file. It is listed table by table rather than discovered, so adding a table to the
+schema and forgetting it here shows up as a missing key somebody can inspect, not as
+silence.
 
 Any module you do not use can be switched off in Settings and disappears from the
 sidebar.
@@ -124,11 +139,13 @@ src/
     (auth)/       sign in, forgot, reset
     (print)/      printable invoice and quote
     api/calendar/ the .ics feed — the only unauthenticated route
+    api/export/   the account's data, behind the session
   components/     views and forms, grouped by module; ui/ holds the primitives
   lib/
     data/         every read
     supabase/     clients, the auth helper, error wording
-    money/        the private side's logic and reads
+    money/        the private side's pure logic — dates, currency, occurrences
+    export/       the account's whole data set, table by table
     seo/          fetch guard + analysis
 extension/zevern-leads/   Chrome extension (MV3)
 supabase/migrations/      numbered, forward-only, each explains why

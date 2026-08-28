@@ -16,6 +16,7 @@ import { PanelMeta, caps } from "./upcoming/ui";
 import { Row, Shortfall } from "./upcoming/TimelineRow";
 import { MonthHead, byMonth } from "./upcoming/months";
 import { NothingDue } from "./upcoming/NothingDue";
+import { NoIncome } from "./upcoming/NoIncome";
 import { BeyondHorizon } from "./upcoming/BeyondHorizon";
 
 export function UpcomingTimeline({
@@ -63,9 +64,20 @@ export function UpcomingTimeline({
     .filter((l) => l.source === "everyday")
     .reduce((sum, l) => sum + l.amount, 0);
 
+  const noIncome = forecast.windows.every((w) => w.income === 0);
+
   return (
     <>
-      {shortfall && low && (
+      {/*
+        A shortfall is only a shortfall when both sides have been entered.
+
+        `windows` carries the income the forecast actually found; if every horizon has
+        none, there is no income modelled at all and the falling line is arithmetic over
+        half the picture. The red banner stands down and says so instead — see `NoIncome`.
+      */}
+      {noIncome && <NoIncome />}
+
+      {!noIncome && shortfall && low && (
         <Shortfall
           line={shortfall}
           low={low}
@@ -85,7 +97,9 @@ export function UpcomingTimeline({
         crosses zero. That is what a column of dates cannot answer at a glance, and
         every figure it draws was already being computed and thrown away.
       */}
-      {lines.length > 0 && <ForecastCurve forecast={forecast} days={longest || 90} />}
+      {lines.length > 0 && (
+        <ForecastCurve forecast={forecast} days={longest || 90} outgoingOnly={noIncome} />
+      )}
 
       {/* Three zeroes above an empty timeline say nothing the empty state does not. */}
       {lines.length > 0 && (

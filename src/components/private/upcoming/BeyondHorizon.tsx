@@ -25,7 +25,7 @@ export function BeyondHorizon({ items, horizon }: { items: PlannedRow[]; horizon
           key={item.id}
           className="flex items-center gap-3 border-b border-line-soft px-4 py-2 last:border-b-0"
         >
-          <Marker source="planned" color={item.category?.color ?? null} />
+          <Marker source="planned" color={null} />
           <div className="min-w-0 flex-1">
             <div className="truncate text-[13px] font-medium text-ink">{item.name}</div>
             <div className="mono text-[11.5px] text-muted">

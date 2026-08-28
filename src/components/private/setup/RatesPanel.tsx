@@ -175,7 +175,8 @@ export function RatesPanel({ eur, usd, updatedOn }: { eur: number; usd: number; 
  * else is how the badge and the panel start disagreeing about the same date.
  */
 export function ratesBadge(updatedOn: string | null) {
-  const today = new Date().toISOString().slice(0, 10);
+  // Local, not UTC — otherwise fresh rates read as stale until 02:00 in Belgrade.
+  const today = todayISO();
   const stale = !updatedOn || updatedOn < today;
   return {
     status: (stale ? "draft" : "ok") as "draft" | "ok",

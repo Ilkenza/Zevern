@@ -19,11 +19,13 @@ import type { NavCounts } from "@/lib/nav";
  */
 export function AppShell({
   user,
+  greeting,
   counts,
   hidden = [],
   children,
 }: {
   user: ShellUser;
+  greeting: string;
   counts: NavCounts;
   hidden?: string[];
   children: React.ReactNode;
@@ -75,7 +77,12 @@ export function AppShell({
 
       {/* Main column */}
       <div className="flex min-h-screen flex-col">
-        <Topbar user={user} hidden={hidden} onMenu={() => setDrawerOpen(true)} />
+        <Topbar
+          user={user}
+          greeting={greeting}
+          hidden={hidden}
+          onMenu={() => setDrawerOpen(true)}
+        />
         <ViewTransition
           enter={{ "zv-forward": "zv-forward", "zv-back": "zv-back", default: "zv-in" }}
           exit={{ "zv-forward": "zv-forward", "zv-back": "zv-back", default: "zv-in" }}

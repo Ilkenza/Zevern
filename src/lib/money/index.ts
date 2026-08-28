@@ -4,6 +4,9 @@
  */
 
 export const CURRENCIES = ["RSD", "EUR", "USD"] as const;
+
+/** URL-safe value used when an expense deliberately has no category row to point at. */
+export const UNCATEGORIZED_CATEGORY_ID = "uncategorized";
 export type Currency = (typeof CURRENCIES)[number];
 
 export const CURRENCY_OPTIONS = CURRENCIES.map((c) => ({ value: c, label: c }));
@@ -112,6 +115,18 @@ export function monthProgress(key: string): number {
   return now.getDate() / days;
 }
 
+/**
+ * Days still to come in the month, today spent. Zero for any month but this one,
+ * which is what stops "for the rest of the month" advice appearing on a month that
+ * has no rest.
+ */
+export function daysLeftInMonth(key: string): number {
+  const now = new Date();
+  if (key !== monthKey(now)) return 0;
+  const days = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  return Math.max(days - now.getDate(), 0);
+}
+
 /* ------------------------------------------------------------- vocabulary */
 
 /**
@@ -119,7 +134,15 @@ export function monthProgress(key: string): number {
  * account — it does not leave, it stops being spendable. `withdraw` is the way back:
  * the goal gives the money up and it is free on that account again.
  */
-export const TX_KINDS = ["expense", "income", "transfer", "saving", "withdraw"] as const;
+export const TX_KINDS = [
+  "expense",
+  "income",
+  "transfer",
+  "saving",
+  "withdraw",
+  "loan_out",
+  "loan_in",
+] as const;
 export type TxKind = (typeof TX_KINDS)[number];
 
 export function isTxKind(value: string): value is TxKind {
@@ -131,12 +154,50 @@ export function isGoalKind(kind: string): boolean {
   return kind === "saving" || kind === "withdraw";
 }
 
+/**
+ * The two kinds that move money without earning or spending it.
+ *
+ * Named for the direction the cash went rather than for the story, because the story
+ * is on the loan and the ledger only has to say whether money arrived or left. Two
+ * words then cover all four movements: lending and repaying in one lump are both
+ * `loan_out`, taking a loan and being repaid are both `loan_in`.
+ *
+ * An instalment is deliberately not one of these — it is an ordinary expense that
+ * happens to carry a `loan_id`. A rate of 50.000 is 50.000 the month genuinely cannot
+ * spend elsewhere, and a budget that cannot see it promises room that is not there.
+ */
+export function isLoanKind(kind: string): boolean {
+  return kind === "loan_out" || kind === "loan_in";
+}
+
+/**
+ * What the entry form offers when you are making a new one.
+ *
+ * Five, and five is the number the row of buttons was drawn for. Two loan kinds went in
+ * and two goal kinds came out to make room, which is not a trade — it is a duplicate
+ * being dropped.
+ *
+ * Putting money aside already has a better home: the form inside each goal's own card,
+ * where the goal is chosen by opening it rather than found again in a second dropdown.
+ * Offering the same act here as well meant a worse version of it sitting permanently in
+ * front of everyone, including the people who have no goals at all.
+ *
+ * They stay in `TX_KIND_ALL` because an entry that already is one has to be able to say
+ * so while it is being edited.
+ */
 export const TX_KIND_OPTIONS: { value: TxKind; label: string }[] = [
   { value: "expense", label: "Expense" },
   { value: "income", label: "Income" },
+  { value: "transfer", label: "Transfer" },
+  { value: "loan_out", label: "Lent out" },
+  { value: "loan_in", label: "Borrowed" },
+];
+
+/** Every kind there is — the two goal movements included. */
+export const TX_KIND_ALL: { value: TxKind; label: string }[] = [
+  ...TX_KIND_OPTIONS,
   { value: "saving", label: "Put aside" },
   { value: "withdraw", label: "Take out" },
-  { value: "transfer", label: "Transfer" },
 ];
 
 export const ACCOUNT_KIND_OPTIONS = [
@@ -233,25 +294,48 @@ export function anchorDayFor(startOn: string, every: string): number | null {
  * lightness, which is what keeps a wall of category dots looking like one system
  * instead of a highlighter set — the eye should find the shape, not the loudest hue.
  */
+/*
+  Four are missing from this list on purpose.
+
+  `#de6b5e`, `#5fb88a`, `#d9a441` and `#8a909e` are `--color-danger`, `--color-ok`,
+  `--color-gold` and `--color-muted` exactly — the app's four state colours. They were
+  in here, and the seeded categories duly took three of them: Bills & utilities was
+  painted the same red that elsewhere means overspent, Groceries and Salary the same
+  green that means income. Anything a screen can colour to mean a state must not also
+  be available to mean a name.
+*/
 export const SWATCHES = [
-  "#de6b5e", "#d6885b", "#d9a441", "#c2b24a", "#8fb85f", "#5fb88a",
+  "#d6885b", "#c2b24a", "#8fb85f",
   "#4fb3b8", "#5b8fd6", "#7a86d6", "#a98bd6", "#c97fc0", "#d6759b",
-  "#b08968", "#8a909e", "#6b7185", "#c9c4bb",
+  "#b08968", "#6b7185", "#c9c4bb",
 ];
 
+/*
+  The seeded set, and the six colours that had to change.
+
+  Nothing draws a category's colour any more, so these are inert — but a seed that
+  writes values the palette above refuses is a contradiction waiting for whoever adds a
+  picker back. Three of them were state colours (Bills & utilities was danger, Groceries
+  and Salary were ok, Shopping and Freelance were gold), and two pairs were duplicates
+  of each other: Fun matched Subscriptions and Learning matched Transport, which is how
+  ten categories managed to spend only eight colours.
+
+  The ten expense colours are now distinct, and none of them is a state colour. The
+  three income ones may repeat an expense colour: they are never listed together.
+*/
 export const DEFAULT_CATEGORIES: { name: string; kind: "expense" | "income"; color: string }[] = [
-  { name: "Groceries", kind: "expense", color: "#5fb88a" },
+  { name: "Groceries", kind: "expense", color: "#8fb85f" },
   { name: "Eating out", kind: "expense", color: "#d6885b" },
   { name: "Transport", kind: "expense", color: "#5b8fd6" },
-  { name: "Bills & utilities", kind: "expense", color: "#de6b5e" },
+  { name: "Bills & utilities", kind: "expense", color: "#c97fc0" },
   { name: "Subscriptions", kind: "expense", color: "#a98bd6" },
   { name: "Health", kind: "expense", color: "#4fb3b8" },
-  { name: "Shopping", kind: "expense", color: "#d9a441" },
-  { name: "Fun", kind: "expense", color: "#a98bd6" },
-  { name: "Learning", kind: "expense", color: "#5b8fd6" },
-  { name: "Other", kind: "expense", color: "#8a909e" },
-  { name: "Salary", kind: "income", color: "#5fb88a" },
-  { name: "Freelance", kind: "income", color: "#d9a441" },
+  { name: "Shopping", kind: "expense", color: "#b08968" },
+  { name: "Fun", kind: "expense", color: "#d6759b" },
+  { name: "Learning", kind: "expense", color: "#7a86d6" },
+  { name: "Other", kind: "expense", color: "#6b7185" },
+  { name: "Salary", kind: "income", color: "#c2b24a" },
+  { name: "Freelance", kind: "income", color: "#c9c4bb" },
   { name: "Gift", kind: "income", color: "#a98bd6" },
 ];
 
@@ -278,10 +362,43 @@ export const DEFAULT_CATEGORIES: { name: string; kind: "expense" | "income"; col
  *    with the balance sitting next to it.
  *  - Money came in and it still went negative. That is the real one, and it is red.
  */
-export type NetNote = { text: string; tone: "danger" | "muted" } | null;
+export type NetNote = {
+  text: string;
+  tone: "danger" | "muted";
+  /** True when the fix is in Setup rather than in this month. */
+  setup?: boolean;
+} | null;
 
-export function monthNetNote(net: number, income: number): NetNote {
+/**
+ * Why the month is negative, in one line.
+ *
+ * Zero income is two entirely different situations and this used to say the same thing
+ * about both. Nothing on file anywhere is a gap in the setup and wants an action. Money
+ * simply not in yet, on a profile that gets paid on the 10th, is what every month looks
+ * like until the 10th — a fact, not a finding, and phrasing it as a warning teaches
+ * people to stop reading the line that will one day matter.
+ *
+ * `onFile` covers standing rules as well as bookings, so writing down the salary
+ * silences the setup prompt immediately rather than a month later.
+ */
+export function monthNetNote(net: number, income: number, onFile = true): NetNote {
   if (net >= 0) return null;
-  if (income <= 0) return { text: "No income logged this month", tone: "muted" };
+  if (income <= 0 && !onFile)
+    return { text: "Nothing on file as income yet", tone: "muted", setup: true };
+  if (income <= 0) return { text: "Nothing in yet this month", tone: "muted" };
   return { text: "More went out than came in", tone: "danger" };
 }
+
+/**
+ * What a wallet count means in ledger terms.
+ *
+ * Kept out of the action because this is the whole of the thinking and none of the
+ * plumbing, and because the two cases it has to get right are easy to get wrong in
+ * opposite directions: the count is typed in the account's own currency while the
+ * balance is carried in dinars, so a EUR cash tin counted at 40 is 40 EUR against a
+ * dinar figure — convert the wrong way and the app books a five-figure loss.
+ *
+ * `null` is "close enough": under a dinar apart is rounding, and rounding does not
+ * deserve a row in the ledger.
+ */
+export type CashDifference = { kind: "expense" | "income"; amount: number } | null;

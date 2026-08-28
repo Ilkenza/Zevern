@@ -36,7 +36,7 @@ export function ExportPanel() {
         <a
           href="/api/export?format=json"
           download
-          className={buttonClasses("primary", "zv-press zv-sheen")}
+          className={buttonClasses("primary", "zv-press")}
         >
           <Download className="h-4 w-4" />
           Download everything

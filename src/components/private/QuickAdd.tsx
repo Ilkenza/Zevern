@@ -40,6 +40,12 @@ export function QuickAdd({
 
   const visible = categories.filter((c) => c.kind === kind);
   const parsed = Number(amount.replace(",", ".")) || 0;
+  /*
+    "Bought it, do not know what it cost." An empty box is that answer and only that
+    answer — a typed `0` still means zero dinars and is still refused. Money coming in
+    always has a figure, so the case exists on the spending side alone.
+  */
+  const noPrice = kind === "expense" && amount.trim() === "";
   const rate = currency === "RSD" ? 1 : rateFor(currency, rates);
 
   /* Submitting inside a transition keeps the reset next to the save, so the
@@ -120,7 +126,7 @@ export function QuickAdd({
           onValueChange={setAmount}
           placeholder="0"
           autoFocus
-          required
+          required={kind !== "expense"}
           aria-label="Amount"
           inputClassName="mono w-full rounded-ctrl border border-line bg-white/[0.035] px-4 py-4 text-center text-[34px] font-semibold text-ink placeholder:text-faint focus:border-gold focus:shadow-ring focus:outline-none"
         />
@@ -157,10 +163,6 @@ export function QuickAdd({
                   : "border-line text-muted hover:text-ink",
               )}
             >
-              <span
-                className="mr-1.5 inline-block h-2 w-2 rounded-full align-middle"
-                style={{ background: c.color ?? "#565c6b" }}
-              />
               {c.name}
             </button>
           ))}
@@ -196,7 +198,13 @@ export function QuickAdd({
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           maxLength={80}
-          placeholder={kind === "income" ? "Where from? (optional)" : "What was it? (optional)"}
+          placeholder={
+            kind === "income"
+              ? "Where from? (optional)"
+              : noPrice
+                ? "What did you buy? (required — there is no price)"
+                : "What was it? (optional)"
+          }
           aria-label="Name"
           className="zv-field mt-3 w-full rounded-ctrl border border-line bg-white/[0.035] px-3 py-2.5 text-[13.5px] text-ink placeholder:text-faint focus:border-gold focus:shadow-ring focus:outline-none"
         />
@@ -209,11 +217,31 @@ export function QuickAdd({
 
         <button
           type="submit"
-          disabled={pending || parsed <= 0}
+          disabled={pending || (noPrice ? !title.trim() : parsed <= 0)}
           className={buttonClasses("primary", "mt-4 w-full py-3 text-[15px]")}
         >
-          {pending ? "Saving…" : saved ? "Saved" : "Save"}
+          {pending
+            ? "Saving…"
+            : saved
+              ? "Saved"
+              : noPrice
+                ? "Save without a price"
+                : "Save"}
         </button>
+
+        {/*
+          Only shown once the amount is actually empty, so the fast path — type the
+          figure, tap a category, done — never grows a line explaining a case it is not
+          in. Spelling out what "no price" costs you is worth it here: the entry does not
+          reach the budget until the figure does, and that should not be a surprise on
+          the 30th.
+        */}
+        {noPrice && (
+          <p className="mt-2 text-center text-[11.5px] text-muted">
+            Goes in with the name and the date. It counts for nothing until you add the
+            price — the overview keeps it in front of you.
+          </p>
+        )}
 
         {saved && (
           <p className="mt-2 flex items-center justify-center gap-1.5 text-[12.5px] font-semibold text-ok">

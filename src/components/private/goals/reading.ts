@@ -31,6 +31,29 @@ const DAYS_PER_MONTH = 30.44;
 /** With less history than this there is nothing honest to say about pace. */
 const MIN_HISTORY_DAYS = 14;
 
+/**
+ * The suggested opening deposit for a goal nothing has gone into yet.
+ *
+ * A tenth of the target, rounded to a figure a person would actually type — 5.000
+ * rather than 4.783. Ten percent is chosen because it is the smallest step that still
+ * reads as a real start; below that the progress bar does not visibly move and the
+ * suggestion feels like a token.
+ *
+ * Returns 0 when there is nothing to suggest: money is already in, there is no
+ * target, or the rounded step would be the whole goal.
+ *
+ * Lives here rather than in the form that used it because the card offers the same
+ * figure now, and two copies of this arithmetic would drift the day the rounding
+ * changes.
+ */
+export function firstStepFor(target: number, saved: number): number {
+  if (saved > 0 || target <= 0) return 0;
+  const tenth = target / 10;
+  const step = tenth >= 10000 ? 5000 : tenth >= 2000 ? 1000 : tenth >= 500 ? 500 : 100;
+  const rounded = Math.max(Math.round(tenth / step) * step, step);
+  return rounded < target ? rounded : 0;
+}
+
 /** A goal is open while it has not been closed — the same test the accounts apply. */
 export function isOpen(goal: GoalLine): boolean {
   return goal.completed_at === null;

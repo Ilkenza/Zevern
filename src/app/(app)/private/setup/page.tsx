@@ -1,5 +1,11 @@
 import { headers } from "next/headers";
-import { getAccountBalances, getCategories, getRates } from "@/lib/data/money";
+import {
+  getAccountBalances,
+  getCategories,
+  getRates,
+  getRecurring,
+  hasIncomeOnFile,
+} from "@/lib/data/money";
 import { getProfile } from "@/lib/data/profile";
 import { SetupView } from "@/components/private/SetupView";
 
@@ -21,13 +27,22 @@ async function currentOrigin(): Promise<string> {
 }
 
 export default async function PrivateSetupPage() {
-  const [accounts, categories, rates, profile, origin] = await Promise.all([
+  const [accounts, categories, rates, profile, rules, incomeOnFile, origin] = await Promise.all([
     getAccountBalances(),
     getCategories(),
     getRates(),
     getProfile(),
+    getRecurring(),
+    hasIncomeOnFile(),
     currentOrigin(),
   ]);
+
+  /*
+    Only what actually brings money in. A paused rule is a decision to stop counting on
+    it, and a goal rule moves money that is already yours — neither is an answer to
+    "what comes in".
+  */
+  const earning = rules.filter((r) => r.kind === "income" && r.active && r.goal_id == null);
 
   return (
     <SetupView
@@ -35,8 +50,9 @@ export default async function PrivateSetupPage() {
       categories={categories}
       rates={rates}
       ratesUpdatedOn={profile?.rates_updated_on ?? null}
-      customColors={profile?.custom_colors ?? []}
       calendarToken={profile?.calendar_token ?? null}
+      earning={earning}
+      incomeOnFile={incomeOnFile}
       origin={origin}
     />
   );

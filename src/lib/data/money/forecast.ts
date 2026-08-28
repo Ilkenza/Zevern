@@ -9,8 +9,10 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { userId } from "@/lib/supabase/current-user";
+import { todayISO } from "@/lib/format";
 import { monthRange, shiftMonth, toRsd } from "@/lib/money";
 import {
+  feedsGoal,
   nextDay,
   occurrencesFor,
   type Occurrence,
@@ -60,6 +62,136 @@ export type Forecast = {
   /** How many one-off planned items fall inside the window. */
   planned: number;
 };
+
+/**
+ * What leaves the accounts in the next few days, as one figure.
+ *
+ * The overview headlines "free to spend" and, until now, said nothing about the rent
+ * landing on Friday. A figure that ignores what is already committed is not wrong so
+ * much as encouraging: it invites you to spend money that has been spent.
+ *
+ * Outflow only, and deliberately. Money arriving on the 5th cannot be spent on the 3rd,
+ * so netting a salary off the total would put the headline right back where it was —
+ * describing money that is not there. Overdue items are in for the same reason: a bill
+ * whose date has passed unpaid is still money leaving.
+ *
+ * Goal transfers are out. They move money that is already yours between two labels on
+ * the same account, and `free` has taken them off once already.
+ *
+ * A tenth of what `getForecast` costs. That one lays every rule, plan and projection on
+ * a dated line and carries a running balance down it; this needs a sum, and the rules
+ * behind it are cached for the request either way.
+ */
+export type DueItem = {
+  /**
+   * The rule or planned row behind it. Not unique on its own — a weekly rule falls
+   * due twice inside a fortnight and lands here twice, so a list keys on the id and
+   * the date together.
+   */
+  id: string;
+  source: "recurring" | "planned";
+  name: string;
+  /** RSD. */
+  amount: number;
+  on: string;
+  category: string | null;
+  color: string | null;
+};
+
+export type DueSoon = {
+  days: number;
+  /**
+   * Today. A panel needs it to tell what is merely coming from what is already late,
+   * and working it out again on the screen would be a second clock to keep in step.
+   */
+  from: string;
+  /** RSD leaving in the window. */
+  total: number;
+  /** How many separate things make it up. */
+  count: number;
+  /**
+   * The part of `total` whose date has already gone by.
+   *
+   * Kept apart so a screen can name it without listing it. Those items are on the
+   * overview twice over — here as money leaving, and in "Due now" as rows waiting for
+   * a tap — and the same rent printed in two panels a hand's width apart reads as two
+   * rents. It stays inside `total` regardless: a bill nobody has booked has not left
+   * the account, so the money is still going.
+   */
+  overdue: number;
+  /** Soonest first, and within a day the largest first — what a panel prints. */
+  items: DueItem[];
+};
+
+export async function getDueSoon(days = 14): Promise<DueSoon> {
+  const supabase = await createClient();
+  const uid = await userId(supabase);
+  const from = todayISO();
+  const empty: DueSoon = { days, from, total: 0, count: 0, overdue: 0, items: [] };
+  if (!uid) return empty;
+
+  const horizonDate = new Date(`${from}T00:00:00Z`);
+  horizonDate.setUTCDate(horizonDate.getUTCDate() + days);
+  const horizon = horizonDate.toISOString().slice(0, 10);
+
+  const [rules, planned, rates, past] = await Promise.all([
+    getRecurring(),
+    getPlanned(),
+    getRates(),
+    recentBookings(supabase, uid),
+  ]);
+
+  const items: DueItem[] = [];
+
+  for (const rule of rules) {
+    if (!rule.active || rule.kind !== "expense" || feedsGoal(rule)) continue;
+    const estimate = estimateFor(rule, past, rates);
+    if (!estimate) continue;
+    for (const occ of occurrencesFor(rule, estimate.each, estimate.estimated, horizon, estimate.samples)) {
+      items.push({
+        id: occ.id,
+        source: "recurring",
+        name: occ.name,
+        amount: Math.round(occ.amount),
+        on: occ.on,
+        category: occ.category,
+        color: occ.color,
+      });
+    }
+  }
+
+  for (const p of planned) {
+    if (p.kind === "income" || p.due_on > horizon) continue;
+    items.push({
+      id: p.id,
+      source: "planned",
+      name: p.name,
+      amount: Math.round(toRsd(Number(p.amount) || 0, p.currency, rates)),
+      on: p.due_on,
+      category: p.category?.name ?? null,
+      color: p.category?.color ?? null,
+    });
+  }
+
+  /*
+    Dated order, and within one date the largest first.
+
+    A panel that shows the first few and links away for the rest is cutting this list,
+    so the cut has to fall somewhere defensible: the soonest things, and on a day when
+    three land together, the one worth knowing about. Sorting by date alone would have
+    the 1.200 subscription hide the 60.000 rent behind an "8 more" link.
+  */
+  items.sort((a, b) => (a.on < b.on ? -1 : a.on > b.on ? 1 : b.amount - a.amount));
+
+  return {
+    days,
+    from,
+    total: items.reduce((sum, i) => sum + i.amount, 0),
+    count: items.length,
+    overdue: items.reduce((sum, i) => (i.on < from ? sum + i.amount : sum), 0),
+    items,
+  };
+}
 
 /**
  * What is coming and what it leaves behind. Three things land on one line: every

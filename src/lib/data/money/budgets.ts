@@ -5,11 +5,92 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { userId } from "@/lib/supabase/current-user";
+import { todayISO } from "@/lib/format";
 import { monthKey, monthRange, shiftMonth } from "@/lib/money";
-import { median } from "@/lib/money/occurrences";
+import { median, occurrencesFor } from "@/lib/money/occurrences";
 import type { BudgetLine } from "@/lib/types";
-import { getBudgets, getCategories } from "./core";
+import {
+  estimateFor,
+  getBudgets,
+  getCategories,
+  getRates,
+  getRecurring,
+  recentBookings,
+} from "./core";
 import { getMonthSummary } from "./transactions";
+
+/**
+ * The dated charges in a month, per category: what has already booked, and what is
+ * still to come.
+ *
+ * This is the figure the pace model is built on. Everyday spending accrues with the
+ * days, so a few days of it honestly predict the rest; a bill does not accrue at all.
+ * It is one date and one amount, and both are known before the month starts. Told
+ * apart, the two can each be treated correctly. Left together, the linear
+ * extrapolation runs over the top of every fixed charge and the screen shouts on the
+ * 3rd of every month.
+ *
+ * What has booked is read from the entries rather than inferred: `postRecurring`
+ * writes `recurring_id` onto the transaction it creates, so the join is exact. What is
+ * still to come is walked out of the rules with the same `occurrencesFor` the forecast
+ * uses, which is what keeps a four-instalment credit from counting twelve times.
+ */
+async function fixedByCategory(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  uid: string,
+  month: string,
+): Promise<{ paid: Map<string, number>; due: Map<string, number> }> {
+  const { from, to } = monthRange(month);
+  const today = todayISO();
+  const paid = new Map<string, number>();
+  const due = new Map<string, number>();
+
+  const { data: booked } = await supabase
+    .from("money_transactions")
+    .select("category_id, amount_rsd")
+    .eq("user_id", uid)
+    .eq("kind", "expense")
+    .not("recurring_id", "is", null)
+    .gte("occurred_on", from)
+    .lte("occurred_on", to);
+
+  for (const row of booked ?? []) {
+    if (!row.category_id) continue;
+    paid.set(row.category_id, (paid.get(row.category_id) ?? 0) + (Number(row.amount_rsd) || 0));
+  }
+
+  // A finished month has nothing still to land in it.
+  if (to < today) return { paid, due };
+
+  const [rules, rates, past] = await Promise.all([
+    getRecurring(),
+    getRates(),
+    recentBookings(supabase, uid),
+  ]);
+
+  /*
+    A month still ahead counts only the charges dated inside it. The month being lived
+    also counts anything overdue: a bill whose date has passed unpaid has not stopped
+    being money that leaves this month, and dropping it would understate the ceiling by
+    exactly the amount most likely to break it.
+  */
+  const floor = from > today ? from : null;
+
+  for (const rule of rules) {
+    // A goal rule reserves money rather than spending it, and a rule with no category
+    // cannot be measured against a limit that hangs off one.
+    if (rule.goal_id != null || rule.kind !== "expense" || !rule.category_id) continue;
+    const estimate = estimateFor(rule, past, rates);
+    if (!estimate) continue;
+
+    for (const occ of occurrencesFor(rule, estimate.each, estimate.estimated, to, estimate.samples)) {
+      if (floor && occ.on < floor) continue;
+      due.set(rule.category_id, (due.get(rule.category_id) ?? 0) + occ.amount);
+    }
+  }
+
+  return { paid, due };
+}
 
 /** How many completed months a "typical month" is read from. */
 const BUDGET_HISTORY_MONTHS = 6;
@@ -35,7 +116,7 @@ export async function getBudgetLines(month = monthKey()): Promise<BudgetLine[]> 
   const from = monthRange(shiftMonth(month, -BUDGET_HISTORY_MONTHS)).from;
   const to = monthRange(shiftMonth(month, -1)).to;
 
-  const [categories, budgets, summary, history] = await Promise.all([
+  const [categories, budgets, summary, history, fixed] = await Promise.all([
     getCategories(),
     getBudgets(),
     getMonthSummary(month),
@@ -48,6 +129,9 @@ export async function getBudgetLines(month = monthKey()): Promise<BudgetLine[]> 
           .gte("occurred_on", from)
           .lte("occurred_on", to)
       : Promise.resolve({ data: [] as { category_id: string | null; amount_rsd: number | string | null; occurred_on: string }[] }),
+    uid
+      ? fixedByCategory(supabase, uid, month)
+      : Promise.resolve({ paid: new Map<string, number>(), due: new Map<string, number>() }),
   ]);
 
   const limitBy = new Map(budgets.map((b) => [b.category_id, Number(b.amount_rsd) || 0]));
@@ -78,6 +162,8 @@ export async function getBudgetLines(month = monthKey()): Promise<BudgetLine[]> 
         limit: limitBy.get(category.id) ?? 0,
         spent: spentBy.get(category.id) ?? 0,
         typical,
+        fixedPaid: Math.round(fixed.paid.get(category.id) ?? 0),
+        fixedDue: Math.round(fixed.due.get(category.id) ?? 0),
       };
     });
 }

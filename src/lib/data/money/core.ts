@@ -10,6 +10,7 @@
 import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { userId } from "@/lib/supabase/current-user";
+import { todayISO } from "@/lib/format";
 import { DEFAULT_RATES, toRsd, type Rates } from "@/lib/money";
 import type { Booking } from "@/lib/money/occurrences";
 import type {
@@ -88,7 +89,15 @@ export async function getBudgets(): Promise<MoneyBudget[]> {
   return data ?? [];
 }
 
-export async function getRecurring(): Promise<RecurringRow[]> {
+/*
+  Cached for the length of one request.
+
+  Three separate readers on the overview ask for the rules — what is due, what is due
+  soon, and what the forecast needs — and each was fetching the same rows plus the same
+  goals lookup behind them. React's `cache` collapses that to one round trip without
+  any caller having to know the others exist.
+*/
+export const getRecurring = cache(async (): Promise<RecurringRow[]> => {
   const supabase = await createClient();
   const uid = await userId(supabase);
   if (!uid) return [];
@@ -112,7 +121,7 @@ export async function getRecurring(): Promise<RecurringRow[]> {
     ...row,
     goal: row.goal_id ? (goalBy.get(row.goal_id) ?? null) : null,
   })) as RecurringRow[];
-}
+});
 
 /* ----------------------------------------------------------------- planned */
 
@@ -137,14 +146,14 @@ export async function getPlanned(includeSettled = false): Promise<PlannedRow[]> 
 
 /** Planned items that have come due and have not been dealt with either way. */
 export async function getPlannedDue(): Promise<PlannedRow[]> {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayISO();
   const all = await getPlanned();
   return all.filter((p) => p.due_on <= today);
 }
 
 /** Active recurring items that are due today or overdue — and not past their end date. */
 export async function getDueRecurring(): Promise<RecurringRow[]> {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayISO();
   const all = await getRecurring();
   return all.filter(
     (r) =>

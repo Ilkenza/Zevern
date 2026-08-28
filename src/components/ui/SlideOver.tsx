@@ -148,8 +148,14 @@ export function SlideOver({
         {/*
           The bottom padding clears the home indicator on a phone that has one, so the
           last control in a form is not sitting underneath it.
+
+          `zv-scroll-fade` puts a shadow under the header the moment there is anything
+          above the fold, and lifts it again at the top. Without it a long form simply
+          stopped at the header's hairline with no sign that it continued past it —
+          which on a panel this tall is the difference between a form you finish and one
+          you think you have finished.
         */}
-        <div className="ag-panel-body-in flex-1 overflow-y-auto overscroll-contain p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+        <div className="ag-panel-body-in zv-scroll-fade flex-1 overflow-y-auto overscroll-contain p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
           {children}
         </div>
       </div>

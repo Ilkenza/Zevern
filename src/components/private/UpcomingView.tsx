@@ -8,7 +8,7 @@ import { buttonClasses } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
 import type { Rates } from "@/lib/money";
 import type { Forecast, RecurringTotals } from "@/lib/data/money";
-import type {
+import type { LoanLine,
   MoneyAccount,
   MoneyCategory,
   MoneyGoal,
@@ -60,28 +60,25 @@ function Tab({
       href={href}
       aria-current={current ? "page" : undefined}
       className={cn(
-        "upcoming-tab inline-flex items-center justify-center gap-2 rounded-pill px-4 py-2 text-[13px] font-semibold",
-        current ? "upcoming-tab-on text-gold-hi" : "text-muted hover:text-ink",
+        "upcoming-tab inline-flex items-center gap-2 rounded-pill border px-3.5 py-1.5 text-[12.5px] font-semibold",
+        // The same three words the category chips, the workspace switch and the
+        // sidebar use for "this one": gold tint, gold text, gold hairline.
+        current
+          ? "upcoming-tab-on border-gold/40 bg-active-bg text-gold"
+          : "border-transparent text-muted hover:bg-white/4 hover:text-ink",
       )}
     >
-      {/*
-        The lit surface is its own element, not a background on the link.
-
-        Only the selected tab renders it, and it carries a view-transition name — so
-        when the other tab is clicked, the browser does not fade one pill out and
-        another in, it moves this one across. That single detail is the difference
-        between a segmented control that looks drawn and one that looks built; it is
-        what iOS, Linear and Framer all do, and the app already runs every navigation
-        inside a ViewTransition, so it costs one element and no JavaScript.
-      */}
-      {current && <span aria-hidden="true" className="upcoming-tab-surface" />}
       <Icon className="upcoming-tab-icon h-4 w-4" />
       <span className="upcoming-tab-label">{label}</span>
       {count > 0 && (
         <span
           className={cn(
-            "upcoming-tab-count mono inline-flex min-w-6 items-center justify-center rounded-pill px-2 py-0.5 text-[10.5px] font-semibold",
-            alert ? "bg-danger-bg text-danger" : "bg-white/6 text-faint",
+            "upcoming-tab-count mono inline-flex min-w-5 items-center justify-center rounded-pill px-1.5 py-0.5 text-[10.5px] font-semibold",
+            alert
+              ? "bg-danger-bg text-danger"
+              : current
+                ? "bg-gold/15 text-gold-hi"
+                : "bg-white/6 text-faint",
           )}
         >
           {count}
@@ -117,6 +114,8 @@ type UpcomingViewProps = {
       accounts: MoneyAccount[];
       categories: MoneyCategory[];
       goals: MoneyGoal[];
+      /** Open debts a rule can be the instalment plan of. */
+      loans: LoanLine[];
       panel: UpcomingPanel;
     }
 );
@@ -142,7 +141,7 @@ export function UpcomingView(props: UpcomingViewProps) {
   const closePlan = () => router.push(TIMELINE_HREF);
 
   return (
-    <div className="money-premium upcoming-premium mx-auto max-w-220 space-y-5">
+    <div className="money-premium upcoming-premium mx-auto max-w-300 space-y-5">
       <div className="money-page-head space-y-3.5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
@@ -174,7 +173,7 @@ export function UpcomingView(props: UpcomingViewProps) {
 
         <nav
           aria-label="Upcoming views"
-          className="upcoming-tabs inline-flex items-center gap-1.5 rounded-pill border border-line p-1.5"
+          className="upcoming-tabs inline-flex items-center gap-1 rounded-pill border border-line bg-white/[0.03] p-1"
         >
           <Tab
             href={TIMELINE_HREF}
@@ -219,6 +218,7 @@ export function UpcomingView(props: UpcomingViewProps) {
             accounts={rules.accounts}
             categories={rules.categories}
             goals={rules.goals}
+            loans={rules.loans}
           />
         </SlideOver>
       )}

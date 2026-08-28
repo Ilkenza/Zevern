@@ -3,13 +3,13 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Archive, PiggyBank, Plus, ArrowDownWideNarrow, ListOrdered } from "lucide-react";
+import { Archive, Plus, ArrowDownWideNarrow, ListOrdered } from "lucide-react";
 import { SlideOver } from "@/components/ui/SlideOver";
 import { Panel } from "@/components/ui/Panel";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { buttonClasses } from "@/components/ui/Button";
 
-import { useMoney } from "@/lib/money/currency";
+import { GoalIcon } from "@/components/icons/GoalIcon";
 import { cn } from "@/lib/utils";
 import type { OnHand } from "@/lib/data/money";
 import type { AccountBalance } from "@/lib/data/money";
@@ -36,7 +36,7 @@ function NoGoals() {
   return (
     <Panel className="money-empty-panel">
       <EmptyState
-        icon={PiggyBank}
+        icon={GoalIcon}
         title="Nothing being saved for yet"
         description="A goal is a name, an amount and — if you know it — a date. A laptop, a deposit, three months of rent in reserve."
         action={
@@ -75,7 +75,6 @@ export function GoalsView({
   panel: GoalsPanel;
   showArchived: boolean;
 }) {
-  const { fmt } = useMoney();
   const router = useRouter();
   const close = () => router.push(GOALS_HREF);
 
@@ -87,9 +86,7 @@ export function GoalsView({
   const open = goals.filter(isOpen);
   const closed = goals.filter((g) => !isOpen(g) && !g.archived);
   const archived = goals.filter((g) => !isOpen(g) && g.archived);
-  const openSaved = open.reduce((sum, goal) => sum + goal.saved, 0);
-  const openTarget = open.reduce((sum, goal) => sum + Math.max(Number(goal.target_rsd) || 0, 0), 0);
-  const reached = open.filter((goal) => Number(goal.target_rsd) > 0 && goal.saved >= Number(goal.target_rsd)).length;
+  // The totals these three lines produced now live in `Overall`, which draws them once.
 
   /*
     Two orders, because they answer two different questions.
@@ -100,6 +97,57 @@ export function GoalsView({
     goal with no target has nothing to be close to, so it sorts last either way.
   */
   const [order, setOrder] = useState<"mine" | "closest">("mine");
+
+  /*
+    One open card, held here rather than in each card.
+
+    A boolean inside every card would let you open ten and be back where we started —
+    a page of stacked forms. The identity of the open one lives with the list, so
+    opening a second closes the first, the way a set of accordions is supposed to work.
+  */
+  const [openId, setOpenId] = useState<string | null>(null);
+
+  /*
+    The card that is on its way out.
+
+    A disclosure that animates open and then vanishes on close is worse than one that
+    never animated at all — the two directions disagree, and the eye reads the close
+    as a glitch. Playing the exit means the form has to stay mounted while it plays,
+    so a second piece of state holds the id of whichever card is currently closing.
+
+    The timer is started in the click handler rather than in an effect. An effect
+    would be reacting to a change it already caused, and this codebase lints against
+    setting state from effects for exactly that reason. A click is a moment; this is
+    the moment.
+  */
+  const [closingId, setClosingId] = useState<string | null>(null);
+  const CLOSE_MS = 260;
+
+  const retire = (id: string) => {
+    setClosingId(id);
+    setTimeout(() => setClosingId((current) => (current === id ? null : current)), CLOSE_MS);
+  };
+
+  const toggle = (id: string) => {
+    if (openId === id) {
+      setOpenId(null);
+      retire(id);
+      return;
+    }
+    // Opening a second card closes the first, and the first still gets its exit.
+    if (openId) retire(openId);
+    setOpenId(id);
+  };
+
+  /*
+    And a page size, because there was none.
+
+    Every open goal was rendered, always. Thirty-eight goals is fifteen screens of
+    scrolling before the closed ones even start, and the tail of that list is goals
+    the owner has already decided are less important — the ordering above says so.
+  */
+  const PAGE = 10;
+  const [shown, setShown] = useState(PAGE);
   // No useMemo: the compiler handles this, and hand-written memoization here only
   // stopped it from optimising the component at all.
   const share = (g: GoalLine) => {
@@ -110,26 +158,40 @@ export function GoalsView({
 
 
   return (
-    <div className="money-premium money-goals mx-auto max-w-220 space-y-5">
+    <div className="money-premium money-goals mx-auto max-w-300 space-y-5">
       <div className="money-page-head goals-page-head flex flex-wrap items-end justify-between gap-5">
         <div className="min-w-0">
           <span className="money-page-kicker">Private wealth</span>
           <h1 className="mt-2 font-display text-[32px] font-extrabold tracking-[-1.2px] text-ink sm:text-[38px]">
             Goals
           </h1>
+          {/*
+            The subtitle says what the screen holds, not why goals are nice.
+
+            "Turn something you want into a plan you can reach. Create a goal and make
+            every contribution count." is landing-page copy: aspirational, true of any
+            savings feature ever built, and worth reading exactly once. On a screen you
+            open weekly it is two lines of furniture above the thing you came for.
+
+            What replaces it is the only sentence this page can write that no other page
+            can: money here is reserved, not moved. That is the single fact people get
+            wrong about goals, and the one worth spending a subtitle on.
+          */}
           <p className="mt-1 max-w-md text-[13px] leading-5 text-muted">
-            Turn something you want into a plan you can reach. Create a goal and make every contribution count.
+            Money put aside stays on the account — it just stops counting as free to
+            spend.
           </p>
         </div>
+        {/*
+          The four-figure strip that used to sit here is gone.
+
+          It said Active, Saved, Target and Reached — and two hundred pixels below it
+          the `Overall` panel said the same four numbers again, in sentences, plus the
+          one thing the strip could not: the equation that turns a balance into what
+          is actually free to spend. Two readouts of one fact is not redundancy the eye
+          forgives; it is the screen sounding unsure which one you should believe.
+        */}
         <div className="goals-head-side">
-          {goals.length > 0 && (
-            <div className="goals-head-stats" aria-label="Goals summary">
-              <span><small>Active</small><b>{open.length}</b></span>
-              <span><small>Saved</small><b className="mono">{fmt(openSaved)}</b></span>
-              <span><small>Target</small><b className="mono">{fmt(openTarget)}</b></span>
-              <span className={cn("goals-reached", reached === 0 && "is-none")}><small>Reached</small><b>{reached}</b></span>
-            </div>
-          )}
           <Link href={`${GOALS_HREF}?new=1`} className={buttonClasses("primary", "money-premium-button shrink-0")}>
             <Plus className="h-4 w-4" />
             New goal
@@ -165,8 +227,61 @@ export function GoalsView({
             </div>
           )}
 
-          <div className="money-card-grid grid gap-3 sm:grid-cols-2">
-            {ordered.map((goal, i) => (
+          {/*
+            A grid, top-aligned.
+
+            Two independent stacks were tried and reverted. They do solve the gap —
+            only the open card's own column moves — but they only *look* like a grid
+            while every card is the same height, and the cards are not: one carries an
+            extra line for a target set in euros, another has no target date, a third
+            has no target at all. One extra line at the top of a stack shifts
+            everything under it, so within a screen or two the two columns are visibly
+            out of step. Alignment is what a grid is for, and giving it up to avoid one
+            gap was the wrong trade.
+
+            Top-aligned, and this is where five attempts landed.
+
+            Five designs were built for the empty half a stretched card leaves: a bare
+            emblem, an emblem on a radial wash, an emblem in a progress dial, an emblem
+            in a seal, and the seal reproportioned. Every one was rejected on sight, and
+            the last three were built after it was already clear why. Writing it down so
+            the sixth does not get built:
+
+            The space cannot be furnished because there is nothing true to put in it. A
+            goal at zero knows four things and all four are already printed above. Any
+            graphic placed there is therefore decoration standing in for content, and it
+            reads as such however well it is drawn — as a spinner, a badge, a button, a
+            watermark that wandered. The drawing was never the problem.
+
+            So the space goes. The long way round to that:
+
+            Stretching keeps a square bottom line across the row, at the cost of leaving
+            the shorter card with a large empty area inside it. Three separate designs
+            were built to make that area look deliberate — a plain emblem, an emblem on
+            a radial wash, and an emblem inside a progress dial — and all three were
+            rejected on sight. That is not three unlucky attempts; it is the same answer
+            three times. A big graphic standing in a void is decoration standing in for
+            content, and it reads as such no matter how well it is drawn.
+
+            So the void goes instead of being furnished. A card is only ever as tall as
+            what is in it, and the space beside a taller neighbour is page. Empty page
+            between cards is architecture — every card grid with variable content looks
+            like that. Empty space inside a card is a card that failed to load, because
+            a card is an object that claims to be full.
+
+            This is cheap to reverse — remove `items-start` — but do not reach for the
+            emblem again without a new idea. That one is spent.
+          */}
+          {/*
+            Wider between the rows than between the columns, deliberately.
+
+            Two cards side by side are one row of the same thing and want to read as a
+            pair; two cards stacked are separate items and want a beat between them.
+            Equal gaps in both directions make a wall of cards read as a mesh — the eye
+            has no reason to group left-with-right rather than top-with-bottom.
+          */}
+          <div className="money-card-grid grid items-start gap-x-3 gap-y-5 sm:grid-cols-2">
+            {ordered.slice(0, shown).map((goal, i) => (
               <GoalCard
                 key={goal.id}
                 goal={goal}
@@ -176,14 +291,27 @@ export function GoalsView({
                 first={i === 0}
                 last={i === ordered.length - 1}
                 reorderable={order === "mine" && ordered.length > 1}
+                expanded={openId === goal.id}
+                closing={closingId === goal.id}
+                onToggle={() => toggle(goal.id)}
               />
             ))}
           </div>
 
+          {ordered.length > shown && (
+            <button
+              type="button"
+              onClick={() => setShown((n) => n + PAGE)}
+              className="goal-archive-link flex w-full items-center justify-center gap-1.5 rounded-card border border-line bg-surface px-4 py-2.5 text-[12px] font-semibold text-muted transition-colors hover:text-ink"
+            >
+              Show {Math.min(PAGE, ordered.length - shown)} more of {ordered.length}
+            </button>
+          )}
+
           {open.length === 0 && (
             <Panel className="goal-secondary-panel">
               <EmptyState
-                icon={PiggyBank}
+                icon={GoalIcon}
                 title="Nothing being saved for right now"
                 description="Every goal has been closed. Start another one, or reopen one below."
                 action={

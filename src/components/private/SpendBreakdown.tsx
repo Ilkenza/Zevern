@@ -4,6 +4,8 @@ import Link from "next/link";
 
 import type { MoneyCategory } from "@/lib/types";
 import { useMoney } from "@/lib/money/currency";
+import { UNCATEGORIZED_CATEGORY_ID } from "@/lib/money";
+import { CAT_REST, catTone } from "@/lib/money/tone";
 
 /**
  * Where the month's money went.
@@ -12,13 +14,34 @@ import { useMoney } from "@/lib/money/currency";
  * question that actually changes behaviour, and the one the ledger below can only
  * answer by being read line by line.
  *
- * Bars are scaled to the largest category rather than to the total, because the
- * comparison worth making is between categories. Scaled to the total, a month split
- * evenly across nine categories draws nine stubs and tells you nothing.
+ * Bars are the share of the month, which is what the figure at the end of the row says
+ * too — and that agreement is the whole point. They used to be scaled to the largest
+ * category instead, on the argument that the comparison worth making is between
+ * categories. The argument does not survive the column next to it: a bar drawn at full
+ * width beside the number "55%" is a chart contradicting its own caption, and of the
+ * two the caption is the one people believe.
+ *
+ * The old reasoning also cut both ways. A month split evenly across nine categories
+ * draws nine stubs on a total scale — and nine identical full-length bars on a peak
+ * scale, which says just as little and looks confident about it.
+ *
+ * Strength follows rank, the same gold at the same steps the overview's band uses, so
+ * the two screens draw one month in one language.
  *
  * Each row is a filter: the ledger underneath is one click from showing only that
  * category, which is the natural next question after seeing a number you did not
  * expect.
+ *
+ * A capped category says its cap here too. The panel used to answer how much a
+ * category cost and stay silent on whether that was more than you meant — an answer
+ * that lived on the Budgets screen, one navigation away from the only moment anybody
+ * wants it. It is one number on the end of a figure that was already being printed.
+ *
+ * The cap does not get a bar of its own. The bar in this row is measured against the
+ * largest category, and a second bar measured against a limit would be two scales
+ * stacked in one row — which is how a chart starts lying quietly. What the limit
+ * changes is the colour: past it, the figure and the fill both go red, and that reads
+ * from across the room.
  */
 
 const SHOWN = 8;
@@ -29,12 +52,15 @@ export function SpendBreakdown({
   total,
   month,
   activeCategory,
+  limits,
 }: {
   byCategory: { id: string; spent: number }[];
   categories: MoneyCategory[];
   total: number;
   month: string;
   activeCategory?: string;
+  /** Monthly cap per category id, for the ones that have one. */
+  limits?: Record<string, number>;
 }) {
   const { fmt } = useMoney();
   const nameById = new Map(categories.map((c) => [c.id, c]));
@@ -46,10 +72,17 @@ export function SpendBreakdown({
 
   if (rows.length === 0 || total <= 0) return null;
 
-  const shown = rows.slice(0, SHOWN);
-  const rest = rows.slice(SHOWN);
+  // Uncategorized must remain findable even when it is the month's ninth-smallest
+  // group. Hiding it under "smaller categories" leaves no route to clean those entries.
+  const uncategorized = rows.find((row) => row.id === UNCATEGORIZED_CATEGORY_ID);
+  const categorized = rows.filter((row) => row.id !== UNCATEGORIZED_CATEGORY_ID);
+  const shown = [
+    ...categorized.slice(0, uncategorized ? SHOWN - 1 : SHOWN),
+    ...(uncategorized ? [uncategorized] : []),
+  ].sort((a, b) => b.spent - a.spent);
+  const shownIds = new Set(shown.map((row) => row.id));
+  const rest = rows.filter((row) => !shownIds.has(row.id));
   const restTotal = rest.reduce((sum, r) => sum + r.spent, 0);
-  const peak = shown[0].spent;
 
   return (
     <section className="breakdown">
@@ -60,10 +93,11 @@ export function SpendBreakdown({
 
       <div className="breakdown-rows">
         {shown.map((row, index) => {
-          const share = Math.round((row.spent / total) * 100);
-          const name = row.category?.name ?? "Uncategorised";
-          const color = row.category?.color ?? "var(--color-faint)";
+          const isUncategorized = row.id === UNCATEGORIZED_CATEGORY_ID;
+          const name = isUncategorized ? "Uncategorized" : row.category?.name ?? "Unknown category";
           const on = activeCategory === row.id;
+          const limit = limits?.[row.id] ?? 0;
+          const over = limit > 0 && row.spent > limit;
           return (
             <Link
               key={row.id}
@@ -78,18 +112,36 @@ export function SpendBreakdown({
                 on ? `Clear the ${name} filter` : `Show only ${name} in the entries below`
               }
             >
-              <span className="breakdown-name">
-                <i style={{ background: color }} aria-hidden />
-                {name}
-              </span>
+              {/*
+                No dot. The name is written right there — a coloured mark beside a word
+                that already says which category this is was decoration, and decoration
+                that had run out of distinct colours to be.
+              */}
+              <span className="breakdown-name">{name}</span>
               <span className="breakdown-track" aria-hidden>
                 <span
                   className="breakdown-fill money-progress-segment"
-                  style={{ width: `${(row.spent / peak) * 100}%`, background: color }}
+                  style={{
+                    width: `${(row.spent / total) * 100}%`,
+                    /*
+                      One tone for every category, and red for exactly one thing.
+
+                      This bar used to take the category's own colour — which is how
+                      Bills & utilities, stored as the danger red itself, ended up
+                      indistinguishable from a category that had blown its limit.
+                    */
+                    background: over
+                      ? "var(--color-danger)"
+                      : isUncategorized
+                        ? "var(--color-muted)"
+                        : catTone(index),
+                  }}
                 />
               </span>
-              <span className="mono breakdown-amount">{fmt(row.spent)}</span>
-              <span className="mono breakdown-share">{share}%</span>
+              <span className={`mono breakdown-amount${over ? " is-over" : ""}`}>
+                {fmt(row.spent)}
+                {limit > 0 && <i>/ {fmt(limit)}</i>}
+              </span>
             </Link>
           );
         })}
@@ -97,17 +149,15 @@ export function SpendBreakdown({
         {rest.length > 0 && (
           <div className="breakdown-row breakdown-rest">
             <span className="breakdown-name">
-              <i style={{ background: "var(--color-faint)" }} aria-hidden />
               {rest.length} smaller {rest.length === 1 ? "category" : "categories"}
             </span>
             <span className="breakdown-track" aria-hidden>
               <span
                 className="breakdown-fill"
-                style={{ width: `${(restTotal / peak) * 100}%`, background: "var(--color-faint)" }}
+                style={{ width: `${(restTotal / total) * 100}%`, background: CAT_REST }}
               />
             </span>
             <span className="mono breakdown-amount">{fmt(restTotal)}</span>
-            <span className="mono breakdown-share">{Math.round((restTotal / total) * 100)}%</span>
           </div>
         )}
       </div>

@@ -196,6 +196,7 @@ export type Database = {
           kind: string
           name: string
           opening_balance: number
+          overview_rank: number | null
           sort: number
           user_id: string
         }
@@ -209,6 +210,7 @@ export type Database = {
           kind?: string
           name: string
           opening_balance?: number
+          overview_rank?: number | null
           sort?: number
           user_id?: string
         }
@@ -222,6 +224,7 @@ export type Database = {
           kind?: string
           name?: string
           opening_balance?: number
+          overview_rank?: number | null
           sort?: number
           user_id?: string
         }
@@ -291,6 +294,42 @@ export type Database = {
           kind?: string
           name?: string
           sort?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      money_loans: {
+        Row: {
+          created_at: string
+          direction: string
+          id: string
+          name: string
+          note: string | null
+          opened_on: string
+          settled_on: string | null
+          total_rsd: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          direction?: string
+          id?: string
+          name: string
+          note?: string | null
+          opened_on?: string
+          settled_on?: string | null
+          total_rsd?: number
+          user_id?: string
+        }
+        Update: {
+          created_at?: string
+          direction?: string
+          id?: string
+          name?: string
+          note?: string | null
+          opened_on?: string
+          settled_on?: string | null
+          total_rsd?: number
           user_id?: string
         }
         Relationships: []
@@ -415,6 +454,7 @@ export type Database = {
       }
       money_recurring: {
         Row: {
+          loan_id: string | null
           account_id: string | null
           active: boolean
           amount: number
@@ -436,6 +476,7 @@ export type Database = {
           variable: boolean
         }
         Insert: {
+          loan_id?: string | null
           account_id?: string | null
           active?: boolean
           amount?: number
@@ -457,6 +498,7 @@ export type Database = {
           variable?: boolean
         }
         Update: {
+          loan_id?: string | null
           account_id?: string | null
           active?: boolean
           amount?: number
@@ -496,9 +538,10 @@ export type Database = {
       }
       money_transactions: {
         Row: {
+          loan_id: string | null
           account_id: string | null
-          amount: number
-          amount_rsd: number
+          amount: number | null
+          amount_rsd: number | null
           category_id: string | null
           created_at: string
           currency: string
@@ -514,8 +557,9 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          loan_id?: string | null
           account_id?: string | null
-          amount: number
+          amount?: number | null
           category_id?: string | null
           created_at?: string
           currency?: string
@@ -531,8 +575,9 @@ export type Database = {
           user_id?: string
         }
         Update: {
+          loan_id?: string | null
           account_id?: string | null
-          amount?: number
+          amount?: number | null
           category_id?: string | null
           created_at?: string
           currency?: string

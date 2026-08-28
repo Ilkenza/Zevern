@@ -43,6 +43,21 @@
   */
   --color-held: #b3903f;
 
+  /*
+    Spending, as a ledger convention rather than an alarm.
+
+    `--color-danger` was the obvious candidate and it is the wrong one. Danger already
+    means something on these screens — a balance gone under, a budget breached, a charge
+    that failed — and expenses are most of the rows in most months. Paint eighty per cent
+    of a list in the colour that means "look at this" and it stops meaning it; the one
+    row that should have stopped you reads as more of the same.
+
+    So: the same hue, two thirds of the saturation. hsl(9 39% 59%) against danger's
+    hsl(6 66% 62%) — close enough to be family, far enough that the hot one still lands.
+    5.0:1 on `--color-surface`, which clears AA at the 13.5px it is set in.
+  */
+  --color-spend: #c07a6e;
+
   /* Status (background tints) */
   --color-ok-bg: rgba(95, 184, 138, 0.14);
   --color-active-bg: rgba(217, 164, 65, 0.15);
@@ -63,8 +78,22 @@
 
   /* Focus: one ring, defined once, used by fields and controls alike. */
   --color-focus-ring: rgba(217, 164, 65, 0.18);
-  --shadow-ring: 0 0 0 1px var(--color-gold), 0 0 0 4px var(--color-focus-ring);
-  --shadow-ring-danger: 0 0 0 1px var(--color-danger), 0 0 0 4px var(--color-danger-bg);
+  /*
+    The focus ring, and why it is one line rather than two.
+
+    It was `0 0 0 1px gold, 0 0 0 4px focus-ring` — laid over a border that turns gold
+    at the same moment. So a focused field carried two solid gold pixels touching each
+    other and read as a 2px stroke: at the size these fields are drawn that is not
+    emphasis, it is a highlighter, and it made the field being typed into the loudest
+    object on a screen full of money.
+
+    One crisp pixel — the border, which the field already owns — with a soft halo
+    around it says the same thing at a quarter of the weight. The halo widened from 3px
+    of visible spread to 3px of its own so the ring is still unmistakable for anyone
+    tabbing through the form.
+  */
+  --shadow-ring: 0 0 0 3px var(--color-focus-ring);
+  --shadow-ring-danger: 0 0 0 3px var(--color-danger-bg);
 
   /* Fonts (CSS vars set by next/font in layout.tsx) */
   --font-display: var(--font-bricolage), "Manrope", sans-serif;
@@ -76,12 +105,72 @@ html {
   -webkit-text-size-adjust: 100%;
 }
 
+/* Jumping to a section from the index used to teleport, which loses the reader — the
+   page changes completely with no indication of which way it went. Honoured only
+   where motion is welcome. */
+@media (prefers-reduced-motion: no-preference) {
+  html { scroll-behavior: smooth; }
+}
+
+/* Makes `auto` an interpolable length, so a disclosure can animate from `height: 0`
+   to its natural height without JavaScript measuring anything. Inherited, so it is
+   declared here rather than on the element that animates; browsers without it simply
+   snap open — nothing breaks, only the motion is lost. */
+html { interpolate-size: allow-keywords; }
+
 body {
   background: var(--color-base);
   color: var(--color-ink);
   font-family: var(--font-ui);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+}
+
+/*
+  Grain and a vignette, over the whole application.
+
+  Flat #0c0e12 is mathematically clean and nothing your eye has ever looked at is —
+  which is why a large dark surface in a browser reads as cheap while the same colour
+  on paper or film does not. A fine tiled noise at three percent puts a surface under
+  everything, and a very slight darkening toward the corners keeps the eye in the
+  middle of the screen.
+
+  Both are fixed to the viewport rather than sitting on a panel, so neither can ever
+  form an edge, spill onto the shell, or scroll out of alignment with what it covers.
+  A grain layer scoped to one box was tried and it produced exactly that: a grey
+  rectangle with four visible sides. Full-bleed is the only way this works.
+*/
+body::before,
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* The vignette sits under the interface — it is the room the app is in, not a filter
+   over it, so panels and overlays are never darkened at their corners. */
+body::before {
+  z-index: 0;
+  background: radial-gradient(120% 90% at 50% 42%, transparent 52%, rgba(0, 0, 0, 0.34) 100%);
+}
+
+/* The grain sits over everything, including overlays — film is on the print, not
+   under it. */
+body::after {
+  z-index: 60;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 160px 160px;
+  opacity: 0.032;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  body::before,
+  body::after { animation: grain-in 900ms ease 200ms both; }
+}
+
+@keyframes grain-in {
+  from { opacity: 0; }
 }
 
 /*
@@ -126,6 +215,27 @@ body {
     0 0 0 2px var(--color-base),
     0 0 0 3px var(--color-gold),
     0 0 0 6px var(--color-focus-ring);
+}
+
+/*
+  Selected text.
+
+  The default is the browser's blue, and there is no blue anywhere in this app — it
+  arrives looking like a system dialogue opened on top of the page. The same gold at
+  the strength a highlighter would be.
+*/
+::selection {
+  /*
+    Solid, not a wash.
+
+    A translucent gold over a dark surface does not read as gold — it reads as brown,
+    and the number under it goes muddy. Which you see constantly here, because the
+    quantity field selects itself the moment the stepper opens. Opaque gold with the
+    dark ink the app already uses on gold buttons is the same colour doing the job
+    properly: a highlighter, legible at a glance, and unmistakably this app's.
+  */
+  background: var(--color-gold);
+  color: var(--color-on-gold);
 }
 
 /* Figures: money, invoice numbers, dates, IDs — column-aligned */
@@ -235,22 +345,435 @@ body {
   pointer-events: none;
 }
 
-.money-page-head {
+/* ==========================================================================
+   The masthead.
+
+   Working dashboards put a 40px strip at the top and get out of the way, and for
+   what they are that is right. This wants the other thing — the craft an award site
+   spends everywhere, spent here in the one place a working instrument can afford it.
+   The head is the only display moment on the screen; everything below stays plain,
+   fast and boring on purpose.
+
+   Nothing here is drawn. No rule under the title, no plate, no card.
+   ========================================================================== */
+
+/* ==========================================================================
+   The head.
+
+   Left: the name of the month, what the page is for, and the switcher. Right: the
+   month's own number with the primary action under it. Two columns, four cells —
+   and being cells is the point. For eight versions the numeral was absolutely
+   positioned, so it knew nothing about the button beside it and every repair was an
+   offset guessed for one window width. Grid cells reserve each other's room, and
+   overlap stops being something to tune.
+
+   Nothing is drawn anywhere in here: no rule, no plate, no border. What separates
+   the head from the page is light and space.
+   ========================================================================== */
+
+.masthead {
   position: relative;
-  min-height: 116px;
-  padding: 8px 0 22px;
-  border-bottom: 1px solid var(--color-line);
-  animation: money-head-in 640ms var(--ease-premium) both;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 18px 40px;
+  padding: 16px 0 34px;
 }
 
-.money-page-head::after {
+/*
+  One light in the head, and it is the cool one behind the title.
+
+  The warm halo that sat around the numeral is gone. It was doing the same work as the
+  page's own corner glow two hundred pixels above it — two warm sources in one
+  quadrant read as one badly-shaped source, and the lower half of it spilled into the
+  empty space under the numeral where there is nothing to light.
+
+  What is left is the fill: a cool, very weak source behind the title on the left. You
+  are not meant to see it as light. You see it as the title having something behind it
+  instead of hanging on flat black, while the warm key stays where it always was — the
+  page's own glow, in the top right corner.
+
+  The containment rule is unchanged, and it is arithmetic rather than intent: every
+  stop that is not transparent must land inside the box on every side,
+  `centre ± (radius × transparent-stop)`.
+
+      horizontal  12 ± (17 × 0.42) =  5% … 19%   ✓
+      vertical    44 ± (33 × 0.42) = 30% … 58%   ✓
+
+  Everything that ever drew a line in this head broke that rule. Nothing that keeps it
+  can.
+*/
+.masthead::before {
   content: "";
   position: absolute;
+  z-index: -1;
+  inset: 0;
+  background:
+    radial-gradient(
+      17% 33% at 12% 44%,
+      rgba(206, 222, 255, 0.042) 0%,
+      rgba(206, 222, 255, 0.014) 20%,
+      transparent 42%
+    );
+  animation: head-light-in 1100ms var(--ease-premium) both;
+}
+
+@keyframes head-light-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/*
+  Nothing on the right, and that is the decision.
+
+  Three things were tried in this space — a lattice of dots, a blurred conic sheen,
+  and gold-tinted film grain — and all three failed the same way, because all three
+  answered the same wrong question. The brief was "there is empty space on the right,
+  put something in it", and the honest answer is that the empty space was never the
+  problem. A hollow numeral standing on clean black is the whole idea; anything laid
+  behind it competes with the one mark the head is built around.
+
+  The grain was the clearest failure and the most instructive. Sampled in a canvas it
+  looked correct — exact gold, alpha fading to zero at every edge, no seam. On the
+  actual screen it read as a stain: gold at 13% over near-black is not tooth in paper,
+  it is dirt, and a 440px field behind a 156px glyph surrounds the mark instead of
+  supporting it. Measuring the right thing is not the same as measuring the thing that
+  matters.
+
+  So the right column holds the numeral and nothing else. If something ever goes back
+  here it has to be earned by carrying information, the way `/12` earned its place —
+  not by filling a gap.
+*/
+
+.masthead-say { min-width: 0; }
+
+/*
+  The kicker carries state, not a place name.
+
+  It read "Private · Overview", which the sidebar already says twice over — Private is
+  the selected workspace and Overview is the highlighted item. State is the only thing
+  this line can add that is not already on the screen: whether the month you are
+  looking at is still running, closed, or has not started.
+*/
+.masthead-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  animation: money-head-in 600ms var(--ease-premium) 80ms both;
+}
+
+/* A lit bead for a month still running, an unlit one for a month that is done. The
+   smallest possible piece of gold, which is why it can be gold at all. */
+.masthead-kicker i {
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.masthead-kicker.is-live {
+  color: var(--color-gold-hi);
+}
+
+.masthead-kicker.is-live i {
+  background: radial-gradient(circle at 35% 30%, #ffe6ae, var(--color-gold) 70%);
+  box-shadow:
+    0 0 0 3px rgba(217, 164, 65, 0.1),
+    0 0 12px rgba(217, 164, 65, 0.75);
+}
+
+.masthead-title {
+  display: flex;
+  margin-top: 12px;
+  font-family: var(--font-display);
+  font-size: clamp(34px, 4.4vw, 54px);
+  font-weight: 800;
+  letter-spacing: -2.2px;
+  line-height: 1;
+  color: var(--color-ink);
+}
+
+/*
+  Three facts, none of them on a card below.
+
+  Separated by dots rather than by punctuation you have to read: they are a list, not
+  a sentence, and a list of three reads faster as three things than as a clause.
+*/
+.masthead-blurb {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  margin-top: 12px;
+  color: var(--color-muted);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  animation: money-head-in 620ms var(--ease-premium) 200ms both;
+}
+
+.masthead-blurb > * { position: relative; white-space: nowrap; }
+
+/* A dot between items, and nothing at either end. A dot has no ends, so it can never
+   become a rule. */
+.masthead-blurb > * + * { padding-left: 14px; }
+
+.masthead-blurb > * + *::before {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 50%;
+  width: 3px;
+  height: 3px;
+  margin-top: -1.5px;
+  border-radius: 999px;
+  background: rgba(217, 164, 65, 0.45);
+}
+
+/* Colour means something on this line: white is where you are, gold is spending more
+   or something waiting on you, green is spending less. */
+.masthead-blurb .is-up { color: var(--color-gold-hi); font-weight: 600; }
+.masthead-blurb .is-down { color: var(--color-ok); font-weight: 600; }
+
+/*
+  The one item on this line that is a door.
+
+  It is a link, so it says so — but at this size an underline is a line across the
+  head, and this page has spent a lot of effort not having those. Instead the door
+  brightens on hover and its dot goes with it. Nothing moves.
+*/
+.masthead-blurb .is-door {
+  text-decoration: none;
+  transition: color 200ms ease;
+}
+
+.masthead-blurb .is-door:hover { color: #f3d79a; }
+.masthead-blurb .is-door:hover::before { background: var(--color-gold-hi); }
+
+.masthead-say .money-month-nav { margin-top: 18px; }
+
+/*
+  The denominator is context, not a second number: a quarter of the size, filled
+  rather than stroked so it does not compete with the outline, and on the same
+  baseline.
+*/
+.masthead-num i {
+  -webkit-text-stroke: 0;
+  color: rgba(217, 164, 65, 0.34);
+  font-size: 0.19em;
+  font-style: normal;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+/*
+  Hollow, in the mono face — both of those are glyph decisions, not style ones.
+
+  Filled was tried and it reads as a large gold number: it takes the eye before the
+  month's name does, which is backwards. Stroked, it stays a mark.
+
+  The face matters because a stroked glyph is only as good as its contours. Bricolage
+  draws its 8 as two overlapping loops, so the outline crossed itself in an X at the
+  waist; Manrope leaves two small notches at the same joint. Spline Sans Mono draws
+  one continuous outer contour with two clean counters — a single unbroken line at any
+  size, which is the only reason this can be hollow at all.
+*/
+.masthead-num {
+  justify-self: end;
+  /*
+    Centred against the left block, not hung from the top of the grid.
+
+    With `align-items: start` the numeral began at the row's top edge while the left
+    column began with a 10px kicker, so two things that start at the same pixel looked
+    unaligned — the eye levels large type by its optical centre, not by its box.
+  */
+  align-self: center;
+  animation: money-head-in 640ms var(--ease-premium) 260ms both;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 2px;
+  color: transparent;
+  font-family: var(--font-mono);
+  /*
+    The size is what closes the void, not a move.
+
+    Centred against a left block roughly 210px tall, a 104px numeral leaves about
+    fifty pixels of nothing above it and fifty below — and a gap that is *equal* on
+    both sides reads as an accident, because nothing in the layout explains why it is
+    there. The instinct is to fill it with something. That is the dashboard instinct
+    and it is wrong: what makes the head read as expensive is that one mark is allowed
+    to be enormous, not that every square is used.
+
+    So the mark grows into the space instead. At this size it stands nearly the full
+    height of the left column, the two blocks read as one band, and the leftover air is
+    a margin rather than a hole. The stroke stays hair-fine on purpose — the bigger a
+    hollow glyph gets, the thinner its outline should be, or it stops being a drawing
+    and becomes a heavy gold number again.
+  */
+  /*
+    Stepped back from 156px, because the page now has an answer on it.
+
+    At 156px this was the largest thing on the screen, which was correct while the
+    head was the only display moment. It is not correct any more: `Available to spend`
+    is the figure the page exists to give, and two enormous marks in one column is two
+    things claiming to be the point. The numeral goes back to being what it always
+    was — a mark saying which month you are looking at — and the money is bigger.
+  */
+  font-size: clamp(62px, 6.6vw, 96px);
+  font-weight: 600;
+  /*
+    Positive tracking, which is the opposite of what a display numeral usually wants.
+
+    Filled type at this size gets tightened — the counters are solid, so the eye reads
+    the block and negative tracking makes it denser. A *stroked* glyph is the reverse
+    case: the outline puts ink on both sides of every stem, so each figure is visually
+    wider than its advance width by twice the stroke. At -0.045em the 0 and the 8 were
+    literally touching at the waist, two separate outlines merging into one shape.
+  */
+  letter-spacing: 0.012em;
+  line-height: 0.78;
+  -webkit-text-stroke: 1.5px rgba(217, 164, 65, 0.32);
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+}
+
+@media (max-width: 720px) {
+  .masthead { grid-template-columns: minmax(0, 1fr); gap: 16px 0; padding: 14px 0 26px; }
+  .masthead-num { justify-self: start; font-size: 64px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .masthead::before,
+  .masthead-kicker,
+  .masthead-blurb,
+  .masthead-num,
+  .rv-i { animation: none; opacity: 1; }
+}
+
+/* ==========================================================================
+   The hero figure.
+
+   Deliberately not a card. The three KPIs below it are cards, and if this were one
+   too it would read as a fourth KPI that happens to be bigger — which is precisely
+   the flat hierarchy it exists to fix. It is a band: wider gutters, no sibling beside
+   it, and the only warm surface on the page that is not a hover state.
+   ========================================================================== */
+
+.money-hero {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px 32px;
+  isolation: isolate;
+  overflow: hidden;
+  padding: 20px 24px 22px;
+  border: 1px solid rgba(217, 164, 65, 0.14);
+  border-radius: var(--radius-card);
+  background:
+    radial-gradient(96% 150% at 2% 0%, rgba(217, 164, 65, 0.075), transparent 56%),
+    var(--color-surface);
+  animation: money-card-in 660ms var(--ease-premium) 90ms both;
+}
+
+.money-hero-main {
+  min-width: 260px;
+  flex: 1 1 520px;
+}
+
+.money-hero-accounts {
+  flex: 0 1 310px;
+  min-width: min(100%, 240px);
+}
+
+.money-hero-accounts.is-empty {
+  flex-basis: auto;
+  min-width: 0;
+}
+
+.money-hero-label {
+  display: block;
+  color: var(--color-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+/*
+  Larger than a KPI by a clear step, not by a nudge.
+
+  A KPI value is 24px. Anything between about 28 and 34 here would read as "the same
+  card, slightly emphasised" and change nothing about where the eye lands first. The
+  gap has to be big enough that the ranking is obvious before you have read a word.
+*/
+.money-hero-figure {
+  margin-top: 8px;
+  color: var(--color-ink);
+  font-family: var(--font-mono);
+  font-size: clamp(34px, 4.2vw, 52px);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Owing more than you hold is the one state that has to be unmistakable. */
+.money-hero-figure.is-short { color: var(--color-danger); }
+
+.money-hero-note {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  margin-top: 12px;
+  color: var(--color-muted);
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.money-hero-note > * { position: relative; white-space: nowrap; }
+.money-hero-note > * + * { padding-left: 14px; }
+.money-hero-note > * + *::before {
+  content: "";
+  position: absolute;
+  top: 50%;
   left: 0;
-  bottom: -1px;
-  width: 84px;
-  height: 1px;
-  background: linear-gradient(90deg, var(--color-gold), transparent);
+  width: 3px;
+  height: 3px;
+  border-radius: 999px;
+  background: rgba(217, 164, 65, 0.5);
+  transform: translateY(-50%);
+}
+
+.money-hero-note a { color: var(--color-gold-hi); text-decoration: none; transition: color 200ms ease; }
+.money-hero-note a:hover { color: #f3d79a; }
+.money-hero-note .is-quiet { color: var(--color-faint); }
+
+/*
+  What a bank has a claim on.
+
+  Not danger — a credit is not an error, and colouring it red would make the one screen
+  people open every morning shout at them about a decision they already made. Not the
+  same gold as the rest of the line either: that gold is money you hold, and this is the
+  part of it that is somebody else's. The spend tone, because that is where it is going.
+*/
+.money-hero-note .is-owed { color: var(--color-spend); }
+.money-hero-note .is-owed:hover { color: #d69a88; }
+
+@media (max-width: 640px) {
+  .money-hero { padding: 16px 16px 18px; }
+  .money-hero-main,
+  .money-hero-accounts { width: 100%; min-width: 0; flex-basis: 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .money-hero { animation: none; }
 }
 
 .money-page-kicker {
@@ -285,12 +808,18 @@ body {
 
 .money-summary-panel:hover::after { transform: translateX(105%); }
 
+/*
+  These are the KPI cards on the private screens — the ones the drifting light was
+  meant for. The work went into `.overview-kpi` first, which is the freelance side, so
+  this half of the app was left with a border that changed colour and nothing else.
+*/
 .money-card-premium {
+  position: relative;
+  overflow: hidden;
   transition:
-    transform 420ms var(--ease-premium),
-    border-color 320ms ease,
-    box-shadow 420ms ease,
-    background-color 320ms ease;
+    border-color 420ms var(--ease-premium),
+    box-shadow 480ms var(--ease-premium),
+    background-color 420ms ease;
   animation: money-card-in 650ms var(--ease-premium) both;
 }
 
@@ -300,24 +829,17 @@ body {
 .money-card-grid > :nth-child(4) { animation-delay: 330ms; }
 .money-card-grid > :nth-child(n + 5) { animation-delay: 400ms; }
 
-.money-card-premium::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background: radial-gradient(circle at 82% 0%, rgba(217, 164, 65, 0.08), transparent 34%);
-  opacity: 0;
-  transition: opacity 360ms ease;
-  pointer-events: none;
-}
-
+/*
+  `Kpi` stamps `overview-kpi` on every card it renders, so a private KPI carries both
+  this class and that one — and the two were setting the same properties from two
+  places, with whichever sat lower in the file quietly winning. One owner now:
+  `.overview-kpi` draws the card, and this class is the entrance plus the panels that
+  are not KPIs.
+*/
 .money-card-premium:hover {
-  transform: translateY(-4px);
-  border-color: rgba(217, 164, 65, 0.26);
-  box-shadow: 0 20px 46px rgba(0, 0, 0, 0.24);
+  border-color: rgba(217, 164, 65, 0.24);
+  box-shadow: 0 20px 46px rgba(0, 0, 0, 0.26);
 }
-
-.money-card-premium:hover::after { opacity: 1; }
 
 .money-progress-fill,
 .money-progress-segment {
@@ -339,28 +861,24 @@ body {
     background-color 220ms ease;
 }
 
-.money-premium-button::after {
-  content: "";
-  position: absolute;
-  top: -120%;
-  bottom: -120%;
-  left: -30%;
-  width: 24px;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.42), transparent);
-  transform: skewX(-18deg) translateX(-60px);
-  opacity: 0;
-}
+/*
+  `money-premium-button` no longer sweeps, and this is the second sweep to go.
 
+  The first lived on the button variants and was removed on the same argument: a band
+  crossing a control is decoration on the smallest surface in the app. This one survived
+  the cull because it is a separate class, added per call site on the money screens — so
+  `New goal`, `Add`, `Put aside` kept a white shine nobody had asked for, and the removal
+  looked like it had not worked.
+
+  Worth the note: a treatment applied through a second, optional class is a treatment
+  that outlives the decision to drop it.
+
+  What the class keeps is the shadow on hover. That is depth, not an event.
+*/
 .money-premium-button:hover {
-  transform: translateY(-2px);
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.22);
 }
 
-.money-premium-button:hover::after {
-  opacity: 1;
-  transform: skewX(-18deg) translateX(260px);
-  transition: transform 720ms var(--ease-premium), opacity 140ms ease;
-}
 
 /* ------------------------------------------------------- Money: month switcher */
 .money-month-nav {
@@ -392,9 +910,6 @@ body {
   color: var(--color-ink);
 }
 
-.money-month-arrow:first-of-type:hover { transform: translateX(-2px); }
-.money-month-arrow:last-of-type:hover { transform: translateX(2px); }
-
 /* The way back to the month you are actually living in. */
 .money-month-back {
   display: inline-flex;
@@ -413,7 +928,6 @@ body {
 
 .money-month-back:hover {
   background: rgba(217, 164, 65, 0.24);
-  transform: translateX(-1px);
 }
 
 /* --------------------------------------------------------- Money: what you have */
@@ -528,7 +1042,6 @@ body {
 .onhand-accounts > :nth-child(n + 4) { animation-delay: 380ms; }
 
 .onhand-account:hover {
-  transform: translateX(-2px);
   border-color: rgba(217, 164, 65, 0.26);
   background: rgba(255, 255, 255, 0.045);
 }
@@ -572,15 +1085,8 @@ body {
     transform 260ms var(--ease-premium);
 }
 
-.money-chip:hover { transform: translateY(-1px); border-color: rgba(217, 164, 65, 0.3); }
+.money-chip:hover { border-color: rgba(217, 164, 65, 0.3); }
 .money-chip-on { box-shadow: 0 0 0 1px rgba(217, 164, 65, 0.14); }
-
-.money-chip-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  opacity: 0.85;
-}
 
 /* A raised bar rather than a tint, so a day reads as a section and not a stripe. */
 .money-day-head { background: var(--color-surface-2); }
@@ -615,7 +1121,6 @@ body {
 }
 
 .money-row:hover .money-row-spine {
-  transform: scaleY(1.18);
   filter: brightness(1.3) saturate(1.1);
 }
 
@@ -812,6 +1317,36 @@ body {
   text-wrap: balance;
 }
 
+/*
+  The move, under the verdict.
+
+  Quieter than the sentence above it on purpose: the verdict is the finding and this is
+  the footnote that acts on it. Same relationship the suggestion chip has to a row —
+  dashed, tinted, clearly an offer rather than a statement of fact.
+
+  A flat tint is fine here in a way it is not on a segmented control: this is a panel
+  on a surface, not a key in a groove, so there is no raised object for the gold to
+  muddy. It is held at 8% all the same — an alarm this thing is not.
+*/
+.budget-remedy {
+  width: 100%;
+  margin-top: 0.7rem;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid color-mix(in srgb, var(--color-gold) 20%, transparent);
+  border-radius: var(--radius-ctrl);
+  background: rgba(217, 164, 65, 0.08);
+  text-align: center;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--color-muted);
+  text-wrap: balance;
+}
+
+.budget-remedy b {
+  color: var(--color-gold-hi);
+  font-weight: 700;
+}
+
 /* ------------------------------------------------------- Budgets: the figures */
 
 .budget-figures {
@@ -857,14 +1392,14 @@ body {
 .budget-figure-value.is-ok { color: var(--color-ok); }
 .budget-figure-value.is-gold { color: var(--color-gold-hi); }
 
-/* The spending nothing is watching — stated plainly rather than buried in a row. */
+/* Spending without limits is a valid choice, so this is context rather than a warning. */
 .budget-untracked {
   width: 100%;
   margin-top: 1rem;
   padding: 0.7rem 0.8rem;
-  border: 1px solid color-mix(in srgb, var(--color-gold) 24%, transparent);
+  border: 1px solid var(--color-line);
   border-radius: var(--radius-ctrl);
-  background: var(--color-active-bg);
+  background: rgba(255, 255, 255, 0.025);
   font-size: 11.5px;
   line-height: 1.5;
   color: var(--color-muted);
@@ -875,7 +1410,7 @@ body {
   margin-bottom: 0.15rem;
   font-size: 14px;
   font-weight: 700;
-  color: var(--color-gold-hi);
+  color: var(--color-ink);
 }
 
 .budget-entries-link {
@@ -918,9 +1453,24 @@ body {
   white-space: nowrap;
 }
 
+/*
+  Columns, so the bar stays a length the eye can judge.
+
+  One card per row was right when the screen was 880px wide and the list sat under the
+  summary. It is not right beside a 20.5rem summary at 1200px: the card becomes an
+  850px band and the bar inside it a 700px hairline. A bar that long is worse at its
+  one job, not better — proportion is read by holding both ends at once, and at 700px
+  the eye cannot. The pace tick at 84% ends up 590px from the start, which is a
+  measurement rather than a glance.
+
+  `auto-fill` rather than a breakpoint: the number of columns follows the space the
+  list actually has, which is the column width minus a summary whose size is set in
+  rem and a sidebar that may yet change.
+*/
 .budget-cards {
   display: grid;
   gap: 0.6rem;
+  grid-template-columns: repeat(auto-fill, minmax(23rem, 1fr));
 }
 
 /* ---------------------------------------------------------- Budgets: one card */
@@ -936,6 +1486,21 @@ body {
 .budget-card {
   position: relative;
   overflow: hidden;
+  /*
+    The card answers to its own width, not the window's.
+
+    The rules that stack the money block used to live in `@media (max-width: 640px)`,
+    which was correct while the list was one column: card width and viewport width rose
+    and fell together. The two-column layout at 1024px broke that. On a 1024px viewport
+    the sidebar takes 260px and the padding 64px, so the list column is about 352px —
+    a card narrow enough to need stacking, in a window far too wide to trigger it. The
+    result was the state the comment further down this file describes as fixed: `of`
+    adrift in the middle of the card with a gap on either side.
+
+    A container query asks the only question that was ever meant: how much room does
+    this card have. It is then correct at every window size and at any column count.
+  */
+  container: budget-card / inline-size;
   padding: 0.85rem 1rem 0.85rem 1.15rem;
   border: 1px solid var(--color-line);
   border-radius: var(--radius-card);
@@ -948,7 +1513,6 @@ body {
 }
 
 .budget-card:hover {
-  transform: translate3d(0, -1px, 0);
   border-color: color-mix(in srgb, var(--cat-tone) 34%, var(--color-line));
   background: color-mix(in srgb, var(--cat-tone) 4%, var(--color-surface));
 }
@@ -997,7 +1561,6 @@ body {
 }
 
 .budget-card:hover .budget-card-dot {
-  transform: scale(1.4);
   filter: brightness(1.25);
 }
 
@@ -1028,6 +1591,18 @@ body {
   align-items: center;
   gap: 0.4rem;
   margin-left: auto;
+}
+
+/*
+  On one line the figures sit at the right end together. Wrapped onto their own line
+  they were spread edge to edge by `space-between`, which put "of" adrift in the middle
+  of the card with a gap on either side. The amount and the word belong to each other;
+  only the field goes to the far side.
+*/
+@container budget-card (max-width: 30rem) {
+  .budget-card-money { width: 100%; margin-left: 0; }
+  .budget-card-field { margin-left: auto; }
+  .budget-card-input { width: 5rem; }
 }
 
 .budget-card-spent {
@@ -1096,6 +1671,19 @@ body {
   margin-top: 0.7rem;
 }
 
+/* On the narrowest cards the bar keeps the full row and its verdict moves below it.
+   Squeezing both onto one line is what made "0 RSD left" escape through the edge. */
+@container budget-card (max-width: 23rem) {
+  .budget-card-money { gap: 0.3rem; }
+  .budget-card-input { width: 4.25rem; }
+  .budget-card-bottom {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.5rem;
+  }
+  .budget-card-left { justify-self: end; }
+}
+
 /* ----------------------------------------------------------- Budgets: the bar */
 
 .budget-bar {
@@ -1122,21 +1710,6 @@ body {
   to { transform: scaleX(1); }
 }
 
-/*
-  The month marker, on the bar as well as on the ring. Drawn over the fill so it stays
-  visible once spending passes it — which is the moment it matters most.
-*/
-.budget-bar-pace {
-  position: absolute;
-  top: -3px;
-  bottom: -3px;
-  width: 2px;
-  border-radius: 1px;
-  background: var(--color-ink);
-  opacity: 0.55;
-  animation: zv-fade 400ms ease-out 800ms both;
-}
-
 .budget-card-left {
   flex: none;
   font-size: 11.5px;
@@ -1146,6 +1719,7 @@ body {
 }
 
 .budget-card-left.is-over { color: var(--color-danger); }
+.budget-card-left.is-reached { color: var(--color-gold-hi); }
 
 .budget-card-nolimit {
   font-size: 11.5px;
@@ -1244,7 +1818,7 @@ body {
 .budget-savebar-undo:hover { color: var(--color-ink); }
 
 @media (max-width: 640px) {
-  .money-page-head { min-height: 0; padding-top: 0; }
+  .money-page-head { min-height: 0; padding: 16px 16px; }
   .money-premium::before { right: -150px; opacity: 0.7; }
   /*
     On one line the figures sit at the right end together. Wrapped onto their own
@@ -1252,10 +1826,8 @@ body {
     the middle of the card with a gap on either side. The amount and the word belong
     to each other; only the field goes to the far side.
   */
-  .budget-card-money { width: 100%; margin-left: 0; }
-  .budget-card-field { margin-left: auto; }
-  .budget-card-input { width: 5rem; }
   .budget-summary { padding: 1.25rem 1rem 1rem; }
+  .budget-cards { grid-template-columns: minmax(0, 1fr); }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1266,7 +1838,6 @@ body {
   .budget-ring-tick,
   .budget-ring-centre,
   .budget-bar-fill,
-  .budget-bar-pace,
   .budget-savebar {
     animation: none !important;
     opacity: 1;
@@ -1284,9 +1855,6 @@ body {
   .budget-suggest,
   .budget-entries-link,
   .budget-savebar-undo { transition: none; }
-
-  .budget-card:hover,
-  .budget-card:hover .budget-card-dot { transform: none; }
 }
 
 /* Overview — executive dashboard treatment. */
@@ -1395,9 +1963,9 @@ body {
   box-shadow: 0 18px 45px rgba(0, 0, 0, 0.12);
   animation: money-card-in 620ms var(--ease-premium) both;
   transition:
-    transform 420ms var(--ease-premium),
-    border-color 320ms ease,
-    box-shadow 420ms ease;
+    border-color 380ms var(--ease-premium),
+    background 380ms var(--ease-premium),
+    box-shadow 380ms var(--ease-premium);
 }
 
 .overview-kpi-grid > :nth-child(1) { animation-delay: 110ms; }
@@ -1416,28 +1984,94 @@ body {
   transition: width 500ms var(--ease-premium);
 }
 
+/*
+  It was a drawn circle, and it was not staying in its own card.
+
+  A 130px ring parked at `right: -34px` on a card that never clipped anything hung out
+  past the edge and landed in the middle of the card beside it — which is the arc you
+  could see crossing a label it had nothing to do with. And a hard 1px circle is the
+  wrong instrument anyway: it is a shape competing with a figure, in a card whose whole
+  job is the figure. Same corner, same warmth, no geometry: light pooling under the
+  bottom-right, clipped to the card it belongs to.
+*/
+.overview-kpi { overflow: hidden; }
+
 .overview-kpi::after {
   content: "";
   position: absolute;
-  right: -34px;
-  bottom: -52px;
-  width: 130px;
-  height: 130px;
-  border: 1px solid rgba(217, 164, 65, 0.07);
+  right: -20%;
+  bottom: -60%;
+  width: 78%;
+  padding-bottom: 78%;
   border-radius: 50%;
-  box-shadow: 0 0 0 18px rgba(217, 164, 65, 0.018);
-  transition: transform 600ms var(--ease-premium), border-color 320ms ease;
+  background: radial-gradient(circle, rgba(217, 164, 65, 0.11), transparent 62%);
+  transform-origin: 70% 80%;
+  will-change: opacity, transform;
+  transition: background 420ms ease, opacity 520ms var(--ease-premium);
+  animation:
+    zv-kpi-glow-in 1500ms var(--ease-premium) both,
+    zv-kpi-glow 22s ease-in-out infinite;
   pointer-events: none;
 }
 
-.overview-kpi:hover {
-  transform: translateY(-4px) rotateX(1deg);
-  border-color: rgba(217, 164, 65, 0.25);
-  box-shadow: 0 24px 58px rgba(0, 0, 0, 0.22);
+/*
+  Four cards, four phases.
+
+  The same loop on all of them would breathe the row in unison, and a row of things
+  pulsing together is a progress bar — the eye locks onto the rhythm and cannot let go.
+  Offsetting each card by a few seconds against a 22-second cycle means no two are ever
+  at the same point, so the row never has a beat. The delays are prime-ish gaps rather
+  than even quarters for the same reason the two head lights are 18s and 26s: even
+  spacing is itself a pattern.
+*/
+.overview-kpi-grid > :nth-child(1)::after,
+.money-card-grid > :nth-child(1)::after { animation-delay: 140ms, 0s; }
+.overview-kpi-grid > :nth-child(2)::after,
+.money-card-grid > :nth-child(2)::after { animation-delay: 205ms, -5s; }
+.overview-kpi-grid > :nth-child(3)::after,
+.money-card-grid > :nth-child(3)::after { animation-delay: 270ms, -13s; }
+.overview-kpi-grid > :nth-child(4)::after,
+.money-card-grid > :nth-child(4)::after { animation-delay: 335ms, -8s; }
+
+@keyframes zv-kpi-glow-in {
+  from { opacity: 0; transform: scale(0.7); }
+  to { opacity: 1; transform: scale(1); }
 }
 
-.overview-kpi:hover::before { width: 100%; }
-.overview-kpi:hover::after { transform: scale(1.08); border-color: rgba(217, 164, 65, 0.14); }
+@keyframes zv-kpi-glow {
+  0% { opacity: 0.65; transform: translate3d(0, 0, 0) scale(1); }
+  50% { opacity: 1; transform: translate3d(-7%, -4%, 0) scale(1.18); }
+  100% { opacity: 0.65; transform: translate3d(0, 0, 0) scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .overview-kpi::after { animation: none; opacity: 0.85; transform: none; }
+}
+
+/*
+  A hover you can actually see.
+
+  It was a 1px border going from 8% white to 25% gold, plus a shadow that mostly falls
+  below the card — on a dark screen, at a glance, nothing. Four things change together
+  now and none of them is geometry: the surface lifts a shade, a gold ring appears
+  around the whole edge, the shadow deepens, and the pool of light in the corner warms.
+*/
+.overview-kpi:hover {
+  border-color: rgba(217, 164, 65, 0.2);
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.045), transparent 54%),
+    var(--color-surface-2);
+  box-shadow: 0 26px 60px rgba(0, 0, 0, 0.34);
+}
+/*
+  The pool warms rather than growing — nothing on this card changes size. It stays in
+  its corner too: at 0.26 it was bright enough to be read as a smudge sitting in the
+  middle of the card rather than as light falling from the edge.
+*/
+.overview-kpi:hover::after {
+  background: radial-gradient(circle, rgba(217, 164, 65, 0.17), transparent 60%);
+  opacity: 1;
+}
 
 .overview-panel {
   position: relative;
@@ -1599,7 +2233,6 @@ body {
 }
 
 .attention-chip:hover {
-  transform: translateY(-1px);
   background: rgba(255, 255, 255, 0.055);
 }
 
@@ -1709,28 +2342,131 @@ body {
   .attention-arrow { transition: none; }
 }
 
-/*
-  Hooks the markup already reached for and the stylesheet never answered. Each one
-  earns its place rather than being deleted: the chip row wants to arrive with the
-  rest of the screen, and a row that is over its limit deserves a rail the colour of
-  the verdict its own badge is wearing.
-*/
-/*
-  Sixteen categories wrapped into five rows of pills on a phone — a filter taller than
-  the list it filters, and the first thing between you and your own entries. Below the
-  fold-width it stays one row and scrolls sideways instead; from md up there is room to
-  wrap and it goes back to being a block.
-*/
-.money-chips {
-  overflow-x: auto;
-  scrollbar-width: none;
+/* One compact rail no matter how many categories exist. */
+.money-chip-rail {
+  --money-chip-fade: 58px;
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) 30px;
+  align-items: center;
+  gap: 7px;
   animation: money-head-in 560ms var(--ease-premium) 200ms both;
 }
 
-.money-chips::-webkit-scrollbar { display: none; }
+.money-chips {
+  display: flex;
+  min-width: 0;
+  gap: 0.375rem;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scroll-snap-type: inline proximity;
+  scrollbar-width: none;
+}
 
-@media (min-width: 768px) {
-  .money-chips { overflow-x: visible; }
+.money-chips::-webkit-scrollbar { display: none; }
+.money-chips .money-chip { scroll-snap-align: start; }
+
+/* Fade only the chips. The page texture remains untouched, so no dark block appears. */
+.money-chip-rail.has-start-fade .money-chips {
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    rgba(0, 0, 0, 0.28) 12px,
+    rgba(0, 0, 0, 0.72) 34px,
+    #000 var(--money-chip-fade)
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    rgba(0, 0, 0, 0.28) 12px,
+    rgba(0, 0, 0, 0.72) 34px,
+    #000 var(--money-chip-fade)
+  );
+}
+
+.money-chip-rail.has-end-fade .money-chips {
+  -webkit-mask-image: linear-gradient(
+    to left,
+    transparent 0,
+    rgba(0, 0, 0, 0.28) 12px,
+    rgba(0, 0, 0, 0.72) 34px,
+    #000 var(--money-chip-fade)
+  );
+  mask-image: linear-gradient(
+    to left,
+    transparent 0,
+    rgba(0, 0, 0, 0.28) 12px,
+    rgba(0, 0, 0, 0.72) 34px,
+    #000 var(--money-chip-fade)
+  );
+}
+
+.money-chip-rail.has-start-fade.has-end-fade .money-chips {
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    rgba(0, 0, 0, 0.28) 12px,
+    rgba(0, 0, 0, 0.72) 34px,
+    #000 var(--money-chip-fade),
+    #000 calc(100% - var(--money-chip-fade)),
+    rgba(0, 0, 0, 0.72) calc(100% - 34px),
+    rgba(0, 0, 0, 0.28) calc(100% - 12px),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    rgba(0, 0, 0, 0.28) 12px,
+    rgba(0, 0, 0, 0.72) 34px,
+    #000 var(--money-chip-fade),
+    #000 calc(100% - var(--money-chip-fade)),
+    rgba(0, 0, 0, 0.72) calc(100% - 34px),
+    rgba(0, 0, 0, 0.28) calc(100% - 12px),
+    transparent 100%
+  );
+}
+
+.money-chip-arrow {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--color-line);
+  border-radius: 999px;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.018));
+  color: var(--color-muted);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.16);
+  transition:
+    color 180ms ease,
+    border-color 180ms ease,
+    background-color 180ms ease,
+    transform 220ms var(--ease-premium),
+    opacity 180ms ease;
+}
+
+.money-chip-arrow svg { width: 14px; height: 14px; stroke-width: 2; }
+
+.money-chip-arrow:not(:disabled):hover {
+  border-color: rgba(217, 164, 65, 0.38);
+  background: var(--color-active-bg);
+  color: var(--color-gold-hi);
+  transform: translateY(-1px);
+}
+
+.money-chip-arrow:disabled { cursor: default; opacity: 0.24; }
+.money-chip-rail.is-idle .money-chip-arrow { visibility: hidden; }
+
+@media (max-width: 480px) {
+  .money-chip-rail {
+    --money-chip-fade: 48px;
+    grid-template-columns: 28px minmax(0, 1fr) 28px;
+    gap: 5px;
+  }
+  .money-chip-arrow { width: 28px; height: 28px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .money-chip-rail { animation: none; }
+  .money-chip-arrow { transition: none; }
 }
 
 .budget-panel-premium .budget-rows { position: relative; }
@@ -1851,182 +2587,69 @@ body {
   animation: money-head-in 620ms var(--ease-premium) 170ms both;
 }
 
+/* ============================================================== View tabs
+   Timeline / Repeats, in the language the rest of the app already speaks.
+
+   It had been built as a raised key on a recessed track: a light neutral surface
+   lifted out of a dark groove, with the gold kept in the label. That is a good
+   segmented control and it belongs to a different application. Everywhere else here,
+   "this one is selected" is said with a gold tint and gold text — the category chips
+   on Money, the workspace switch in the sidebar, the current item in the nav. Three
+   places, one sentence, and this control was the only thing arguing with it.
+
+   So the neumorphism goes and the chip pattern comes back: a hairline track, and a
+   selected segment that is a gold-tinted pill with a gold hairline around it. Same
+   idea as `.money-chip-on`, one size up because this switches a whole view rather
+   than filtering a list.
+   ========================================================================== */
+
 .upcoming-tabs {
   position: relative;
-  isolation: isolate;
-  overflow: hidden;
-  min-height: 54px;
-  padding: 5px;
-  /*
-    One shape, not four outlines.
-
-    There was a hairline around the pair, another around the lit tab inside it, a third
-    around its count, and a fourth drawn under the label — four lines all describing the
-    same control, which is what made it read as sketched rather than made. A segmented
-    control needs a recess and one lit segment: the track sinks into the page and every
-    border comes off.
-  */
-  border-color: transparent;
-  background: rgba(0, 0, 0, 0.3);
-  box-shadow:
-    inset 0 1px 1px rgba(0, 0, 0, 0.4),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.045);
-  backdrop-filter: blur(18px) saturate(125%);
-  animation: money-head-in 620ms var(--ease-premium) 240ms both;
-}
-
-.upcoming-tabs::after {
-  content: "";
-  position: absolute;
-  z-index: -1;
-  top: -30px;
-  right: 10%;
-  width: 130px;
-  height: 72px;
-  border-radius: 50%;
-  background: rgba(217, 164, 65, 0.07);
-  filter: blur(24px);
-  pointer-events: none;
 }
 
 .upcoming-tab {
   position: relative;
-  isolation: isolate;
-  min-width: 142px;
-  min-height: 42px;
-  border: 1px solid transparent;
   transition:
     color 200ms ease,
-    background-color 220ms ease,
-    border-color 260ms ease,
-    box-shadow 320ms ease,
-    transform 280ms var(--ease-premium);
+    background-color 200ms ease,
+    border-color 200ms ease,
+    transform 260ms var(--ease-premium);
 }
 
-.upcoming-tab:focus-visible {
-  outline: none;
-  border-color: rgba(234, 184, 83, 0.62);
-  box-shadow: 0 0 0 3px rgba(217, 164, 65, 0.14);
-}
+.upcoming-tab:active { transform: scale(0.98); }
 
-.upcoming-tab:active { transform: translateY(0) scale(0.975); }
-
-.upcoming-tab:not(.upcoming-tab-on):hover {
-  color: rgba(245, 247, 250, 0.92);
-  background: rgba(255, 255, 255, 0.06);
-  border-color: transparent;
-}
-
-/*
-  The selected segment is a surface that sits *above* the track, not a tint mixed into
-  it. A translucent gold over a dark groove muddies into brown — the eye reads it as a
-  stained area rather than a raised key. Every segmented control worth copying does the
-  same thing instead: the chosen segment is lighter than what it sits in, and the colour
-  goes into the label, where it means something.
-*/
+/* The same ring the selected category chip carries, so the two read as one family. */
 .upcoming-tab-on {
-  border-color: transparent;
-  background: none;
-  box-shadow: none;
-}
-
-.upcoming-tab-surface {
-  position: absolute;
-  z-index: -1;
-  inset: 0;
-  overflow: hidden;
-  border-radius: inherit;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.115), rgba(255, 255, 255, 0.055)),
-    rgba(38, 42, 52, 0.9);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.16),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.03),
-    0 2px 4px rgba(0, 0, 0, 0.34),
-    0 8px 20px rgba(0, 0, 0, 0.26);
-  /*
-    Named, so the browser moves this one shape from one tab to the other across the
-    navigation rather than crossfading two of them.
-  */
-  view-transition-name: zv-upcoming-pill;
-}
-
-::view-transition-group(zv-upcoming-pill) {
-  animation-duration: 420ms;
-  animation-timing-function: var(--ease-premium);
-}
-
-/* The light that crosses the surface the moment it lands. */
-.upcoming-tab-surface::before {
-  content: "";
-  position: absolute;
-  top: -60%;
-  bottom: -60%;
-  left: -30px;
-  width: 26px;
-  background: linear-gradient(90deg, transparent, rgba(255, 235, 190, 0.18), transparent);
-  transform: skewX(-18deg) translateX(-50px);
-  animation: upcoming-tab-sheen 900ms var(--ease-premium) 360ms both;
-}
-
-@keyframes upcoming-tab-sheen {
-  from { opacity: 0; transform: skewX(-18deg) translateX(-50px); }
-  25% { opacity: 1; }
-  to { opacity: 0; transform: skewX(-18deg) translateX(210px); }
+  box-shadow: 0 0 0 1px rgba(217, 164, 65, 0.14);
 }
 
 .upcoming-tab-icon {
-  transition: color 220ms ease, transform 360ms var(--ease-spring), filter 280ms ease;
+  flex: none;
+  transition: color 200ms ease, transform 280ms var(--ease-premium);
 }
 
-.upcoming-tab:hover .upcoming-tab-icon { transform: translateY(-1px) scale(1.1) rotate(-5deg); }
-.upcoming-tab-on .upcoming-tab-icon {
-  color: var(--color-gold-hi);
-  filter: drop-shadow(0 0 7px rgba(217, 164, 65, 0.25));
-  animation: upcoming-icon-in 520ms var(--ease-spring) 180ms both;
-}
+.upcoming-tab:hover .upcoming-tab-icon { transform: scale(1.08); }
 
-@keyframes upcoming-icon-in {
-  from { opacity: 0; transform: scale(0.72) rotate(-16deg); }
-  to { opacity: 1; transform: scale(1) rotate(0); }
-}
-
+/*
+  The count belongs to the tab, not beside it: on the selected one it warms with the
+  label rather than staying a grey lozenge stuck to a gold pill.
+*/
 .upcoming-tab-count {
-  border: 0;
-  transition: color 220ms ease, background-color 220ms ease, transform 300ms var(--ease-premium);
+  transition: background-color 200ms ease, color 200ms ease;
 }
-
-.upcoming-tab-on .upcoming-tab-count {
-  background: rgba(0, 0, 0, 0.3);
-  color: var(--color-gold-hi);
-  animation: upcoming-count-in 520ms var(--ease-spring) 90ms both;
-}
-
-@keyframes upcoming-count-in {
-  from { opacity: 0; transform: translateX(-5px) scale(0.78); }
-  to { opacity: 1; transform: translateX(0) scale(1); }
-}
-
-.upcoming-tab-on .upcoming-tab-label {
-  letter-spacing: -0.1px;
-  text-shadow: 0 0 20px rgba(217, 164, 65, 0.22);
-}
-
-.upcoming-tab:hover .upcoming-tab-count { transform: translateY(-1px); }
 
 @media (max-width: 520px) {
   .upcoming-tabs { display: grid; width: 100%; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .upcoming-tab { min-width: 0; padding-inline: 12px; }
+  .upcoming-tab { justify-content: center; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .upcoming-tab-on,
-  .upcoming-tab-on::before,
-  .upcoming-tab-on .upcoming-tab-icon,
-  .upcoming-tab-on .upcoming-tab-count { animation: none !important; }
   .upcoming-tab,
   .upcoming-tab-icon,
   .upcoming-tab-count { transition: none; }
+
+  .upcoming-tab:active,
+  .upcoming-tab:hover .upcoming-tab-icon { transform: none; }
 }
 
 /* ========================================================== Row controls
@@ -2071,14 +2694,15 @@ body {
   box-shadow:
     inset 0 1px 0 rgba(255, 232, 178, 0.10),
     0 6px 16px rgba(217, 164, 65, 0.10);
-  transform: translateY(-1px);
 }
 
-.zv-rowctrl:active { transform: translateY(0) scale(0.94); }
+/* Pressed reads as the light dropping, not the control shrinking. */
+.zv-rowctrl:active { filter: brightness(0.9); }
 
 .zv-rowctrl:focus-visible {
   outline: none;
-  border-color: rgba(217, 164, 65, 0.5);
+  /* Full strength here: this control has no gold border of its own to carry the ring. */
+  border-color: var(--color-gold);
   box-shadow: var(--shadow-ring);
 }
 
@@ -2103,8 +2727,6 @@ body {
   opacity: 1;
 }
 
-.zv-rowctrl-on:hover { transform: none; }
-
 /* The bin is the one control that should never look inviting. */
 .zv-rowctrl-danger:hover {
   border-color: rgba(222, 107, 94, 0.45);
@@ -2127,8 +2749,6 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   .zv-rowctrl { transition: color 180ms ease, background 200ms ease; }
-  .zv-rowctrl:hover,
-  .zv-rowctrl:active { transform: none; }
 }
 
 /*
@@ -2254,11 +2874,11 @@ body {
   padding: 10px 16px;
   border-bottom: 1px solid var(--color-line-soft);
   animation: task-in 460ms var(--ease-premium) both;
-  transition: background-color 200ms ease, padding-left 320ms var(--ease-premium);
+  transition: background-color 200ms ease;
 }
 
 .task-row:last-child { border-bottom: 0; }
-.task-row:hover { padding-left: 20px; background: rgba(255, 255, 255, 0.025); }
+.task-row:hover { background: rgba(255, 255, 255, 0.03); }
 
 .task-focus-body > .task-row:nth-child(1) { animation-delay: 170ms; }
 .task-focus-body > .task-row:nth-child(2) { animation-delay: 215ms; }
@@ -2433,7 +3053,6 @@ body {
 .task-chip:hover {
   border-color: rgba(255, 255, 255, 0.1);
   background: rgba(255, 255, 255, 0.045);
-  transform: translateY(-1px);
 }
 
 .task-chip-lead {
@@ -2535,6 +3154,8 @@ body {
 
 .task-panel-count { color: var(--color-muted); font-size: 11.5px; }
 
+.task-panel-meta { display: inline-flex; align-items: center; }
+
 .task-panel-empty {
   padding: 26px 16px;
   color: var(--color-muted);
@@ -2549,6 +3170,38 @@ body {
 .task-panel-body > .task-row:nth-child(4) { animation-delay: 270ms; }
 .task-panel-body > .task-row:nth-child(n + 5) { animation-delay: 310ms; }
 
+.task-view-remaining {
+  display: grid;
+  width: 100%;
+  grid-template-columns: auto auto 1fr;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--color-line-soft);
+  background:
+    linear-gradient(90deg, rgba(217, 164, 65, 0.045), transparent 48%),
+    rgba(255, 255, 255, 0.012);
+  color: var(--color-gold-hi);
+  font-size: 12px;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 220ms ease, color 180ms ease;
+}
+
+.task-view-remaining small {
+  justify-self: end;
+  color: var(--color-faint);
+  font-size: 10.5px;
+  font-weight: 600;
+}
+
+.task-view-remaining:hover { background-color: rgba(217, 164, 65, 0.055); color: #f3d79a; }
+.task-view-remaining svg { transition: transform 260ms var(--ease-premium); }
+.task-view-remaining:hover svg { transform: scale(1.08) rotate(-4deg); }
+
+.task-remaining-list { overflow: hidden; border: 1px solid var(--color-line); border-radius: var(--radius-card); }
+
 /* How late, said once per row, in the only band where it is the point. */
 .task-row-note {
   flex: none;
@@ -2559,13 +3212,18 @@ body {
 
 @media (max-width: 720px) {
   .task-chip { flex: 0 0 auto; min-width: 92px; }
+  .task-view-remaining { min-height: 46px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .task-view-remaining,
+  .task-view-remaining svg { transition: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .task-rail,
   .task-panel { animation: none !important; opacity: 1; transform: none; }
   .task-chip { transition: none; }
-  .task-chip:hover { transform: none; }
 }
 
 /* ======================================================================= Setup
@@ -2712,7 +3370,6 @@ body {
 
 .setup-step:hover {
   background: rgba(255, 255, 255, 0.03);
-  transform: translate3d(2px, 0, 0);
 }
 
 /* Where you are, not what you have done — so it reads over the tick, not instead. */
@@ -2854,10 +3511,6 @@ body {
   transition: transform 320ms var(--ease-premium), background-color 240ms ease;
 }
 
-.setup-section:hover .setup-section-icon {
-  transform: rotate(-6deg) scale(1.06);
-}
-
 .setup-section-title {
   font-family: var(--font-display);
   font-size: 14.5px;
@@ -2920,29 +3573,67 @@ body {
 
 /* -------------------------------------------------------- Setup: rows & rates */
 
+/*
+  A row under the cursor is lit, not marked.
+
+  This used to grow a 2px gold bar along its left edge and shove its contents 20px to
+  the right. Two problems in one gesture: the bar is a line, and the shove is the row
+  moving under your hand while you are aiming at a field inside it.
+
+  So the bar goes and the light stays. Warmth enters from the left edge and falls off
+  across the first half of the row — the same source the rest of the app is lit by,
+  at the scale of a single line. Nothing moves, nothing is drawn, and the row you are
+  on is unmistakable.
+*/
+/*
+  The armed state of a row delete.
+
+  Deliberately not the same shape as the bin it replaces: a word, in the danger
+  colour, wider than the icon was. The second click has to be a different act, not the
+  same click repeated — which is exactly what a confirmation that looks identical to
+  the thing it confirms would be.
+*/
+.zv-row-delete-confirm {
+  padding: 4px 8px;
+  border: 1px solid var(--color-danger);
+  border-radius: var(--radius-ctrl);
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+  font-size: 11.5px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  animation: zv-arm-in 160ms ease-out both;
+}
+
+@keyframes zv-arm-in {
+  from { opacity: 0; transform: scale(0.94); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .zv-row-delete-confirm { animation: none; }
+}
+
 .setup-row-premium {
   position: relative;
   animation: money-card-in 520ms var(--ease-premium) both;
-  transition: background-color 260ms ease, padding-left 360ms var(--ease-premium);
+  transition: background 320ms ease;
 }
 
-.setup-row-premium::before {
-  content: "";
-  position: absolute;
-  inset: 0 auto 0 0;
-  width: 2px;
-  background: var(--color-gold);
-  transform: scaleY(0);
-  transform-origin: center;
-  transition: transform 320ms var(--ease-premium);
-}
+/*
+  The row lifts evenly on hover. No gradient.
 
-.setup-row-premium:hover {
-  padding-left: 20px;
-  background: rgba(255, 255, 255, 0.018);
-}
+  It carried a gold wash fading out from the left edge, which was written to replace an
+  even worse gold bar. Both were the same mistake at different volumes: a row you are
+  merely pointing at does not need the accent colour, and a wash that is strong at one
+  end and gone at the other makes a plain row look like it is being pulled somewhere.
 
-.setup-row-premium:hover::before { transform: scaleY(1); }
+  A flat two-percent lift says the one thing a hover on a list has to say — this is the
+  row your cursor is on — and says it identically across the whole width, which is the
+  only way a hover reads as a surface rather than as an effect.
+*/
+.setup-row-premium:hover { background: rgba(255, 255, 255, 0.022); }
 
 .setup-row-premium input,
 .setup-row-premium select {
@@ -2983,8 +3674,7 @@ body {
 .setup-rate-tile:hover::after { transform: scaleX(1); }
 
 @media (max-width: 680px) {
-  .setup-page-head { align-items: flex-start; min-height: 0; }
-  .setup-row-premium:hover { padding-left: 16px; }
+  .setup-page-head { align-items: flex-start; }
   .setup-section-lede { display: none; }
 }
 
@@ -3008,13 +3698,9 @@ body {
   .setup-step-mark,
   .setup-progress-seg,
   .setup-row-premium,
-  .setup-row-premium::before,
   .setup-row-premium input,
   .setup-row-premium select,
   .setup-rate-tile { transition: none; }
-
-  .setup-step:hover,
-  .setup-section:hover .setup-section-icon { transform: none; }
 }
 
 /* Goals v2 — a more tactile, private-wealth treatment. */
@@ -3022,6 +3708,128 @@ body {
   from { transform: scaleY(0); }
   to { transform: scaleY(1); }
 }
+
+/*
+  The put / take / move switch.
+
+  It was three pills in a bordered trough with the active one filled — four devices
+  (case, tracking, border, fill) to say which of three words is current, and together
+  they read louder than the amount field underneath, which is the control people
+  actually came for.
+
+  Flat now, sentence case at reading size, and the only mark of state is a hairline
+  under the active word. One device instead of four.
+*/
+.goal-move-tabs {
+  gap: 14px;
+}
+
+.goal-move-tab {
+  position: relative;
+  padding: 2px 0 5px;
+  border: 0;
+  background: none;
+  color: var(--color-faint);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 200ms ease;
+}
+
+.goal-move-tab:hover { color: var(--color-muted); }
+.goal-move-tab.is-on { color: var(--color-gold-hi); }
+
+.goal-move-tab.is-on::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 1.5px;
+  border-radius: 2px;
+  background: var(--color-gold);
+}
+
+/*
+  Amount, account and button across one line instead of stacked down three.
+
+  This is what stops an open card running two hundred pixels taller than a shut one —
+  and with it, most of the raggedness the row used to show. Under 480px they stack,
+  because three controls across a phone-width card are all too narrow to use.
+*/
+.goal-move-controls {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/*
+  One height for all three, and it is set here rather than left to each control's own
+  padding.
+
+  The amount field carried `py-1.5`, the select the same, and the button `py-2` — three
+  controls on one line at three different heights, which is most of why the row read as
+  cramped even before the gaps were widened. Sitting them on a shared 38px baseline is
+  what makes a row of controls look like one instrument instead of three parts.
+*/
+.goal-move-controls > * {
+  min-height: 38px;
+}
+
+.goal-move-controls select { padding-top: 0; padding-bottom: 0; }
+
+@media (min-width: 480px) {
+  .goal-move-controls {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 12px;
+  }
+}
+
+/*
+  The commit button sharpens rather than fills.
+
+  The filled version is gone. A solid gold plate is what the topbar's `New` wears because
+  it is the one action on the whole screen; dropped onto a small control inside a card it
+  reads as a generic yellow button — the loudest thing in a quiet composition, and loud is
+  not the same as expensive.
+
+  Restraint is, if it is executed precisely. So on hover nothing floods: the outline goes
+  from a barely-there white hairline to a clean gold one, the label goes from muted to
+  full gold, and the surface warms by four percent — enough to feel lit, not enough to
+  become a colour. A one-pixel white inset along the top edge gives it the bevel that
+  stops a flat rectangle reading as flat.
+
+  Fast, too: 160ms rather than 260. A control that takes a quarter of a second to
+  acknowledge the cursor feels sluggish, and sluggish is the cheapest thing an interface
+  can feel. Expensive things respond immediately and then stay still.
+*/
+.goal-move-submit {
+  border-color: rgba(255, 255, 255, 0.1);
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    box-shadow 200ms ease;
+}
+
+.goal-move-submit:hover:not(:disabled) {
+  border-color: rgba(217, 164, 65, 0.72);
+  background-color: rgba(217, 164, 65, 0.04);
+  color: var(--color-gold-hi);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07);
+}
+
+/* Pressed: the warmth deepens and the bevel inverts. Still nothing moves. */
+.goal-move-submit:active:not(:disabled) {
+  background-color: rgba(217, 164, 65, 0.1);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.25);
+}
+
+/* The sweeping shine belongs to the gold primaries, not to this one. */
+.goal-move-submit::after { display: none; }
+
+.goal-move-submit:disabled { opacity: 0.45; }
 
 @keyframes goal-orb-in {
   from { opacity: 0; transform: translate(18px, -18px) scale(0.72); }
@@ -3046,23 +3854,6 @@ body {
    validation state — so it wears the same gold as everything else that means
    "good" in this app, and says so in words rather than only a green tint.
    ====================================================================== */
-.goal-reached-note {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  margin-top: 12px;
-  padding: 9px 11px;
-  border: 1px solid rgba(217, 164, 65, 0.3);
-  border-radius: 11px;
-  background: linear-gradient(135deg, rgba(217, 164, 65, 0.14), rgba(217, 164, 65, 0.045));
-  color: var(--color-gold-hi);
-  font-size: 11.5px;
-  line-height: 1.5;
-  animation: goal-reached-in 620ms var(--ease-spring) 260ms both;
-}
-
-.goal-reached-note b { display: block; font-size: 12.5px; font-weight: 700; }
-
 .goal-reached-link {
   display: inline-block;
   color: var(--color-gold-hi);
@@ -3084,11 +3875,6 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   .goal-reached-note { animation: none; opacity: 1; transform: none; }
-}
-
-.goals-page-head {
-  min-height: 150px;
-  background: radial-gradient(circle at 82% 10%, rgba(217, 164, 65, 0.045), transparent 32%);
 }
 
 .goals-head-side {
@@ -3246,51 +4032,146 @@ body {
 
 .goal-card-premium {
   --goal-accent: var(--color-gold);
-  min-height: 280px;
+  /*
+    The 280px floor is gone.
+
+    It was set when every card carried a permanently open deposit form, so it was
+    describing the shortest card that could actually exist rather than imposing
+    anything. Now that the form is behind a disclosure, a shut card is about half that
+    — and the floor was holding a hundred and thirty pixels of nothing under each one,
+    which looks exactly like a card that failed to finish loading.
+  */
+  min-height: 0;
+  /*
+    The card's ground, in the goal's own colour.
+
+    It was a neutral white sheen on every card, identical thirty-eight times over —
+    the accent rail down the left edge was the only thing that knew which goal this
+    was. Now the colour bleeds out of that rail into the top corner as a wash, so the
+    card reads as belonging to the goal from anywhere on it rather than from one
+    stripe. Seven percent, which is low enough that two goals with similar colours do
+    not become confusable — the rail is still the identifier, this is atmosphere.
+  */
   background:
-    linear-gradient(145deg, rgba(255, 255, 255, 0.026), transparent 52%),
+    radial-gradient(115% 85% at 100% 0%, color-mix(in srgb, var(--goal-accent) 7%, transparent), transparent 62%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.02), transparent 52%),
     var(--color-surface);
 }
 
+/*
+  The sheen that crosses the whole card on hover.
+
+  Restored after being deleted by accident: it sat between the progress ground and the
+  watermark in this file, and removing the ground took it along with it. Worth a note
+  so the next person deleting a layer here checks what is wedged between the two they
+  meant to touch.
+
+  It parks off the left edge and travels across on hover — one pass, nearly a second,
+  slow enough to read as light moving over a surface rather than as a flash.
+*/
 .goal-card-premium::before {
   content: "";
   position: absolute;
   inset: 0;
   z-index: 0;
   border-radius: inherit;
-  background: linear-gradient(118deg, transparent 24%, rgba(255, 255, 255, 0.04) 48%, transparent 72%);
+  /*
+    The colour of the sweep is a property of the card, not of this rule.
+
+    It was two competing `::before` blocks — a white one here and a gold one for
+    reached cards further down — which made the result depend on which rule happened to
+    sit lower in the file. A card that wants a different light now says so on itself
+    and this rule just reads it, so there is nothing to lose a specificity argument
+    with.
+  */
+  background: linear-gradient(
+    118deg,
+    transparent 22%,
+    var(--card-sheen, rgba(255, 255, 255, 0.04)) 48%,
+    transparent 74%
+  );
   transform: translateX(-112%);
+  /*
+    The transition lives on the resting state, so the band travels in both directions:
+    across the card when the pointer arrives, and back across it when the pointer leaves.
+
+    It was briefly declared only under `:hover`, which made leaving snap the band back
+    invisibly — one sweep per visit instead of two. That was a misreading of what was
+    asked for. The return pass is the point: the light comes in with you and goes out
+    with you, and the card is only lit while you are on it.
+  */
   transition: transform 950ms var(--ease-premium);
   pointer-events: none;
 }
 
+/*
+  One hover state for the whole card, form included.
+
+  This briefly excluded the deposit form with `:not(:has(.goal-move-panel:hover))`, to
+  stop the sweep re-firing while the pointer was on a control. It does not do that — it
+  makes the card stop counting as hovered the moment you reach the form, so the band
+  travels *back* across the card as if you had left it. Moving toward the button looked
+  like leaving.
+
+  It was also solving a problem that was not there. The sweep takes 950ms and runs once
+  on arrival; by the time the pointer reaches a control it is already parked at the far
+  end and has nothing left to re-fire. What actually made everything glow at once was the
+  button's own hover, and that has since been rebuilt as a gold plate.
+
+  So: the card is lit while the pointer is anywhere inside it, and the band comes back
+  only on the way out.
+*/
 .goal-card-premium:hover::before { transform: translateX(112%); }
 
-.goal-card-premium > *:not(.goal-card-orb):not(.goal-accent-rail) {
-  position: relative;
-  z-index: 2;
-}
+/*
+  The mark, drawn in the goal's own colour and left deliberately faint.
 
-.goal-card-orb {
+  A watermark has one rule: it must never be readable before the content is. Hence the
+  hairline stroke — a 1.1 weight at this size is thinner than any text on the card — and
+  an alpha low enough that you notice it after the figure, not before. It bleeds off the
+  top-right corner rather than sitting inside the padding, so it reads as printed into
+  the card stock instead of placed on top of it.
+*/
+.goal-card-mark {
   position: absolute;
   z-index: 1;
-  top: -68px;
-  right: -54px;
-  width: 180px;
-  height: 180px;
-  border: 1px solid color-mix(in srgb, var(--goal-accent) 16%, transparent);
-  border-radius: 50%;
-  background: radial-gradient(circle, color-mix(in srgb, var(--goal-accent) 9%, transparent), transparent 67%);
-  box-shadow: 0 0 0 24px color-mix(in srgb, var(--goal-accent) 2.5%, transparent);
-  animation: goal-orb-in 760ms var(--ease-premium) 300ms both;
-  transition: transform 700ms var(--ease-premium), border-color 360ms ease;
+  /*
+    Whole, and away from the controls.
+
+    Bled off the top-right corner it was cropped through the snout and the ear — the
+    two features that make the shape read as anything at all — so what was left was a
+    rectangle on legs. A watermark has to be recognisable or it is just a smudge, and
+    half an icon is never recognisable.
+
+    It cannot go in the corner intact, because the corner belongs to the reorder, edit
+    and delete controls. So it sits just under them, on the right edge, complete and
+    behind the text.
+  */
+  top: 46px;
+  right: 14px;
+  width: 74px;
+  height: 74px;
+  color: color-mix(in srgb, var(--goal-accent) 8%, transparent);
+  transition: color 360ms ease;
   pointer-events: none;
 }
 
-.goal-card-premium:hover .goal-card-orb {
-  transform: translate(-8px, 9px) scale(1.08);
-  border-color: color-mix(in srgb, var(--goal-accent) 28%, transparent);
+.goal-card-premium:hover .goal-card-mark {
+  color: color-mix(in srgb, var(--goal-accent) 14%, transparent);
 }
+
+/*
+  The mark does not move when the card opens.
+
+  Growing it and sliding it down beside the form was tried and taken out: a watermark
+  that changes place is not a watermark any more, it is an element that animates, and
+  the eye follows it instead of the thing you opened the card to do. The corner is its
+  position, in every state the card has.
+
+  There are no exceptions. An earlier version removed it on a stretched card and put a
+  large emblem in the empty half instead; that whole direction is gone, along with the
+  empty half it was decorating.
+*/
 
 .goal-accent-rail {
   z-index: 4;
@@ -3309,6 +4190,181 @@ body {
 */
 .goal-saved-value { margin-top: 3px; }
 
+
+/*
+  The form unrolling, rather than appearing.
+
+  Height is the property that has to move. Fading a block in while the card has
+  already jumped to full size animates the wrong thing — the eye reads the card's edge
+  snapping down, and no amount of opacity on the contents hides it.
+
+  This was first written against `grid-template-rows: 0fr → 1fr`, the trick usually
+  quoted for animating to an intrinsic height. It does not work, and I only know that
+  because I measured it rather than watching it: sampling the computed value at 0, 40,
+  120, 240 and 400ms returned `155.375px` every single time. The property was jumping
+  to its final value and holding, which at this speed is indistinguishable from a fast
+  animation by eye.
+
+  `interpolate-size: allow-keywords` is what actually does it — it makes `auto` an
+  interpolable value, so `height: 0 → auto` animates for real. Measured the same way:
+  0px → 31px → 75px → 150px. It is set on `html` because the keyword is inherited by
+  the element that animates rather than read off it.
+
+  Opening only. Closing unmounts immediately, and that is deliberate rather than
+  unfinished: playing the reverse means keeping the form mounted for the length of the
+  animation, and the whole reason it sits behind a disclosure is that thirty-eight
+  mounted forms — each with an input and an account `select` — is what this screen was
+  suffering from. A held-open exit also leaves focusable controls inside a box that is
+  visibly closing, which is worse than a clean cut.
+*/
+.goal-money-reveal {
+  overflow: hidden;
+  animation: goal-money-in 380ms var(--ease-premium) both;
+}
+
+@keyframes goal-money-in {
+  from { height: 0; opacity: 0; }
+  55%  { opacity: 1; }
+  to   { height: auto; opacity: 1; }
+}
+
+/*
+  And the way back.
+
+  Shorter than the opening — 260 against 380. Closing is a dismissal, and a dismissal
+  that takes as long as the reveal reads as the interface arguing with you. The
+  content is made unclickable for the duration so nothing can be pressed inside a box
+  that is already leaving.
+*/
+.goal-money-reveal.is-closing {
+  animation: goal-money-out 260ms var(--ease-premium) both;
+  pointer-events: none;
+}
+
+@keyframes goal-money-out {
+  from { height: auto; opacity: 1; }
+  45%  { opacity: 0; }
+  to   { height: 0; opacity: 0; }
+}
+
+/*
+  Everywhere `interpolate-size` is not.
+
+  Chrome and Edge have it from 129. Firefox has never shipped it, and Safari has not
+  through 27 on desktop or 26.6 on iOS — roughly thirty per cent of the web, and the
+  half of it on iPhones is the half most likely to be opening this screen one-handed.
+
+  What happens there is worse than "no animation", which is why this is not left alone.
+  `height` between `0` and `auto` is not interpolable without the keyword, and a
+  non-interpolable property in a keyframe animates *discretely*: it holds `0` until the
+  halfway mark and then swaps. With `overflow: hidden` above, that is 190ms of an empty
+  box followed by the form popping into it. A stutter reads as a bug; a plain fade does
+  not read as anything, which is the point.
+
+  So height stops being the property that moves and opacity takes over. The card still
+  jumps to its full size at once — that is the degradation, and it is the honest one.
+  The -4px is clipped by the `overflow: hidden` already on the element, which buys back
+  a little of the unrolling the real version has.
+
+  This block sits above the reduced-motion query on purpose. Neither `@supports` nor
+  `@media` adds specificity, so source order is the whole cascade here: reduced motion
+  comes last and switches all of it off, in both browsers.
+*/
+@supports not (interpolate-size: allow-keywords) {
+  .goal-money-reveal {
+    animation: goal-money-fade-in 200ms var(--ease-premium) both;
+  }
+
+  /* 160ms inside the 260ms the card stays mounted, so it is gone before it unmounts. */
+  .goal-money-reveal.is-closing {
+    animation: goal-money-fade-out 160ms var(--ease-premium) both;
+  }
+}
+
+@keyframes goal-money-fade-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes goal-money-fade-out {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .goal-money-reveal,
+  .goal-money-reveal.is-closing { animation: none; }
+}
+
+/*
+  The row of controls beside the goal's name — reorder, edit, delete.
+
+  Four controls at full strength on every card in a grid is a lot of chrome for actions
+  that are used rarely and one at a time. The obvious fix is `opacity: 0` until hover,
+  the pattern `.task-actions` uses elsewhere in here, and it is the wrong one for this
+  card: an action nobody can see is an action nobody knows exists, and the goals grid is
+  read far more often than it is edited. Hiding them would also leave touch with no way
+  in at all — there is no hover to arrive from.
+
+  So they recede rather than disappear. 0.55 over `--color-muted` on `--color-surface`
+  lands at roughly `--color-faint`: legible, findable, and clearly not the point of the
+  card. Hover and keyboard focus bring the row up to full, where each control's own
+  `zv-rowctrl` hover then does the rest. Pointers that cannot hover never dim at all.
+*/
+.goal-card-controls {
+  opacity: 0.55;
+  transition: opacity 180ms ease;
+}
+
+.goal-card-premium:hover .goal-card-controls,
+.goal-card-controls:focus-within {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .goal-card-controls { opacity: 1; }
+}
+
+/*
+  The disclosure, along the bottom edge of the card.
+
+  Full width and flat rather than a button sitting in padding: it is the card's own
+  lower border doing a job, so a shut card stays a clean rectangle and nothing about
+  it invites a click except the one strip that responds to one.
+*/
+.goal-card-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  padding: 9px 12px;
+  border: 0;
+  border-top: 1px solid var(--color-line-soft);
+  background: transparent;
+  color: var(--color-muted);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: background 240ms ease, color 240ms ease;
+}
+
+.goal-card-toggle:hover {
+  background: rgba(217, 164, 65, 0.05);
+  color: var(--color-gold-hi);
+}
+
+.goal-card-toggle svg {
+  transition: transform 300ms var(--ease-premium);
+}
+
+.goal-card-toggle svg.is-open { transform: rotate(180deg); }
+
+@media (prefers-reduced-motion: reduce) {
+  .goal-card-toggle svg { transition: none; }
+}
+
 .goal-card-metrics {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -3320,7 +4376,6 @@ body {
   background: var(--color-line-soft);
 }
 
-/* Target and Remaining are a reading, not a menu — no grey wash under the pointer. */
 .goal-card-metrics > div {
   min-width: 0;
   padding: 8px 10px;
@@ -3345,10 +4400,38 @@ body {
   white-space: nowrap;
 }
 
+.goal-card-metric-note {
+  margin-top: 1px;
+  color: var(--color-faint);
+  font-size: 10.5px;
+}
+
+.goal-card-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  min-height: 17px;
+  color: var(--color-muted);
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+
 /*
-  Quarter marks on the track, and the one line that says what happens if nothing
-  changes. A passed mark goes dark against the fill rather than disappearing into it,
-  so the bar keeps saying how far along it is even when it is nearly full.
+  The quarter marks on a progress bar.
+
+  Restored after being deleted by accident: a pass that removed two duplicated ~270-line
+  blocks from this file took this rule with them, and every milestone on every bar —
+  goal cards and the overall bar alike — silently vanished. Worth the note, because the
+  bars still looked plausible without them and nothing failed loudly.
+
+  Progress that only ever reports a percentage gives you nothing to cross; a bar with
+  thresholds on it does, and crossing one is what carries people through the long middle
+  of a goal where deposits usually stop. Hairlines, not decorations — the bar still has
+  to read as one thing.
+
+  Passed marks go dark rather than light: once the fill has run past them they sit on
+  gold, and a white line on gold is a scratch.
 */
 .goal-milestone {
   position: absolute;
@@ -3386,32 +4469,44 @@ body {
   pointer-events: none;
 }
 
-.goal-card-premium:hover .goal-progress-track::after { transform: translateX(100%); }
+/*
+  The sweep, and what it is hung on.
 
+  This was scoped to `.goal-card-premium:hover` alone, which is why the overall bar
+  never lit up: `Put aside so far` is a panel, not a card, so the one place that
+  measures every goal at once was the one bar the light never crossed. The track
+  brings the effect with it now — anything that hovers and contains one gets the
+  sweep, which is the right ownership: the behaviour belongs to the bar, not to
+  whichever container happens to be around it.
+*/
+.goal-card-premium:hover .goal-progress-track::after,
+.goal-overall-panel:hover .goal-progress-track::after { transform: translateX(100%); }
+
+/*
+  The form paints nothing at all.
+
+  Three versions of this, and the last two failed the same way from opposite
+  directions. Lifting it with white shifted the hue as well as the value, so over the
+  card's warm ground the form read as a greyer material glued on. Darkening it kept
+  the hue but made the step obvious the other way — a visibly sunken block inside the
+  card.
+
+  Both were answering a question nobody asked. The form does not need a surface of
+  its own: it is already separated by the hairline above it, and by the fact that it
+  is full of controls, which is separation enough. With no background at all the
+  card's ground — the accent wash, the progress tint — runs unbroken from the title to
+  the last line of the form, and the card reads as one piece of material with a rule
+  drawn across it.
+
+  The class stays, empty of paint, because the accent variable and the transition
+  belong to it and the markup already names it.
+*/
 .goal-move-panel {
-  background:
-    linear-gradient(90deg, color-mix(in srgb, var(--goal-accent) 4%, transparent), transparent 58%),
-    rgba(255, 255, 255, 0.018);
+  background: transparent;
   transition: background-color 300ms ease;
 }
 
-.goal-money-toggle {
-  padding: 2px;
-  border: 1px solid var(--color-line-soft);
-  border-radius: var(--radius-pill);
-  background: rgba(0, 0, 0, 0.16);
-}
 
-.goal-money-toggle button {
-  min-height: 24px;
-  transition: color 220ms ease, background-color 220ms ease, box-shadow 280ms ease, transform 280ms var(--ease-premium);
-}
-
-.goal-money-toggle button[aria-pressed="true"] {
-  box-shadow: 0 5px 14px rgba(0, 0, 0, 0.18), inset 0 0 0 1px rgba(217, 164, 65, 0.10);
-}
-
-.goal-money-toggle button:active { transform: scale(0.97); }
 
 .goal-history {
   transition: background-color 240ms ease;
@@ -3451,6 +4546,16 @@ body {
 .goal-closed-row:hover::before { transform: scaleY(1); }
 
 .goal-card-reached {
+  /*
+    On a finished goal the light that crosses the card is gold, not white — the colour
+    the app already spends on everything that matters: the active nav item, the primary
+    button, the month numeral. Reaching a target is the outcome this screen exists for,
+    so it gets the house colour rather than the neutral gleam every other card gets.
+
+    Four times the strength of the white one. Gold at 4% over a card that is already
+    tinted gold would not read as anything at all.
+  */
+  --card-sheen: rgba(217, 164, 65, 0.16);
   background:
     radial-gradient(circle at 90% 0%, rgba(217, 164, 65, 0.16), transparent 38%),
     linear-gradient(160deg, rgba(217, 164, 65, 0.07), transparent 55%),
@@ -3478,10 +4583,8 @@ body {
   box-shadow: 0 22px 58px rgba(0, 0, 0, 0.17);
 }
 
-.goal-archive-link:hover { transform: translateY(-2px); }
-
 @media (max-width: 820px) {
-  .goals-page-head { align-items: flex-start; min-height: 0; }
+  .goals-page-head { align-items: flex-start; }
   .goals-head-side { width: 100%; align-items: stretch; }
   .goals-head-stats { flex: 1; }
   .goals-head-stats > span { flex: 1; }
@@ -3500,7 +4603,7 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .goal-card-orb,
+  .goal-card-mark,
   .goal-accent-rail,
   .goal-card-reached,
   .goal-secondary-panel,
@@ -3513,10 +4616,9 @@ body {
   .goal-card-premium::before,
   .goal-progress-track::after { display: none; }
 
-  .goal-card-orb,
+  .goal-card-mark,
   .goal-saved-value,
   .goal-figure,
-  .goal-money-toggle button,
   .goal-closed-row,
   .goal-secondary-panel,
   .goal-archive-link { transition: none; }
@@ -3639,9 +4741,29 @@ body {
 
 .breakdown-total { color: var(--color-ink); font-size: 13px; font-weight: 600; }
 
+/*
+  The columns are the list's, not each row's.
+
+  Every row used to be its own grid, and the last column is `auto` — so it sized itself
+  to that row's own figure. Once the figure grew a limit, `€40.27 / €170` and `€17.04`
+  were different widths, each row kept a different amount of space for the two flexible
+  columns before it, and the bars stopped starting on one line. Nothing was wrong with
+  any single row; they simply had never been asked to agree.
+
+  `subgrid` is the fix in one word: the rows stop computing columns and inherit the
+  list's, so the amount column is as wide as the widest figure in the panel and every
+  bar starts at the same pixel. The rows' own padding shifts their tracks a few pixels
+  in from the list's — identically for all of them, which is all alignment needs.
+*/
+.breakdown-rows {
+  display: grid;
+  grid-template-columns: minmax(96px, 1.35fr) minmax(60px, 3fr) auto;
+}
+
 .breakdown-row {
   display: grid;
-  grid-template-columns: minmax(96px, 1.35fr) minmax(60px, 3fr) auto 2.6rem;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
   align-items: center;
   gap: 12px;
   padding: 6px 8px;
@@ -3649,6 +4771,17 @@ body {
   border-radius: var(--radius-ctrl);
   animation: task-in 460ms var(--ease-premium) both;
   transition: background-color 200ms ease;
+}
+
+/*
+  Where subgrid is missing, a fixed amount column buys the same alignment. Wide enough
+  for a dinar figure carrying a dinar limit, which is the longest this row ever prints.
+*/
+@supports not (grid-template-columns: subgrid) {
+  .breakdown-rows { display: block; }
+  .breakdown-row {
+    grid-template-columns: minmax(96px, 1.35fr) minmax(60px, 3fr) 11rem;
+  }
 }
 
 .breakdown-rest { animation-delay: 560ms; }
@@ -3669,16 +4802,6 @@ a.breakdown-row-on:hover { background: rgba(217, 164, 65, 0.2); }
   white-space: nowrap;
 }
 
-.breakdown-name i {
-  width: 8px;
-  height: 8px;
-  flex: none;
-  border-radius: 3px;
-  transition: transform 280ms var(--ease-premium);
-}
-
-a.breakdown-row:hover .breakdown-name i { transform: scale(1.35); }
-
 .breakdown-track {
   height: 7px;
   overflow: hidden;
@@ -3693,11 +4816,696 @@ a.breakdown-row:hover .breakdown-name i { transform: scale(1.35); }
   opacity: 0.85;
 }
 
-.breakdown-amount { color: var(--color-ink); font-size: 12px; text-align: right; }
-.breakdown-share { color: var(--color-faint); font-size: 11px; text-align: right; }
+.breakdown-amount {
+  color: var(--color-ink);
+  font-size: 12px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+/*
+  The cap, on the end of the figure it applies to.
+
+  Quiet, and deliberately: the spend is the measurement and the limit is the frame
+  around it, so at a glance the row still reads as one number. It only stops being
+  quiet when it has been passed.
+*/
+.breakdown-amount i {
+  margin-left: 5px;
+  color: var(--color-faint);
+  font-size: 11px;
+  font-style: normal;
+}
+
+.breakdown-amount.is-over,
+.breakdown-amount.is-over i { color: var(--color-danger); }
+
+/*
+  The list of what was actually bought.
+
+  One entry, several things — a shop trip is one movement of money and six objects, and
+  until this the app could only record the first. It sits under the name field because
+  that is the order the answers arrive in: which shop, then what came out of the bag.
+*/
+/*
+  Two shapes of the same form, chosen before anything is typed.
+
+  A pair of pills rather than a dropdown: there are exactly two, both fit on the line,
+  and the answer is worth seeing without opening anything. It sits above the amount
+  because it decides whether the amount is something you type or something the form
+  works out.
+*/
+/*
+  The same object as the kind picker above it, one rank quieter.
+
+  It was a pill that hugged its own text, sitting directly under a full-width boxed
+  control — two segmented controls stacked, drawn to two different designs, and the
+  eye reads that as two unrelated things rather than one question after another. Same
+  box, same corner, same width now; only the weight of the chosen segment differs, and
+  that difference is the hierarchy. Filled gold is the kind, which decides the whole
+  form; a tint is the shape of it, which decides one field.
+*/
+.zv-seg {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 13px;
+  padding: 4px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-ctrl);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.zv-seg button {
+  flex: 1;
+  padding: 6px 10px;
+  border-radius: 6px;
+  color: var(--color-muted);
+  font-size: 12.5px;
+  font-weight: 600;
+  transition: color 180ms ease, background-color 180ms ease;
+}
+
+.zv-seg button:hover:not(.is-on) { background: rgba(255, 255, 255, 0.04); color: var(--color-ink); }
+
+.zv-seg button.is-on {
+  background: var(--color-active-bg);
+  color: var(--color-gold);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .zv-seg button { transition: none; }
+}
+
+/*
+  The one control on the panel the app was not drawing.
+
+  A native date field brings its own picker button, and on a dark surface that button
+  arrives as a small black calendar — the only element in the form rendered by the
+  browser's taste rather than this one's. It cannot be replaced without rebuilding the
+  whole picker, which is a bad trade; it can be made to belong.
+*/
+input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+  opacity: 0.45;
+  cursor: pointer;
+  transition: opacity 160ms ease;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
+
+/*
+  Content disappearing under an edge, rather than stopping at it.
+
+  A panel this tall opens on a form whose first screen ends at the header's hairline,
+  and a hairline says "this is the end of the section" as readily as it says "there is
+  more". The shadow only exists while something is actually scrolled past it, which is
+  the difference: it is a report on the content, not a decoration on the frame.
+
+  Four layers doing two jobs. The `local` gradients scroll with the content and paint
+  the surface colour over the shadow when you are at that end, so the shadow is hidden
+  at the top and at the bottom. The `scroll` ones are fixed to the box and are the
+  shadow itself. No script, no scroll listener, no state — the browser resolves it.
+*/
+.zv-scroll-fade {
+  background:
+    linear-gradient(var(--color-surface) 30%, rgba(26, 29, 36, 0)) top / 100% 26px local
+      no-repeat,
+    linear-gradient(rgba(26, 29, 36, 0), var(--color-surface) 70%) bottom / 100% 26px local
+      no-repeat,
+    radial-gradient(farthest-side at 50% 0, rgba(0, 0, 0, 0.36), rgba(0, 0, 0, 0)) top / 100%
+      13px scroll no-repeat,
+    radial-gradient(farthest-side at 50% 100%, rgba(0, 0, 0, 0.36), rgba(0, 0, 0, 0)) bottom /
+      100% 13px scroll no-repeat,
+    var(--color-surface);
+}
+
+/*
+  The bar that finishes the form, kept where the thumb is.
+
+  Sticky inside the panel's own scroll, bled out to the panel's edges so the scrim runs
+  the full width, and pulled a padding's worth below the fold so nothing shows in the
+  strip beneath it. The gradient above the button is the point: content does not stop
+  at a line, it fades out under the thing you are about to press.
+*/
+.zv-form-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  margin: 18px -20px -20px;
+  padding: 16px 20px calc(20px + env(safe-area-inset-bottom));
+  background: linear-gradient(
+    180deg,
+    rgba(26, 29, 36, 0) 0%,
+    var(--color-surface) 30%,
+    var(--color-surface) 100%
+  );
+}
+
+/*
+  The hairline over it. Always drawn, not only when the bar is stuck.
+
+  A "stuck" state can be detected with a view timeline, and the clever version was
+  written and then taken out: it depends on measuring a sticky element against the
+  scrollport, which is the one case those timelines are least predictable in, and the
+  failure mode is a rule that flickers or never appears. A rule above a solid bar at the
+  end of a form is correct either way — there is a bar, and this is its top edge.
+*/
+.zv-form-actions::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 20px;
+  left: 20px;
+  height: 1px;
+  background: var(--color-line-soft);
+}
+
+.tx-items { margin-bottom: 13px; }
+
+/*
+  A list of things bought, and why it stopped being a table.
+
+  Four values and a control in one 396px line is crowded by construction — every
+  arrangement of it was a different way to divide a space that was never big enough,
+  and each one had to answer "which of these five things loses room" instead of "what
+  does a person read here".
+
+  So the line carries two things. A name on the left, what it cost on the right, both
+  with room. Everything else — how many, what one of them came to, the way to remove
+  the line — goes to a second, quieter line that only appears when it has something to
+  say. And it says it in words: `10 kom · 20,00 po komadu`, not a column you have to
+  work out from its position.
+*/
+.tx-items-rows { display: grid; }
+
+.tx-items-row {
+  position: relative;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--color-line-soft);
+  animation: task-in 320ms var(--ease-premium) both;
+}
+
+.tx-items-row:last-child { border-bottom-color: transparent; }
+
+/*
+  The wash under a line stands clear of it.
+
+  Ending exactly at the first letter and the last figure, it read as text stuffed into
+  a box. Twelve pixels out on each side and the text sits inside it instead — and the
+  panel's own padding is twenty, so it still has margin to live in.
+*/
+.tx-items-row::before {
+  content: "";
+  position: absolute;
+  inset: 0 -12px;
+  border-radius: 9px;
+  background: transparent;
+  transition: background 180ms ease;
+  pointer-events: none;
+}
+
+.tx-items-row:hover::before { background: rgba(255, 255, 255, 0.028); }
+.tx-items-row:focus-within::before { background: rgba(255, 255, 255, 0.034); }
+
+/* An edge, not a frame: it marks the line without drawing a shape around it. */
+.tx-items-row:focus-within::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -12px;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--color-gold);
+}
+
+.tx-it-top,
+.tx-it-sub { position: relative; }
+
+.tx-it-top {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+}
+
+/* Values are typed, so they carry no frame; the line they sit on is enough. */
+.tx-cell,
+.tx-price {
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-ink);
+  caret-color: var(--color-gold);
+  outline: none;
+}
+
+.tx-cell {
+  flex: 1 1 auto;
+  font-size: 14px;
+  /* A long name ends in a mark rather than mid-letter. */
+  text-overflow: ellipsis;
+}
+
+.tx-price {
+  flex: 0 0 auto;
+  /* Sized to the figure, so the amounts end on one line down the block. */
+  field-sizing: content;
+  min-width: 2rem;
+  max-width: 11rem;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.tx-cell::placeholder { color: var(--color-faint); }
+.tx-price::placeholder { color: var(--color-faint); font-weight: 400; }
+
+.tx-it-cur {
+  flex: 0 0 auto;
+  color: var(--color-faint);
+  font-size: 10.5px;
+  font-weight: 600;
+}
+
+/*
+  The second line. Everything on it is either a fact said in words or a control, and
+  it is set two steps quieter than the line above so the eye reaches it second.
+*/
+.tx-it-sub {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+  color: var(--color-muted);
+  font-size: 11.5px;
+}
+
+/* "10 kom" is one phrase, so it holds together tighter than the line it sits on. */
+.tx-it-kom { margin-left: -5px; }
+
+.tx-it-dot { color: var(--color-faint); }
+
+.tx-it-unit {
+  color: var(--color-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+/* How many, at rest: a figure you can press. */
+.tx-it-count {
+  padding: 2px 5px;
+  margin-left: -5px;
+  border-radius: 6px;
+  color: var(--color-muted);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: color 160ms ease, background-color 160ms ease;
+}
+
+.tx-it-count:hover { color: var(--color-gold-hi); background: rgba(217, 164, 65, 0.10); }
+
+.tx-it-count:focus-visible {
+  outline: none;
+  color: var(--color-gold-hi);
+  box-shadow: inset 0 0 0 1px var(--color-gold);
+}
+
+/*
+  Two buttons and a figure, and no box around them.
+
+  Quantity is one or two on nearly every line and it changes by one, so it wants a tap
+  rather than four actions with a keyboard. Down here there is nothing to be confused
+  with and nothing to be separated from — a frame would be the only frame in the whole
+  block, which is how a control ends up looking like the loudest thing on a screen.
+*/
+.tx-qty {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: -4px;
+}
+
+.tx-qty-step {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  color: var(--color-faint);
+  cursor: pointer;
+  transition: color 160ms ease, background-color 160ms ease;
+}
+
+.tx-qty-step:hover:not(:disabled) { color: var(--color-gold-hi); background: rgba(217, 164, 65, 0.13); }
+.tx-qty-step:active:not(:disabled) { background: rgba(217, 164, 65, 0.20); }
+.tx-qty-step:disabled { opacity: 0.3; cursor: default; }
+
+.tx-qty-step:focus-visible {
+  outline: none;
+  color: var(--color-gold-hi);
+  box-shadow: inset 0 0 0 1px var(--color-gold);
+}
+
+.tx-qty input {
+  width: 2rem;
+  color: var(--color-ink);
+  font-size: 12.5px;
+  font-weight: 600;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  caret-color: var(--color-gold);
+  outline: none;
+}
+
+/*
+  Removing a line, at the end of the line it removes.
+
+  Written out, "Obriši" four times down a short block was the loudest thing in it, for
+  the rarest thing anybody does. The bin says the same and says it once.
+*/
+.tx-it-del {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  margin-left: auto;
+  margin-right: -3px;
+  border-radius: 6px;
+  color: var(--color-faint);
+  cursor: pointer;
+  transition: color 160ms ease, background-color 160ms ease;
+}
+
+.tx-it-del:hover { color: var(--color-danger); background: rgba(222, 107, 94, 0.12); }
+
+.tx-it-del:focus-visible {
+  outline: none;
+  color: var(--color-danger);
+  box-shadow: inset 0 0 0 1px var(--color-danger);
+}
+
+.tx-items-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 11px 0 0;
+  color: var(--color-muted);
+  font-size: 12.5px;
+  font-weight: 600;
+  transition: color 180ms ease;
+}
+
+.tx-items-add:hover:not(:disabled) { color: var(--color-gold-hi); }
+
+/* Off while the line above it is still empty — that empty line is the invitation. */
+.tx-items-add:disabled { opacity: 0.35; cursor: default; }
+
+/*
+  The sum closes the list and names it. With `Ukupno` written under the names and the
+  figure under the figures, the block needs no caption over it saying "Items": you can
+  see what it is by how it ends.
+*/
+.tx-items-foot {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+  margin-top: 11px;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-line);
+}
+
+.tx-items-foot-label {
+  color: var(--color-faint);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.tx-items-total {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-ink);
+  font-size: 15px;
+  font-weight: 700;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* On a phone the second line wraps rather than squeezing the words out of shape. */
+@media (max-width: 480px) {
+  .tx-it-sub { flex-wrap: wrap; row-gap: 4px; }
+  .tx-it-del { margin-left: auto; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tx-items-row { animation: none; }
+}
+
+/* The count in a ledger row's second line — a door, not a label. */
+/*
+  A category row on the overview: one line, and a door.
+
+  Four columns rather than two stacked lines. Full width, a name on the left and a
+  figure on the right leaves a hand's width of nothing across the middle of every row,
+  and a bar tucked underneath doubles the panel's height to fill it. Putting the bar in
+  that gap solves both at once — it is the only element here that wants to be wide.
+
+  Its twin on Money has always been clickable — each row there filters the ledger
+  beneath it. This one was a readout that looked identical and did nothing, so the only
+  way to learn which was which was to click and find out. The whole row is the target,
+  because the figure and the bar are as much "that category" as the word is.
+*/
+/* Same story here, one level deeper: the list holds the columns, `li` passes them on. */
+.overview-cats {
+  display: grid;
+  grid-template-columns: 8px minmax(80px, 1.25fr) minmax(48px, 3fr) auto;
+}
+
+.overview-cats > li {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+}
+
+.overview-cat {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+  align-items: center;
+  gap: 10px;
+  padding: 6px;
+  margin: 0 -6px;
+  border-radius: var(--radius-ctrl);
+  transition: background-color 180ms ease;
+}
+
+@supports not (grid-template-columns: subgrid) {
+  .overview-cats,
+  .overview-cats > li { display: block; }
+  .overview-cat {
+    grid-template-columns: 8px minmax(80px, 1.25fr) minmax(48px, 3fr) 8.5rem;
+  }
+}
+
+a.overview-cat:hover { background: rgba(255, 255, 255, 0.035); }
+
+.overview-cat-dot { width: 8px; height: 8px; border-radius: var(--radius-pill); }
+
+.overview-cat-name {
+  overflow: hidden;
+  color: var(--color-ink);
+  font-size: 12.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.overview-cat.is-rest .overview-cat-name { color: var(--color-muted); }
+
+.overview-cat-track {
+  height: 6px;
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.overview-cat-track span {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-pill);
+}
+
+.overview-cat-amt {
+  color: var(--color-muted);
+  font-size: 12px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* The cap, quieter than the figure it frames — until it has been passed. */
+.overview-cat-amt i {
+  margin-left: 5px;
+  color: var(--color-faint);
+  font-size: 11px;
+  font-style: normal;
+}
+
+.overview-cat-amt.is-over,
+.overview-cat-amt.is-over i { color: var(--color-danger); }
+
+/*
+  Where the bar would be, when there is no cap for it to measure.
+
+  This slot has been four things. A blank cell and a dashed ghost, which both read as a
+  bar that failed to render. Then a "Set a limit" button — which looked deliberate and
+  was wrong for a different reason: plenty of categories cannot sensibly have a limit at
+  all. A domain renews for what it renews for; a utility bill is whatever the meter
+  says. Offering to cap each of them turns a fact into an unfinished task, and a column
+  of dashed buttons asks you to fix things that are not broken.
+
+  So: words. A label never reads as a failure, and makes no demand.
+*/
+/* The tail: not a control, just what it is. */
+.overview-cat-note {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-faint);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Under about 520px the bar has nowhere to live; the row keeps the two that matter. */
+@media (max-width: 520px) {
+  /* Three columns at this width, so the list's template has to shrink with it. */
+  .overview-cats { grid-template-columns: 8px minmax(0, 1fr) auto; }
+  .overview-cat { gap: 8px; }
+  /*
+    No row has a bar at this width, so the offer goes too — otherwise the uncapped rows
+    would be the only ones with a fourth thing in a three-column grid, and the figure
+    would wrap under the name. The panel heading keeps its own "Set limits" door.
+  */
+  .overview-cat-track,
+  .overview-cat-note { display: none; }
+}
+
+.money-row-items-toggle {
+  border-bottom: 1px dashed rgba(255, 255, 255, 0.18);
+  color: var(--color-muted);
+  font-weight: 600;
+  transition: color 180ms ease, border-color 180ms ease;
+}
+
+.money-row-items-toggle:hover {
+  color: var(--color-gold-hi);
+  border-bottom-color: rgba(230, 180, 87, 0.45);
+}
+
+/* Indented to the spine, so the list reads as belonging to the row above it. */
+.money-row-items {
+  margin: 0 16px 10px 32px;
+  padding: 8px 12px;
+  border-left: 1px solid var(--color-line-soft);
+  border-radius: 0 var(--radius-ctrl) var(--radius-ctrl) 0;
+  background: rgba(255, 255, 255, 0.02);
+  animation: task-in 300ms var(--ease-premium) both;
+}
+
+.money-row-items li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 2px 0;
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
+.money-row-items li i {
+  margin-left: 6px;
+  color: var(--color-faint);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-style: normal;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .money-row-items { animation: none; }
+}
+
+/*
+  A figure the form worked out rather than one you typed.
+
+  It reads as a readout, not as an empty box waiting for you — otherwise a field that
+  refuses your keystrokes looks broken rather than decided.
+*/
+.is-derived input[type="text"],
+.is-derived input:not([type="hidden"]) {
+  border-color: rgba(217, 164, 65, 0.28);
+  background: rgba(217, 164, 65, 0.06);
+  color: var(--color-gold-hi);
+  cursor: default;
+}
+
+/*
+  A short explanation, kept out of the way until it is asked for.
+
+  This exists because of one sentence: "A dash means nothing has been moved into that
+  goal yet", which sat permanently under the goals list, spending a line of a capped
+  panel to explain a mark most people work out in a second. An explanation that has to
+  be on screen at all times is a mark that failed; an explanation nobody can find is no
+  explanation. On the mark, on hover, is the version that costs nothing and is still
+  there for whoever needs it.
+
+  Anchored to the right edge rather than centred. Every panel in the app is
+  `overflow-hidden` for its rounded corners, so a tooltip centred on something sitting
+  near the right edge is a tooltip with its right half cut off.
+*/
+.zv-tip { position: relative; cursor: help; }
+
+.zv-tip::after {
+  content: attr(data-tip);
+  position: absolute;
+  right: -6px;
+  bottom: calc(100% + 7px);
+  z-index: 30;
+  width: max-content;
+  max-width: 14rem;
+  padding: 6px 9px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-ctrl);
+  background: #16181f;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.5);
+  color: var(--color-muted);
+  font-family: var(--font-sans);
+  font-size: 11.5px;
+  font-weight: 500;
+  line-height: 1.45;
+  letter-spacing: 0;
+  text-align: left;
+  white-space: normal;
+  opacity: 0;
+  transform: translateY(3px);
+  pointer-events: none;
+  transition: opacity 160ms ease, transform 160ms ease;
+}
+
+.zv-tip:hover::after,
+.zv-tip:focus-visible::after { opacity: 1; transform: translateY(0); }
+
+/* Keyboard reaches it too — it is the only place this sentence is said. */
+.zv-tip:focus-visible { outline: none; color: var(--color-muted); }
+
+@media (prefers-reduced-motion: reduce) {
+  .zv-tip::after { transition: none; transform: translateY(0); }
+}
 
 @media (max-width: 640px) {
-  .breakdown-row { grid-template-columns: minmax(0, 1fr) auto 2.4rem; }
+  .breakdown-row { grid-template-columns: minmax(0, 1fr) auto; }
   .breakdown-track { display: none; }
 }
 
@@ -3709,8 +5517,7 @@ a.breakdown-row:hover .breakdown-name i { transform: scale(1.35); }
     transform: none;
   }
 
-  .breakdown-row,
-  .breakdown-name i { transition: none; }
+  .breakdown-row { transition: none; }
 }
 
 /* ==========================================================================
@@ -3779,24 +5586,8 @@ body > * { min-width: 0; }
   cards give theirs up, because the one that says "this is the top of the page" is
   worth more than the one repeated four times in a row.
 */
-.money-page-head { padding-bottom: 30px; }
+
 .overview-kpi::before { display: none; }
-
-/*
-  The ring inside a KPI was 130px across in a 126px-tall card, so it crossed the
-  label and ran behind the figure. Smaller, pushed further into its corner, and
-  faint enough to read as depth rather than as something drawn by mistake.
-*/
-.overview-kpi::after {
-  right: -46px;
-  bottom: -62px;
-  width: 104px;
-  height: 104px;
-  border-color: rgba(217, 164, 65, 0.05);
-  box-shadow: 0 0 0 14px rgba(217, 164, 65, 0.012);
-}
-
-.overview-kpi:hover::after { border-color: rgba(217, 164, 65, 0.1); }
 
 /* The quick add says what it does, so it does not read as the New task button twice. */
 .task-quickadd-hint {
@@ -4153,4 +5944,1213 @@ body > * { min-width: 0; }
 
 @media (prefers-reduced-motion: reduce) {
   .zv-confirm-card { animation: none; }
+}
+
+/* ==========================================================================
+   Button bench — /dev/buttons. Not product. Delete with the route.
+   ========================================================================== */
+
+.btn-bench header { padding: 8px 0 28px; }
+.btn-bench h1 {
+  font-family: var(--font-display);
+  font-size: 34px;
+  font-weight: 800;
+  letter-spacing: -1.2px;
+  color: var(--color-ink);
+}
+.btn-bench header p {
+  max-width: 62ch;
+  margin-top: 10px;
+  color: var(--color-muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.btn-bench-row {
+  display: grid;
+  gap: 18px 32px;
+  align-items: center;
+  padding: 22px 0;
+  border-top: 1px solid var(--color-line-soft);
+}
+@media (min-width: 860px) {
+  .btn-bench-row { grid-template-columns: minmax(0, 22rem) minmax(0, 1fr); }
+}
+
+.btn-bench-meta h2 {
+  color: var(--color-ink);
+  font-size: 14px;
+  font-weight: 700;
+}
+.btn-bench-meta p {
+  margin-top: 5px;
+  color: var(--color-muted);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.btn-bench-samples {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+}
+
+/* --- the shared shell every variant starts from ------------------------- */
+.bb {
+  position: relative;
+  overflow: hidden;
+  min-height: 38px;
+  padding: 0 16px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-ctrl);
+  background: transparent;
+  color: var(--color-ink);
+  font-size: 12.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    box-shadow 200ms ease;
+}
+.bb-lg { min-height: 44px; padding: 0 22px; font-size: 13.5px; }
+.bb:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* 1 — gold plate ---------------------------------------------------------- */
+.bb-plate {
+  border-color: rgba(217, 164, 65, 0.5);
+  background: linear-gradient(180deg, #e0b25c, #d9a441);
+  color: #15171c;
+}
+.bb-plate:hover:not(:disabled) {
+  background: linear-gradient(180deg, #eecd86, #dcaa4b);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 8px 20px rgba(0, 0, 0, 0.3);
+}
+
+/* 2 — gold outline -------------------------------------------------------- */
+.bb-outline {
+  border-color: rgba(255, 255, 255, 0.11);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--color-muted);
+}
+.bb-outline:hover:not(:disabled) {
+  border-color: rgba(217, 164, 65, 0.72);
+  background: rgba(217, 164, 65, 0.05);
+  color: var(--color-gold-hi);
+}
+
+/* 3 — bevelled ink -------------------------------------------------------- */
+.bb-bevel {
+  border-color: rgba(255, 255, 255, 0.08);
+  background: linear-gradient(180deg, #23262e, #191c22);
+  color: var(--color-ink);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+.bb-bevel:hover:not(:disabled) {
+  border-color: rgba(217, 164, 65, 0.4);
+  background: linear-gradient(180deg, #2a2e37, #1e2128);
+  color: var(--color-gold-hi);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 4px 12px rgba(0, 0, 0, 0.36);
+}
+
+/* 4 — drawn rule ---------------------------------------------------------- */
+.bb-rule {
+  padding: 0 4px;
+  border-radius: 0;
+  color: var(--color-muted);
+}
+.bb-rule::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: 6px;
+  left: 0;
+  height: 1.5px;
+  border-radius: 2px;
+  background: var(--color-gold);
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 280ms var(--ease-premium);
+}
+.bb-rule:hover:not(:disabled) { color: var(--color-gold-hi); }
+.bb-rule:hover:not(:disabled)::after { transform: scaleX(1); }
+
+/* 5 — leading edge -------------------------------------------------------- */
+.bb-edge {
+  border-color: rgba(255, 255, 255, 0.09);
+  background: rgba(255, 255, 255, 0.025);
+  color: var(--color-muted);
+}
+.bb-edge::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 2px;
+  background: var(--color-gold);
+  transition: width 220ms var(--ease-premium), opacity 220ms ease;
+  opacity: 0.5;
+}
+.bb-edge:hover:not(:disabled) { color: var(--color-gold-hi); border-color: rgba(217, 164, 65, 0.3); }
+.bb-edge:hover:not(:disabled)::before { width: 4px; opacity: 1; }
+
+/* 6 — inset well ---------------------------------------------------------- */
+.bb-inset {
+  border-color: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.28);
+  color: var(--color-muted);
+  box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.45), inset 0 -1px 0 rgba(255, 255, 255, 0.05);
+}
+.bb-inset:hover:not(:disabled) {
+  background: rgba(217, 164, 65, 0.09);
+  color: var(--color-gold-hi);
+  box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.4), inset 0 0 0 1px rgba(217, 164, 65, 0.28);
+}
+
+/* 7 — single sweep -------------------------------------------------------- */
+.bb-sweep {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.035);
+  color: var(--color-muted);
+}
+.bb-sweep::after {
+  content: "";
+  position: absolute;
+  top: -60%;
+  bottom: -60%;
+  left: -40%;
+  width: 34px;
+  background: linear-gradient(90deg, transparent, rgba(217, 164, 65, 0.5), transparent);
+  transform: skewX(-18deg) translateX(-60px);
+  transition: transform 620ms var(--ease-premium);
+}
+.bb-sweep:hover:not(:disabled) { border-color: rgba(217, 164, 65, 0.35); color: var(--color-gold-hi); }
+.bb-sweep:hover:not(:disabled)::after { transform: skewX(-18deg) translateX(260px); }
+
+/* 8 — frosted ------------------------------------------------------------- */
+.bb-glass {
+  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--color-ink);
+  backdrop-filter: blur(6px);
+}
+.bb-glass:hover:not(:disabled) {
+  border-color: rgba(255, 255, 255, 0.26);
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--color-gold-hi);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bb, .bb::before, .bb::after { transition: none; }
+}
+
+/* ==========================================================================
+   Button treatment switch — dev only. Delete with src/components/dev.
+
+   Each block below re-dresses the app's real buttons — `zv-press` is on every one of
+   them via `buttonClasses` — so a treatment can be judged where it will actually live
+   rather than in a row of samples.
+   ========================================================================== */
+
+.zv-btn-theme {
+  position: fixed;
+  right: 14px;
+  bottom: 14px;
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-pill);
+  background: rgba(12, 14, 18, 0.92);
+  color: var(--color-muted);
+  font-size: 11px;
+  backdrop-filter: blur(8px);
+}
+.zv-btn-theme select {
+  border: 0;
+  background: transparent;
+  color: var(--color-gold-hi);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+.zv-btn-theme select option { background: #14161b; }
+
+/* --- shared reset for every themed variant ------------------------------ */
+:root:not([data-btn="default"]) .zv-press {
+  position: relative;
+  overflow: hidden;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    box-shadow 200ms ease;
+}
+:root:not([data-btn="default"]) .zv-press.zv-sheen::after { display: none; }
+
+/* 1 — gold plate --------------------------------------------------------- */
+[data-btn="plate"] .zv-press {
+  border-color: rgba(217, 164, 65, 0.5) !important;
+  background: linear-gradient(180deg, #e0b25c, #d9a441) !important;
+  color: #15171c !important;
+}
+[data-btn="plate"] .zv-press:hover:not(:disabled) {
+  background: linear-gradient(180deg, #eecd86, #dcaa4b) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 8px 20px rgba(0, 0, 0, 0.3);
+}
+
+/* 2 — gold outline ------------------------------------------------------- */
+[data-btn="outline"] .zv-press {
+  border-color: rgba(255, 255, 255, 0.11) !important;
+  background: rgba(255, 255, 255, 0.03) !important;
+  color: var(--color-muted) !important;
+}
+[data-btn="outline"] .zv-press:hover:not(:disabled) {
+  border-color: rgba(217, 164, 65, 0.72) !important;
+  background: rgba(217, 164, 65, 0.05) !important;
+  color: var(--color-gold-hi) !important;
+}
+
+/* 3 — bevelled ink ------------------------------------------------------- */
+[data-btn="bevel"] .zv-press {
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  background: linear-gradient(180deg, #23262e, #191c22) !important;
+  color: var(--color-ink) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+[data-btn="bevel"] .zv-press:hover:not(:disabled) {
+  border-color: rgba(217, 164, 65, 0.4) !important;
+  background: linear-gradient(180deg, #2a2e37, #1e2128) !important;
+  color: var(--color-gold-hi) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 4px 12px rgba(0, 0, 0, 0.36);
+}
+
+/* 4 — drawn rule --------------------------------------------------------- */
+[data-btn="rule"] .zv-press {
+  border-color: transparent !important;
+  background: transparent !important;
+  color: var(--color-muted) !important;
+}
+[data-btn="rule"] .zv-press::before {
+  content: "";
+  position: absolute;
+  right: 8px;
+  bottom: 5px;
+  left: 8px;
+  height: 1.5px;
+  border-radius: 2px;
+  background: var(--color-gold);
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 280ms var(--ease-premium);
+}
+[data-btn="rule"] .zv-press:hover:not(:disabled) { color: var(--color-gold-hi) !important; }
+[data-btn="rule"] .zv-press:hover:not(:disabled)::before { transform: scaleX(1); }
+
+/* 5 — leading edge ------------------------------------------------------- */
+[data-btn="edge"] .zv-press {
+  border-color: rgba(255, 255, 255, 0.09) !important;
+  background: rgba(255, 255, 255, 0.025) !important;
+  color: var(--color-muted) !important;
+}
+[data-btn="edge"] .zv-press::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 2px;
+  background: var(--color-gold);
+  opacity: 0.5;
+  transition: width 220ms var(--ease-premium), opacity 220ms ease;
+}
+[data-btn="edge"] .zv-press:hover:not(:disabled) {
+  border-color: rgba(217, 164, 65, 0.3) !important;
+  color: var(--color-gold-hi) !important;
+}
+[data-btn="edge"] .zv-press:hover:not(:disabled)::before { width: 4px; opacity: 1; }
+
+/* 6 — inset well --------------------------------------------------------- */
+[data-btn="inset"] .zv-press {
+  border-color: rgba(0, 0, 0, 0.5) !important;
+  background: rgba(0, 0, 0, 0.28) !important;
+  color: var(--color-muted) !important;
+  box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.45), inset 0 -1px 0 rgba(255, 255, 255, 0.05);
+}
+[data-btn="inset"] .zv-press:hover:not(:disabled) {
+  background: rgba(217, 164, 65, 0.09) !important;
+  color: var(--color-gold-hi) !important;
+  box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.4), inset 0 0 0 1px rgba(217, 164, 65, 0.28);
+}
+
+/* 7 — single sweep ------------------------------------------------------- */
+[data-btn="sweep"] .zv-press {
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  background: rgba(255, 255, 255, 0.035) !important;
+  color: var(--color-muted) !important;
+}
+[data-btn="sweep"] .zv-press::before {
+  content: "";
+  position: absolute;
+  top: -60%;
+  bottom: -60%;
+  left: -40%;
+  width: 34px;
+  background: linear-gradient(90deg, transparent, rgba(217, 164, 65, 0.5), transparent);
+  transform: skewX(-18deg) translateX(-60px);
+  transition: transform 620ms var(--ease-premium);
+}
+[data-btn="sweep"] .zv-press:hover:not(:disabled) {
+  border-color: rgba(217, 164, 65, 0.35) !important;
+  color: var(--color-gold-hi) !important;
+}
+[data-btn="sweep"] .zv-press:hover:not(:disabled)::before {
+  transform: skewX(-18deg) translateX(280px);
+}
+
+/* ==========================================================================
+   Buttons.
+
+   Rejected along the way, recorded so they are not proposed again:
+
+     gold plate    a filled gold face. Right for one hero action on one page, wrong for a
+                   control that repeats on every screen.
+     bevelled ink  a raised dark plate. The gradient killed it: a face that shades from
+                   light to dark reads as a surface, and a button is not a surface.
+     inset well    recessed. Reads as an input, or as disabled.
+     leading edge  a gold bar down the left. Directional, and it turned out there is
+                   nowhere in this app that wants a directional button — every place it
+                   was tried, it read as a status marker rather than an action.
+
+   What is left is one outline, at three weights. The shape is identical everywhere; only
+   how loudly it speaks at rest changes. That is deliberate: a set of buttons that differ
+   in *construction* competes with itself, while a set that differs in weight ranks.
+   ========================================================================== */
+
+/* Shared: nothing is added, nothing travels — the hairline and the label arrive at gold. */
+.zv-btn-primary,
+.zv-btn-secondary,
+.zv-btn-quiet {
+  position: relative;
+  overflow: hidden;
+  transition: border-color 180ms ease, color 180ms ease, background-color 180ms ease;
+}
+
+.zv-btn-primary:hover:not(:disabled),
+.zv-btn-secondary:hover:not(:disabled),
+.zv-btn-quiet:hover:not(:disabled) {
+  border-color: rgba(217, 164, 65, 0.62);
+  background: rgba(217, 164, 65, 0.05);
+  color: var(--color-gold-hi);
+}
+
+.zv-btn-primary:active:not(:disabled),
+.zv-btn-secondary:active:not(:disabled),
+.zv-btn-quiet:active:not(:disabled) { background: rgba(217, 164, 65, 0.1); }
+
+/* The three weights, at rest. */
+.zv-btn-primary {
+  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--color-ink);
+}
+
+.zv-btn-secondary {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--color-muted);
+}
+
+.zv-btn-quiet {
+  border-color: rgba(255, 255, 255, 0.07);
+  background: transparent;
+  color: var(--color-muted);
+}
+
+/*
+  There is no sweep on any button.
+
+  It was tried on `New` alone, on the argument that the one action available from every
+  screen can afford an event. It cannot: a band crossing a control is decoration on the
+  smallest surface in the app, and the buttons here are small — the gesture needs room
+  that a 90px control does not have.
+
+  So every button is the outline and nothing else, at three weights. One shape, one hover,
+  no exceptions to remember.
+*/
+
+@media (prefers-reduced-motion: reduce) {
+  .zv-btn-primary,
+  .zv-btn-secondary,
+  .zv-btn-quiet { transition: none; }
+}
+
+/* ------------------------------------------------------- Money: loans and debts */
+/*
+  What is owed, both ways.
+
+  Drawn quieter than the panels above it on purpose. A debt is a standing fact rather
+  than something that happened this month, and the figures at the top of the screen are
+  what the month is about. This one is here to be checked, not read every visit.
+*/
+.loans-panel { padding: 0; }
+
+.loans-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--color-line-soft);
+}
+
+.loans-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--color-ink);
+}
+
+.loans-totals {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.loans-totals i { color: var(--color-faint); font-style: normal; }
+
+.loan-row {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--color-line-soft);
+}
+
+.loan-row:last-of-type { border-bottom: 0; }
+
+.loan-row-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.loan-row-id { min-width: 0; }
+
+.loan-row-name {
+  display: block;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--color-ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.loan-row-sub {
+  display: block;
+  margin-top: 2px;
+  font-size: 11.5px;
+  color: var(--color-muted);
+}
+
+.loan-row-amount {
+  flex: none;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.3px;
+}
+
+/* The same seven pixels the budget bar uses, so a debt being paid off and a limit
+   being spent read at the same scale. */
+.loan-bar {
+  height: 7px;
+  margin-top: 11px;
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.055);
+  overflow: hidden;
+}
+
+.loan-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-pill);
+  background: var(--color-gold);
+  animation: budget-bar-in 900ms var(--ease-premium) 200ms both;
+}
+
+.loan-row-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 9px;
+  font-size: 11.5px;
+  color: var(--color-faint);
+}
+
+.loans-closed {
+  padding: 10px 16px 12px;
+  border-top: 1px solid var(--color-line-soft);
+}
+
+.loans-closed summary {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--color-muted);
+  cursor: pointer;
+  transition: color 200ms ease;
+}
+
+.loans-closed summary:hover { color: var(--color-ink); }
+
+.loan-closed-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-top: 9px;
+  font-size: 12.5px;
+  color: var(--color-muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loan-bar-fill { animation: none; }
+}
+
+/* ------------------------------------------------------- Shell: the New menu */
+/*
+  The menu had no CSS at all — `zv-menu` and `zv-menu-item` were bare class names and
+  the hover was a Tailwind background with no `transition` on it. That is why it felt
+  dead: the panel arrived fully formed and the highlight cut on and off with no travel.
+
+  What it does now is one idea, not a pile of effects: a light comes on at the left edge
+  of the row and spreads across it. The rule is the source, the wash is what the source
+  throws, and everything is timed so the source arrives first. Nothing moves — see the
+  note above `::before`.
+*/
+.zv-menu {
+  /* It comes from the button, so it grows out of the corner the button is in. */
+  transform-origin: top right;
+  /*
+    Opaque, and this was tried the other way first.
+
+    Translucent over a backdrop blur is what the segmented control on the upcoming
+    screen does, and it works there because what sits behind it is empty page. A menu
+    does not get to choose its backdrop: this one opens over the account band, and at
+    84% the `+ Add` button and a 24px white figure read straight through the labels.
+    Blur softens an edge; it does not remove contrast that strong.
+
+    So the panel is solid, and the depth comes from the two things that cost nothing in
+    legibility — a hairline of light along the top edge, and a shadow deep enough to
+    lift it off the page. The faint warm gradient is what keeps it from reading as a
+    grey box; it never drops below full opacity.
+  */
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent 42%),
+    var(--color-surface);
+  border-color: color-mix(in srgb, var(--color-gold) 10%, var(--color-line));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    0 22px 50px -12px rgba(0, 0, 0, 0.8),
+    0 2px 8px rgba(0, 0, 0, 0.4);
+  animation: zv-menu-in 170ms var(--ease-premium) both;
+}
+
+@keyframes zv-menu-in {
+  from { opacity: 0; transform: translateY(-6px) scale(0.965); }
+  to { opacity: 1; transform: none; }
+}
+
+.zv-menu-item,
+.zv-nav-item {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+.zv-menu-item {
+  color: var(--color-muted);
+  /*
+    Slow out, fast in.
+
+    The base transition is what plays when the pointer leaves; the one on `:hover` is
+    what plays when it arrives. Sweeping down a list of six at one duration either
+    smears — every row still fading as the next lights — or snaps, which reads as a
+    broken redraw. Arriving in 110ms and leaving in 260ms tracks the pointer exactly and
+    still lets the row behind you close gently.
+  */
+  transition: color 260ms ease;
+  animation: zv-menu-item-in 170ms var(--ease-premium) both;
+}
+
+@keyframes zv-menu-item-in {
+  from { opacity: 0; transform: translateX(-5px); }
+  to { opacity: 1; transform: none; }
+}
+
+.zv-menu-item:hover,
+.zv-menu-item:focus-visible {
+  outline: none;
+  color: var(--color-ink);
+  transition-duration: 110ms;
+}
+
+/*
+  The light the rule throws, on its own layer.
+
+  Three gradients doing one job each: a warm wash strongest at the left and gone by
+  three fifths, so the row reads as lit *by* the gold rather than tinted gold; a cool
+  neutral body underneath, so the label keeps its contrast; and a hairline of light
+  along the top edge, which is the whole trick behind a surface that looks raised
+  instead of filled. Exactly the construction the lit segment on the upcoming screen
+  uses, held at about a third of its strength — this is a hover, not a selection.
+
+  On `::after` at `z-index: -1` rather than on the element's own background, because
+  `background-image` cannot be transitioned and opacity can. `isolation: isolate` keeps
+  it behind the label without letting it fall behind the panel.
+*/
+.zv-menu-item::after,
+.zv-nav-item::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  /*
+    One gradient, and it ends in nothing.
+
+    This used to be a filled rounded rectangle with a lit top edge — which is the exact
+    construction of a button, and the menu then had six buttons in it. A row is not a
+    button: it has no edge you aim at, it has a rule at one end that says where you are.
+
+    So the fill goes and light takes its place. It is warm where the rule is, cools to
+    neutral by a fifth of the way across, and is gone by three quarters — no right edge,
+    no rounded corner, no top highlight. Nothing in it draws a shape, so there is no
+    shape to mistake for a control.
+  */
+  background: linear-gradient(
+    90deg,
+    rgba(217, 164, 65, 0.14) 0%,
+    rgba(255, 255, 255, 0.05) 20%,
+    rgba(255, 255, 255, 0.018) 48%,
+    transparent 76%
+  );
+  opacity: 0;
+  transition: opacity 260ms ease;
+}
+
+.zv-menu-item:hover::after,
+.zv-menu-item:focus-visible::after,
+.zv-nav-item[aria-current="page"]::after {
+  opacity: 1;
+  transition-duration: 160ms;
+}
+
+/*
+  Pointing at a nav row is not standing on it.
+
+  Same light, same falloff, no gold in it — a warm wash under the pointer would say the
+  router had moved, and it has not. The neutral version is enough to say "this row"
+  while the gold one two positions up keeps saying "this page".
+*/
+.zv-nav-item:not([aria-current="page"]):hover::after {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.07) 0%,
+    rgba(255, 255, 255, 0.03) 34%,
+    transparent 76%
+  );
+  opacity: 1;
+  transition-duration: 160ms;
+}
+
+/*
+  A rule down the left edge rather than anything that moves.
+
+  The row is already lit; this says which one without asking the label to shift a pixel.
+  It grows from the middle out, which at 2px wide is the only motion small enough to
+  register as a response rather than a wobble — the same reason the tab icons on the
+  upcoming screen were told to hold still.
+
+  It arrives in 90ms against the wash's 160ms. Same start, different speed: the source
+  lands, then the light it throws catches up. Reverse the two and the row lights before
+  anything is lighting it, which is the tell that separates an effect from a mechanism.
+*/
+.zv-menu-item::before,
+.zv-nav-item::before {
+  content: "";
+  position: absolute;
+  top: 6px;
+  bottom: 6px;
+  left: 0;
+  width: 2px;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--color-gold) 55%, transparent),
+    var(--color-gold-hi) 50%,
+    color-mix(in srgb, var(--color-gold) 55%, transparent)
+  );
+  box-shadow: 0 0 10px rgba(217, 164, 65, 0.35);
+  transform: scaleY(0);
+  opacity: 0;
+  transition: transform 240ms var(--ease-premium), opacity 240ms ease;
+}
+
+.zv-menu-item:hover::before,
+.zv-menu-item:focus-visible::before,
+.zv-nav-item[aria-current="page"]::before {
+  transform: scaleY(1);
+  opacity: 1;
+  transition-duration: 90ms;
+}
+
+/* The page you are on keeps its mark; it is not an animation that has to arrive. */
+.zv-nav-item[aria-current="page"]::before { transition-duration: 0ms; }
+
+/*
+  The icon is the part that goes gold, not the label.
+
+  A label that changes colour and a label that changes weight are the same event to the
+  eye — it re-reads the word either way. The glyph is not read, so it can carry the
+  accent without costing anything: it lights, the word merely brightens, and the row
+  gains a second beat without a second thing to look at.
+
+  It never moves. That is the same rule the tab icons on the upcoming screen were given,
+  for the same reason: at 15px a shape that shifts reads as a wobble, not a response.
+*/
+/*
+  One tile, two places.
+
+  It started in the quick-add menu, where it solved a real problem: `ArrowDownRight` is
+  one stroke and `Banknote` is nine, so bare at the same size the money rows read as
+  lighter than the rest and the list appeared to have a rhythm it does not have. Boxed,
+  the *tile* becomes the repeated element and the drawing inside it stops being a size.
+
+  The sidebar did not have that problem — its seven glyphs are all of a weight — but it
+  now wears the same tile anyway, because two places that draw icons two different ways
+  read as two applications. The consistency is the reason; the weight fix was only the
+  occasion.
+
+  It is one class and one set of numbers rather than a look copied twice. Two components
+  drawing the same object from two sets of values drift apart on the first change either
+  one is given, and nobody notices until the two are on screen together.
+
+  The tile is also the better home for the accent. A 15px glyph turning gold is a small
+  event; a tile that lights, warms and takes a gold hairline is the same event at four
+  times the size, and costs nothing extra because the shape was already there.
+*/
+.zv-icon-tile {
+  --tile: 22px;
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: var(--tile);
+  height: var(--tile);
+  /*
+    Visible at rest, and that was the whole point.
+
+    The first version used `--color-line-soft` over a 3% fill, which on these panels is
+    invisible until something lights it — so the column it was meant to build existed
+    only on the row you were already looking at. A structure you can see only where you
+    are pointing is not structure.
+  */
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.045);
+  transition: border-color 260ms ease, background 260ms ease, box-shadow 300ms ease;
+}
+
+/* The nav row is taller and its glyph larger, so the box grows with it. */
+.zv-nav-item .zv-icon-tile {
+  --tile: 26px;
+  border-radius: 7px;
+}
+
+/*
+  Lit: pointed at in the menu, stood on in the sidebar.
+
+  Those are the same claim — this one — made by a pointer in one place and by the router
+  in the other, so they get the same treatment rather than two that merely rhyme.
+*/
+.zv-menu-item:hover .zv-icon-tile,
+.zv-menu-item:focus-visible .zv-icon-tile,
+.zv-nav-item[aria-current="page"] .zv-icon-tile {
+  border-color: rgba(217, 164, 65, 0.42);
+  background: linear-gradient(180deg, rgba(217, 164, 65, 0.2), rgba(217, 164, 65, 0.07));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 232, 178, 0.14),
+    0 3px 10px rgba(217, 164, 65, 0.14);
+  transition-duration: 110ms;
+}
+
+/*
+  Hovering a nav row is not standing on it, so it gets a lift rather than the accent.
+  Gold here would mean the pointer had navigated, which it has not.
+*/
+.zv-nav-item:not([aria-current="page"]):hover .zv-icon-tile {
+  border-color: rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.08);
+  transition-duration: 110ms;
+}
+
+.zv-nav-icon { transition: color 220ms ease; }
+
+.zv-menu-icon {
+  color: var(--color-faint);
+  transition: color 260ms ease;
+}
+
+.zv-menu-item:hover .zv-menu-icon,
+.zv-menu-item:focus-visible .zv-menu-icon {
+  color: var(--color-gold-hi);
+  transition-duration: 110ms;
+}
+
+/*
+  Where the subject changes, and nowhere else.
+
+  Inset from both edges rather than run wall to wall: a full-width rule cuts the panel
+  into two panels, which is more than the break deserves. Everything above it is money
+  and the one below it is not — that is a change of subject, not a change of section.
+*/
+.zv-menu-sep {
+  height: 1px;
+  margin: 5px 10px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--color-line-soft) 18%,
+    var(--color-line-soft) 82%,
+    transparent
+  );
+}
+
+/* Pressed reads as the light dropping, the way every other control here does. */
+.zv-menu-item:active { filter: brightness(0.94); }
+
+@media (prefers-reduced-motion: reduce) {
+  .zv-menu,
+  .zv-menu-item { animation: none; }
+  .zv-menu-item::before,
+  .zv-menu-item::after,
+  .zv-icon-tile,
+  .zv-menu-icon,
+  .zv-nav-icon { transition: none; }
+}
+
+/* The one actionable half of the net note. Underlined faintly, like `goal-first-step`,
+   because it is an offer inside a sentence rather than a control of its own. */
+.zv-net-fix {
+  color: var(--color-gold-hi);
+  font-weight: 700;
+  text-decoration: underline;
+  text-decoration-color: rgba(230, 180, 87, 0.4);
+  text-underline-offset: 2px;
+  transition: text-decoration-color 200ms ease;
+}
+
+.zv-net-fix:hover { text-decoration-color: var(--color-gold-hi); }
+
+/* ------------------------------------------------------- Setup: what comes in */
+/*
+  The list of standing income, in the sixth step.
+
+  Read-only on purpose. Everything else in Setup is edited where it is listed, but a
+  recurring rule has an amount, a currency, an interval, an anchor day, an instalment
+  count and an end date — a form that already exists on Upcoming and would be the
+  largest thing on this page if it were inlined here. So this says what is on file and
+  hands the editing back to the screen built for it.
+*/
+.setup-earning-list {
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+  overflow: hidden;
+}
+
+.setup-earning-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--color-line-soft);
+}
+
+.setup-earning-row:last-of-type { border-bottom: 0; }
+
+.setup-earning-name {
+  display: block;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--color-ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.setup-earning-sub {
+  display: block;
+  margin-top: 2px;
+  font-size: 11.5px;
+  color: var(--color-muted);
+}
+
+/* Green, because this is the one list in the app where every figure is money arriving. */
+.setup-earning-amount {
+  flex: none;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--color-ok);
+  white-space: nowrap;
+}
+
+/*
+  The trend columns rise, the way the breakdown fills draw.
+
+  `money-progress-in` grows from the left because a bar that measures a share is read
+  left to right. A column measuring a month is read from the ground up, so this is the
+  same gesture rotated — `scaleY` from `bottom`, at the same 900ms and the same easing,
+  so the two charts on the overview are visibly one object moving rather than two that
+  happen to animate.
+
+  Once, on arrival. A chart that keeps moving is a chart nobody can read a figure off.
+*/
+.money-bar-in {
+  transform-origin: bottom center;
+  animation: money-bar-in 900ms var(--ease-premium) both;
+}
+
+@keyframes money-bar-in {
+  from { transform: scaleY(0); opacity: 0; }
+  30% { opacity: 1; }
+  to { transform: scaleY(1); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .money-bar-in { animation: none; }
+}
+
+/*
+  The bottom of a list that does not end.
+
+  Shared by every capped panel on the overview, which is now all of them. It is a row
+  rather than a corner link on purpose: it sits where the next item would have been, so
+  the eye that was reading down the list meets it in the place it was already looking,
+  and the border above it is the same hairline that separated the rows.
+
+  Muted at rest. It is an admission before it is an offer, and an admission that arrives
+  in gold reads as the most important thing in the panel.
+*/
+.zv-more {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 16px 10px;
+  border-top: 1px solid var(--color-line-soft);
+  color: var(--color-muted);
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: color 180ms ease, background-color 180ms ease;
+}
+
+.zv-more:hover { color: var(--color-gold-hi); background: rgba(255, 255, 255, 0.022); }
+
+/* The two panels that clear themselves have nowhere to send you. Same row, no offer. */
+.zv-more.is-static { color: var(--color-faint); font-weight: 500; }
+
+.zv-more svg { flex: none; transition: transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1); }
+.zv-more:hover svg { transform: translateX(3px); }
+
+/*
+  The one sentence on the overview that is not a measurement.
+
+  A band rather than a card, and a quiet one. It says either "every limit is on pace" or
+  names the one category that is not, and in both cases it is a sentence, not a figure —
+  so it should not look like the cards above it, which are all figures. A left edge is
+  the whole decoration: enough to mark it as a different kind of statement, not enough
+  to make good news look like an alarm.
+*/
+.money-verdict {
+  padding: 10px 14px;
+  border-left: 2px solid var(--color-line);
+  border-radius: 0 var(--radius-ctrl) var(--radius-ctrl) 0;
+  background: rgba(255, 255, 255, 0.018);
+  color: var(--color-muted);
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+
+.money-verdict b { color: var(--color-ink); font-weight: 600; }
+
+/* Drifting: gold, which is this app's "worth a look", not its "something is wrong". */
+.money-verdict.is-warn {
+  border-left-color: var(--color-gold);
+  background: rgba(217, 164, 65, 0.05);
+  color: var(--color-ink);
+}
+
+.money-verdict a {
+  color: var(--color-gold-hi);
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-color: rgba(230, 180, 87, 0.35);
+  text-underline-offset: 2px;
+  transition: text-decoration-color 200ms ease;
+}
+
+.money-verdict a:hover { text-decoration-color: var(--color-gold-hi); }
+
+/*
+  The conclusion, on one line.
+
+  This began as a column down the left of the panel, which gave a two-figure summary
+  the same footprint as the list it summarises — and made a card whose whole job is to
+  be glanced at twice as tall as the fact it carries. It is a fence around the headline
+  above, not a screen; Upcoming is the screen.
+*/
+.due-soon-band {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 3px 8px;
+  padding: 9px 16px 10px;
+  border-bottom: 1px solid var(--color-line-soft);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.028), rgba(255, 255, 255, 0));
+}
+
+.due-soon-total {
+  color: var(--color-ink);
+  font-family: var(--font-mono);
+  font-size: 14.5px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+
+.due-soon-when {
+  color: var(--color-muted);
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The part of the total that is already late, named rather than listed again. */
+.due-soon-when em {
+  margin-left: 6px;
+  color: var(--color-danger);
+  font-style: normal;
+}
+
+.due-soon-none {
+  padding: 10px 16px 12px;
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
+/*
+  The answer to "can I buy this", at the end of the line where the eye stops. `auto`
+  rather than a spacer, so on a narrow card it wraps to its own line instead of
+  squeezing the two figures to its left.
+*/
+.due-soon-left {
+  margin-left: auto;
+  color: var(--color-gold-hi);
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/*
+  A shortfall changes the wording, not the sign — "Short by 16.200" rather than a minus
+  in front of a figure, which at a glance is indistinguishable from a typo.
+*/
+.due-soon-left.is-short { color: var(--color-danger); }
+
+/*
+  The money on an account, as one column rather than two.
+
+  Setup used to print an "Opening" box beside a "Balance now" figure, both at the same
+  weight, the first permanently editable. That kept a number from the day you signed up
+  competing forever with the only number that is true today — and left the tempting fix
+  for any difference between the app and the bank sitting in the row, where using it
+  silently rewrites every balance the app has ever shown.
+
+  Now the figure is the balance, and what the account started with is a footnote under
+  it, reachable because a typo on day one has to be fixable and quiet because it is not
+  what anyone came to read.
+*/
+.setup-bal {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.setup-bal-side {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+}
+
+.setup-bal-now {
+  color: var(--color-ink);
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Owing more than the account holds is the one state that has to be unmistakable. */
+.setup-bal-now.is-short { color: var(--color-danger); }
+
+.setup-bal-note {
+  max-width: 100%;
+  overflow: hidden;
+  border-bottom: 1px dashed rgba(255, 255, 255, 0.16);
+  color: var(--color-faint);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: color 180ms ease, border-color 180ms ease;
+}
+
+.setup-bal-note:hover {
+  color: var(--color-muted);
+  border-bottom-color: rgba(255, 255, 255, 0.32);
+}
+
+/*
+  Said at the moment it can still be undone, rather than in the column head where it
+  would be read once and never again.
+*/
+.setup-open-warn {
+  margin-top: 8px;
+  padding: 7px 10px;
+  border: 1px solid rgba(222, 107, 94, 0.22);
+  border-radius: var(--radius-ctrl, 8px);
+  background: rgba(222, 107, 94, 0.06);
+  color: var(--color-muted);
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .zv-more,
+  .zv-more svg { transition: none; }
+  .zv-more:hover svg { transform: none; }
 }

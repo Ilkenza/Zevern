@@ -6,9 +6,20 @@ export type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
 const variants: Record<ButtonVariant, string> = {
   // The sheen is on `primary` alone. It is the one button on a screen that is being
   // recommended, and a highlight that crosses every button recommends nothing.
-  primary: "bg-gold text-on-gold font-bold hover:bg-gold-hi zv-sheen",
-  secondary: "bg-white/[0.04] text-ink border-line hover:bg-white/[0.08]",
-  ghost: "bg-transparent text-gold-hi hover:bg-active-bg",
+  /*
+    Three levels, three shapes, one hover language.
+
+    Each is drawn in `globals.css` rather than in a utility string, because none of them
+    is a colour swap — they are a band crossing, an outline arriving and an edge growing,
+    and a `hover:bg-*` cannot say any of those.
+
+    What makes them a system is that no two share a construction: the primary has an
+    event, the secondary has an outline, the quiet one has an edge. Set them side by side
+    at rest and the ranking is already obvious, before anything is hovered.
+  */
+  primary: "zv-btn-primary font-bold",
+  secondary: "zv-btn-secondary",
+  ghost: "zv-btn-quiet",
   danger: "bg-danger text-[#1B1210] hover:brightness-110",
 };
 

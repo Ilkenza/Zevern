@@ -57,6 +57,14 @@ enables it by default). `0026` onwards depend on it for token hashing.
   a superset of `anon`).
 - `0030–0035` — extension scope, custom colours, goals, planned items, the calendar
   feed function, and the rate limit on SEO checks.
+- `0036–0041` — the corrections and settings that came out of using it: the anchor day
+  a recurring rule is really tied to, a name on an entry, a default account and a
+  default currency, a target currency per goal, and a display currency per rule.
+- `0042` — loans, in both directions. A new table with the same owner-scoped RLS as
+  everything else.
+- `0043` — an entry may be logged before its amount is known, for the receipt still in
+  your pocket.
+- `0044` — each person can choose up to two accounts for the compact Overview readout.
 
 Each file opens with a comment saying what problem it solves. Read that before changing
 anything in it — several of them exist because something was wrong, not because a

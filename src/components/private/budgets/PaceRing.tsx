@@ -57,7 +57,7 @@ export function PaceRing({
         role="img"
         aria-label={
           showPace
-            ? `${used}% of the budget used, with ${pacePct}% of the month gone.`
+            ? `${used}% of the budget used. The pace marker is at ${pacePct}%.`
             : `${used}% of the budget used.`
         }
       >

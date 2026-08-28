@@ -56,6 +56,10 @@ export function Overall({ goals, onHand }: { goals: GoalLine[]; onHand: OnHand }
   const left = Math.max(totalTarget - towards, 0);
   const pct = totalTarget > 0 ? towards / totalTarget : null;
   const many = goals.length > 1;
+  // Seams only when every drawn segment is wide enough to read as its own band.
+  const seams = targeted
+    .filter((g) => g.saved > 0)
+    .every((g) => Math.min(g.saved, Number(g.target_rsd)) / totalTarget >= 0.02);
 
   return (
     <Panel
@@ -92,8 +96,40 @@ export function Overall({ goals, onHand }: { goals: GoalLine[]; onHand: OnHand }
               <>
                 <div
                   aria-hidden="true"
-                  className="mt-3 flex h-2.5 gap-px overflow-hidden rounded-pill bg-white/6"
+                  /*
+                    The 1px seams between goals are dropped once any segment is too small
+                    to survive them.
+
+                    Each segment carries a 3px floor so a first deposit is visible at all.
+                    With 2.000 spread over two goals against a 2.598.012 target, both
+                    segments sit on that floor — and a 1px gap cut through six pixels of
+                    gold reads as a broken pill, not as two goals. Seams are for telling
+                    wide bands apart; below about two percent of the bar there are no
+                    bands to tell apart, only a mark showing something is in.
+                  */
+                  className={cn(
+                    "goal-progress-track relative mt-3 flex h-2.5 overflow-hidden rounded-pill bg-white/6",
+                    seams && "gap-px",
+                  )}
                 >
+                  {/*
+                    The same quarter marks the goal cards carry, for the same reason:
+                    progress that only ever reports a percentage gives you nothing to
+                    cross, and crossing something is what carries people through the
+                    long middle where deposits stop. This bar had none, so the one
+                    place that measures *all* the goals at once was the one place with
+                    no thresholds on it.
+                  */}
+                  {[25, 50, 75].map((mark) => (
+                    <span
+                      key={mark}
+                      className={cn(
+                        "goal-milestone",
+                        pct * 100 >= mark && "is-passed",
+                      )}
+                      style={{ left: `${mark}%` }}
+                    />
+                  ))}
                   {targeted.map((g) => {
                     const share = (Math.min(g.saved, Number(g.target_rsd)) / totalTarget) * 100;
                     if (share <= 0) return null;
@@ -115,7 +151,18 @@ export function Overall({ goals, onHand }: { goals: GoalLine[]; onHand: OnHand }
                     "Every target reached."
                   ) : (
                     <>
-                      {Math.min(Math.floor(pct * 100), 99)}% of the way there ·{" "}
+                      {/*
+                        `<1%` rather than `0%` once anything is in.
+
+                        500 against a 2.598.012 target is 0.019%, and flooring that gives
+                        `0%` — which is the screen telling you nothing is there while the
+                        figure above it says 500. A percentage that rounds to nothing is
+                        not the same fact as nothing, and the reader can tell.
+                      */}
+                      {pct > 0 && pct < 0.01
+                        ? "Less than 1%"
+                        : `${Math.min(Math.floor(pct * 100), 99)}%`}{" "}
+                      of the way there ·{" "}
                       <span className="mono">{fmt(left)}</span> still to find
                     </>
                   )}
@@ -141,12 +188,19 @@ export function Overall({ goals, onHand }: { goals: GoalLine[]; onHand: OnHand }
             tone={onHand.free < 0 ? "danger" : undefined}
           />
         </div>
+        {/*
+          Five lines cut to one.
+
+          The paragraph explained the mechanism twice over and then covered currency
+          conversion as well — a manual page sitting permanently under a panel people
+          read in two seconds. The equation directly above it already shows what the
+          words were describing: on accounts, less set aside, equals free to spend. One
+          line is enough to say the money has not gone anywhere; anyone who needs the
+          currency rule will meet it on the card that applies it.
+        */}
         <p className="mt-2 text-[11.5px] leading-relaxed text-muted">
-          Setting money aside moves nothing. The money stays on the account and only
-          stops counting as free to spend — and free to spend is the figure every other
-          screen plans against, so the same money can never be promised twice. Figures are shown in
-          the currency you picked in Setup, converted at today&apos;s rate; a goal aimed at
-          another one still says the amount it was set in on its own card.
+          Money set aside never leaves the account — it only stops counting as free to
+          spend.
         </p>
       </div>
     </Panel>

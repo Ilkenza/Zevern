@@ -10,7 +10,7 @@
  * the columns start disagreeing.
  */
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Trash2 } from "lucide-react";
 import type { MoneyState } from "@/app/(app)/private/actions";
@@ -32,7 +32,7 @@ export const caps = "text-[10.5px] font-semibold uppercase tracking-wider text-f
  * that an account is one line, read left to right: what it is, what is in it.
  */
 export const accountCols =
-  "grid grid-cols-1 gap-2 min-[420px]:grid-cols-2 min-[720px]:grid-cols-[minmax(0,1fr)_8.5rem_9.5rem_7rem_10rem] min-[720px]:items-center min-[720px]:gap-3";
+  "grid grid-cols-1 gap-2 min-[420px]:grid-cols-2 min-[720px]:grid-cols-[minmax(0,1fr)_8.5rem_5.5rem_11rem_9.5rem] min-[720px]:items-center min-[720px]:gap-3";
 
 /*
   On a phone this was two equal halves, which put a colour swatch in one and a Save
@@ -97,6 +97,46 @@ export function useSavedPulse(state: MoneyState): number {
   return seen.pulse;
 }
 
+/**
+ * A row that commits when you leave it, instead of asking you to press Save.
+ *
+ * Setup renders one row per account and one per category, and each carried its own
+ * Save button — seventeen of them in a single column on a real account, all identical,
+ * all gold-adjacent, none of them telling you anything. A Save button that is always
+ * there is not an affordance, it is furniture: you cannot tell from it whether this
+ * row has unsaved work, which is the only question it could usefully answer.
+ *
+ * So the button appears only while the row is dirty, and the row saves itself when
+ * focus leaves it. Two details make that safe:
+ *
+ *   - `relatedTarget` is checked against the form. Tabbing from the name field to the
+ *     colour swatch, or clicking the bin, is movement *within* the row, and a row does
+ *     not commit while you are still working inside it.
+ *   - Nothing happens unless something actually changed. Clicking into a row and out
+ *     again fires no action, so the ledger is not rewritten by a stray click.
+ *
+ * `enabled` is false for the composer at the bottom of each list: adding a thing is a
+ * decision, and a half-typed new category must never save itself because the phone
+ * rang.
+ */
+export function useRowCommit(enabled: boolean) {
+  const [dirty, setDirty] = useState(false);
+
+  const onInput = () => {
+    if (enabled) setDirty(true);
+  };
+
+  const onBlur = (event: React.FocusEvent<HTMLFormElement>) => {
+    if (!enabled || !dirty) return;
+    const next = event.relatedTarget as Node | null;
+    if (next && event.currentTarget.contains(next)) return;
+    event.currentTarget.requestSubmit();
+    setDirty(false);
+  };
+
+  return { dirty, onInput, onBlur };
+}
+
 /** The receipt for a save: a tint over the row, held long enough to read, then gone. */
 export function SavedFlash() {
   return (
@@ -128,6 +168,22 @@ export function SwapLabel({ pending, idle, busy }: { pending: boolean; idle: str
   );
 }
 
+/**
+ * Delete, asked twice.
+ *
+ * The bin sat one pixel from Save, the same size and the same weight, and deleted an
+ * account or a category on a single click with nothing in between. An account carries
+ * every transaction ever logged against it; that is not a control that should be one
+ * slip of the mouse away from a control you press all day.
+ *
+ * The confirmation is the button itself rather than a dialog. A modal over a dense
+ * list of rows loses which row it was about, and it stops the one thing that makes
+ * this safe: the second click is in a different place, with a different word on it,
+ * so the muscle memory of the first click cannot complete the second.
+ *
+ * It disarms on a timer and on blur, so a row left armed does not stay armed for the
+ * rest of the session.
+ */
 export function RowDelete({
   onDelete,
   label,
@@ -139,27 +195,60 @@ export function RowDelete({
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  const [armed, setArmed] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  useEffect(() => {
+    if (!armed) return;
+    timer.current = setTimeout(() => setArmed(false), 4000);
+    return () => clearTimeout(timer.current);
+  }, [armed]);
+
+  if (armed) {
+    return (
+      <button
+        type="button"
+        aria-label={`Confirm: ${label}`}
+        disabled={pending}
+        /*
+          Focus moves to the confirmation, which does two jobs at once: Enter now
+          completes the delete for anyone on a keyboard, and clicking anywhere else
+          genuinely blurs this button — which is what disarms it. Without the focus,
+          the blur handler below can never fire and the row stays armed until the
+          timer runs out.
+        */
+        autoFocus
+        onBlur={() => setArmed(false)}
+        onClick={() => {
+          // The row starts leaving on the click rather than on the answer, so the
+          // gap that opens when the data comes back reads as "that one left"
+          // instead of as a row that blinked out of existence.
+          onLeaving?.(true);
+          startTransition(async () => {
+            try {
+              await onDelete();
+            } catch (error) {
+              onLeaving?.(false); // it did not leave after all
+              setArmed(false);
+              throw error;
+            }
+            router.refresh();
+          });
+        }}
+        className="zv-row-delete-confirm"
+      >
+        {pending ? "…" : "Delete?"}
+      </button>
+    );
+  }
+
   return (
     <button
       type="button"
       aria-label={label}
-      disabled={pending}
-      onClick={() => {
-        // The row starts leaving on the click rather than on the answer, so the
-        // gap that opens when the data comes back reads as "that one left"
-        // instead of as a row that blinked out of existence.
-        onLeaving?.(true);
-        startTransition(async () => {
-          try {
-            await onDelete();
-          } catch (error) {
-            onLeaving?.(false); // it did not leave after all
-            throw error;
-          }
-          router.refresh();
-        });
-      }}
-      className="rounded-ctrl p-1.5 text-faint transition-colors hover:bg-white/5 hover:text-danger disabled:opacity-50"
+      title={label}
+      onClick={() => setArmed(true)}
+      className="zv-row-delete rounded-ctrl p-1.5 text-faint transition-colors hover:bg-white/5 hover:text-danger"
     >
       <Trash2 className="h-3.75 w-3.75" />
     </button>

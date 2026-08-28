@@ -53,13 +53,20 @@ export {
   type Forecast,
   type ForecastLine,
   type ForecastWindow,
+  getDueSoon,
+  type DueSoon,
+  type DueItem,
 } from "./forecast";
 
 export {
+  getDailySpend,
   getExpenseTrend,
+  hasIncomeOnFile,
   getMonthSummary,
   getTransaction,
   getTransactions,
+  getUnpricedTransactions,
+  type DaySpend,
   type MonthSummary,
   type TxFilter,
 } from "./transactions";
@@ -74,5 +81,7 @@ export {
   type AccountBalance,
   type OnHand,
 } from "./accounts";
+
+export { getLoans, isLoanOpen, loanTotals } from "./loans";
 
 export { getMoney } from "./display";

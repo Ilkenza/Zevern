@@ -2,6 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import { supabaseAnonKey, supabaseUrl } from "@/lib/env";
 import { occurrencesFor } from "@/lib/money/occurrences";
 import { buildCalendar, type IcsEvent } from "@/lib/calendar/ics";
+import { todayISO } from "@/lib/format";
 import { formatAmount } from "@/lib/money";
 import type { RecurringRow } from "@/lib/types";
 
@@ -124,6 +125,9 @@ function asRecurringRow(rule: FeedRule): RecurringRow {
     currency: rule.currency,
     // The feed prints dates, not money, so it has no display currency to honour.
     display_currency: null,
+    // A debt is not a calendar event; the feed prints when a rule falls due, not what
+    // it pays off.
+    loan_id: null,
     variable: Boolean(rule.variable),
     every: rule.every,
     next_on: rule.next_on,
@@ -212,7 +216,8 @@ export async function GET(
     return notFound();
   }
 
-  const today = new Date().toISOString().slice(0, 10);
+  // Belgrade, like the rest of the app — see the note in `next.config.ts`.
+  const today = todayISO();
   const horizon = addDays(today, DAYS_AHEAD);
   const stamp = new Date();
   const events: IcsEvent[] = [];

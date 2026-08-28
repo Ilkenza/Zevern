@@ -107,10 +107,19 @@ export function ListSkeleton({
 export function CardsSkeleton({
   kpis = 4,
   panels = 2,
+  hero = false,
   maxWidth = "max-w-300",
 }: {
   kpis?: number;
   panels?: number;
+  /**
+   * A full-width band above the cards, for screens that lead with one figure.
+   *
+   * Without it the overview's skeleton drew four equal cards where the page has a band
+   * and three, so the layout rearranged itself the moment the data landed — which is
+   * the one thing a skeleton exists to prevent.
+   */
+  hero?: boolean;
   maxWidth?: string;
 }) {
   return (
@@ -118,7 +127,21 @@ export function CardsSkeleton({
       <span className="sr-only">Loading…</span>
       <HeadSkeleton />
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      {hero && (
+        <div className="rounded-card border border-line bg-surface p-5">
+          <Skeleton w="6rem" h={10} />
+          <Skeleton className="mt-3.5" w="13rem" h={34} />
+          <Skeleton className="mt-3" w="16rem" h={11} />
+        </div>
+      )}
+
+      {/* The columns follow the count, so three cards never sit in a grid built for four. */}
+      <div
+        className={cn(
+          "grid gap-3 min-[520px]:grid-cols-2",
+          kpis === 3 ? "lg:grid-cols-3" : "lg:grid-cols-4",
+        )}
+      >
         {Array.from({ length: kpis }, (_, i) => (
           <div key={i} className="rounded-card border border-line bg-surface p-4">
             <Skeleton w="4.5rem" h={10} />

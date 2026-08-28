@@ -2,9 +2,11 @@
  * The ledger itself: reading entries back, and adding a month of them up.
  */
 
+import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { userId } from "@/lib/supabase/current-user";
-import { monthKey, monthRange } from "@/lib/money";
+import { todayISO } from "@/lib/format";
+import { monthKey, monthRange, UNCATEGORIZED_CATEGORY_ID } from "@/lib/money";
 import type { TransactionRow } from "@/lib/types";
 import { TX_SELECT } from "./core";
 
@@ -26,7 +28,11 @@ export async function getTransactions(filter: TxFilter = {}): Promise<Transactio
     const { from, to } = monthRange(filter.month);
     q = q.gte("occurred_on", from).lte("occurred_on", to);
   }
-  if (filter.categoryId) q = q.eq("category_id", filter.categoryId);
+  if (filter.categoryId === UNCATEGORIZED_CATEGORY_ID) {
+    q = q.is("category_id", null).eq("kind", "expense");
+  } else if (filter.categoryId) {
+    q = q.eq("category_id", filter.categoryId);
+  }
   if (filter.accountId) q = q.eq("account_id", filter.accountId);
   if (filter.kind) q = q.eq("kind", filter.kind);
 
@@ -35,6 +41,32 @@ export async function getTransactions(filter: TxFilter = {}): Promise<Transactio
 
   const { data, error } = await q;
   if (error) console.error("getTransactions:", error.message);
+  return (data ?? []) as TransactionRow[];
+}
+
+/**
+ * Everything logged without a price, oldest first.
+ *
+ * Oldest first on purpose, and it is the only list in the money module ordered that
+ * way. Every other screen answers "what just happened", where the newest row is the one
+ * you came for. This one answers "what is still open", and the entry most at risk of
+ * never being finished is the one furthest from the day you can still remember it.
+ *
+ * Not scoped to a month either: an entry from three weeks ago is exactly the one that
+ * falls through, and a month-scoped panel would hide it on the 1st.
+ */
+export async function getUnpricedTransactions(limit = 25): Promise<TransactionRow[]> {
+  const supabase = await createClient();
+  const uid = await userId(supabase);
+  if (!uid) return [];
+  const { data, error } = await supabase
+    .from("money_transactions")
+    .select(TX_SELECT)
+    .eq("user_id", uid)
+    .is("amount", null)
+    .order("occurred_on", { ascending: true })
+    .limit(limit);
+  if (error) console.error("getUnpricedTransactions:", error.message);
   return (data ?? []) as TransactionRow[];
 }
 
@@ -90,7 +122,8 @@ export async function getMonthSummary(month = monthKey()): Promise<MonthSummary>
     const value = Number(r.amount_rsd) || 0;
     if (r.kind === "expense") {
       expense += value;
-      if (r.category_id) spentBy.set(r.category_id, (spentBy.get(r.category_id) ?? 0) + value);
+      const categoryId = r.category_id ?? UNCATEGORIZED_CATEGORY_ID;
+      spentBy.set(categoryId, (spentBy.get(categoryId) ?? 0) + value);
     } else if (r.kind === "income") {
       income += value;
     } else if (r.kind === "saving") {
@@ -129,6 +162,40 @@ export async function getMonthSummary(month = monthKey()): Promise<MonthSummary>
 }
 
 
+/**
+ * Whether this profile has ever said what money comes in.
+ *
+ * Not "did anything arrive this month" — that is a different question with a different
+ * answer, and conflating the two is what made a screen shout at someone on the 3rd for
+ * a salary that lands on the 10th.
+ *
+ * A standing rule counts even before it has ever booked. Writing down that the pay is
+ * 90.000 on the 5th is telling the app what comes in; making it wait for the first
+ * posting would keep the setup prompt on screen for up to a month after the setting up
+ * was actually done.
+ */
+export const hasIncomeOnFile = cache(async (): Promise<boolean> => {
+  const supabase = await createClient();
+  const uid = await userId(supabase);
+  if (!uid) return false;
+
+  const [booked, rules] = await Promise.all([
+    supabase
+      .from("money_transactions")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", uid)
+      .eq("kind", "income"),
+    supabase
+      .from("money_recurring")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", uid)
+      .eq("kind", "income")
+      .eq("active", true),
+  ]);
+
+  return (booked.count ?? 0) > 0 || (rules.count ?? 0) > 0;
+});
+
 /** Last 6 months of expense totals — the little trend bar on the overview. */
 export async function getExpenseTrend(months = 6): Promise<{ month: string; expense: number }[]> {
   const supabase = await createClient();
@@ -161,3 +228,50 @@ export async function getExpenseTrend(months = 6): Promise<{ month: string; expe
   return [...totals].map(([month, expense]) => ({ month, expense }));
 }
 
+export type DaySpend = {
+  /** 1-based day of the month. */
+  day: number;
+  date: string;
+  expense: number;
+  /** Saturdays and Sundays — the rhythm of a month is mostly weekends. */
+  weekend: boolean;
+  future: boolean;
+};
+
+/**
+ * A month of spending, day by day.
+ *
+ * A monthly total tells you how much; it never tells you *when*. Two people who spent
+ * the same amount can have had a completely different month — one steady, one three
+ * bad days — and only the shape says which you had.
+ */
+export async function getDailySpend(month: string): Promise<DaySpend[]> {
+  const { from, to } = monthRange(month);
+  const days = Number(to.slice(8));
+  const today = todayISO();
+
+  const blank = Array.from({ length: days }, (_, i) => {
+    const date = `${from.slice(0, 8)}${String(i + 1).padStart(2, "0")}`;
+    const dow = new Date(`${date}T00:00:00Z`).getUTCDay();
+    return { day: i + 1, date, expense: 0, weekend: dow === 0 || dow === 6, future: date > today };
+  });
+
+  const supabase = await createClient();
+  const uid = await userId(supabase);
+  if (!uid) return blank;
+
+  const { data, error } = await supabase
+    .from("money_transactions")
+    .select("occurred_on, amount_rsd")
+    .eq("user_id", uid)
+    .eq("kind", "expense")
+    .gte("occurred_on", from)
+    .lte("occurred_on", to);
+  if (error) console.error("getDailySpend:", error.message);
+
+  for (const r of data ?? []) {
+    const i = Number(String(r.occurred_on).slice(8, 10)) - 1;
+    if (i >= 0 && i < blank.length) blank[i].expense += Number(r.amount_rsd) || 0;
+  }
+  return blank;
+}

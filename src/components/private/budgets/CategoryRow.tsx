@@ -5,6 +5,7 @@ import { Wand2 } from "lucide-react";
 import { MoneyField } from "@/components/ui/MoneyField";
 import { useMoney } from "@/lib/money/currency";
 import { cn } from "@/lib/utils";
+import { CAT_TONE } from "@/lib/money/tone";
 import type { BudgetLine } from "@/lib/types";
 import { STATUS_LABEL, STATUS_TONE, clean, shouldSuggest, statusOf } from "./status";
 import { fromRsd } from "@/lib/money/display";
@@ -24,16 +25,12 @@ import { fromRsd } from "@/lib/money/display";
 export function CategoryRow({
   line,
   pace,
-  pacePct,
-  showPace,
   value,
   onChange,
   style,
 }: {
   line: BudgetLine;
   pace: number;
-  pacePct: number;
-  showPace: boolean;
   value: string;
   onChange: (next: string) => void;
   /** The caller's rung on the entrance ladder. Merged with the colours below. */
@@ -55,12 +52,14 @@ export function CategoryRow({
       style={
         {
           ...style,
-          "--cat-tone": line.category.color ?? "var(--color-faint)",
+          // One tone for every card. See `@/lib/money/tone` for why categories
+          // stopped carrying a colour of their own.
+          "--cat-tone": CAT_TONE,
           "--status-tone": tone,
         } as React.CSSProperties
       }
     >
-      {/* The category's own colour, down the whole edge — its identity in the list. */}
+      {/* The rail is rhythm, not identity — the card's heading is the identity. */}
       <span aria-hidden="true" className="budget-card-rail" />
 
       <div className="budget-card-top">
@@ -98,24 +97,17 @@ export function CategoryRow({
               style={{ width: `${used * 100}%` }}
               aria-hidden="true"
             />
-            {showPace && (
-              <span
-                className="budget-bar-pace"
-                style={{ left: `${Math.min(pacePct, 100)}%` }}
-                aria-hidden="true"
-              />
-            )}
           </div>
-          <span className={cn("mono budget-card-left", left < 0 && "is-over")}>
-            {left < 0 ? `${fmt(-left)} over` : `${fmt(left)} left`}
+          <span className={cn("mono budget-card-left", left < 0 && "is-over", left === 0 && "is-reached")}>
+            {left < 0 ? `${fmt(-left)} over` : left === 0 ? "Limit reached" : `${fmt(left)} left`}
           </span>
         </div>
       ) : (
         <div className="budget-card-bottom">
           <p className="budget-card-nolimit">
             {line.spent > 0
-              ? "Nothing is watching this one — spending here is invisible to the figures above."
-              : "No limit, and nothing spent this month."}
+              ? `${fmt(line.spent)} spent this month · No monthly limit`
+              : "Nothing spent this month · No monthly limit"}
           </p>
         </div>
       )}

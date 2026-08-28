@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Bricolage_Grotesque, Manrope, Spline_Sans_Mono } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
 import { siteUrl } from "@/lib/env";
 
@@ -12,7 +13,8 @@ const bricolage = Bricolage_Grotesque({
 const manrope = Manrope({
   variable: "--font-manrope",
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
+  // 300 exists for one thing: the masthead, where the month is set light and wide.
+  weight: ["300", "400", "500", "600", "700", "800"],
 });
 
 const splineMono = Spline_Sans_Mono({
@@ -81,6 +83,26 @@ export default function RootLayout({
       className={`${bricolage.variable} ${manrope.variable} ${splineMono.variable} h-full`}
     >
       <body suppressHydrationWarning className="min-h-full">
+        {/*
+          Dev only: paint the chosen button treatment before anything renders.
+
+          The picker itself is a React component, which means it cannot set the attribute
+          until after hydration — long enough for every button on the page to flash its
+          default first, and for the whole thing to look broken if the shell has not been
+          recompiled. A blocking inline script has no such problem: it runs before paint,
+          reads the same key the picker writes, and puts `data-btn` on `<html>` where the
+          stylesheet is already waiting for it.
+
+          `suppressHydrationWarning` is already on `<html>` above, so the attribute this
+          adds does not become a mismatch.
+
+          Delete with `src/components/dev`.
+        */}
+        {process.env.NODE_ENV === "development" && (
+          <Script id="zv-btn-theme" strategy="beforeInteractive">
+            {"try{var t=localStorage.getItem('zv-btn-theme');if(t)document.documentElement.dataset.btn=t}catch(e){}"}
+          </Script>
+        )}
         {children}
       </body>
     </html>

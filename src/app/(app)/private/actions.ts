@@ -11,12 +11,14 @@ import { fetchNbsRates } from "@/lib/rates/nbs";
 import {
   CURRENCIES,
   DEFAULT_CATEGORIES,
+  isLoanKind,
   isTxKind,
   nextDate,
   rateFor,
   type Currency,
   anchorDayFor,
 } from "@/lib/money";
+import { itemsArePriced, itemsTotal, parseItems } from "@/lib/money/items";
 
 export type MoneyState = { ok?: boolean; error?: string } | undefined;
 
@@ -84,6 +86,7 @@ async function ownsMoneyRow(
     | "money_accounts"
     | "money_categories"
     | "money_goals"
+    | "money_loans"
     | "money_recurring"
     | "money_planned",
   id: string | null,
@@ -104,7 +107,6 @@ async function ownsMoneyRow(
   return (count ?? 0) > 0;
 }
 
-/** Today, read in UTC — the same reading every screen uses, so nothing disagrees. */
 /*
   `toISOString()` is UTC, and next.config pins the server to Europe/Belgrade — so
   between midnight and 02:00 this returned yesterday while `monthKey()` on the very
@@ -168,12 +170,43 @@ const PENNY = 0.01;
 export async function saveTransaction(_prev: MoneyState, formData: FormData): Promise<MoneyState> {
   const id = String(formData.get("id") ?? "").trim();
   const kind = String(formData.get("kind") ?? "expense");
-  const amount = num(formData.get("amount"));
+  /*
+    An empty amount is a real answer, not a missing one.
+
+    You come back from the shop knowing what you bought and not what it cost. `null`
+    means exactly that — happened, price not known yet — and nothing in the app counts it
+    until a figure arrives. A typed `0` is left as `0` and refused below: a zero-dinar
+    shop is a slip of the finger, not an unknown, and the two must not collapse into
+    each other.
+  */
+  /*
+    A priced list decides the amount.
+
+    Otherwise the entry carries two figures for one fact — the sum of what is in the
+    bag, and whatever was typed in the box above it — and nothing on any screen would
+    say which of the two is the money. The form makes the field read-only while a list
+    is priced; this is the half of that rule that cannot be bypassed by posting the
+    form yourself.
+
+    A list where some line has no figure decides nothing: it sums to something that
+    reads like a receipt total and is not one, so the typed amount is used and the list
+    is kept as the record of what was bought.
+  */
+  const items = parseItems(formData.get("items"));
+  const rawAmount = String(formData.get("amount") ?? "").trim();
+  const amount = itemsArePriced(items)
+    ? itemsTotal(items)
+    : rawAmount === ""
+      ? null
+      : num(formData.get("amount"));
   const currency = currencyOf(formData.get("currency"));
   const accountId = String(formData.get("account_id") ?? "").trim() || null;
   const toAccountId = String(formData.get("to_account_id") ?? "").trim() || null;
   const categoryId = String(formData.get("category_id") ?? "").trim() || null;
   const goalId = String(formData.get("goal_id") ?? "").trim() || null;
+  const loanId = String(formData.get("loan_id") ?? "").trim() || null;
+  const loanName = String(formData.get("loan_name") ?? "").trim().slice(0, 80);
+  const loanTotal = num(formData.get("loan_total"), 0);
   const note = String(formData.get("note") ?? "").trim() || null;
   // What the entry actually was — "Maxi, weekly shop", not just "Groceries". The full
   // form asks for it and will not submit without one; quick add offers it and lets you
@@ -183,7 +216,26 @@ export async function saveTransaction(_prev: MoneyState, formData: FormData): Pr
   const returnTo = String(formData.get("return_to") ?? "").trim();
 
   if (!isTxKind(kind)) return { error: "Unknown kind." };
-  if (!(amount > 0)) return { error: "Amount has to be greater than zero." };
+  /*
+    Only a purchase may arrive without a figure.
+
+    Money coming in, money moving between accounts and money going to or from a goal all
+    have a figure by the time you know they happened — the bank, the ATM and the goal
+    arithmetic each supply one. `reserved` and `free` have no way to hold an unknown
+    claim, so an unpriced saving would make every "free to spend" figure in the app a
+    guess. And an entry with neither a price nor a name records nothing at all.
+  */
+  if (amount === null) {
+    if (kind !== "expense")
+      return { error: "Only a purchase can go in without a price — this one needs a figure." };
+    // A list of what was bought is the name, and a better one than a single line.
+    if (!title && items.length === 0)
+      return { error: "Say what you bought. Without a price, the name is the entry." };
+  } else if (!(amount > 0)) {
+    return {
+      error: "Amount has to be greater than zero — or leave it empty if you do not know it yet.",
+    };
+  }
   if (kind === "transfer" && (!accountId || !toAccountId || accountId === toAccountId))
     return { error: "A transfer needs two different accounts." };
   if (kind === "saving" && !goalId) return { error: "Pick the goal this saving belongs to." };
@@ -195,6 +247,24 @@ export async function saveTransaction(_prev: MoneyState, formData: FormData): Pr
     return { error: "Pick the account this money is being set aside on." };
   if (kind === "withdraw" && !accountId)
     return { error: "Pick the account this money goes back to." };
+
+  /*
+    A loan movement always names both an account and a debt.
+
+    Without the account the cash has nowhere to come from or land. Without the debt the
+    entry is money leaving or arriving that counts as nothing anywhere, which on the
+    screen is indistinguishable from an entry someone forgot to finish. The debt is
+    what makes it temporary rather than missing.
+  */
+  if (isLoanKind(kind) && !accountId)
+    return {
+      error:
+        kind === "loan_out"
+          ? "Pick the account this money leaves."
+          : "Pick the account this money lands on.",
+    };
+  if (isLoanKind(kind) && !loanId && !loanName)
+    return { error: "Pick which debt this belongs to, or name a new one." };
 
   // Errors quote figures, and a figure quoted in a currency the person does not read
   // in is a figure they have to convert before they can act on it.
@@ -211,16 +281,27 @@ export async function saveTransaction(_prev: MoneyState, formData: FormData): Pr
   const toAccount = kind === "transfer" ? toAccountId : null;
   const category = kind === "expense" || kind === "income" ? categoryId : null;
   const goal = kind === "saving" || kind === "withdraw" ? goalId : null;
+  /*
+    An expense keeps its loan link too, and that link is what an instalment is.
 
-  const [ownsAccount, ownsToAccount, ownsCategory, ownsGoal] = await Promise.all([
+    A rate is an ordinary expense — it costs the month like any other — but it also has
+    to pay the debt down, and the only way it can is by saying which debt it belongs
+    to. So `loan_id` survives on the two loan kinds and on `expense`, and is dropped
+    from everything else.
+  */
+  const loan = isLoanKind(kind) || kind === "expense" ? loanId : null;
+
+  const [ownsAccount, ownsToAccount, ownsCategory, ownsGoal, ownsLoan] = await Promise.all([
     ownsMoneyRow(supabase, "money_accounts", accountId, uid),
     ownsMoneyRow(supabase, "money_accounts", toAccount, uid),
     ownsMoneyRow(supabase, "money_categories", category, uid),
     ownsMoneyRow(supabase, "money_goals", goal, uid),
+    ownsMoneyRow(supabase, "money_loans", loan, uid),
   ]);
   if (!ownsAccount || !ownsToAccount) return { error: "That account is not on your profile." };
   if (!ownsCategory) return { error: "That category is not on your profile." };
   if (!ownsGoal) return { error: "That goal is not on your profile." };
+  if (!ownsLoan) return { error: "That debt is not on your profile." };
 
   if (goal) {
     // A closed goal has already handed its money back. Letting an entry land on one
@@ -237,7 +318,7 @@ export async function saveTransaction(_prev: MoneyState, formData: FormData): Pr
 
   // amount_rsd is generated in the database as round(amount * rate, 2); worked out the
   // same way here so the check and the stored figure cannot disagree.
-  const amountRsd = Math.round(amount * rate * 100) / 100;
+  const amountRsd = amount === null ? 0 : Math.round(amount * rate * 100) / 100;
 
   /*
     A deposit cannot reserve money the account does not have free.
@@ -300,6 +381,36 @@ export async function saveTransaction(_prev: MoneyState, formData: FormData): Pr
       };
   }
 
+  /*
+    The debt a movement is starting, made here rather than on a screen of its own.
+
+    Being sent somewhere else to declare a debt before you are allowed to record lending
+    someone money is being asked to model your finances before describing them. The
+    first movement already carries everything the debt needs: a name, a date, and an
+    amount.
+
+    The total falls back to the amount, which is right for every case but one. A credit
+    is the exception — 550.000 arrives and 600.000 is repaid — so the field is offered
+    and ignored when left empty. That keeps a tenner lent to a friend a one-field
+    answer while still letting a credit be described properly.
+  */
+  let loanRef = loan;
+  if (isLoanKind(kind) && !loanRef && loanName) {
+    const { data: created, error } = await supabase
+      .from("money_loans")
+      .insert({
+        name: loanName,
+        direction: kind === "loan_out" ? "lent" : "borrowed",
+        total_rsd: loanTotal > 0 ? loanTotal : amountRsd,
+        opened_on: occurredOn,
+      })
+      .select("id")
+      .maybeSingle();
+    if (error) return { error: saveErrorMessage(error) };
+    if (!created) return { error: "Could not create that debt. Try again." };
+    loanRef = created.id;
+  }
+
   const payload = {
     kind,
     title,
@@ -310,8 +421,12 @@ export async function saveTransaction(_prev: MoneyState, formData: FormData): Pr
     to_account_id: toAccount,
     category_id: category,
     goal_id: goal,
+    loan_id: loanRef,
     note,
     occurred_on: occurredOn,
+    // `null` rather than `[]`, so "this entry has no list" is one value everywhere
+    // instead of two that every read would have to treat the same.
+    items: items.length > 0 ? items : null,
   };
 
   if (id) {
@@ -330,6 +445,49 @@ export async function saveTransaction(_prev: MoneyState, formData: FormData): Pr
   if (returnTo) return { ok: true }; // stay on the page that asked (quick add, goals)
   redirect("/private/money");
 }
+
+/**
+ * The other half of an unpriced entry: the receipt turns up.
+ *
+ * Deliberately not the edit form. Filling in a price is the one thing you will do to
+ * these entries and you will do it to several at once, off a card statement or a
+ * pocketful of receipts — a panel that opens, saves and closes per entry turns five
+ * seconds of work into a minute of it. So this takes one figure and nothing else: the
+ * currency and the rate the entry was logged under are the ones it keeps, because they
+ * are the currency and rate of the day it happened, not of today.
+ *
+ * It refuses an entry that already has a price. Changing a figure that exists is an
+ * edit, it belongs in the form where the rest of the entry can be seen, and letting it
+ * happen here would mean a stray tap could silently rewrite a settled month.
+ */
+export async function priceTransaction(id: string, amount: number): Promise<MoneyState> {
+  if (!(amount > 0)) return { error: "The price has to be greater than zero." };
+  if (!(amount < MAX_AMOUNT)) return { error: "That is not a price." };
+
+  const supabase = await createSupabaseServerClient();
+  const uid = await userId(supabase);
+  if (!uid) return { error: "Not signed in." };
+
+  const { data: row } = await supabase
+    .from("money_transactions")
+    .select("id, amount")
+    .eq("id", id)
+    .eq("user_id", uid)
+    .maybeSingle();
+  if (!row) return { error: "That entry is not on your profile." };
+  if (row.amount !== null) return { error: "That entry already has a price. Edit it instead." };
+
+  const { error } = await supabase
+    .from("money_transactions")
+    .update({ amount })
+    .eq("id", id)
+    .eq("user_id", uid);
+  if (error) return { error: saveErrorMessage(error) };
+
+  refresh();
+  return { ok: true };
+}
+
 
 export async function deleteTransaction(id: string) {
   const result = await removeTransaction(id);
@@ -463,6 +621,49 @@ export async function setDefaultAccount(id: string): Promise<MoneyState> {
   const { error } = await supabase
     .from("money_accounts")
     .update({ is_default: true })
+    .eq("id", id)
+    .eq("user_id", uid);
+  if (error) return { error: saveErrorMessage(error) };
+
+  refresh();
+  return { ok: true };
+}
+
+/** Put an account in one of the two Overview slots, or remove it from both. */
+export async function setAccountOnOverview(id: string, visible: boolean): Promise<MoneyState> {
+  const supabase = await createSupabaseServerClient();
+  const uid = await userId(supabase);
+  if (!uid) return { error: "Not signed in." };
+  if (!(await ownsMoneyRow(supabase, "money_accounts", id, uid))) {
+    return { error: "That account is not on your profile." };
+  }
+
+  if (!visible) {
+    const { error } = await supabase
+      .from("money_accounts")
+      .update({ overview_rank: null })
+      .eq("id", id)
+      .eq("user_id", uid);
+    if (error) return { error: saveErrorMessage(error) };
+    refresh();
+    return { ok: true };
+  }
+
+  const { data: shown, error: readError } = await supabase
+    .from("money_accounts")
+    .select("id, overview_rank")
+    .eq("user_id", uid)
+    .not("overview_rank", "is", null);
+  if (readError) return { error: saveErrorMessage(readError) };
+  if ((shown ?? []).some((account) => account.id === id)) return { ok: true };
+
+  const used = new Set((shown ?? []).map((account) => account.overview_rank));
+  const slot = ([1, 2] as const).find((rank) => !used.has(rank));
+  if (!slot) return { error: "Overview can show up to two accounts." };
+
+  const { error } = await supabase
+    .from("money_accounts")
+    .update({ overview_rank: slot })
     .eq("id", id)
     .eq("user_id", uid);
   if (error) return { error: saveErrorMessage(error) };
@@ -1109,6 +1310,100 @@ export async function moveGoal(id: string, direction: "up" | "down"): Promise<Mo
 
 /* --------------------------------------------------------------- recurring */
 
+/* ------------------------------------------------------------------ debts */
+
+/**
+ * A debt, in either direction.
+ *
+ * `total_rsd` is what will be settled in the end rather than what changed hands. For a
+ * friend those are the same figure. For a credit they are not — 550.000 arrives and
+ * 600.000 is repaid — and storing the repayment total is what lets the balance run to
+ * exactly zero on the last instalment, with the interest accounted for by the plain
+ * fact that less arrived than leaves. Asking for the amount that landed instead would
+ * leave every credit ending 50.000 in the red for no reason anyone could see.
+ */
+export async function saveLoan(_prev: MoneyState, formData: FormData): Promise<MoneyState> {
+  const id = String(formData.get("id") ?? "").trim();
+  const name = String(formData.get("name") ?? "").trim().slice(0, 80);
+  const direction = String(formData.get("direction") ?? "lent");
+  const total = num(formData.get("total"));
+  const openedOn = String(formData.get("opened_on") ?? "").trim() || today();
+  const note = String(formData.get("note") ?? "").trim().slice(0, 200) || null;
+
+  if (!name) return { error: "Give it a name — whose debt it is, or what it paid for." };
+  if (direction !== "lent" && direction !== "borrowed") return { error: "Unknown direction." };
+  if (!(total > 0)) return { error: "The total has to be greater than zero." };
+
+  const supabase = await createSupabaseServerClient();
+  const uid = await userId(supabase);
+  if (!uid) return { error: "Not signed in." };
+
+  const payload = { name, direction, total_rsd: total, opened_on: openedOn, note };
+
+  if (id) {
+    const { error } = await supabase
+      .from("money_loans")
+      .update(payload)
+      .eq("id", id)
+      .eq("user_id", uid);
+    if (error) return { error: saveErrorMessage(error) };
+  } else {
+    const { error } = await supabase.from("money_loans").insert(payload);
+    if (error) return { error: saveErrorMessage(error) };
+  }
+
+  refresh();
+  return { ok: true };
+}
+
+/**
+ * Call it done, or put it back.
+ *
+ * Settling is a date rather than a flag so a closed debt keeps saying when it closed —
+ * and so reopening one is the same edit in reverse rather than a second column that
+ * can disagree with the first.
+ *
+ * It is deliberately possible to settle a debt that still has an outstanding balance.
+ * Someone forgave the rest, someone rounded it off over a coffee, or the entries were
+ * never going to add up in the first place. Refusing that would leave a row that can
+ * never be closed, which is how a list stops being read.
+ */
+export async function settleLoan(id: string, settled: boolean): Promise<MoneyState> {
+  const supabase = await createSupabaseServerClient();
+  const uid = await userId(supabase);
+  if (!uid) return { error: "Not signed in." };
+
+  const { error } = await supabase
+    .from("money_loans")
+    .update({ settled_on: settled ? today() : null })
+    .eq("id", id)
+    .eq("user_id", uid);
+  if (error) return { error: saveErrorMessage(error) };
+
+  refresh();
+  return { ok: true };
+}
+
+/**
+ * Forget the debt, keep the entries.
+ *
+ * `loan_id` is `on delete set null`, so what is lost is the fact that those movements
+ * belonged together — not the movements. Money really did leave the account when it
+ * was lent, and deleting the note about who has it would be the app editing history to
+ * tidy its own list.
+ */
+export async function deleteLoan(id: string): Promise<MoneyState> {
+  const supabase = await createSupabaseServerClient();
+  const uid = await userId(supabase);
+  if (!uid) return { error: "Not signed in." };
+
+  const { error } = await supabase.from("money_loans").delete().eq("id", id).eq("user_id", uid);
+  if (error) return { error: saveErrorMessage(error) };
+
+  refresh();
+  return { ok: true };
+}
+
 export async function saveRecurring(_prev: MoneyState, formData: FormData): Promise<MoneyState> {
   const id = String(formData.get("id") ?? "").trim();
   const name = String(formData.get("name") ?? "").trim();
@@ -1120,6 +1415,15 @@ export async function saveRecurring(_prev: MoneyState, formData: FormData): Prom
     : String(formData.get("kind") ?? "expense") === "income"
       ? "income"
       : "expense";
+  /*
+    The debt this rule is the instalment plan of.
+
+    A goal rule and a loan rule are opposite errands — one puts money aside, the other
+    pays money back — so a rule is never both. The goal wins if somehow both arrive,
+    because a goal rule books a `saving` and there would be nothing for a debt to
+    measure against.
+  */
+  const loanId = goalId ? null : String(formData.get("loan_id") ?? "").trim() || null;
   const variable = goalId ? false : formData.get("variable") != null;
   const amount = variable ? 0 : num(formData.get("amount"));
   const currency = currencyOf(formData.get("currency"));
@@ -1189,6 +1493,7 @@ export async function saveRecurring(_prev: MoneyState, formData: FormData): Prom
     account_id: accountId,
     category_id: categoryId,
     goal_id: goalId,
+    loan_id: loanId,
     active,
     installments_total: installmentsTotal,
     ends_on: endsOn,
@@ -1325,6 +1630,14 @@ export async function postRecurring(id: string, amountOverride?: number): Promis
       account_id: item.account_id,
       category_id: toGoal ? null : item.category_id,
       goal_id: item.goal_id,
+      /*
+        The instalment carries the debt forward.
+
+        Without this the rate posts as an ordinary expense and the debt never moves —
+        you would watch 50.000 leave every month while the panel kept saying you owe
+        600.000. The link is what turns a repeating expense into a repayment.
+      */
+      loan_id: toGoal ? null : item.loan_id,
       recurring_id: item.id,
       // The rule already has a name; the entry it books carries it as its own.
       title: item.name,
@@ -1425,7 +1738,7 @@ export async function postAllDueFixed(): Promise<MoneyState> {
   const uid = await userId(supabase);
   if (!uid) return { error: "Not signed in." };
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayISO();
   const { data: due } = await supabase
     .from("money_recurring")
     .select("id, next_on, created_at")
@@ -1739,7 +2052,7 @@ export async function refreshRatesFromNbs(): Promise<MoneyState> {
     .update({
       rate_eur: rates.eur.middle,
       rate_usd: rates.usd.middle,
-      rates_updated_on: rates.eur.date || new Date().toISOString().slice(0, 10),
+      rates_updated_on: rates.eur.date || today(),
     })
     .eq("id", uid);
   if (error) return { error: saveErrorMessage(error) };
@@ -1800,7 +2113,7 @@ export async function saveRates(_prev: MoneyState, formData: FormData): Promise<
     .update({
       rate_eur: eur,
       rate_usd: usd,
-      rates_updated_on: new Date().toISOString().slice(0, 10),
+      rates_updated_on: today(),
     })
     .eq("id", uid);
   if (error) return { error: saveErrorMessage(error) };

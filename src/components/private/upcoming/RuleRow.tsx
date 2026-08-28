@@ -93,7 +93,7 @@ export function RuleRow({ item, rates, today }: { item: RecurringRow; rates: Rat
         <span
           aria-hidden="true"
           className={cn("mt-0.5 h-8 w-1 shrink-0 rounded-pill", !r.running && "opacity-45")}
-          style={{ background: item.goal?.color ?? item.category?.color ?? NO_COLOUR }}
+          style={{ background: item.goal?.color ?? NO_COLOUR }}
         />
 
         <div className="min-w-0 flex-1">

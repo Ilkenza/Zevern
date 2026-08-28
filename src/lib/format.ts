@@ -91,3 +91,20 @@ export function formatRelativeTime(value: string | null | undefined) {
   if (wk < 5) return `${wk}w`;
   return formatDate(value);
 }
+
+/**
+ * The greeting in the topbar, from an hour of the day.
+ *
+ * A function of an hour rather than of `new Date()`, and that is the whole point: the
+ * hour is read once on the server — where `APP_TIMEZONE` has already put the clock in
+ * Belgrade — and handed down as a string. Read on both sides instead, it was a
+ * hydration mismatch waiting for two moments: a browser in another zone, and the stroke
+ * of noon or six, when the server renders "Good morning" and the client hydrates "Good
+ * afternoon" over it. React then throws away the tree and redraws it, in the middle of
+ * the frame the app is being looked at.
+ */
+export function greetingFor(hour: number): string {
+  if (hour < 12) return "Good morning";
+  if (hour < 18) return "Good afternoon";
+  return "Good evening";
+}

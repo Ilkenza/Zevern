@@ -9,9 +9,14 @@
  * Income categories are in the required set on purpose. Without one there is no way to
  * record money coming in, so every month reads as pure loss and the net figure on Money
  * is negative forever. That is not a limit anyone chooses; it is one they fall into.
+ *
+ * And that fix stopped one step short, which is why `earning` exists. A category only
+ * guarantees you *can* record income; it does not mean any has been recorded. The page
+ * would say three of three done, every screen would still read as pure loss, and the
+ * thing standing between the two was a step nobody had been asked to take.
  */
 
-export type StepKey = "accounts" | "expense" | "income" | "rates" | "calendar";
+export type StepKey = "accounts" | "expense" | "income" | "earning" | "rates" | "calendar";
 
 export type Step = {
   key: StepKey;
@@ -39,12 +44,15 @@ export function foundationOf({
   accounts,
   expense,
   income,
+  earning,
   ratesUpdatedOn,
   calendarToken,
 }: {
   accounts: number;
   expense: number;
   income: number;
+  /** True once anything is on file as income — a booking or a standing rule. */
+  earning: boolean;
   ratesUpdatedOn: string | null;
   calendarToken: string | null;
 }): Foundation {
@@ -75,6 +83,15 @@ export function foundationOf({
       count: income,
       required: true,
       todo: "Without one there is no way to log money coming in, and every month reads as a loss.",
+    },
+    {
+      key: "earning",
+      id: "setup-earning",
+      label: "What comes in",
+      done: earning,
+      count: null,
+      required: true,
+      todo: "A category says income can be recorded. This is recording it — the pay, and the day it lands.",
     },
     {
       key: "rates",
