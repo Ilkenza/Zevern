@@ -1,11 +1,14 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { buttonClasses } from "@/components/ui/Button";
 import { formatAmount } from "@/lib/money";
+import { fold } from "@/lib/money/entry-search";
 
 import { ArrowUpRight, CalendarClock, Coins, Landmark, Tag, Wallet } from "lucide-react";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { ListBar } from "@/components/ui/ListBar";
 import { Badge } from "@/components/ui/Badge";
 
 import type { RecurringRow, MoneyCategory } from "@/lib/types";
@@ -31,6 +34,7 @@ const EVERY_LABEL: Record<string, string> = {
 export function SetupView({
   accounts,
   categories,
+  usage,
   rates,
   ratesUpdatedOn,
   calendarToken,
@@ -40,6 +44,8 @@ export function SetupView({
 }: {
   accounts: AccountBalance[];
   categories: MoneyCategory[];
+  /** Category id → how many entries it holds, so the page can tell alive from forgotten. */
+  usage: Record<string, number>;
   rates: { EUR: number; USD: number };
   ratesUpdatedOn: string | null;
   /** The secret path segment of the .ics feed, or null while there is no address. */
@@ -52,8 +58,35 @@ export function SetupView({
   origin: string;
 }) {
   const { fmt } = useMoney();
-  const expense = categories.filter((c) => c.kind === "expense");
+  const allExpense = categories.filter((c) => c.kind === "expense");
   const income = categories.filter((c) => c.kind === "income");
+
+  /*
+    A way through the expense list, which is the one that grows without anybody deciding
+    to grow it. Every category typed into a form to get past it stays here forever, and
+    at fifty-three the screen for tidying up is itself the thing that needs tidying.
+
+    `In use` and `Empty` rather than a date or a name: the only question worth asking of
+    a category list is which of these are carrying a year of spending and which were
+    typed once. The counts answer it without pressing anything, which is the point — the
+    filter is a readout first and a door second.
+  */
+  const [catQuery, setCatQuery] = useState("");
+  const [catTag, setCatTag] = useState<string | null>(null);
+  const used = (c: MoneyCategory) => (usage[c.id] ?? 0) > 0;
+  const inUse = allExpense.filter(used).length;
+  const catTags = [
+    { key: "used", label: "In use", count: inUse },
+    { key: "empty", label: "Empty", count: allExpense.length - inUse },
+  ].filter((t) => t.count > 0);
+  const activeCatTag = catTags.some((t) => t.key === catTag) ? catTag : null;
+  const catTerm = fold(catQuery.trim());
+  const expense = allExpense.filter((c) => {
+    if (catTerm && !fold(c.name).includes(catTerm)) return false;
+    if (activeCatTag === "used") return used(c);
+    if (activeCatTag === "empty") return !used(c);
+    return true;
+  });
   const empty = accounts.length === 0 && categories.length === 0;
   const onHand = accounts.reduce((sum, a) => sum + a.balance, 0);
   const overviewAccounts = accounts.filter(
@@ -158,19 +191,44 @@ export function SetupView({
             lede="How spending is grouped on every other screen. Start with the handful you actually spend on."
             className="overflow-visible"
             meta={
-              expense.length > 0 ? (
+              allExpense.length > 0 ? (
                 <PanelMeta>
-                  {expense.length} {expense.length === 1 ? "category" : "categories"}
+                  {expense.length === allExpense.length
+                    ? `${allExpense.length} ${allExpense.length === 1 ? "category" : "categories"}`
+                    : `${expense.length} of ${allExpense.length}`}
                 </PanelMeta>
               ) : undefined
             }
           >
-            {expense.length === 0 ? (
+            {/*
+              The bar only once the list has become a list. Under ten categories every
+              one of them is on the screen already and a search box is furniture.
+            */}
+            {allExpense.length >= 10 && (
+              <div className="setup-listbar">
+                <ListBar
+                  all={{ count: allExpense.length }}
+                  tags={catTags}
+                  tag={activeCatTag}
+                  onTag={setCatTag}
+                  query={catQuery}
+                  onQuery={setCatQuery}
+                  searchLabel="Search categories"
+                />
+              </div>
+            )}
+
+            {allExpense.length === 0 ? (
               <EmptyState
                 icon={Tag}
                 title="No expense categories yet"
                 description="Without these, spending cannot be grouped anywhere in the app."
               />
+            ) : expense.length === 0 ? (
+              <p className="py-4 text-[12.5px] text-muted">
+                Nothing matches. All {allExpense.length} are still here — the search or the
+                filter is hiding them.
+              </p>
             ) : (
               <div>
                 {expense.map((c) => (
@@ -326,3 +384,4 @@ export function SetupView({
     </div>
   );
 }
+

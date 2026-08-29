@@ -9671,9 +9671,91 @@ input[type="date"]:focus::-webkit-calendar-picker-indicator {
    matching the panel's bar, where the order always sits at the far end. */
 .zv-listbar.is-order-only { justify-content: flex-end; }
 
+/*
+  The left half of the bar: a search box, then the tags, sharing one line.
+
+  `min-width: 0` on both is what makes the tag row able to scroll instead of shoving the
+  order off the end — a flex child defaults to refusing to shrink below its content, and
+  a row of eleven chips is a lot of content.
+*/
+.zv-listbar-left {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  gap: 10px;
+}
+
+.zv-listbar-left > .zv-tags { min-width: 0; }
+
+/*
+  The same box `.zv-search` draws, at the height of a tag chip rather than a form field.
+
+  It sits shoulder to shoulder with the chips, and a control two sizes larger than the
+  ones beside it reads as a different kind of thing — which it is not.
+*/
+.zv-listbar-find {
+  display: flex;
+  min-width: 132px;
+  max-width: 230px;
+  flex: 0 1 auto;
+  align-items: center;
+  gap: 7px;
+  padding: 3px 9px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.035);
+  transition: border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.zv-listbar-find:focus-within {
+  border-color: var(--color-gold);
+  box-shadow: var(--shadow-ring, 0 0 0 3px rgba(217, 164, 65, 0.14));
+}
+
+.zv-listbar-find input {
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  background: transparent;
+  color: var(--color-ink);
+  font-size: 11.5px;
+  font-weight: 600;
+  outline: none;
+}
+
+.zv-listbar-find input::placeholder { color: var(--color-faint); font-weight: 600; }
+.zv-listbar-find input::-webkit-search-cancel-button { display: none; }
+.zv-listbar-find button { display: flex; color: var(--color-faint); transition: color 160ms ease; }
+.zv-listbar-find button:hover { color: var(--color-ink); }
+
+/* Under a phone the bar stacks: the words keep their size, the row keeps its scroll. */
+@media (max-width: 560px) {
+  .zv-listbar { flex-wrap: wrap; }
+  .zv-listbar-left { flex: 1 1 100%; }
+  .zv-listbar .zv-order { margin-left: auto; }
+}
 
 
 
 
 
+
+
+
+
+
+/* The bar sits inside a Setup panel, so it needs the panel's own gutter and a rule under
+   it rather than the page-level spacing the money screens give it. */
+.setup-listbar { padding: 0 var(--setup-gutter, 18px); }
+.setup-listbar .zv-listbar { margin-bottom: 0; padding-bottom: 12px; }
+
+
+/* What the search found, said before the rail rather than left to be inferred from
+   counts that suddenly mean something else. */
+.task-hits {
+  margin: -2px 0 10px;
+  color: var(--color-muted);
+  font-size: 12px;
+}
 

@@ -44,6 +44,7 @@ export { getRecurringTotals, type RecurringTotals } from "./recurring";
 
 export {
   getSpendingBasis,
+  getCategoryUsage,
   getSpendingProjection,
   type SpendingProjection,
 } from "./spending";

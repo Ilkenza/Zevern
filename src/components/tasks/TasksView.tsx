@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { SlideOver } from "@/components/ui/SlideOver";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { ListBar } from "@/components/ui/ListBar";
 import { buttonClasses } from "@/components/ui/Button";
 import { DeleteButton } from "@/components/ui/DeleteButton";
 import {
@@ -28,6 +29,7 @@ import {
 import { priorityBadge } from "@/lib/status";
 import { formatDateTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { fold } from "@/lib/money/entry-search";
 import type { Task, TaskWithProject } from "@/lib/types";
 import { TaskCheckbox } from "./TaskCheckbox";
 import { TaskForm, type ProjectOption } from "./TaskForm";
@@ -280,8 +282,36 @@ export function TasksView({
   const basePath = personal ? "/private/tasks" : "/tasks";
   const close = () => router.push(basePath);
 
-  const open = useMemo(() => tasks.filter((t) => t.status === "todo"), [tasks]);
-  const done = useMemo(() => tasks.filter((t) => t.status === "done"), [tasks]);
+  /*
+    A way to find one task among fifty.
+
+    This screen shows one band at a time and puts the rest in a rail, which is what keeps
+    it from growing downwards — and it is exactly what makes a single task hard to find:
+    it is on some day, and the only way to learn which was to click through seven of them.
+
+    So the search narrows every band at once rather than the one on screen. The counts in
+    the rail are read off these same lists, so typing a word turns the rail into an answer
+    — "it is on Thursday" — before you have clicked anything. Priority is deliberately not
+    a filter here: the bands are the priority, and a second axis over them would be two
+    screens fighting for the same list.
+  */
+  const [q, setQ] = useState("");
+  const term = fold(q.trim());
+  const open = useMemo(
+    () =>
+      tasks.filter(
+        (t) => t.status === "todo" && (!term || fold(t.title ?? "").includes(term)),
+      ),
+    [tasks, term],
+  );
+  const done = useMemo(
+    () =>
+      tasks.filter(
+        (t) => t.status === "done" && (!term || fold(t.title ?? "").includes(term)),
+      ),
+    [tasks, term],
+  );
+  const hits = open.length + done.length;
 
   /*
     A week of days, and the three bands that are not days.
@@ -519,6 +549,23 @@ export function TasksView({
         </div>
       ) : (
         <>
+          {/*
+            Above the rail, because it governs the rail rather than the band under it.
+            Only once the list is long enough that finding a task by eye has stopped
+            being possible; below that the rail already shows you everything.
+          */}
+          {tasks.length >= 12 && (
+            <ListBar query={q} onQuery={setQ} searchLabel="Search tasks" />
+          )}
+
+          {term !== "" && (
+            <p className="task-hits">
+              {hits === 0
+                ? `Nothing matches “${q.trim()}”. All ${tasks.length} are still here.`
+                : `${hits} ${hits === 1 ? "task" : "tasks"} match — the rail counts below are the matches, not the day.`}
+            </p>
+          )}
+
           <nav className="task-rail" aria-label="Pick a day">
             {bands.map((b) => (
               <Chip
@@ -713,3 +760,4 @@ export function TasksView({
     </div>
   );
 }
+

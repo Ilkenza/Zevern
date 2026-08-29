@@ -2,6 +2,7 @@ import { headers } from "next/headers";
 import {
   getAccountBalances,
   getCategories,
+  getCategoryUsage,
   getRates,
   getRecurring,
   hasIncomeOnFile,
@@ -27,15 +28,17 @@ async function currentOrigin(): Promise<string> {
 }
 
 export default async function PrivateSetupPage() {
-  const [accounts, categories, rates, profile, rules, incomeOnFile, origin] = await Promise.all([
-    getAccountBalances(),
-    getCategories(),
-    getRates(),
-    getProfile(),
-    getRecurring(),
-    hasIncomeOnFile(),
-    currentOrigin(),
-  ]);
+  const [accounts, categories, rates, profile, rules, incomeOnFile, origin, usage] =
+    await Promise.all([
+      getAccountBalances(),
+      getCategories(),
+      getRates(),
+      getProfile(),
+      getRecurring(),
+      hasIncomeOnFile(),
+      currentOrigin(),
+      getCategoryUsage(),
+    ]);
 
   /*
     Only what actually brings money in. A paused rule is a decision to stop counting on
@@ -48,6 +51,7 @@ export default async function PrivateSetupPage() {
     <SetupView
       accounts={accounts}
       categories={categories}
+      usage={usage}
       rates={rates}
       ratesUpdatedOn={profile?.rates_updated_on ?? null}
       calendarToken={profile?.calendar_token ?? null}

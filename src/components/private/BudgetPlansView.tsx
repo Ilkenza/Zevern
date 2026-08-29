@@ -5,6 +5,7 @@ import { Plus, Target, Pencil, Receipt } from "lucide-react";
 import { deleteBudgetPlan, loadBudgetEntries } from "@/app/(app)/private/actions";
 import { SlideOver } from "@/components/ui/SlideOver";
 import { DeleteButton } from "@/components/ui/DeleteButton";
+import { ListBar } from "@/components/ui/ListBar";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { buttonClasses } from "@/components/ui/Button";
 import { useMoney } from "@/lib/money/currency";
@@ -708,6 +709,14 @@ export function BudgetPlansView({
   /** Which state is being looked at on its own. Null — every budget — is where it starts. */
   const [state, setState] = useState<BudgetState | null>(null);
 
+  /** Four questions the page cannot answer on its own. `Need` is its own opinion. */
+  const ORDERS: [string, string][] = [
+    ["need", "Need"],
+    ["date", "Ending"],
+    ["name", "Name"],
+    ["big", "Largest"],
+  ];
+
   const [panel, setPanel] = useState<
     | { mode: "new" }
     | { mode: "edit"; line: BudgetPlanLine }
@@ -846,15 +855,8 @@ export function BudgetPlansView({
     );
   }, [lines, today, fmt]);
 
-  /*
-    A control appears when it can change what you see, and not on a threshold.
-
-    Two states for a filter, two cards for an order — both are the point at which the
-    control stops being a button that does nothing dressed as a choice. Neither asks
-    whether today's data has earned it, which is the rule that had me hunting for my own
-    sort control in two panels before deciding the app did not have one.
-  */
-  const canFilter = census.length >= 2;
+  // Whether a control is worth drawing is `ListBar`'s rule now, not this file's: two
+  // states for a filter, two orders for an order. One place to state it, one to change it.
 
   // A state can stop existing under you — delete the only budget that was over and the
   // chip goes with it. Falling back to every budget beats a page that shows none.
@@ -941,57 +943,19 @@ export function BudgetPlansView({
       ) : (
         <div className="space-y-5">
           {/*
-            The same bar the entries list uses, in the same words — a page and the panel it
-            opens should not have two vocabularies for "narrow this" and "reorder this".
+            The bar every list in here uses, in the same words and the same order:
+            what to show on the left, what order to show it in on the right.
           */}
           {lines.length >= 2 && (
-            <div className={cn("zv-listbar", !canFilter && "is-order-only")}>
-              {canFilter && (
-                <div className="zv-tags">
-                  <button
-                    type="button"
-                    onClick={() => setState(null)}
-                    aria-pressed={active === null}
-                    className={cn("zv-tag", active === null && "is-on")}
-                  >
-                    All<i>{lines.length}</i>
-                  </button>
-                  {census.map(([key, label, count]) => (
-                    <button
-                      key={key}
-                      type="button"
-                      onClick={() => setState(active === key ? null : key)}
-                      aria-pressed={active === key}
-                      className={cn("zv-tag", active === key && "is-on")}
-                    >
-                      {label}
-                      <i>{count}</i>
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              <div className="zv-order">
-                {(
-                  [
-                    ["need", "Need"],
-                    ["date", "Ending"],
-                    ["name", "Name"],
-                    ["big", "Largest"],
-                  ] as const
-                ).map(([key, label]) => (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => setView(key)}
-                    aria-pressed={view === key}
-                    className={cn(view === key && "is-on")}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-            </div>
+            <ListBar
+              all={{ count: lines.length }}
+              tags={census.map(([key, label, count]) => ({ key, label, count }))}
+              tag={active}
+              onTag={(key) => setState(key as BudgetState | null)}
+              orders={ORDERS}
+              order={view}
+              onOrder={(key) => setView(key as typeof view)}
+            />
           )}
 
           {view !== "need"
@@ -1085,6 +1049,7 @@ export function BudgetPlansView({
     </div>
   );
 }
+
 
 
 

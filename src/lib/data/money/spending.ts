@@ -3,6 +3,7 @@
  * part the forecast would be a fantasy without.
  */
 
+import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { userId } from "@/lib/supabase/current-user";
 import { monthKey, monthRange, shiftMonth } from "@/lib/money";
@@ -13,6 +14,7 @@ import {
   getCategories,
   getRates,
   getRecurring,
+  readAll,
   recentBookings,
 } from "./core";
 import { getBudgetPlanLines } from "./budget-plans";
@@ -242,4 +244,40 @@ export async function getSpendingProjection(): Promise<SpendingProjection> {
     budgeted: [],
   };
 }
+
+
+/**
+ * How many entries each category actually holds.
+ *
+ * For the Setup screen, which lists every category and until now had no way to tell the
+ * ones a year of spending has gone through from the ones typed once and forgotten. On a
+ * list of fifty-three that difference is the whole reason anybody opens the page.
+ *
+ * A count rather than a total: this answers "is this category alive", and a category
+ * with forty small entries is more alive than one with a single large one.
+ */
+export const getCategoryUsage = cache(async (): Promise<Record<string, number>> => {
+  const supabase = await createClient();
+  const uid = await userId(supabase);
+  if (!uid) return {};
+
+  const rows = await readAll(
+    (from, to) =>
+      supabase
+        .from("money_transactions")
+        .select("id, category_id")
+        .eq("user_id", uid)
+        .not("category_id", "is", null)
+        .order("id")
+        .range(from, to),
+    "getCategoryUsage",
+  );
+
+  const out: Record<string, number> = {};
+  for (const row of rows) {
+    if (!row.category_id) continue;
+    out[row.category_id] = (out[row.category_id] ?? 0) + 1;
+  }
+  return out;
+});
 

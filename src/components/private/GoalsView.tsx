@@ -8,9 +8,9 @@ import { SlideOver } from "@/components/ui/SlideOver";
 import { Panel } from "@/components/ui/Panel";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { buttonClasses } from "@/components/ui/Button";
+import { ListBar } from "@/components/ui/ListBar";
 
 import { GoalIcon } from "@/components/icons/GoalIcon";
-import { cn } from "@/lib/utils";
 import type { OnHand } from "@/lib/data/money";
 import type { AccountBalance } from "@/lib/data/money";
 import type { GoalLine, MoneyCategory } from "@/lib/types";
@@ -231,10 +231,6 @@ export function GoalsView({
     (key) => [key, counted.get(key) ?? 0] as const,
   );
 
-  // A control appears when it can change what you see: two states for a filter, two
-  // goals for an order. Never on a threshold that has to be checked against the data.
-  const canFilter = census.length >= 2;
-
   // A state can stop existing under you — put the last dinar into the only goal that was
   // behind and its chip goes with it. Falling back to every goal beats a page of nothing.
   const active = census.some(([key]) => key === state) ? state : null;
@@ -310,62 +306,24 @@ export function GoalsView({
           {saving.length > 0 && <Overall goals={saving} onHand={onHand} />}
 
           {/*
-            One bar, in the words the budgets screen and the entries panel use.
-
-            This was two tabs with icons — a third vocabulary for "reorder this" on a page
-            that already had two elsewhere. A person should not have to learn where each
-            screen keeps its controls, so all three now keep them in the same row, in the
-            same weight, in the same order: what to show on the left, what order to show
-            it in on the right.
+            The same bar as everywhere else. This was two tabs with icons — a third
+            vocabulary for "reorder this" on a page that already had two elsewhere.
           */}
           {saving.length > 1 && (
-            <div className={cn("zv-listbar", !canFilter && "is-order-only")}>
-              {canFilter && (
-                <div className="zv-tags">
-                  <button
-                    type="button"
-                    onClick={() => setState(null)}
-                    aria-pressed={active === null}
-                    className={cn("zv-tag", active === null && "is-on")}
-                  >
-                    All<i>{saving.length}</i>
-                  </button>
-                  {census.map(([key, count]) => (
-                    <button
-                      key={key}
-                      type="button"
-                      onClick={() => setState(active === key ? null : key)}
-                      aria-pressed={active === key}
-                      className={cn("zv-tag", active === key && "is-on")}
-                    >
-                      {key}
-                      <i>{count}</i>
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              <div className="zv-order" role="group" aria-label="Order the goals">
-                {(
-                  [
-                    ["mine", "My order"],
-                    ["closest", "Closest"],
-                    ["soonest", "Soonest"],
-                    ["largest", "Largest"],
-                  ] as const
-                ).map(([key, label]) => (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => setOrder(key)}
-                    aria-pressed={order === key}
-                    className={cn(order === key && "is-on")}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-            </div>
+            <ListBar
+              all={{ count: saving.length }}
+              tags={census.map(([key, count]) => ({ key, label: key, count }))}
+              tag={active}
+              onTag={(key) => setState(key as GoalState | null)}
+              orders={[
+                ["mine", "My order"],
+                ["closest", "Closest"],
+                ["soonest", "Soonest"],
+                ["largest", "Largest"],
+              ]}
+              order={order}
+              onOrder={(key) => setOrder(key as typeof order)}
+            />
           )}
 
           {/*
@@ -575,5 +533,6 @@ export function GoalsView({
     </div>
   );
 }
+
 
 
