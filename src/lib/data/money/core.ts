@@ -27,8 +27,18 @@ import type {
  * Keep this as ONE string literal — split it and the generated types stop parsing it
  * (tsc then fails with TS2352 / GenericStringError).
  */
+/*
+  What every screen that lists an entry needs to know about it.
+
+  `budget` joined last, and it is the one that was missing. An entry filed into a budget
+  by hand is deliberately kept out of every standing budget — that is what makes a
+  holiday a holiday — and no list in the app said so. So 54.895 sat under Eating out in
+  the breakdown while the monthly Eating out budget read `0 of 3`, and the two together
+  look exactly like a screen putting the money somewhere else. The filing is a fact about
+  the entry; the row it lives on is where it belongs.
+*/
 export const TX_SELECT =
-  "*, category:money_categories(name, color, kind), account:money_accounts!money_transactions_account_id_fkey(name, currency), goal:money_goals(name)";
+  "*, category:money_categories(name, color, kind), account:money_accounts!money_transactions_account_id_fkey(name, currency), goal:money_goals(name), budget:money_budget_plans!money_transactions_budget_id_fkey(name)";
 
 export const getRates = cache(async (): Promise<Rates> => {
   const supabase = await createClient();
@@ -169,6 +179,21 @@ export async function getDueRecurring(): Promise<RecurringRow[]> {
 /** How many past bookings a variable rule is estimated from. */
 export const ESTIMATE_FROM = 6;
 
+/*
+  The paging rule lives in `@/lib/money/paging`, not here.
+
+  This file's own header says it "only fetches" and the vitest config says the tests
+  cover pure logic because "everything that talks to Supabase is one query and a ?? []".
+  Both were true and together they are how the 1.000-row cap went unnoticed: the bug was
+  inside the one thing nobody thought was logic. Reading every page IS arithmetic — an
+  offset, a stop condition, an ordering requirement — so it sits where arithmetic is
+  tested, and this module just uses it.
+*/
+// Imported as well as re-exported: a bare `export ... from` forwards the name without
+// binding it in this module, and `recentBookings` below is one of its callers.
+import { readAll } from "@/lib/money/paging";
+export { readAll };
+
 export type PastBookings = Map<string, Booking[]>;
 
 /** The last few bookings of every rule, newest first — what an estimate is made of. */
@@ -176,15 +201,21 @@ export async function recentBookings(
   supabase: Awaited<ReturnType<typeof createClient>>,
   uid: string,
 ): Promise<PastBookings> {
-  const { data } = await supabase
-    .from("money_transactions")
-    .select("recurring_id, amount_rsd, occurred_on")
-    .eq("user_id", uid)
-    .not("recurring_id", "is", null)
-    .order("occurred_on", { ascending: false });
+  const data = await readAll(
+    (from, to) =>
+      supabase
+        .from("money_transactions")
+        .select("recurring_id, amount_rsd, occurred_on")
+        .eq("user_id", uid)
+        .not("recurring_id", "is", null)
+        .order("occurred_on", { ascending: false })
+        .order("id")
+        .range(from, to),
+    "recentBookings",
+  );
 
   const past: PastBookings = new Map();
-  for (const row of data ?? []) {
+  for (const row of data) {
     if (!row.recurring_id) continue;
     const seen = past.get(row.recurring_id) ?? [];
     if (seen.length < ESTIMATE_FROM) {
@@ -217,3 +248,5 @@ export function estimateFor(
   }
   return { each: toRsd(Number(item.amount), item.currency, rates), estimated: false, samples: [] };
 }
+
+

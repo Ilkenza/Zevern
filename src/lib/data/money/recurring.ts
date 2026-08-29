@@ -5,8 +5,9 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { userId } from "@/lib/supabase/current-user";
-import { PER_MONTH, feedsGoal, occurrencesFor } from "@/lib/money/occurrences";
+import { feedsGoal, goalCapFor, occurrencesFor, perMonth } from "@/lib/money/occurrences";
 import { estimateFor, getRates, getRecurring, recentBookings } from "./core";
+import { getGoalRemaining } from "./goals";
 
 export type RecurringTotals = {
   /** RSD in an average month — weekly and yearly items normalised. Bills only. */
@@ -68,10 +69,11 @@ export async function getRecurringTotals(): Promise<RecurringTotals> {
     };
   }
 
-  const [items, rates, past] = await Promise.all([
+  const [items, rates, past, goalRoom] = await Promise.all([
     getRecurring(),
     getRates(),
     recentBookings(supabase, uid),
+    getGoalRemaining(),
   ]);
 
   let expense = 0;
@@ -89,7 +91,7 @@ export async function getRecurringTotals(): Promise<RecurringTotals> {
     if (item.installments_total != null && item.installments_done >= item.installments_total) continue;
     if (item.ends_on != null && item.next_on > item.ends_on) continue;
 
-    const factor = PER_MONTH[item.every] ?? 1;
+    const factor = perMonth(item.every, item.every_count);
     const reading = estimateFor(item, past, rates);
     if (reading === null) {
       unknown++;
@@ -106,7 +108,7 @@ export async function getRecurringTotals(): Promise<RecurringTotals> {
 
     // The same item walked date by date — this is where a four-instalment credit
     // stops pretending it runs all year.
-    const dates = occurrencesFor(item, each, isEstimate, horizon);
+    const dates = occurrencesFor(item, each, isEstimate, horizon, [], goalCapFor(item, goalRoom));
     yearCount += dates.length;
     const sum = each * dates.length;
     if (item.kind === "income") yearIncome += sum;

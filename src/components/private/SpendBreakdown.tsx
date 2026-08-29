@@ -59,7 +59,12 @@ export function SpendBreakdown({
   month: string;
   activeCategory?: string;
   /** Monthly cap per category id, for the ones that have one. */
-  limits?: Record<string, number>;
+  /**
+   * Per category: what it is allowed, and what the budget owning it counts. The second
+   * is not always the row's `spent` — an entry filed into a budget of its own is real
+   * spending here and is not that budget's money.
+   */
+  limits?: Record<string, { limit: number; counted: number }>;
 }) {
   const { fmt } = useMoney();
   const nameById = new Map(categories.map((c) => [c.id, c]));
@@ -104,8 +109,11 @@ export function SpendBreakdown({
           const isUncategorized = row.id === UNCATEGORIZED_CATEGORY_ID;
           const name = isUncategorized ? "Uncategorized" : row.category?.name ?? "Unknown category";
           const on = activeCategory === row.id;
-          const limit = limits?.[row.id] ?? 0;
-          const over = limit > 0 && row.spent > limit;
+          const cap = limits?.[row.id];
+          const limit = cap?.limit ?? 0;
+          // Judged on what the budget counts, shown against what the category cost.
+          const used = cap?.counted ?? row.spent;
+          const over = limit > 0 && used > limit;
           /*
             A limit you are nowhere near is not news.
 
@@ -115,13 +123,13 @@ export function SpendBreakdown({
             half used, the limit says nothing at all.
           */
           const limitStatus =
-            limit <= 0 || row.spent < limit * 0.5
+            limit <= 0 || used < limit * 0.5
               ? null
               : over
-                ? `${fmt(row.spent - limit)} over limit`
-                : row.spent === limit
+                ? `${fmt(used - limit)} over limit`
+                : used === limit
                   ? "Limit reached"
-                  : `${fmt(limit - row.spent)} left`;
+                  : `${fmt(limit - used)} left`;
           return (
             <Link
               key={row.id}

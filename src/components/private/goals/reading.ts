@@ -127,7 +127,20 @@ const WORDS = {
   },
 } as const;
 
-export function read(goal: GoalLine, today: string, fmt: (n: number) => string): Reading {
+export function read(
+  goal: GoalLine,
+  today: string,
+  fmt: (n: number) => string,
+  /**
+   * For the one figure on the card that is an instruction rather than a report.
+   *
+   * "Put this much aside every month" is meant to be acted on, so it is printed to the
+   * para: rounding 30.776,48 up to 30.777 is the app quietly changing the answer, and
+   * the difference compounds over the payments. Defaults to `fmt` so a caller that has
+   * only the one formatter behaves exactly as before.
+   */
+  fmtExact: (n: number) => string = fmt,
+): Reading {
   const w = goal.paying ? WORDS.paying : WORDS.saving;
   const target = Number(goal.target_rsd) || 0;
   const saved = goal.progress;
@@ -188,12 +201,27 @@ export function read(goal: GoalLine, today: string, fmt: (n: number) => string):
     };
   }
 
-  // What has to go in from here, said in whichever unit fits the time left.
+  /*
+    What has to go in from here, said in whichever unit fits the time left.
+
+    Counted in whole payments, not in average months. Dividing by `daysLeft / 30.44`
+    gives a fraction — 126 days is 4.14 "months" — and a fraction of a payment is one
+    nobody makes. On a 123.105 goal due on 1 January that read "29.741 a month", and four
+    payments of 29.741 leave you 4.000 short on the day it is due: the one number the
+    line exists to give was the one number that did not work.
+
+    Flooring counts the payments you can actually still make — four, here — and the
+    figure goes up to 30.777, which is what genuinely clears it. Both branches are only
+    reached above their own unit (60 days, 14 days), so the floor can never be zero.
+  */
+  // Up to the nearest para rather than the nearest dinar: enough to be sure the last
+  // payment clears it, without inventing money that was never in the arithmetic.
+  const per = (payments: number) => Math.ceil((left / payments) * 100) / 100;
   const pace =
     daysLeft >= 60
-      ? w.rate(fmt(Math.ceil(left / (daysLeft / DAYS_PER_MONTH))), "month")
+      ? w.rate(fmtExact(per(Math.floor(daysLeft / DAYS_PER_MONTH))), "month")
       : daysLeft >= MIN_HISTORY_DAYS
-        ? w.rate(fmt(Math.ceil(left / (daysLeft / 7))), "week")
+        ? w.rate(fmtExact(per(Math.floor(daysLeft / 7))), "week")
         : `${daysLeft} ${daysLeft === 1 ? "day" : "days"} left`;
 
   const elapsed = daysBetween(goal.created_at, today);
@@ -227,3 +255,23 @@ export function read(goal: GoalLine, today: string, fmt: (n: number) => string):
   return { pct, done: false, badge, note, pace, consequence };
 }
 
+
+/**
+ * The colour every goal is drawn in.
+ *
+ * Goals used to carry one each, chosen from a palette, and the rail down a card was
+ * that choice. The picker is gone — the form now stamps every goal with a single hex
+ * — so the colour has stopped being an identity and become a constant. Two things
+ * follow, and this line is both of them.
+ *
+ * It is the token rather than a hex, because the hex it replaced was `#d9a441`: byte
+ * for byte the value of `--color-gold`, copied into the form and then into every row
+ * in the table. Change the brand gold in `@theme` and every goal ever created keeps
+ * the old one, on a screen sitting next to buttons that moved. A stored copy of a
+ * design token is drift with a delay on it.
+ *
+ * And it is one export rather than five call sites, because the card, the closed row
+ * and the overall bar were each resolving it themselves — which is how a goal created
+ * before the picker was removed still shows brown in one place and gold in another.
+ */
+export const GOAL_ACCENT = "var(--color-gold)";

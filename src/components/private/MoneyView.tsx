@@ -1,10 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChevronLeft, ChevronRight, CornerUpLeft, Plus, Wallet, Pencil } from "lucide-react";
 import { SlideOver } from "@/components/ui/SlideOver";
+import { loadCategoryHistory } from "@/app/(app)/private/actions";
+import type { CategoryHistory } from "@/lib/data/money";
+import { CategoryHistoryPanel } from "./CategoryHistoryPanel";
+import { FilterChip, LedgerControls } from "./LedgerControls";
+import { siftEntries, type EntrySort } from "@/lib/money/entry-search";
 import { Panel } from "@/components/ui/Panel";
 import { Kpi } from "@/components/ui/Kpi";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -12,11 +17,12 @@ import { DeleteButton } from "@/components/ui/DeleteButton";
 import { buttonClasses } from "@/components/ui/Button";
 import { removeTransaction } from "@/app/(app)/private/actions";
 import {
+  UNCATEGORIZED_CATEGORY_ID,
   formatAmount,
   monthLabel,
+  monthRange,
   shiftMonth,
   shortMonthLabel,
-  UNCATEGORIZED_CATEGORY_ID,
 } from "@/lib/money";
 import { useMoney } from "@/lib/money/currency";
 import { cn } from "@/lib/utils";
@@ -249,8 +255,30 @@ function Row({ tx, month }: { tx: TransactionRow; month: string }) {
         <div className="min-w-0 flex-1">
           <div className="truncate text-[13.5px] font-medium text-ink">{label}</div>
           <div className="truncate text-[11.5px] text-muted">
+            {/*
+              The time leads the line when there is one — it is the only part of a row
+              that says *when within the day*, and reading it first is how a list of a
+              Saturday's spending turns back into a Saturday.
+            */}
+            {tx.occurred_at ? `${String(tx.occurred_at).slice(0, 5)} · ` : ""}
             {belongsTo ? `${belongsTo} · ` : ""}
             {tx.account?.name ?? "No account"}
+            {/*
+              Which budget it was filed into, on the row itself.
+
+              This is the fact that makes the rest of the app add up. An entry put into a
+              budget by hand is counted by that budget and by nothing else — so a 14.737
+              dinner filed into `na moru` is real Eating out spending in the breakdown and
+              not a dinar against the monthly Eating out limit. Both readings are correct
+              and together they look like the app moving money about, until the row says
+              where the money went. It is drawn like the filing it is, not like a category.
+            */}
+            {tx.budget?.name && (
+              <>
+                {" · "}
+                <span className="money-row-filed">{tx.budget.name}</span>
+              </>
+            )}
             {tx.note && label !== tx.note ? ` · ${tx.note}` : ""}
             {items.length > 0 && (
               <>
@@ -335,6 +363,14 @@ function Row({ tx, month }: { tx: TransactionRow; month: string }) {
   );
 }
 
+const KIND_LABEL: Record<string, string> = {
+  expense: "Spent",
+  income: "Came in",
+  saving: "Into a goal",
+  withdraw: "Out of a goal",
+  transfer: "Moved",
+};
+
 export function MoneyView({
   month,
   currentMonth,
@@ -363,7 +399,7 @@ export function MoneyView({
   panel: MoneyPanel;
   activeCategory?: string;
   /** Monthly cap per category id, for the ones that have one — see `SpendBreakdown`. */
-  limits: Record<string, number>;
+  limits: Record<string, { limit: number; counted: number }>;
 }) {
   const { fmt } = useMoney();
   const router = useRouter();
@@ -371,9 +407,148 @@ export function MoneyView({
   const hasUncategorized = summary.byCategory.some(
     (category) => category.id === UNCATEGORIZED_CATEGORY_ID,
   );
+
+  /*
+    The rail offers the categories this month actually has, biggest first.
+
+    It used to list every category on the profile. That is a rail of forty chips, most of
+    which filter to nothing — a control whose commonest outcome is an empty screen, and
+    which buries the four you spent on behind twenty you did not. Worse, it is a horizontal
+    scroll: the chips that matter are not even the ones you can see.
+
+    Ordering by what was spent makes it read the same way as the breakdown above it, so
+    the panel and its filter agree about what this month was. The one you are filtered to
+    is kept whatever it cost, because a chip that vanishes when you press it is a chip
+    that cannot be pressed again to leave.
+  */
+  /*
+    Which category's year is open, if any. Held apart from the entry panel: they are two
+    different things in the same drawer, and folding them into one state would mean
+    closing a history to edit an entry and losing the history.
+  */
+  const [historyOf, setHistoryOf] = useState<{ id: string; name: string } | null>(null);
+  const [history, setHistory] = useState<CategoryHistory | null>(null);
+  const [historyPending, startHistory] = useTransition();
+
+  /*
+    Read where the click is, not in an effect inside the panel.
+
+    A panel that fetches for itself has to work out when its answer has gone stale, and
+    two categories opened in quick succession would race to fill the same drawer — the
+    slower one winning, which is the wrong one. Here the request belongs to the click
+    that made it, and the panel is handed a result or a wait.
+  */
+  const openHistory = (id: string, name: string) => {
+    setHistoryOf({ id, name });
+    setHistory(null);
+    startHistory(async () => {
+      const data = await loadCategoryHistory(id);
+      setHistory(data);
+    });
+  };
+
+  // `Uncategorized` is not in the category list — it is the absence of one — so it has
+  // to be named here or the door would never appear on the one filter that needs it most.
+  const activeCategoryName =
+    activeCategory === UNCATEGORIZED_CATEGORY_ID
+      ? "Uncategorized"
+      : (categories.find((c) => c.id === activeCategory)?.name ?? null);
+
+  const railCategories = useMemo(() => {
+    const spent = new Map(summary.byCategory.map((c) => [c.id, c.spent]));
+    return categories
+      .filter((c) => (spent.get(c.id) ?? 0) > 0 || c.id === activeCategory)
+      .sort((a, b) => (spent.get(b.id) ?? 0) - (spent.get(a.id) ?? 0));
+  }, [categories, summary.byCategory, activeCategory]);
   const close = () => router.push(base + (activeCategory ? `&cat=${activeCategory}` : ""));
 
-  const days = [...new Set(transactions.map((t) => t.occurred_on))];
+  /*
+    Searching and ordering the month you are already looking at.
+
+    Every entry is in hand, so this is a filter over an array and the list narrows as you
+    type — no query, no waiting. Scoped to the month on purpose: the picker at the top of
+    this screen governs everything under it, and a search that quietly reached across
+    twelve months would be the one control on the page that ignored it. A category's whole
+    year is one tap away, under the rail, where it is labelled as a year.
+  */
+  const [query, setQuery] = useState("");
+  const [sort, setSort] = useState<EntrySort>("newest");
+  const [account, setAccount] = useState("");
+  const [kind, setKind] = useState("");
+  const [unpricedOnly, setUnpricedOnly] = useState(false);
+  const [fromDay, setFromDay] = useState("");
+  const [toDay, setToDay] = useState("");
+
+  // Only the accounts and kinds this month actually contains — a filter that can only
+  // ever return nothing is a filter that should not be offered.
+  const accountNames = useMemo(() => {
+    const seen = new Set<string>();
+    for (const t of transactions) if (t.account?.name) seen.add(t.account.name);
+    return [...seen].sort();
+  }, [transactions]);
+
+  const kinds = useMemo(() => {
+    const seen = new Set<string>();
+    for (const t of transactions) seen.add(t.kind);
+    return [...seen].sort();
+  }, [transactions]);
+
+  const hasUnpriced = useMemo(
+    () => transactions.some((t) => t.amount_rsd === null),
+    [transactions],
+  );
+
+  const shown = useMemo(() => {
+    const sifted = siftEntries(
+      transactions,
+      { query, accountName: account, unpricedOnly, from: fromDay, to: toDay },
+      sort,
+    );
+    return kind ? sifted.filter((t) => t.kind === kind) : sifted;
+  }, [transactions, query, account, unpricedOnly, sort, kind, fromDay, toDay]);
+
+  /*
+    What each chip is worth, against everything else that is already on.
+
+    A count over the whole month would be the easy number and the wrong one: search
+    "kafa", and a `Bank` chip still promising 33 is promising the month, not the search.
+    So every count is taken with that chip's own facet swapped in and the rest of the
+    filters left standing — which makes it exactly the number of rows you get for
+    pressing it. A chip that comes out at zero stays drawn and stops being pressable,
+    because a row that reshuffles itself as you narrow is worse than a quiet dead chip.
+  */
+  const facets = useMemo(() => {
+    const rows = (over: { account?: string; unpriced?: boolean }) =>
+      siftEntries(
+        transactions,
+        {
+          query,
+          accountName: over.account ?? account,
+          unpricedOnly: over.unpriced ?? unpricedOnly,
+          from: fromDay,
+          to: toDay,
+        },
+        "newest",
+      );
+    const ofKind = (list: { kind: string }[]) => (kind ? list.filter((t) => t.kind === kind) : list);
+    return {
+      // Its own facet swapped in: pressing this kind replaces whichever kind is on.
+      kind: (k: string) => rows({}).filter((t) => t.kind === k).length,
+      account: (a: string) => ofKind(rows({ account: a })).length,
+      unpriced: () => ofKind(rows({ unpriced: true })).length,
+    };
+  }, [transactions, query, account, kind, unpricedOnly, fromDay, toDay]);
+
+  const narrowed =
+    query.trim() !== "" || account !== "" || kind !== "" || unpricedOnly || fromDay !== "" || toDay !== "";
+
+  /*
+    Grouping by day only survives while the order is chronological. Sorted by size the days
+    interleave, and a heading that appears three times down one list has stopped being a
+    heading — so the date moves onto the row instead.
+  */
+  const grouped = sort === "newest" || sort === "oldest";
+  const days = [...new Set(shown.map((t) => t.occurred_on))];
   const isCurrentMonth = month === currentMonth;
   const prevMonth = shiftMonth(month, -1);
   const nextMonth = shiftMonth(month, 1);
@@ -506,19 +681,144 @@ export function MoneyView({
       </div>
 
       {/* Category filter */}
-      {(categories.length > 0 || hasUncategorized) && (
+      {(railCategories.length > 0 || hasUncategorized) && (
         <CategoryFilterRail
-          categories={categories}
+          categories={railCategories}
           activeCategory={activeCategory}
           base={base}
           showUncategorized={hasUncategorized}
         />
       )}
 
+      {/*
+        The door to the year, and only once a category is actually being looked at.
+
+        The rail's job is to filter this month, and it should keep doing exactly that —
+        turning every chip into a menu would make the common action ambiguous. But once
+        you have picked a category, the question that follows is always the same one: is
+        this month normal for it. That question gets one line, here, where it is asked.
+      */}
+      {activeCategoryName && (
+        <button
+          type="button"
+          onClick={() => openHistory(activeCategory!, activeCategoryName)}
+          className="money-cat-year"
+        >
+          <span className="money-cat-year-name">{activeCategoryName}</span>
+          <span className="money-cat-year-say">
+            Is this month normal for it? See the last year
+          </span>
+          <span className="money-cat-year-go" aria-hidden>
+            →
+          </span>
+        </button>
+      )}
+
+      {/*
+        The month you are looking at, narrowed.
+
+        Above the list rather than inside it: this is how you decide what the list should
+        be, and a control buried among its own results is one people stop finding. It only
+        appears once there is something to search — a screen with three entries does not
+        need a search box, it needs the three entries.
+      */}
+      {transactions.length > 2 && (
+        <div className="mb-3">
+          <LedgerControls
+            query={query}
+            onQuery={setQuery}
+            sort={sort}
+            onSort={setSort}
+            from={fromDay}
+            to={toDay}
+            onFrom={setFromDay}
+            onTo={setToDay}
+            minDate={monthRange(month).from}
+            maxDate={monthRange(month).to}
+            placeholder="Search name, note, account or amount"
+            label={`Search ${monthLabel(month)}`}
+          >
+            {kinds.length > 1 &&
+              kinds.map((k) => (
+                <FilterChip
+                  key={k}
+                  on={kind === k}
+                  count={facets.kind(k)}
+                  onClick={() => setKind(kind === k ? "" : k)}
+                >
+                  {KIND_LABEL[k] ?? k}
+                </FilterChip>
+              ))}
+            {accountNames.length > 1 &&
+              accountNames.map((a) => (
+                <FilterChip
+                  key={a}
+                  on={account === a}
+                  count={facets.account(a)}
+                  onClick={() => setAccount(account === a ? "" : a)}
+                >
+                  {a}
+                </FilterChip>
+              ))}
+            {hasUnpriced && (
+              <FilterChip
+                on={unpricedOnly}
+                count={facets.unpriced()}
+                onClick={() => setUnpricedOnly(!unpricedOnly)}
+              >
+                No price yet
+              </FilterChip>
+            )}
+          </LedgerControls>
+
+          {/*
+            What the narrowing costs and what it found, said out loud. A list that is
+            quietly showing a fifth of the month is how somebody concludes the month was
+            cheap.
+          */}
+          {narrowed && (
+            <p className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-[11.5px] text-muted">
+              <span>
+                {shown.length} of {transactions.length}{" "}
+                {transactions.length === 1 ? "entry" : "entries"}
+              </span>
+              <span className="mono">
+                {fmt(
+                  shown
+                    .filter((t) => t.kind === "expense")
+                    .reduce((sum, t) => sum + (Number(t.amount_rsd) || 0), 0),
+                )}{" "}
+                <span className="text-faint">spent</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setQuery("");
+                  setAccount("");
+                  setKind("");
+                  setUnpricedOnly(false);
+                  setFromDay("");
+                  setToDay("");
+                }}
+                className="ml-auto font-semibold text-gold-hi"
+              >
+                Clear
+              </button>
+            </p>
+          )}
+        </div>
+      )}
+
       <Panel
-        className={transactions.length === 0 ? "money-empty-panel" : "money-summary-panel"}
+        className={shown.length === 0 ? "money-empty-panel" : "money-summary-panel"}
       >
-        {transactions.length === 0 ? (
+        {transactions.length > 0 && shown.length === 0 ? (
+          <EmptyState
+            icon={Wallet}
+            title="Nothing matches that"
+            description="Try fewer words, or clear the filters above."
+          />
+        ) : transactions.length === 0 ? (
           <EmptyState
             icon={Wallet}
             title={
@@ -548,28 +848,55 @@ export function MoneyView({
           />
         ) : (
           <div className="money-ledger">
-            {days.map((day) => {
-              const rows = transactions.filter((t) => t.occurred_on === day);
-              const dayTotal = rows
-                .filter((t) => t.kind === "expense")
-                .reduce((sum, t) => sum + (Number(t.amount_rsd) || 0), 0);
-              return (
-                <div key={day} className="money-day">
-                  <div className="money-day-head flex items-center justify-between border-b border-line-soft px-4 py-2">
-                    <span className="mono text-[11px] font-semibold text-muted">{day}</span>
-                    {dayTotal > 0 && (
-                      <span className="mono text-[11px] text-faint">−{fmt(dayTotal)}</span>
-                    )}
+            {grouped ? (
+              days.map((day) => {
+                const rows = shown.filter((t) => t.occurred_on === day);
+                const dayTotal = rows
+                  .filter((t) => t.kind === "expense")
+                  .reduce((sum, t) => sum + (Number(t.amount_rsd) || 0), 0);
+                return (
+                  <div key={day} className="money-day">
+                    <div className="money-day-head flex items-center justify-between border-b border-line-soft px-4 py-2">
+                      <span className="mono text-[11px] font-semibold text-muted">{day}</span>
+                      {dayTotal > 0 && (
+                        <span className="mono text-[11px] text-faint">−{fmt(dayTotal)}</span>
+                      )}
+                    </div>
+                    {rows.map((t) => (
+                      <Row key={t.id} tx={t} month={month} />
+                    ))}
                   </div>
-                  {rows.map((t) => (
-                    <Row key={t.id} tx={t} month={month} />
-                  ))}
-                </div>
-              );
-            })}
+                );
+              })
+            ) : (
+              /*
+                Sorted by size the days no longer run in order, so there is nothing for a
+                day heading to head. The date is already on every row's second line, which
+                is where it has to be read from here.
+              */
+              <div className="money-day">
+                {shown.map((t) => (
+                  <Row key={t.id} tx={t} month={month} />
+                ))}
+              </div>
+            )}
           </div>
         )}
       </Panel>
+
+      <SlideOver
+        open={historyOf !== null}
+        onClose={() => setHistoryOf(null)}
+        title={historyOf ? `${historyOf.name} · last 12 months` : ""}
+      >
+        {historyOf && (
+          <CategoryHistoryPanel
+            history={history}
+            name={historyOf.name}
+            loading={historyPending}
+          />
+        )}
+      </SlideOver>
 
       <SlideOver
         open={panel !== null}
@@ -585,3 +912,7 @@ export function MoneyView({
     </div>
   );
 }
+
+
+
+

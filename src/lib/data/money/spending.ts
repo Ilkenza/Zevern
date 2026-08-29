@@ -6,16 +6,16 @@
 import { createClient } from "@/lib/supabase/server";
 import { userId } from "@/lib/supabase/current-user";
 import { monthKey, monthRange, shiftMonth } from "@/lib/money";
-import { PER_MONTH, feedsGoal, median } from "@/lib/money/occurrences";
+import { PER_MONTH, feedsGoal, median, perMonth } from "@/lib/money/occurrences";
 import type { SpendingBasis } from "@/lib/types";
 import {
   estimateFor,
-  getBudgets,
   getCategories,
   getRates,
   getRecurring,
   recentBookings,
 } from "./core";
+import { getBudgetPlanLines } from "./budget-plans";
 
 /** How many complete months the median is taken over. */
 const HISTORY_MONTHS = 6;
@@ -136,8 +136,28 @@ export async function getSpendingProjection(): Promise<SpendingProjection> {
   const spentThisMonth = spent.get(thisMonth) ?? 0;
 
   if (basis === "budgets") {
-    const [budgets, categories, items, rates, past] = await Promise.all([
-      getBudgets(),
+    /*
+      The budgets this reads are `money_budget_plans` — the ones on the Budgets screen.
+
+      It used to read `money_budgets`, a per-category cap from an earlier design whose
+      screen and save action are both dead code. Two tables described the same idea and
+      this figure was taken from the abandoned one: on a ledger with twenty-four real
+      budgets it was projecting everyday spending from four rows nothing had written to
+      in months. Nobody noticed because the basis is optional and the wrong answer still
+      looked like an answer.
+
+      Four kinds of plan are left out, each for its own reason:
+
+      - a savings plan is money kept, not money spent;
+      - an `added` plan holds only what is filed into it by hand, so it describes a habit
+        of filing rather than a rate of spending;
+      - a `custom` plan is one window with two ends — a holiday, a move — and dividing it
+        into a monthly rate invents a cost that recurs when it does not;
+      - a plan with no categories watches everything, and adding it to the categories
+        would count the same dinar under two lines.
+    */
+    const [plans, categories, items, rates, past] = await Promise.all([
+      getBudgetPlanLines(),
       getCategories(true),
       getRecurring(),
       getRates(),
@@ -158,15 +178,36 @@ export async function getSpendingProjection(): Promise<SpendingProjection> {
       booked.set(item.category_id, (booked.get(item.category_id) ?? 0) + monthly);
     }
 
+    /*
+      A plan's month, spread evenly over the categories it watches.
+
+      Even, because nothing in the data says otherwise and any weighting would be a guess
+      dressed as arithmetic. It only ever decides how much a planned item may give back
+      to one category, so the split is a cap on a correction rather than a figure anyone
+      reads — and the total, which is what the projection actually spends, is the same
+      however it is divided.
+    */
+    const limitBy = new Map<string, number>();
+    for (const line of plans) {
+      const plan = line.plan;
+      if (plan.kind !== "expense") continue;
+      if (plan.membership === "added") continue;
+      if (plan.period === "custom") continue;
+      if (line.categoryIds.length === 0) continue;
+      const monthly = (Number(plan.amount_rsd) || 0) * perMonth(plan.period, plan.period_count);
+      if (monthly <= 0) continue;
+      const each = monthly / line.categoryIds.length;
+      for (const id of line.categoryIds) limitBy.set(id, (limitBy.get(id) ?? 0) + each);
+    }
+
     const nameBy = new Map(categories.map((c) => [c.id, c.name]));
-    const lines = budgets
-      .map((b) => ({
-        id: b.category_id,
-        name: nameBy.get(b.category_id) ?? "Category",
-        limit: Number(b.amount_rsd) || 0,
-        recurring: booked.get(b.category_id) ?? 0,
+    const lines = [...limitBy]
+      .map(([id, limit]) => ({
+        id,
+        name: nameBy.get(id) ?? "Category",
+        limit,
+        recurring: booked.get(id) ?? 0,
       }))
-      .filter((line) => line.limit > 0)
       .sort((a, b) => b.limit - a.limit);
 
     const monthly = lines.reduce((sum, l) => sum + Math.max(l.limit - l.recurring, 0), 0);
@@ -201,3 +242,4 @@ export async function getSpendingProjection(): Promise<SpendingProjection> {
     budgeted: [],
   };
 }
+

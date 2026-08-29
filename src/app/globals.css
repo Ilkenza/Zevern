@@ -3443,37 +3443,163 @@ body::after {
 .task-panel-body > .task-row:nth-child(4) { animation-delay: 270ms; }
 .task-panel-body > .task-row:nth-child(n + 5) { animation-delay: 310ms; }
 
-.task-view-remaining {
-  display: grid;
-  width: 100%;
-  grid-template-columns: auto auto 1fr;
+.task-review-cta {
+  display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 12px 16px;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 58px;
+  padding: 9px 12px 9px 16px;
   border-top: 1px solid var(--color-line-soft);
   background:
-    linear-gradient(90deg, rgba(217, 164, 65, 0.045), transparent 48%),
+    linear-gradient(90deg, rgba(217, 164, 65, 0.04), transparent 54%),
     rgba(255, 255, 255, 0.012);
+}
+
+.task-review-cta > div { display: flex; min-width: 0; flex-direction: column; gap: 2px; }
+.task-review-cta strong { color: var(--color-gold-hi); font-size: 12px; }
+.task-review-cta span { color: var(--color-faint); font-size: 10.5px; }
+
+.task-review-cta > button,
+.task-review-complete > button {
+  flex: none;
+  padding: 7px 12px;
+  border: 1px solid rgba(217, 164, 65, 0.28);
+  border-radius: 10px;
+  background: var(--color-active-bg);
   color: var(--color-gold-hi);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
-  text-align: left;
   cursor: pointer;
-  transition: background-color 220ms ease, color 180ms ease;
+  transition:
+    border-color 180ms ease,
+    background-color 180ms ease,
+    transform 220ms var(--ease-premium);
 }
 
-.task-view-remaining small {
-  justify-self: end;
-  color: var(--color-faint);
-  font-size: 10.5px;
-  font-weight: 600;
+.task-review-cta > button:hover,
+.task-review-complete > button:hover {
+  border-color: rgba(217, 164, 65, 0.5);
+  background: rgba(217, 164, 65, 0.16);
+  transform: translateY(-1px);
 }
 
-.task-view-remaining:hover { background-color: rgba(217, 164, 65, 0.055); color: #f3d79a; }
-.task-view-remaining svg { transition: transform 260ms var(--ease-premium); }
-.task-view-remaining:hover svg { transform: scale(1.08) rotate(-4deg); }
+.task-review { border-top: 1px solid var(--color-line-soft); }
 
-.task-remaining-list { overflow: hidden; border: 1px solid var(--color-line); border-radius: var(--radius-card); }
+.task-review-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--color-line-soft);
+  background: rgba(255, 255, 255, 0.012);
+}
+
+.task-review-head > button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-muted);
+  font-size: 11px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: color 180ms ease;
+}
+
+.task-review-head > button:hover { color: var(--color-ink); }
+.task-review-head > span { color: var(--color-faint); font-size: 10.5px; }
+
+.task-review-card {
+  min-height: 250px;
+  padding: 30px clamp(18px, 5vw, 64px) 22px;
+  animation: task-in 420ms var(--ease-premium) both;
+}
+
+.task-review-task {
+  display: flex;
+  min-height: 108px;
+  align-items: center;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+  text-align: center;
+}
+
+.task-review-task > strong {
+  max-width: 44rem;
+  overflow-wrap: anywhere;
+  color: var(--color-ink);
+  font-size: clamp(19px, 2.4vw, 26px);
+  line-height: 1.28;
+  letter-spacing: -0.025em;
+}
+
+.task-review-task > span { color: var(--color-muted); font-size: 11.5px; }
+.task-review-task > small { color: var(--color-faint); font-size: 10.5px; }
+
+.task-review-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 24px;
+}
+
+.task-review-actions > button,
+.task-review-actions > a {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 7px 11px;
+  border: 1px solid var(--color-line);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.022);
+  color: var(--color-muted);
+  font-size: 11px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: border-color 180ms ease, background-color 180ms ease, color 180ms ease;
+}
+
+.task-review-actions > button:hover:not(:disabled),
+.task-review-actions > a:hover {
+  border-color: rgba(217, 164, 65, 0.3);
+  background: var(--color-active-bg);
+  color: var(--color-ink);
+}
+
+.task-review-actions > button:disabled { opacity: 0.45; cursor: wait; }
+.task-review-actions > .is-complete { color: var(--color-positive); }
+.task-review-actions > .is-skip { border-color: transparent; color: var(--color-faint); }
+
+.task-review-complete {
+  display: flex;
+  min-height: 250px;
+  align-items: center;
+  flex-direction: column;
+  justify-content: center;
+  padding: 28px;
+  text-align: center;
+  animation: money-card-in 480ms var(--ease-premium) both;
+}
+
+.task-review-complete-icon {
+  display: inline-grid;
+  width: 42px;
+  height: 42px;
+  margin-bottom: 12px;
+  place-items: center;
+  border: 1px solid rgba(110, 201, 159, 0.28);
+  border-radius: 14px;
+  background: rgba(110, 201, 159, 0.1);
+  color: var(--color-positive);
+}
+
+.task-review-complete strong { color: var(--color-ink); font-size: 17px; }
+.task-review-complete p { margin: 5px 0 16px; color: var(--color-muted); font-size: 11.5px; }
 
 /* How late, said once per row, in the only band where it is the point. */
 .task-row-note {
@@ -3485,12 +3611,18 @@ body::after {
 
 @media (max-width: 720px) {
   .task-chip { flex: 0 0 auto; min-width: 92px; }
-  .task-view-remaining { min-height: 46px; }
+  .task-review-cta { align-items: flex-start; }
+  .task-review-card { padding: 22px 14px 16px; }
+  .task-review-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .task-view-remaining,
-  .task-view-remaining svg { transition: none; }
+  .task-review-cta > button,
+  .task-review-head > button,
+  .task-review-card,
+  .task-review-actions > button,
+  .task-review-actions > a,
+  .task-review-complete { animation: none !important; transition: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -4508,7 +4640,34 @@ body::after {
   z-index: 4;
   transform-origin: top;
   animation: goal-rail-in 820ms var(--ease-premium) 140ms both;
-  box-shadow: 0 0 18px color-mix(in srgb, var(--goal-accent) 26%, transparent);
+  /*
+    Lit at the top, settled at the bottom — not one flat swatch.
+
+    Flat `#d9a441` is the right gold in a swatch and the wrong one in a four-pixel band:
+    against a near-black card, with nothing brighter in it to say which way the light is
+    coming from, it reads as khaki. Every other gold on this screen has a highlight in it
+    — the button, the links, the `gold-hi` text — so the rail was the one gold that looked
+    washed next to the rest.
+
+    Built from the tokens rather than from three hexes: change the brand gold in `@theme`
+    and this edge moves with it. The bottom stop is the same gold with black mixed in, not
+    a darker colour of its own, so the rail can never drift out of the palette.
+  */
+  background: linear-gradient(
+    180deg,
+    var(--color-gold-hi),
+    var(--goal-accent) 55%,
+    color-mix(in srgb, var(--goal-accent) 82%, #000)
+  );
+  /*
+    The glow casts into the card, not around the rail.
+
+    `0 0 18px` at 26% put an even haze on both sides of a 4px line, and half of it landed
+    outside the card where the clip eats it. What is left is fog on the one edge that is
+    meant to be crisp. Offset by a pixel and tightened, it reads as light coming off the
+    edge instead.
+  */
+  box-shadow: 1px 0 14px color-mix(in srgb, var(--goal-accent) 42%, transparent);
 }
 
 /*
@@ -5682,9 +5841,14 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
   because the figure and the bar are as much "that category" as the word is.
 */
 /* Same story here, one level deeper: the list holds the columns, `li` passes them on. */
+/*
+  Dot, name, figure. The fourth column held a bar drawing the same share the stacked band
+  at the top of the panel already draws, and the same share the percentage on the right
+  states in words — one month's composition, three times, in one card.
+*/
 .overview-cats {
   display: grid;
-  grid-template-columns: 8px minmax(80px, 1.25fr) minmax(48px, 3fr) auto;
+  grid-template-columns: 8px minmax(80px, 1fr) auto;
 }
 
 .overview-cats > li {
@@ -5709,7 +5873,7 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
   .overview-cats,
   .overview-cats > li { display: block; }
   .overview-cat {
-    grid-template-columns: 8px minmax(80px, 1.25fr) minmax(48px, 3fr) 8.5rem;
+    grid-template-columns: 8px minmax(80px, 1fr) 8.5rem;
   }
 }
 
@@ -5727,19 +5891,6 @@ a.overview-cat:hover { background: rgba(255, 255, 255, 0.035); }
 
 .overview-cat.is-rest .overview-cat-name { color: var(--color-muted); }
 
-.overview-cat-track {
-  height: 6px;
-  overflow: hidden;
-  border-radius: var(--radius-pill);
-  background: rgba(255, 255, 255, 0.05);
-}
-
-.overview-cat-track span {
-  display: block;
-  height: 100%;
-  border-radius: var(--radius-pill);
-}
-
 .overview-cat-amt {
   color: var(--color-muted);
   font-size: 12px;
@@ -5747,12 +5898,21 @@ a.overview-cat:hover { background: rgba(255, 255, 255, 0.035); }
   white-space: nowrap;
 }
 
-/* The cap, quieter than the figure it frames — until it has been passed. */
+/*
+  The share, quieter than the figure it belongs to.
+
+  This slot held the cap — `/ 20,0k` — until limits left this panel for the Budgets card
+  that owns them. What sits here now is the same measurement the bar to its left draws,
+  which is the one thing this row is about.
+*/
 .overview-cat-amt i {
-  margin-left: 5px;
+  display: inline-block;
+  min-width: 30px;
+  margin-left: 7px;
   color: var(--color-faint);
   font-size: 11px;
   font-style: normal;
+  text-align: right;
 }
 
 .overview-cat-amt.is-over,
@@ -5780,17 +5940,13 @@ a.overview-cat:hover { background: rgba(255, 255, 255, 0.035); }
   white-space: nowrap;
 }
 
-/* Under about 520px the bar has nowhere to live; the row keeps the two that matter. */
 @media (max-width: 520px) {
-  /* Three columns at this width, so the list's template has to shrink with it. */
-  .overview-cats { grid-template-columns: 8px minmax(0, 1fr) auto; }
   .overview-cat { gap: 8px; }
   /*
-    No row has a bar at this width, so the offer goes too — otherwise the uncapped rows
-    would be the only ones with a fourth thing in a three-column grid, and the figure
-    would wrap under the name. The panel heading keeps its own "Set limits" door.
+    The per-row offer to set a limit goes at this width: it would be a fourth thing in a
+    three-column grid and would push the figure under the name. The panel heading keeps
+    its own door.
   */
-  .overview-cat-track,
   .overview-cat-note { display: none; }
 }
 
@@ -7608,3 +7764,1916 @@ body > * { min-width: 0; }
   .zv-more svg { transition: none; }
   .zv-more:hover svg { transform: none; }
 }
+
+/* ==================================================== Overview: now, then the month
+
+   The overview is two screens in one column. Above the rule it answers "what needs me",
+   and every figure on it is true this afternoon; below the rule it reports a month, and
+   the picker on the rule governs that half and only that half. The styles here are the
+   join between them and the rows that live on the top half.
+   ========================================================================== */
+
+/*
+  A heading for a band of cards rather than a card of its own.
+
+  The band under it is four panels that each come and go, so a title inside any one of
+  them would be a title that disappears when that panel does. It sits outside them and
+  carries the count, which is the part you read from across the room.
+*/
+.ov-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 4px 2px 0;
+  color: var(--color-muted);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+}
+
+.ov-eyebrow b {
+  display: inline-flex;
+  min-width: 18px;
+  height: 18px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 5px;
+  border-radius: var(--radius-pill);
+  background: rgba(217, 164, 65, 0.16);
+  color: var(--color-gold-hi);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0;
+}
+
+/* ------------------------------------------------------------- A row that wants you */
+
+.need-row {
+  display: grid;
+  grid-template-columns: 8px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--color-line-soft);
+  transition: background-color 180ms ease;
+}
+
+.need-row:last-child { border-bottom: 0; }
+.need-row:hover { background: rgba(255, 255, 255, 0.03); }
+
+/*
+  Tone is a dot, not a background. A row washed in red is a row you cannot read, and on a
+  bad day there could be three of them — the colour has to say "this one" without taking
+  the card over.
+*/
+.need-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background: var(--color-faint);
+}
+
+.need-row.is-late .need-dot { background: var(--color-danger); }
+.need-row.is-over .need-dot { background: var(--color-danger); }
+.need-row.is-soon .need-dot { background: var(--color-gold); }
+
+.need-say { min-width: 0; }
+
+.need-title {
+  display: block;
+  overflow: hidden;
+  color: var(--color-ink);
+  font-size: 13.5px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.need-detail {
+  display: block;
+  margin-top: 1px;
+  overflow: hidden;
+  color: var(--color-muted);
+  font-size: 11.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.need-amt {
+  color: var(--color-ink);
+  font-size: 12.5px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.need-amt.is-over { color: var(--color-danger); }
+
+/*
+  The word, not a button. Every one of these rows is a link to the screen where the thing
+  gets done, and a filled button on four stacked rows makes a card look like a form with
+  four submits. It warms on hover, which is the whole promise being made.
+*/
+.need-cta {
+  padding: 3px 9px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-pill);
+  color: var(--color-muted);
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+  transition: color 180ms ease, border-color 180ms ease;
+}
+
+.need-row:hover .need-cta {
+  border-color: rgba(217, 164, 65, 0.4);
+  color: var(--color-gold-hi);
+}
+
+@media (max-width: 560px) {
+  /* The verb is implied by tapping the row. Below this width the figure needs the space. */
+  .need-row { grid-template-columns: 8px minmax(0, 1fr) auto; }
+  .need-cta { display: none; }
+}
+
+/* --------------------------------------------------------------- A day with nothing */
+
+.ov-calm {
+  padding: 11px 14px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-card);
+  background: rgba(95, 184, 138, 0.05);
+  color: var(--color-ink);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.ov-calm span {
+  display: block;
+  margin-top: 2px;
+  color: var(--color-muted);
+  font-weight: 400;
+}
+
+/* -------------------------------------------------------------------- The month rule */
+
+/*
+  The seam. It has to read as a heading for everything below it and as a full stop for
+  everything above, which is why it is a rule with the month sitting on it rather than
+  another card: a card would be a fifth thing in a stack of cards, and the eye would not
+  know it was a boundary.
+*/
+.month-rule {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 10px 14px;
+  margin-top: 26px;
+  padding-top: 18px;
+  border-top: 1px solid var(--color-line);
+}
+
+.month-rule-title {
+  font-family: var(--font-display), ui-sans-serif, system-ui, sans-serif;
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.4px;
+  color: var(--color-ink);
+}
+
+.month-rule-meta {
+  flex: 1;
+  color: var(--color-faint);
+  font-size: 11.5px;
+}
+
+/* ------------------------------------------------------------------ Budgets, in brief */
+
+.ov-budgets {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 10px 4px;
+}
+
+.ov-budget {
+  display: block;
+  padding: 8px 8px 9px;
+  border-radius: var(--radius-ctrl);
+  transition: background-color 180ms ease;
+}
+
+.ov-budget:hover { background: rgba(255, 255, 255, 0.03); }
+
+.ov-budget-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.ov-budget-name {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-ink);
+  font-size: 13px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The one property of a budget its figures cannot tell you. */
+.ov-budget-name em {
+  margin-left: 7px;
+  padding: 1px 6px;
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--color-muted);
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+
+.ov-budget-amt {
+  color: var(--color-ink);
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+
+.ov-budget-amt i { margin-left: 4px; color: var(--color-faint); font-style: normal; }
+
+.ov-budget-track {
+  position: relative;
+  display: block;
+  height: 6px;
+  margin-top: 7px;
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.ov-budget-track span {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-pill);
+  background: var(--color-gold);
+}
+
+/*
+  Past the limit, the track itself is the overshoot.
+
+  The gold above reaches as far as the budget allowed and the red showing behind it is
+  everything spent past that, so the amount of red is the size of the problem rather
+  than a flag that one exists. A full red bar for being 1.237 over was the loudest mark
+  on the screen attached to the smallest fact on it.
+*/
+.ov-budget-track.is-over { background: var(--color-danger); }
+
+/*
+  Where the window has got to, as a notch on the track.
+
+  Without it the bar answers "how much is gone" and leaves you to work out whether that
+  is a lot for the 28th — which is the only thing that makes the first figure mean
+  anything. It sits above the fill rather than inside it so it stays visible on a bar
+  that is full.
+*/
+.ov-budget-track b {
+  position: absolute;
+  top: -2px;
+  width: 2px;
+  height: 10px;
+  margin-left: -1px;
+  border-radius: 1px;
+  background: rgba(255, 255, 255, 0.45);
+}
+
+.ov-budget-note {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 5px;
+  font-size: 11px;
+}
+
+.ov-budget-note em { color: var(--color-faint); font-style: normal; white-space: nowrap; }
+
+/*
+  Where a raised limit's extra room came from.
+
+  A limit that changed and does not say why is worse than a limit that was broken: in
+  three months nobody remembers granting it, and reading 25.000 on a budget you know you
+  set to 20.000 costs you your trust in both figures. Gold, because it is the app's
+  "worth a look" and not a warning — nothing has gone wrong, something was allowed.
+*/
+.ov-budget-why {
+  position: relative;
+  display: block;
+  margin-top: 4px;
+  padding-left: 13px;
+  color: var(--color-gold-hi);
+  font-size: 11px;
+}
+
+.ov-budget-why::before {
+  content: "\21B3";
+  position: absolute;
+  top: -1px;
+  left: 0;
+  color: var(--color-faint);
+}
+
+/*
+  The history strip is a door, and has to look like one before it is hovered.
+
+  The rule above it and the row of bars already read as a block; what was missing is any
+  sign that tapping it does something. The words at the right-hand end say where it goes,
+  quietly — a full button here would compete with the pencil beside it for a card whose
+  main job is the figure at the top.
+*/
+.zv-past {
+  border-radius: var(--radius-ctrl);
+  transition: background-color 180ms ease;
+}
+
+.zv-past:hover { background: rgba(255, 255, 255, 0.02); }
+
+.zv-past:focus-visible {
+  outline: 2px solid var(--color-gold);
+  outline-offset: 2px;
+}
+
+.zv-past-more {
+  float: right;
+  color: var(--color-faint);
+  transition: color 180ms ease;
+}
+
+.zv-past:hover .zv-past-more { color: var(--color-gold-hi); }
+
+/* ================================================ Money: a category across the year
+
+   The rail filters this month. Once a category is picked, the next question is always
+   whether this month is normal for it — so the door to the year sits directly under the
+   filter that raised the question, rather than in a menu somebody has to go looking for.
+   ========================================================================== */
+
+.money-cat-year {
+  display: flex;
+  width: 100%;
+  align-items: baseline;
+  gap: 10px;
+  padding: 9px 14px;
+  margin-bottom: 10px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-ctrl);
+  background: rgba(255, 255, 255, 0.02);
+  text-align: left;
+  transition: border-color 180ms ease, background-color 180ms ease;
+}
+
+.money-cat-year:hover {
+  border-color: rgba(217, 164, 65, 0.4);
+  background: rgba(217, 164, 65, 0.04);
+}
+
+.money-cat-year:focus-visible {
+  outline: 2px solid var(--color-gold);
+  outline-offset: 2px;
+}
+
+.money-cat-year-name {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--color-ink);
+  white-space: nowrap;
+}
+
+.money-cat-year-say {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-muted);
+  font-size: 11.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.money-cat-year-go {
+  color: var(--color-faint);
+  font-size: 13px;
+  transition: color 180ms ease, transform 180ms ease;
+}
+
+.money-cat-year:hover .money-cat-year-go {
+  color: var(--color-gold-hi);
+  transform: translateX(2px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .money-cat-year-go { transition: color 180ms ease; }
+  .money-cat-year:hover .money-cat-year-go { transform: none; }
+}
+
+/* ------------------------------------------- A search box, chips and a sort control
+
+   Shared by the panels that list entries. Small controls above a list, sized so the list
+   is still what the eye lands on — a filter bar that competes with its own results is a
+   filter bar somebody stops reading.
+   ========================================================================== */
+
+.zv-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 11px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-ctrl);
+  background: rgba(255, 255, 255, 0.035);
+  transition: border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.zv-search:focus-within {
+  border-color: var(--color-gold);
+  box-shadow: var(--shadow-ring, 0 0 0 3px rgba(217, 164, 65, 0.14));
+}
+
+.zv-search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-ink);
+  font: inherit;
+  font-size: 12.5px;
+  outline: none;
+}
+
+.zv-search input::placeholder { color: var(--color-faint); }
+
+/* The browser's own clear button, which does not match anything else on the screen. */
+.zv-search input::-webkit-search-cancel-button { display: none; }
+
+.zv-search button {
+  display: flex;
+  color: var(--color-faint);
+  transition: color 180ms ease;
+}
+
+.zv-search button:hover { color: var(--color-ink); }
+
+.zv-filter-chip {
+  padding: 4px 10px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--color-muted);
+  font-size: 11.5px;
+  font-weight: 600;
+  transition: border-color 180ms ease, background-color 180ms ease, color 180ms ease;
+}
+
+.zv-filter-chip:hover { border-color: rgba(255, 255, 255, 0.18); color: var(--color-ink); }
+
+.zv-filter-chip.is-on {
+  border-color: rgba(217, 164, 65, 0.45);
+  background: rgba(217, 164, 65, 0.14);
+  color: var(--color-gold-hi);
+}
+
+/*
+  The count on a chip, and the chip with nothing behind it.
+
+  Same treatment as the tag chips on the budgets screen and in the entries panel: the word
+  is what you are choosing, the count is why, so it sits a step quieter and in tabular
+  figures so the digits do not shuffle as they change.
+*/
+.zv-filter-chip i {
+  margin-left: 5px;
+  color: var(--color-faint);
+  font-style: normal;
+  font-variant-numeric: tabular-nums;
+}
+
+.zv-filter-chip.is-on i { color: inherit; opacity: 0.7; }
+
+.zv-filter-chip:disabled {
+  opacity: 0.42;
+  cursor: default;
+}
+
+.zv-filter-chip:disabled:hover { border-color: var(--color-line); color: var(--color-muted); }
+
+.zv-filter-chip:focus-visible,
+.zv-sort:focus-visible {
+  outline: 2px solid var(--color-gold);
+  outline-offset: 2px;
+}
+
+/*
+  Our own arrow again — Chrome ignores padding-right on a native select, so the browser's
+  chevron sits on top of the last word. Same fix as `Select`, kept local because this one
+  is a bare control with no label above it.
+*/
+.zv-sort {
+  appearance: none;
+  padding: 4px 26px 4px 10px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-pill);
+  background:
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' fill='none' stroke='%238a909e' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/></svg>")
+      no-repeat right 9px center,
+    rgba(255, 255, 255, 0.035);
+  color: var(--color-muted);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.zv-sort:hover { border-color: rgba(255, 255, 255, 0.18); color: var(--color-ink); }
+
+/*
+  Two dates as one control.
+
+  A pair of bare date inputs reads as two unrelated fields; joined by an arrow inside one
+  border it reads as the range it is. The border warms when either end is set, because a
+  date filter is the only one here with nothing on screen to show for itself — a chip is
+  visibly on, "since the 12th" is not.
+*/
+.zv-range {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 4px 2px 8px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.035);
+  transition: border-color 180ms ease, background-color 180ms ease;
+}
+
+.zv-range.is-on {
+  border-color: rgba(217, 164, 65, 0.45);
+  background: rgba(217, 164, 65, 0.1);
+}
+
+.zv-range i {
+  color: var(--color-faint);
+  font-size: 11px;
+  font-style: normal;
+}
+
+.zv-range input {
+  width: 108px;
+  border: 0;
+  background: transparent;
+  color: var(--color-muted);
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 600;
+  outline: none;
+}
+
+.zv-range.is-on input { color: var(--color-gold-hi); }
+
+.zv-range input:focus-visible {
+  outline: 2px solid var(--color-gold);
+  outline-offset: 1px;
+  border-radius: var(--radius-ctrl);
+}
+
+/* The browser's own icon is a light glyph on a dark control; tint it to match. */
+.zv-range input::-webkit-calendar-picker-indicator {
+  filter: invert(0.62) sepia(0.1);
+  cursor: pointer;
+  opacity: 0.7;
+}
+
+.zv-range input::-webkit-calendar-picker-indicator:hover { opacity: 1; }
+
+.zv-range button {
+  display: flex;
+  padding: 3px;
+  color: var(--color-faint);
+  transition: color 180ms ease;
+}
+
+.zv-range button:hover { color: var(--color-ink); }
+
+/*
+  A row in the "needs you" band that carries its own control.
+
+  Same grid as the plain rows so the dots and names line up down the card, with the
+  controls taking the two right-hand columns. On a narrow screen they drop to their own
+  line rather than squeezing the name to nothing — a name you cannot read is a row you
+  cannot act on.
+*/
+.need-line {
+  display: grid;
+  grid-template-columns: 8px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--color-line-soft);
+  transition: background-color 180ms ease;
+}
+
+.need-line:last-child { border-bottom: 0; }
+a.need-line:hover { background: rgba(255, 255, 255, 0.03); }
+
+.need-line.is-late .need-dot,
+.need-line.is-over .need-dot { background: var(--color-danger); }
+.need-line.is-soon .need-dot { background: var(--color-gold); }
+
+/* The plain rows keep their figure and their word, so they need the fourth column. */
+a.need-line { grid-template-columns: 8px minmax(0, 1fr) auto auto; }
+
+.need-do {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+@media (max-width: 620px) {
+  .need-line { grid-template-columns: 8px minmax(0, 1fr); }
+  a.need-line { grid-template-columns: 8px minmax(0, 1fr) auto; }
+  .need-do {
+    grid-column: 1 / -1;
+    padding-left: 20px;
+  }
+}
+
+/*
+  Three figures that add up, said as a sentence rather than as three cards.
+
+  Cards would give equal weight to the working and the answer; here the first two are the
+  working and the third is the conclusion, so it is the only one that keeps full contrast.
+  On a phone they stack, which is the right reading order anyway: gone, coming, total.
+*/
+.month-ahead {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+@media (max-width: 620px) {
+  .month-ahead { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+}
+
+.month-ahead > span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.month-ahead b {
+  color: var(--color-muted);
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.month-ahead .is-sum b { color: var(--color-ink); }
+
+.month-ahead i {
+  color: var(--color-faint);
+  font-size: 11.5px;
+  font-style: normal;
+  line-height: 1.45;
+}
+
+/*
+  The gap between a figure and its currency.
+
+  `Intl` separates the two with a non-breaking space, and a monospace face gives that
+  space a whole character cell — thirty pixels at hero size. At that width `101.641` and
+  `RSD` stop reading as one amount and start reading as two things, which is the single
+  mistake a balance on a money screen is not allowed to make.
+
+  The currency is a suffix, so it is set like one. Only the figures big enough for the
+  cell to show are pulled in; at ledger size the space is already right, and tightening
+  it there would run the digits into the letters.
+*/
+.money-hero-figure,
+.overview-kpi > .mono,
+.month-ahead b,
+.need-amt,
+.due-soon-total,
+.onhand-account-value {
+  word-spacing: -0.32em;
+}
+
+/*
+  Six months, six slots.
+
+  A bar chart drawn with `flex-1` columns gives each bar a sixth of whatever width it is
+  handed — 165px on a wide screen — and a 165 by 63 rectangle is a block, not a bar. Worse
+  was what it did to the empty months: a 4px sliver 165 wide reads as a rule, so five
+  months of no data looked like five rows that had failed to draw.
+
+  So the column holds a track instead, always full height, always the same width, and the
+  bar grows inside it. An empty month is then visibly an empty slot — the absence has a
+  shape — and a month with something in it is a proportion you can read against the five
+  beside it, which is the only reason the strip is here.
+
+  `max-width` on the track rather than a fixed width, so the same rule holds from 380px to
+  1600px without a breakpoint.
+*/
+.month-bars {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  align-items: end;
+  gap: 10px;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--color-line-soft);
+}
+
+.month-bar {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+}
+
+.month-bar-val {
+  color: var(--color-faint);
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.2px;
+}
+
+.month-bar-track {
+  display: flex;
+  width: 100%;
+  max-width: 44px;
+  height: 72px;
+  align-items: flex-end;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.month-bar-track i {
+  display: block;
+  width: 100%;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.13);
+}
+
+.month-bar-key {
+  color: var(--color-muted);
+  font-size: 10.5px;
+}
+
+/*
+  The month you are standing in is the only one still moving, and it is the only one gold.
+  The finished months are one weight between them: they are context, and ranking them
+  would be a second story in a panel that already has one.
+*/
+.month-bar.is-now .month-bar-track i { background: var(--color-gold); }
+.month-bar.is-now .month-bar-val { color: var(--color-gold-hi); font-weight: 600; }
+.month-bar.is-now .month-bar-key { color: var(--color-ink); font-weight: 600; }
+.month-bar.is-empty .month-bar-val { color: rgba(255, 255, 255, 0.22); }
+
+@media (max-width: 560px) {
+  .month-bar-track { height: 56px; }
+}
+
+
+
+/*
+  What the panel says when there is no sum to draw: a caption, not a figure. Set at the
+  weight of a note so it cannot be mistaken for a fourth measurement.
+*/
+.month-ahead-quiet {
+  color: var(--color-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+/*
+  The budget an entry was filed into, on the ledger row.
+
+  Set apart from the category and the account beside it, because it is a different kind
+  of fact: those describe what the entry was, this says which pot it came out of. Gold
+  rather than plain, at the same size, so the eye finds every row belonging to a holiday
+  by running down one column of colour.
+*/
+.money-row-filed {
+  color: var(--color-gold-hi);
+  font-weight: 600;
+}
+
+/*
+  The overlap between a category budget and a trip, on the Overview strip.
+
+  Same shape as the raise note above it and a step quieter, because it is context rather
+  than a change: the figure on the row is real spending on the category, and this says how
+  much of it a hand-kept budget is also counting.
+*/
+.ov-budget-also {
+  position: relative;
+  display: block;
+  margin-top: 3px;
+  padding-left: 13px;
+  color: var(--color-faint);
+  font-size: 11px;
+}
+
+/* ========================================================= A budget, as one instrument
+
+   The card is a dial and four lines beside it.
+
+   A bar states progress as a length, and a length means nothing until it is measured
+   against the one next to it — which is why six bars down a page read as six bars. A ring
+   states it as a shape: nearly closed is nearly spent, and that arrives before a single
+   figure has been read. It is also the only mark on this screen that is not text, which is
+   most of what separates a product from a table.
+
+   Everything else is held back so the ring and the figure can carry the card. The name is
+   a label at 12.5px, the clock is fainter still, and there is no colour anywhere except in
+   the arc — so red, when it comes, is the only red on the page.
+   ========================================================================== */
+
+.bud-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: 18px;
+  /*
+    Clipped, so the sweep below has an edge to be held by. Safe to add: nothing on this
+    card is drawn outside it — the delete dialog is portalled to the body, and the
+    hover shadow is the element's own box-shadow, which clipping does not touch.
+  */
+  overflow: hidden;
+  padding: 15px 18px 16px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-card);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.014), transparent 60%),
+    var(--color-surface);
+  transition:
+    border-color 420ms var(--ease-premium),
+    box-shadow 480ms var(--ease-premium);
+}
+
+.bud-card:hover {
+  border-color: rgba(217, 164, 65, 0.22);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.26);
+}
+
+/*
+  The same light that crosses a goal card, on a budget card.
+
+  Not a copy of the rule — the same numbers, deliberately: 118 degrees, the band a
+  quarter of the width, 950ms on the same easing. Two card families in one app that
+  both catch the light have to catch it at the same speed and the same angle, or the
+  screen reads as two apps. If the goals sweep is ever retuned, retune this with it.
+
+  Absolutely positioned, which is also what keeps it out of the grid: a static
+  `::before` on a grid container is a grid item, and it would have taken a cell.
+
+  It is not stacked under the content, and that is on purpose. At four percent white
+  the band is light falling *on* the card, so it should pass over the figure the way it
+  passes over everything else. `pointer-events: none` keeps it out of the way of the
+  three controls it crosses.
+*/
+.bud-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  /*
+    Read from the card, so a card that wants a different light can say so on itself
+    rather than needing a second rule that has to win a specificity argument with this
+    one — the mistake the goals sweep was untangled from.
+  */
+  background: linear-gradient(
+    118deg,
+    transparent 22%,
+    var(--card-sheen, rgba(255, 255, 255, 0.04)) 48%,
+    transparent 74%
+  );
+  transform: translateX(-112%);
+  /*
+    On the resting state, not on `:hover`, so the band travels both ways — in with the
+    pointer and back out with it. Declared under `:hover` it would snap back invisibly
+    and you would get one pass per visit instead of two.
+  */
+  transition: transform 950ms var(--ease-premium);
+  pointer-events: none;
+}
+
+.bud-card:hover::before { transform: translateX(112%); }
+
+/* --------------------------------------------------------------------- the words */
+
+/*
+  Who it is on the left, what it stands at hard against the right edge.
+
+  Stacked left the card used two thirds of its width and left the rest empty, which on a
+  grid of eleven reads as eleven cards that stopped rendering. Held apart, every figure on
+  the screen lands in one column — the arrangement a column of money has wanted since
+  ledgers were ruled by hand, and the reason `tabular-nums` is on the figure at all.
+*/
+.bud-head { grid-area: 1 / 1; min-width: 0; }
+
+.bud-title { display: flex; min-width: 0; align-items: center; gap: 7px; }
+
+.bud-title b {
+  overflow: hidden;
+  color: var(--color-muted);
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: color 260ms ease;
+}
+
+.bud-card:hover .bud-title b { color: var(--color-ink); }
+
+.bud-title em {
+  flex-shrink: 0;
+  padding: 1px 6px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-pill);
+  color: var(--color-faint);
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 600;
+}
+
+.bud-clock {
+  display: block;
+  margin-top: 2px;
+  overflow: hidden;
+  color: var(--color-faint);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bud-used {
+  grid-area: 1 / 2;
+  justify-self: end;
+  white-space: nowrap;
+  color: var(--color-ink);
+  font-family: var(--font-mono);
+  font-size: 23px;
+  font-weight: 600;
+  letter-spacing: -0.045em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.bud-used i {
+  margin-left: 8px;
+  color: var(--color-faint);
+  font-size: 11.5px;
+  font-style: normal;
+  font-weight: 500;
+  letter-spacing: 0;
+  word-spacing: -0.3em;
+}
+
+/* ---------------------------------------------------------------- the line of time */
+
+/*
+  The period, drawn as the thing it is: a stretch with a first day and a last day, both
+  written where they belong. The fill is the money and the tick is today — and because
+  today is labelled in words, the picture needs no legend anywhere on the page.
+*/
+.bud-span {
+  grid-area: 2 / 1 / auto / -1;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 11px;
+  margin-top: 21px;
+}
+
+.bud-edge {
+  color: var(--color-faint);
+  font-size: 10.5px;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/*
+  The channel is cut into the card rather than laid on it: the inset shadow along the top
+  edge is what stops a light bar on a dark surface from reading as a sticker. One pixel of
+  it, no more — the moment it is visible as a shadow it has stopped being a groove.
+*/
+.bud-track {
+  position: relative;
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.05);
+  box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.32);
+}
+
+/*
+  The light that runs along the line of time, the way it runs along a goal's bar.
+
+  Same band and the same 850ms as `.goal-progress-track::after`, deliberately — the card
+  sheen above already matches goals, and a bar that lit differently to the card around it
+  would be the one part of the pair that had its own idea.
+
+  Moved as a background rather than as a transform, and that is the whole trick here. The
+  goals bar translates a full-width band and lets the track's `overflow: hidden` cut it
+  off at the ends. This track cannot clip: `.bud-now` — the TODAY tick — deliberately
+  stands four pixels proud of the bar at top and bottom, and clipping the track would saw
+  those ends off and turn the mark back into the gap in the fill it was built not to be.
+
+  A background is painted inside the element's own box and rounded by its own radius, so
+  nothing has to be cut off in the first place. The band is half the track wide, which is
+  what makes the two end positions exact: at `-100%` its right edge lands precisely on the
+  left edge of the track, and at `200%` its left edge lands precisely on the right. Half a
+  width is the one size where those two numbers are whole — change the size and both
+  endpoints have to be recomputed, or the band will sit visible at rest.
+*/
+.bud-track::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background-image: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.18), transparent);
+  background-repeat: no-repeat;
+  background-size: 50% 100%;
+  background-position: -100% 0;
+  /*
+    On the resting state, so the light comes back across the bar on the way out — the same
+    two-pass behaviour the card sheen has. One without the other would read as a fault.
+  */
+  transition: background-position 850ms var(--ease-premium);
+  pointer-events: none;
+}
+
+/*
+  Hung on the card, which is the thing a pointer arrives at. The panel's masthead uses the
+  same `Meter`, and it is left dark on purpose: that bar is being read, not pointed at.
+*/
+.bud-card:hover .bud-track::after { background-position: 200% 0; }
+
+/*
+  The fill is lit from above, like everything else on this surface. A flat swatch of gold
+  is the difference between a chart and a component; the gradient is two stops and eight
+  per cent, which is all it takes for the eye to read a solid rather than a fill colour.
+*/
+.bud-fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  min-width: 4px;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(180deg, var(--color-gold-hi), var(--color-gold));
+  transition:
+    width 700ms var(--ease-premium),
+    background 300ms ease;
+}
+
+.bud-card.is-bad .bud-fill {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--color-danger) 82%, #fff), var(--color-danger));
+}
+
+/* The tick stands a little proud of the bar at both ends, so it reads as a mark on the
+   line rather than a gap in the fill. */
+.bud-now {
+  position: absolute;
+  top: -4px;
+  bottom: -4px;
+  width: 1px;
+  background: rgba(236, 238, 242, 0.62);
+}
+
+.bud-now i {
+  position: absolute;
+  bottom: calc(100% + 5px);
+  left: 50%;
+  transform: translateX(-50%);
+  color: rgba(236, 238, 242, 0.52);
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.bud-now.is-start i { left: -1px; transform: none; }
+.bud-now.is-end i { left: auto; right: -1px; transform: none; }
+
+/* ------------------------------------------------------------------ the sentence */
+
+.bud-note {
+  grid-area: 3 / 1;
+  margin-top: 11px;
+  color: var(--color-muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.bud-note i { color: var(--color-faint); font-style: normal; }
+.bud-note em { color: var(--color-gold-hi); font-style: normal; }
+
+/*
+  The verdict and the pencil close the line the note opens, rather than sitting over the
+  figure — a word and a number competing for one corner is how a card gets two headlines.
+*/
+.bud-corner {
+  grid-area: 3 / 2;
+  align-self: end;
+  justify-self: end;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 11px;
+}
+
+/* The history strip is a footer under everything, not a fourth thing in a column. */
+.bud-card > .zv-past { grid-column: 1 / -1; }
+
+.bud-verdict { font-size: 11px; font-weight: 700; }
+
+/*
+  The three controls on a card — what is in it, edit it, delete it.
+
+  They were `opacity: 0` until hover, which is the pattern `.task-actions` uses and the
+  one `.goal-card-controls` a few hundred lines up explicitly rejected for a card in a
+  grid, in those words. This card had it anyway. Two things follow from that, and both
+  of them are faults rather than preferences:
+
+  An action nobody can see is an action nobody knows exists. The person who asked for
+  the bin and the receipt on this card could not find either of them on his own screen —
+  which is the strongest evidence a resting state can get.
+
+  And there is no hover on a phone. With no `(hover: none)` branch the three controls
+  were not merely hard to find on touch, they were unreachable: nothing to arrive from,
+  and a tap that only ever opens the panel. Goals had that branch; this did not.
+
+  So the same rule as the goals card, to the number: 0.55 over `--color-muted` on
+  `--color-surface` lands at roughly `--color-faint` — legible, findable, and clearly
+  not the point of the card. Hover and keyboard focus bring them to full, where each
+  control's own `zv-rowctrl` hover does the rest. Pointers that cannot hover never dim.
+*/
+.bud-edit { opacity: 0.55; transition: opacity 220ms ease, color 180ms ease; }
+.bud-card:hover .bud-edit,
+.bud-edit:focus-visible { opacity: 1; }
+
+@media (hover: none) {
+  .bud-edit { opacity: 1; }
+}
+
+/*
+  Under about a phone's width the figure drops under the name rather than being squeezed
+  against it — the one arrangement that keeps a long budget name and a six-figure sum from
+  colliding. The line of time still spans the card, because it is the card.
+*/
+@media (max-width: 480px) {
+  .bud-card { padding: 14px 15px 15px; }
+  .bud-used {
+    grid-area: 2 / 1;
+    justify-self: start;
+    margin-top: 9px;
+    font-size: 21px;
+  }
+  .bud-span { grid-area: 3 / 1 / auto / -1; margin-top: 22px; }
+  .bud-note { grid-area: 4 / 1; }
+  .bud-corner { grid-area: 5 / 1; justify-self: start; margin-top: 8px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bud-card,
+  .bud-edit,
+  .bud-fill,
+  .bud-title b { transition: none; }
+
+  /* Removed rather than stilled: parked off the edge they are invisible anyway, and a
+     stationary band frozen mid-card would be worse than no band at all. */
+  .bud-card::before,
+  .bud-track::after { display: none; }
+}
+
+
+
+
+
+
+
+
+
+/* ==========================================================================
+   The chip picker, once there are too many chips to be a row
+   --------------------------------------------------------------------------
+   Under ten choices this file contributes nothing: the chips are a wrapped row
+   and that is the whole control. Past ten it grows a search box and a fold, and
+   these are the two rules that make those feel built rather than bolted on.
+   ========================================================================== */
+
+/*
+  The search box borrows the field's own skin rather than inventing one — same ground,
+  same hairline, same gold ring on focus — because it is a field, and a control that
+  looks like a cousin of the fields around it is how a form stops looking assembled.
+*/
+.zv-chipsearch {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 9px;
+  padding: 7px 11px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-ctrl);
+  background: rgba(255, 255, 255, 0.035);
+  transition:
+    border-color 200ms ease,
+    box-shadow 200ms ease;
+}
+
+.zv-chipsearch:focus-within {
+  border-color: var(--color-gold);
+  box-shadow: var(--shadow-ring);
+}
+
+.zv-chipsearch svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  color: var(--color-faint);
+}
+
+.zv-chipsearch input {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--color-ink);
+  font-size: 13px;
+  outline: none;
+}
+
+.zv-chipsearch input::placeholder { color: var(--color-faint); }
+
+/* The browser's own clear button is a grey X that belongs to no palette here. */
+.zv-chipsearch input::-webkit-search-cancel-button { appearance: none; }
+
+.zv-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/*
+  Three rows, then it stops — and it stops behind a fade rather than a straight cut, so
+  the edge reads as "there is more" instead of as a chip that failed to render. The height
+  is written in the chips' own terms: three of them plus the two gaps between.
+*/
+.zv-chips.is-folded {
+  max-height: calc(3 * 31px + 2 * 6px);
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(180deg, #000 68%, transparent 100%);
+  mask-image: linear-gradient(180deg, #000 68%, transparent 100%);
+}
+
+.zv-chipmore {
+  margin-top: 8px;
+  color: var(--color-muted);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  text-decoration: underline;
+  text-decoration-color: var(--color-line);
+  text-underline-offset: 3px;
+  transition: color 180ms ease, text-decoration-color 180ms ease;
+}
+
+.zv-chipmore:hover {
+  color: var(--color-gold-hi);
+  text-decoration-color: rgba(217, 164, 65, 0.5);
+}
+
+.zv-chipmore:focus-visible {
+  outline: none;
+  color: var(--color-gold-hi);
+  text-decoration-color: var(--color-gold);
+}
+
+/* ==========================================================================
+   The budget form, in bands
+   --------------------------------------------------------------------------
+   A slide-over full of controls is read as a sequence of decisions, not as a
+   list of fields, and the hairline is what tells you one decision has finished.
+   Everything here is spacing and a rule; there is no new colour in the panel.
+   ========================================================================== */
+
+.zv-formsec + .zv-formsec {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--color-line-soft);
+}
+
+/*
+  One heading shape for the whole panel — the same weight and colour a field label uses,
+  because a heading that outshouts the labels under it turns a form into a document.
+*/
+.zv-formsec-h {
+  margin-bottom: 6px;
+  color: #c6cad6;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.zv-formsec-hint {
+  margin-bottom: 11px;
+  color: var(--color-faint);
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+
+/* What the dates you just typed actually come out as, said back to you. */
+.zv-formsec-note {
+  margin-top: -4px;
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
+/*
+  A raise is one sentence — this budget, that much — so it is drawn as one object rather
+  than three controls that happen to be adjacent. The tray also gives the remove control
+  somewhere to belong: on its own beside a select it read as a stray character.
+*/
+.zv-grantrow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 116px 30px;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  padding: 8px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-ctrl);
+  background: rgba(255, 255, 255, 0.018);
+}
+
+.zv-grantrow-who,
+.zv-grantrow-much { min-width: 0; }
+
+.zv-grantrow-off { justify-self: end; }
+
+/*
+  The way to add the next one is the width of the thing it adds, so the eye reads it as
+  the empty slot at the bottom of the list rather than as a button parked underneath it.
+*/
+.zv-addrow {
+  display: block;
+  width: 100%;
+  padding: 9px 0;
+  border: 1px dashed var(--color-line);
+  border-radius: var(--radius-ctrl);
+  color: var(--color-muted);
+  font-size: 12px;
+  font-weight: 600;
+  transition:
+    border-color 200ms ease,
+    color 200ms ease,
+    background-color 200ms ease;
+}
+
+.zv-addrow:hover {
+  border-color: rgba(217, 164, 65, 0.5);
+  background: rgba(217, 164, 65, 0.05);
+  color: var(--color-gold-hi);
+}
+
+.zv-addrow:focus-visible {
+  outline: none;
+  border-color: var(--color-gold);
+  box-shadow: var(--shadow-ring);
+}
+
+@media (max-width: 420px) {
+  .zv-grantrow { grid-template-columns: minmax(0, 1fr) 30px; }
+  .zv-grantrow-who { grid-column: 1 / -1; }
+}
+
+
+/* ==========================================================================
+   The panel's action footer
+   --------------------------------------------------------------------------
+   Sticky inside the scrolling body, bled to the panel's edges so the scrim
+   reaches them, and lifted off the content by a gradient rather than a rule —
+   a hard line here reads as the end of the page, which it is not.
+   ========================================================================== */
+
+.zv-formfoot {
+  position: sticky;
+  bottom: -20px;
+  z-index: 2;
+  margin: 22px -20px -20px;
+  padding: 16px 20px calc(20px + env(safe-area-inset-bottom));
+  background:
+    linear-gradient(180deg, transparent, var(--color-surface) 22px),
+    var(--color-surface);
+}
+
+/*
+  The hairline is drawn as a gradient so it fades out at both ends rather than butting
+  into the panel's own border — the join is what makes a bar look bolted on.
+*/
+.zv-formfoot::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 20px;
+  left: 20px;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--color-line) 12%,
+    var(--color-line) 88%,
+    transparent
+  );
+}
+
+/* What the button is about to do, in the app's own words, rewritten as you type. */
+.zv-formfoot-say {
+  margin-bottom: 10px;
+  color: var(--color-muted);
+  font-size: 11.5px;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.zv-formfoot-say b {
+  color: var(--color-ink);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  word-spacing: -0.3em;
+}
+
+.zv-formfoot-err {
+  margin-bottom: 10px;
+  padding: 8px 12px;
+  border: 1px solid rgba(224, 98, 90, 0.4);
+  border-radius: var(--radius-ctrl);
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+  font-size: 12px;
+}
+
+/* Quiet at rest, and only reddens under the pointer — the confirm step is the safety. */
+.zv-formfoot .zv-btn-quiet {
+  margin-top: 8px;
+  color: var(--color-muted);
+}
+
+.zv-formfoot .zv-btn-quiet:hover { color: var(--color-danger); }
+
+/* ==========================================================================
+   The native date field, in this app's palette
+   --------------------------------------------------------------------------
+   The browser draws that little calendar in near-black, which on a dark field
+   is a smudge — the one control on the panel that still looked like a browser.
+   ========================================================================== */
+
+input[type="date"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.5;
+  filter: invert(1);
+  transition: opacity 180ms ease;
+}
+
+input[type="date"]:hover::-webkit-calendar-picker-indicator,
+input[type="date"]:focus::-webkit-calendar-picker-indicator {
+  opacity: 0.85;
+}
+
+/* ==========================================================================
+   The two rows of cards that decide what the rest of the form means
+   ========================================================================== */
+
+/*
+  The chosen one is not just outlined — it is lit from its own corner. A border swap says
+  "this one is selected"; a card that has picked up a little light says it without the eye
+  having to compare two borders to find out which is which.
+*/
+.zv-choice { position: relative; }
+
+.zv-choice.is-on {
+  background:
+    radial-gradient(120% 100% at 0% 0%, rgba(217, 164, 65, 0.09), transparent 62%),
+    var(--color-active-bg);
+  box-shadow: inset 0 1px 0 rgba(217, 164, 65, 0.14);
+}
+
+/* The dot is the confirmation. It arrives rather than appears. */
+.zv-choice-tick {
+  position: absolute;
+  top: 11px;
+  right: 11px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-gold);
+  box-shadow: 0 0 0 3px rgba(217, 164, 65, 0.14);
+  animation: zv-tick-in 320ms var(--ease-premium) both;
+}
+
+@keyframes zv-tick-in {
+  from { opacity: 0; transform: scale(0.4); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .zv-choice-tick { animation: none; }
+}
+
+/* touch */
+
+/*
+  The line that separates one shape of budget from the other.
+
+  It is not a heading. A heading here would be a fourth and a fifth on a page that has
+  two, and the thing it introduces is not a new subject — it is the same subject with a
+  different clock. So: four words at the left, and a hairline running out from them that
+  fades before it reaches the edge, which is what stops a rule from reading as the bottom
+  of the page.
+*/
+.zv-split {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  margin: 14px 0 10px;
+  color: var(--color-faint);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.zv-split::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, var(--color-line), transparent 82%);
+}
+
+/* t2 */
+
+/* ==========================================================================
+   What is in a budget — the entries behind its figure
+   ========================================================================== */
+
+/*
+  The total sits on the same line as the count, so the first thing read in the panel is
+  the same number the card was showing. If those two ever differ, something is wrong
+  upstream and the panel should be the place it shows.
+*/
+.zv-entries-sum {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 9px;
+  color: var(--color-faint);
+  font-size: 11px;
+}
+
+.zv-entries-sum b {
+  color: var(--color-ink);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  word-spacing: -0.3em;
+}
+
+.zv-entries {
+  margin-bottom: 4px;
+  display: flex;
+  flex-direction: column;
+}
+
+/*
+  A hairline between rows rather than a card around each: eleven boxes in a narrow panel
+  is a list that has to be picked apart, and nothing here is individually clickable.
+*/
+.zv-entry {
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 11px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--color-line-soft);
+}
+
+.zv-entry:last-child { border-bottom: 0; }
+
+.zv-entry-on {
+  color: var(--color-faint);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.zv-entry-what { min-width: 0; }
+
+.zv-entry-what b {
+  color: var(--color-ink);
+  font-size: 12.5px;
+  font-weight: 500;
+}
+
+.zv-entry-what i {
+  margin-left: 7px;
+  color: var(--color-faint);
+  font-size: 11px;
+  font-style: normal;
+}
+
+/* The ones you put in by hand, marked — because on a sweeping budget they are the rows
+   that are also being counted somewhere else, which is what the card's note refers to. */
+.zv-entry-what em {
+  margin-left: 7px;
+  padding: 1px 5px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-pill);
+  color: var(--color-gold-hi);
+  font-size: 9.5px;
+  font-style: normal;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+
+.zv-entry-sum {
+  color: var(--color-ink);
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+  word-spacing: -0.3em;
+}
+
+
+/* ==========================================================================
+   The budget sheet — one budget, opened
+   ========================================================================== */
+
+/*
+  The panel's own masthead: the same figure and the same line of time the card was
+  showing, at the size a detail view can afford. It is not a repetition for its own sake
+  — it is what lets the period list below drop the window you are standing in, which was
+  otherwise printing the same three numbers a second time.
+*/
+.zv-sheet {
+  margin-bottom: 18px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--color-line-soft);
+}
+
+.zv-sheet-sum {
+  color: var(--color-ink);
+  font-family: var(--font-mono);
+  font-size: 30px;
+  font-weight: 600;
+  letter-spacing: -0.05em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.zv-sheet-sum i {
+  margin-left: 10px;
+  color: var(--color-faint);
+  font-size: 12.5px;
+  font-style: normal;
+  font-weight: 500;
+  letter-spacing: 0;
+  word-spacing: -0.3em;
+}
+
+/* The meter sits closer to its figure here than on a card, where a whole row divides them. */
+.zv-sheet .bud-span { margin-top: 26px; }
+
+.zv-sheet-note {
+  margin-top: 12px;
+  color: var(--color-muted);
+  font-size: 11.5px;
+}
+
+.zv-sheet.is-bad .bud-fill {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--color-danger) 82%, #fff),
+    var(--color-danger)
+  );
+}
+
+/* Said once, at the bottom, where it explains an absence rather than introducing one. */
+.zv-sheet-first {
+  margin-top: 16px;
+  color: var(--color-faint);
+  font-size: 11.5px;
+}
+
+.zv-stat {
+  padding: 9px 12px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-ctrl);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.zv-stat span {
+  display: block;
+  margin-bottom: 2px;
+  color: var(--color-muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.zv-stat b {
+  color: var(--color-ink);
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  word-spacing: -0.3em;
+}
+
+.zv-stat b i {
+  color: var(--color-faint);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 500;
+}
+
+.zv-past-row {
+  padding: 9px 12px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-ctrl);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+
+/* ==========================================================================
+   Narrowing a long list of entries
+   --------------------------------------------------------------------------
+   Only drawn past six rows. Under that the list is its own answer, and a bar of
+   controls over it is chrome that sorts nothing you could not already see.
+   ========================================================================== */
+
+.zv-listbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 9px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--color-line-soft);
+}
+
+/*
+  One row that scrolls, never a block that wraps.
+
+  Wrapped, twelve tags stood four rows deep and pushed the list they were meant to narrow
+  off the screen — the same wall the category picker grew, for the same reason. The
+  heaviest tags come first, so the scroll is there for completeness rather than for use.
+*/
+.zv-tags {
+  display: flex;
+  min-width: 0;
+  flex-wrap: nowrap;
+  gap: 5px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-mask-image: linear-gradient(90deg, #000 90%, transparent);
+  mask-image: linear-gradient(90deg, #000 90%, transparent);
+}
+
+.zv-tags::-webkit-scrollbar { display: none; }
+
+/*
+  Every chip is a word already printed on the rows below, so what pressing one will do is
+  visible before it is pressed. Smaller and quieter than the form's chips: this narrows a
+  view, it does not decide anything that gets saved.
+*/
+.zv-tag {
+  padding: 3px 9px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-pill);
+  color: var(--color-muted);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  transition:
+    border-color 180ms ease,
+    background-color 180ms ease,
+    color 180ms ease;
+}
+
+.zv-tag:hover { color: var(--color-ink); }
+
+.zv-tag.is-on {
+  border-color: rgba(217, 164, 65, 0.4);
+  background: var(--color-active-bg);
+  color: var(--color-gold);
+}
+
+/*
+  The count, where a chip carries one.
+
+  It is what makes the row a readout rather than a set of doors: unpressed, `Over 1 ·
+  Spending fast 1 · On track 8` has already answered the question most people came to
+  press a chip about. Tabular so the digits sit still as the numbers change, and a step
+  quieter than the word — the word is what you are choosing, the count is why.
+*/
+.zv-tag i {
+  margin-left: 5px;
+  color: var(--color-faint);
+  font-style: normal;
+  font-variant-numeric: tabular-nums;
+}
+
+.zv-tag.is-on i { color: inherit; opacity: 0.7; }
+
+/* Two words, and the divider between them is a rule rather than a border on a control. */
+.zv-order {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  /*
+    No gap. The spacing now lives in the buttons' own padding, so that the space between
+    two words is part of a target rather than a corridor between two of them.
+  */
+  gap: 0;
+}
+
+/*
+  A word you can actually hit.
+
+  These were bare text with no padding at all: measured on the live page, `Name` was a
+  40 x 17 box — 680 square pixels for a control that is one of four sitting nine pixels
+  apart. Missing it does nothing and looks like nothing happened, which is exactly how a
+  working sort gets reported as a broken one. Padding roughly doubles the target and
+  changes nothing visible, because the separator below stops taking up room of its own.
+*/
+.zv-order button {
+  position: relative;
+  padding: 5px 9px;
+  min-height: 24px;
+  color: var(--color-faint);
+  font-size: 11px;
+  font-weight: 600;
+  transition: color 180ms ease;
+}
+
+.zv-order button:hover { color: var(--color-muted); }
+
+.zv-order button.is-on {
+  color: var(--color-ink);
+  text-decoration: underline;
+  text-decoration-color: var(--color-gold);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 4px;
+}
+
+/*
+  The hairline between two words, taken out of the flow.
+
+  In flow it was a third thing to be spaced around, and every pixel of padding added to
+  the buttons pushed the four words further apart. Absolute, it sits on the seam where
+  two targets meet and costs no width at all — so the row reads exactly as it did while
+  each word carries a box twice the size.
+*/
+.zv-order button + button::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 1px;
+  height: 9px;
+  background: var(--color-line);
+  transform: translateY(-50%);
+}
+
+
+
+/* Right, even with nothing beside it. Left would stack it directly above the section
+   kicker underneath — two rows of small labels against the same edge — and it would stop
+   matching the panel's bar, where the order always sits at the far end. */
+.zv-listbar.is-order-only { justify-content: flex-end; }
+
+
+
+
+
+
+

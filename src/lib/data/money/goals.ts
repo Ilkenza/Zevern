@@ -6,7 +6,7 @@ import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { userId } from "@/lib/supabase/current-user";
 import type { GoalEntry, GoalLine, MoneyGoal } from "@/lib/types";
-import { getAccounts } from "./core";
+import { getAccounts, readAll } from "./core";
 
 /** How many movements a goal card shows before it starts saying "and N more". */
 const GOAL_HISTORY_LIMIT = 30;
@@ -40,21 +40,36 @@ export const getGoalLines = cache(async (): Promise<GoalLine[]> => {
   const supabase = await createClient();
   const uid = await userId(supabase);
   if (!uid) return [];
-  const [{ data: goals }, { data: movements }, accounts] = await Promise.all([
+  const [{ data: goals }, movements, accounts] = await Promise.all([
     supabase
       .from("money_goals")
       .select("*")
       .eq("user_id", uid)
       .order("sort")
       .order("created_at"),
-    supabase
-      .from("money_transactions")
-      .select("id, goal_id, kind, amount_rsd, occurred_on, title, note, account_id, recurring_id")
-      .eq("user_id", uid)
-      .not("goal_id", "is", null)
-      .in("kind", [...SAVING_KINDS, ...PAYING_KINDS])
-      .order("occurred_on", { ascending: true })
-      .order("created_at", { ascending: true }),
+    /*
+      Paged, for the same reason the balances are. This one is narrower — only movements
+      that name a goal — so it survives far longer than the account read did, which is
+      exactly what makes it worse to leave: it would come apart years in, on a screen
+      whose whole promise is that money put aside is still counted.
+
+      The ordering ends on `id` because the two keys above it are not unique, and `range`
+      over a result set with ties can hand the same row to two pages.
+    */
+    readAll(
+      (from, to) =>
+        supabase
+          .from("money_transactions")
+          .select("id, goal_id, kind, amount_rsd, occurred_on, title, note, account_id, recurring_id")
+          .eq("user_id", uid)
+          .not("goal_id", "is", null)
+          .in("kind", [...SAVING_KINDS, ...PAYING_KINDS])
+          .order("occurred_on", { ascending: true })
+          .order("created_at", { ascending: true })
+          .order("id")
+          .range(from, to),
+      "getGoalLines",
+    ),
     // Archived accounts still name the money that came off them, so include them.
     getAccounts(true),
   ]);
@@ -65,7 +80,7 @@ export const getGoalLines = cache(async (): Promise<GoalLine[]> => {
 
   // The rows arrive oldest first, so the last account seen for a goal is the one it
   // last used — that is what the deposit box should offer without being asked.
-  for (const m of movements ?? []) {
+  for (const m of movements) {
     if (!m.goal_id) continue; // the goal was deleted; the entry stays in the ledger
     const list = byGoal.get(m.goal_id) ?? [];
     list.push({
@@ -156,3 +171,20 @@ export async function getGoals(): Promise<MoneyGoal[]> {
 export function isGoalOpen(goal: { completed_at: string | null }): boolean {
   return goal.completed_at === null;
 }
+
+/**
+ * How much each goal still has room for, by id.
+ *
+ * The one figure a rule that "stops when the goal is full" needs, and the reason it is
+ * derived rather than stored: the goal fills from standing orders, from money put in by
+ * hand, and empties when you take some back out. A stored "remaining" would be a fourth
+ * thing to keep in step with three others, and the day it fell behind the rule would
+ * either stop early or overfill — both silently.
+ */
+export const getGoalRemaining = cache(async (): Promise<Map<string, number>> => {
+  const lines = await getGoalLines();
+  return new Map(
+    lines.map((g) => [g.id, Math.max(0, (Number(g.target_rsd) || 0) - (g.progress ?? 0))]),
+  );
+});
+

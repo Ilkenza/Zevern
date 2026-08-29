@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Archive, Plus, ArrowDownWideNarrow, ListOrdered } from "lucide-react";
+import { Archive, Plus } from "lucide-react";
 import { SlideOver } from "@/components/ui/SlideOver";
 import { Panel } from "@/components/ui/Panel";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -16,7 +16,7 @@ import type { AccountBalance } from "@/lib/data/money";
 import type { GoalLine, MoneyCategory } from "@/lib/types";
 import { GoalForm } from "./GoalForm";
 import { ARCHIVE_HREF, GOALS_HREF, PanelMeta, caps } from "./goals/shared";
-import { isOpen } from "./goals/reading";
+import { isOpen, read } from "./goals/reading";
 import { GoalCard } from "./goals/GoalCard";
 import { ClosedRow } from "./goals/ClosedRow";
 import { Overall } from "./goals/Overall";
@@ -24,6 +24,30 @@ import { todayISO } from "@/lib/format";
 import { useMoney } from "@/lib/money/currency";
 
 export type GoalsPanel = { mode: "new" } | { mode: "edit"; goal: GoalLine } | null;
+
+/**
+ * Every state an open goal can be standing in, worst first.
+ *
+ * The first five are the badge the card already prints, word for word — `read` is what
+ * puts that badge there, so a chip and the card under it cannot end up disagreeing. The
+ * last three are the states a card deliberately shows *no* badge for: a goal too young to
+ * judge, one with no date to be late for, one with no amount to be short of. Those are
+ * the ones worth being able to ask for, because on a card they look like every other
+ * quiet goal — which is how twenty-five of them accumulate without anyone noticing.
+ */
+const GOAL_STATES = [
+  "Date passed",
+  "Behind pace",
+  "Due today",
+  "On track",
+  "Reached",
+  "Paid off",
+  "Just started",
+  "No date",
+  "No amount",
+] as const;
+
+type GoalState = (typeof GOAL_STATES)[number];
 
 /** Nothing saved for yet — so the screen has to explain what a goal is for on its own. */
 function NoGoals() {
@@ -103,14 +127,20 @@ export function GoalsView({
   // The totals these three lines produced now live in `Overall`, which draws them once.
 
   /*
-    Two orders, because they answer two different questions.
+    Four orders, because they answer four different questions.
 
     "Mine" is the order you arranged: what matters most, first. "Closest" is the one
     that finishes goals — motivation climbs the nearer a target gets, and a list that
     buries the goal sitting at 92% behind three at 4% spends that climb on nothing. A
     goal with no target has nothing to be close to, so it sorts last either way.
+    "Soonest" is the calendar's opinion rather than yours, and a goal with no date has
+    nothing to say to it, so it also sorts last. "Largest" is the one question a screen
+    of amounts always invites: which of these is the big one.
   */
-  const [order, setOrder] = useState<"mine" | "closest">("mine");
+  const [order, setOrder] = useState<"mine" | "closest" | "soonest" | "largest">("mine");
+
+  /** Which state is being looked at on its own. Null — every open goal — is where it starts. */
+  const [state, setState] = useState<GoalState | null>(null);
 
   /*
     One open card, held here rather than in each card.
@@ -168,7 +198,62 @@ export function GoalsView({
     const target = Math.max(Number(g.target_rsd) || 0, 0);
     return target > 0 ? Math.min(g.progress / target, 1) : -1;
   };
-  const ordered = order === "mine" ? saving : [...saving].sort((a, b) => share(b) - share(a));
+
+  /*
+    Where a goal stands, by the same reading that prints its badge.
+
+    The three states with no badge are the point of this: a goal with no date and a goal
+    on track look identical at a glance, and only one of them is finished being set up.
+  */
+  const stateOf = (goal: GoalLine): GoalState => {
+    const badge = read(goal, today, fmt).badge;
+    if (badge) return badge.label as GoalState;
+    if ((Number(goal.target_rsd) || 0) <= 0) return "No amount";
+    return goal.target_date ? "Just started" : "No date";
+  };
+
+  /*
+    A census, and that is what makes a filter safe on a page like this.
+
+    Unpressed the row is not a set of doors, it is one line counting every open goal by
+    state — which on thirty goals is the fact the page could not previously say at all.
+    Pressing one narrows; `All` sits first and always comes back; nothing is remembered
+    between visits, so the page can never open already hiding something.
+  */
+  // No useMemo, for the reason written over the page size below: the compiler optimises
+  // this component, and a hand-written memo here is the one thing that stops it.
+  const counted = new Map<GoalState, number>();
+  for (const goal of saving) {
+    const key = stateOf(goal);
+    counted.set(key, (counted.get(key) ?? 0) + 1);
+  }
+  const census = GOAL_STATES.filter((key) => (counted.get(key) ?? 0) > 0).map(
+    (key) => [key, counted.get(key) ?? 0] as const,
+  );
+
+  // A control appears when it can change what you see: two states for a filter, two
+  // goals for an order. Never on a threshold that has to be checked against the data.
+  const canFilter = census.length >= 2;
+
+  // A state can stop existing under you — put the last dinar into the only goal that was
+  // behind and its chip goes with it. Falling back to every goal beats a page of nothing.
+  const active = census.some(([key]) => key === state) ? state : null;
+
+  const kept = active ? saving.filter((g) => stateOf(g) === active) : saving;
+
+  const byDate = (a: GoalLine, b: GoalLine) => {
+    if (!a.target_date !== !b.target_date) return a.target_date ? -1 : 1;
+    if (!a.target_date || !b.target_date) return 0;
+    return a.target_date < b.target_date ? -1 : a.target_date > b.target_date ? 1 : 0;
+  };
+  const ordered =
+    order === "mine"
+      ? kept
+      : order === "soonest"
+        ? [...kept].sort(byDate)
+        : order === "largest"
+          ? [...kept].sort((a, b) => (Number(b.target_rsd) || 0) - (Number(a.target_rsd) || 0))
+          : [...kept].sort((a, b) => share(b) - share(a));
   // Only goals with an amount to reach can be short of one; the rest are just counting.
   const leftToPay = paying.reduce(
     (sum, g) => sum + Math.max((Number(g.target_rsd) || 0) - g.progress, 0),
@@ -224,25 +309,62 @@ export function GoalsView({
         <>
           {saving.length > 0 && <Overall goals={saving} onHand={onHand} />}
 
+          {/*
+            One bar, in the words the budgets screen and the entries panel use.
+
+            This was two tabs with icons — a third vocabulary for "reorder this" on a page
+            that already had two elsewhere. A person should not have to learn where each
+            screen keeps its controls, so all three now keep them in the same row, in the
+            same weight, in the same order: what to show on the left, what order to show
+            it in on the right.
+          */}
           {saving.length > 1 && (
-            <div className="goals-order" role="group" aria-label="Order the goals">
-              {(
-                [
-                  { key: "mine", label: "My order", icon: ListOrdered },
-                  { key: "closest", label: "Closest to done", icon: ArrowDownWideNarrow },
-                ] as const
-              ).map((o) => (
-                <button
-                  key={o.key}
-                  type="button"
-                  onClick={() => setOrder(o.key)}
-                  aria-pressed={order === o.key}
-                  className={cn("goals-order-tab", order === o.key && "is-on")}
-                >
-                  <o.icon className="h-3.5 w-3.5" aria-hidden />
-                  {o.label}
-                </button>
-              ))}
+            <div className={cn("zv-listbar", !canFilter && "is-order-only")}>
+              {canFilter && (
+                <div className="zv-tags">
+                  <button
+                    type="button"
+                    onClick={() => setState(null)}
+                    aria-pressed={active === null}
+                    className={cn("zv-tag", active === null && "is-on")}
+                  >
+                    All<i>{saving.length}</i>
+                  </button>
+                  {census.map(([key, count]) => (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => setState(active === key ? null : key)}
+                      aria-pressed={active === key}
+                      className={cn("zv-tag", active === key && "is-on")}
+                    >
+                      {key}
+                      <i>{count}</i>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <div className="zv-order" role="group" aria-label="Order the goals">
+                {(
+                  [
+                    ["mine", "My order"],
+                    ["closest", "Closest"],
+                    ["soonest", "Soonest"],
+                    ["largest", "Largest"],
+                  ] as const
+                ).map(([key, label]) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setOrder(key)}
+                    aria-pressed={order === key}
+                    className={cn(order === key && "is-on")}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
 
@@ -305,11 +427,22 @@ export function GoalsView({
                 key={goal.id}
                 goal={goal}
                 accounts={accounts}
-                siblings={ordered.filter((g) => g.id !== goal.id)}
+                /*
+                  Every open goal, never the narrowed list. This is where money can be
+                  moved to, and a filter is a way of looking at the page — it must not
+                  quietly remove somewhere the money was allowed to go.
+                */
+                siblings={saving.filter((g) => g.id !== goal.id)}
                 today={today}
                 first={i === 0}
                 last={i === ordered.length - 1}
-                reorderable={order === "mine" && ordered.length > 1}
+                /*
+                  And no dragging while narrowed. The arrows move a goal past the one
+                  above it in *your* order; with eight of thirty on screen the one above
+                  it is not the one you can see, so the card would move somewhere else
+                  than where you aimed it.
+                */
+                reorderable={order === "mine" && !active && ordered.length > 1}
                 expanded={openId === goal.id}
                 closing={closingId === goal.id}
                 onToggle={() => toggle(goal.id)}
@@ -442,3 +575,5 @@ export function GoalsView({
     </div>
   );
 }
+
+

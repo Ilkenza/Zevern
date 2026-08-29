@@ -17,7 +17,7 @@ import { createClient } from "@/lib/supabase/server";
 import { userId } from "@/lib/supabase/current-user";
 import { toRsd } from "@/lib/money";
 import type { LoanLine } from "@/lib/types";
-import { getRates } from "./core";
+import { getRates, readAll } from "./core";
 
 /**
  * Which movements pay a loan down, and which one opened it.
@@ -41,18 +41,27 @@ export const getLoans = cache(async (): Promise<LoanLine[]> => {
   const uid = await userId(supabase);
   if (!uid) return [];
 
-  const [loanRes, moveRes, ruleRes, rates] = await Promise.all([
+  const [loanRes, moveRows, ruleRes, rates] = await Promise.all([
     supabase
       .from("money_loans")
       .select("*")
       .eq("user_id", uid)
       .order("opened_on", { ascending: false }),
-    supabase
-      .from("money_transactions")
-      .select("id, loan_id, kind, amount_rsd, occurred_on, title")
-      .eq("user_id", uid)
-      .not("loan_id", "is", null)
-      .order("occurred_on", { ascending: false }),
+    // Paged like the rest: a loan repaid in small instalments over years is precisely
+    // the shape that walks into the cap, and a half-read repayment history reads as a
+    // debt that is further from settled than it is.
+    readAll(
+      (from, to) =>
+        supabase
+          .from("money_transactions")
+          .select("id, loan_id, kind, amount_rsd, occurred_on, title")
+          .eq("user_id", uid)
+          .not("loan_id", "is", null)
+          .order("occurred_on", { ascending: false })
+          .order("id")
+          .range(from, to),
+      "getLoans",
+    ),
     supabase
       .from("money_recurring")
       .select("loan_id, amount, currency, installments_total, installments_done")
@@ -62,7 +71,7 @@ export const getLoans = cache(async (): Promise<LoanLine[]> => {
   ]);
   if (loanRes.error) console.error("getLoans:", loanRes.error.message);
 
-  const moveRows = moveRes.data ?? [];
+  
   const ruleRows = ruleRes.data ?? [];
 
   const byLoan = new Map<string, typeof moveRows>();
@@ -139,3 +148,4 @@ export function loanTotals(loans: LoanLine[]): { owedToYou: number; youOwe: numb
   }
   return { owedToYou, youOwe };
 }
+

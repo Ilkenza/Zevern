@@ -8,9 +8,10 @@ import { Badge } from "@/components/ui/Badge";
 import { buttonClasses } from "@/components/ui/Button";
 
 import type { GoalLine } from "@/lib/types";
-import { NO_COLOUR } from "./shared";
+
 import { GoalHistory } from "./GoalHistory";
 import { useMoney } from "@/lib/money/currency";
+import { GOAL_ACCENT } from "./reading";
 
 /** One closed goal: what passed through it, and the two ways back. */
 export function ClosedRow({ goal }: { goal: GoalLine }) {
@@ -39,7 +40,7 @@ export function ClosedRow({ goal }: { goal: GoalLine }) {
         <span
           aria-hidden="true"
           className="h-7 w-1 shrink-0 rounded-pill opacity-60"
-          style={{ background: goal.color ?? NO_COLOUR }}
+          style={{ background: GOAL_ACCENT }}
         />
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">

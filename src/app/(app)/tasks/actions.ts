@@ -121,3 +121,27 @@ export async function toggleTask(id: string, done: boolean) {
   revalidatePath("/private");
   revalidatePath("/");
 }
+
+/** Move a task from the review queue without opening the full edit form. */
+export async function rescheduleTask(
+  id: string,
+  dueOn: string | null,
+  workspace = "work",
+): Promise<void> {
+  if (dueOn !== null && !/^\d{4}-\d{2}-\d{2}$/.test(dueOn)) return;
+
+  const supabase = await createSupabaseServerClient();
+  const uid = await userId(supabase);
+  if (!uid) return;
+
+  const { error } = await supabase
+    .from("tasks")
+    .update({ due_at: dueOn ? `${dueOn}T00:00` : null })
+    .eq("id", id)
+    .eq("user_id", uid);
+  if (error) console.error("rescheduleTask:", error.message);
+
+  revalidatePath(listPath(workspace));
+  revalidatePath("/private");
+  revalidatePath("/");
+}

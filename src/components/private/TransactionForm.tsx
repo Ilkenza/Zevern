@@ -13,6 +13,7 @@ import {
   CURRENCY_OPTIONS,
   TX_KIND_ALL,
   TX_KIND_OPTIONS,
+  canFileInto,
   isGoalKind,
   isPayingKind,
   isLoanKind,
@@ -146,6 +147,16 @@ export function TransactionForm({
   const rate = currency === "RSD" ? 1 : rateFor(currency, rates);
   const parsed = Number(String(amount).replace(",", ".")) || 0;
 
+  /*
+    The budgets this entry could actually land in, recomputed as the kind is switched.
+
+    Switching a saved entry from spending to income has to take its budget with it, or the
+    form would carry a hidden id the new kind cannot use — the control would be gone from
+    the screen and the filing would still be posted.
+  */
+  const filableBudgets = budgets.filter((b) => canFileInto(kind, b.kind));
+  const budgetOffered = filableBudgets.some((b) => b.id === budgetId[0]);
+
   const accountOptions = accounts.map((a) => ({ value: a.id, label: `${a.name} · ${a.currency}` }));
   /*
     A transfer is nearly always one movement: money off a card or out of the bank, into
@@ -207,6 +218,11 @@ export function TransactionForm({
         {tx && <input type="hidden" name="id" value={tx.id} />}
         {returnTo && <input type="hidden" name="return_to" value={returnTo} />}
         <input type="hidden" name="kind" value={kind} />
+        {/*
+          A filing the current kind cannot use is cleared on the way out rather than left
+          in state, so switching kind and saving cannot post an id the form stopped showing.
+        */}
+        {!budgetOffered && <input type="hidden" name="budget_id" value="" />}
 
         {/* Kind — one tap, no dropdown. Three to a row until there is room for all five. */}
         <div className="mb-3.25 grid grid-cols-3 gap-1 rounded-ctrl border border-line bg-white/[0.03] p-1 min-[400px]:grid-cols-5">
@@ -535,12 +551,28 @@ export function TransactionForm({
           </>
         )}
 
-        <Field
-          label="Date"
-          name="occurred_on"
-          type="date"
-          defaultValue={tx?.occurred_on ?? todayISO()}
-        />
+        {/*
+          Date and time, with the time plainly optional.
+
+          It is here rather than in quick add because quick add is two taps and stays
+          two taps. In the full form it costs one field and buys the only ordering that
+          can tell three coffees on the same afternoon apart — and, a year from now, the
+          answer to when the money actually goes.
+        */}
+        <div className="grid grid-cols-[1fr_130px] gap-2">
+          <Field
+            label="Date"
+            name="occurred_on"
+            type="date"
+            defaultValue={tx?.occurred_on ?? todayISO()}
+          />
+          <Field
+            label="Time"
+            name="occurred_at"
+            type="time"
+            defaultValue={tx?.occurred_at ? String(tx.occurred_at).slice(0, 5) : ""}
+          />
+        </div>
 
         {/*
           Putting an entry in a budget you keep by hand.
@@ -550,12 +582,19 @@ export function TransactionForm({
           look like it worked and would be counted by nothing. The 'all transactions'
           budgets are deliberately absent — they decide for themselves what belongs to
           them, and a control that appeared to let you overrule that would be lying.
+
+          And only the ones this kind of entry can actually reach. That filter was missing
+          and it was the same fault as the date one: a salary offered a holiday would file
+          itself into a budget that counts no income, and — because an entry carrying a
+          budget id is then deliberately excluded from every sweeping budget — would be
+          counted by nothing anywhere. `canFileInto` sits beside the function that does the
+          counting, so the offer and the arithmetic cannot drift apart.
         */}
-        {budgets.length > 0 && (
+        {filableBudgets.length > 0 && (
           <ChipPicker
             label="Add to a budget"
             name="budget_id"
-            chips={budgets.map((b) => ({ value: b.id, label: b.name, color: b.color }))}
+            chips={filableBudgets.map((b) => ({ value: b.id, label: b.name, color: b.color }))}
             selected={budgetId}
             onChange={setBudgetId}
             emptyLabel="No budget"
@@ -608,3 +647,4 @@ export function TransactionForm({
     </div>
   );
 }
+

@@ -8,7 +8,7 @@ import { createClient } from "@/lib/supabase/server";
 import { userId } from "@/lib/supabase/current-user";
 import { toRsd } from "@/lib/money";
 import type { MoneyAccount } from "@/lib/types";
-import { getAccounts, getRates } from "./core";
+import { getAccounts, getRates, readAll } from "./core";
 import { getGoalLines, isGoalOpen } from "./goals";
 
 export type AccountBalance = MoneyAccount & {
@@ -51,13 +51,31 @@ export const getAccountBalances = cache(async (): Promise<AccountBalance[]> => {
   const supabase = await createClient();
   const uid = await userId(supabase);
   if (!uid) return [];
-  const [accounts, rates, { data: rows }, { data: openGoals }] = await Promise.all([
+  /*
+    Every row, in pages — not the first thousand.
+
+    This read has no date window and no natural bound: a balance is the whole ledger by
+    definition. Left as a plain select it quietly returned PostgREST's first 1.000 rows,
+    and on a 1.384-row ledger the screen showed 615.076 where the books said 563.600 —
+    to the dinar the sum of exactly those first thousand. Nothing errored; the number was
+    simply wrong, and wrong upward, which is the one direction a money app must not be.
+
+    Ordered by `id` because `range` is an offset and Postgres does not promise an order
+    without one: unordered, page two could repeat or skip what page one already counted.
+  */
+  const [accounts, rates, rows, { data: openGoals }] = await Promise.all([
     getAccounts(),
     getRates(),
-    supabase
-      .from("money_transactions")
-      .select("kind, amount_rsd, account_id, to_account_id, goal_id")
-      .eq("user_id", uid),
+    readAll(
+      (from, to) =>
+        supabase
+          .from("money_transactions")
+          .select("kind, amount_rsd, account_id, to_account_id, goal_id")
+          .eq("user_id", uid)
+          .order("id")
+          .range(from, to),
+      "getAccountBalances",
+    ),
     supabase.from("money_goals").select("id").eq("user_id", uid).is("completed_at", null),
   ]);
 
@@ -71,7 +89,7 @@ export const getAccountBalances = cache(async (): Promise<AccountBalance[]> => {
     map.set(id, (map.get(id) ?? 0) + value);
   };
 
-  for (const r of rows ?? []) {
+  for (const r of rows) {
     const value = Number(r.amount_rsd) || 0;
     add(touched, r.account_id, 1);
     if (r.kind === "transfer") add(touched, r.to_account_id, 1);
@@ -128,4 +146,5 @@ export const getOnHand = cache(async (): Promise<OnHand> => {
   const reserved = goals.filter(isGoalOpen).reduce((sum, g) => sum + g.saved, 0);
   return { total, reserved, free: total - reserved };
 });
+
 

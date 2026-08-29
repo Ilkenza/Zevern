@@ -73,6 +73,12 @@ type FeedRule = {
   currency: string;
   variable: boolean;
   every: string;
+  /** How many of `every` to a step — 2 with 'week' is a fortnight. */
+  every_count: number | null;
+  /** never | date | installments | goal. */
+  ends_when: string | null;
+  /** For a goal-ending rule: dinars still to fill, so the feed stops where the app does. */
+  goal_remaining_rsd: number | string | null;
   next_on: string;
   active: boolean;
   ends_on: string | null;
@@ -130,6 +136,8 @@ function asRecurringRow(rule: FeedRule): RecurringRow {
     loan_id: null,
     variable: Boolean(rule.variable),
     every: rule.every,
+    every_count: Number(rule.every_count) || 1,
+    ends_when: rule.ends_when ?? "never",
     next_on: rule.next_on,
     active: Boolean(rule.active),
     ends_on: rule.ends_on,
@@ -241,7 +249,16 @@ export async function GET(
       "From your Zevern register.",
     ]);
 
-    for (const occurrence of occurrencesFor(row, amount, rule.variable, horizon)) {
+    /*
+      A rule that stops when its goal is full stops on a date the ledger decides, so the
+      feed is handed what is left to fill and stops its walk there. Without it a
+      subscribed calendar would keep printing a standing order into a goal that was
+      finished months ago — and a calendar nobody can trust is worse than no calendar.
+    */
+    const cap =
+      rule.ends_when === "goal" ? Math.max(0, Number(rule.goal_remaining_rsd) || 0) : undefined;
+
+    for (const occurrence of occurrencesFor(row, amount, rule.variable, horizon, [], cap)) {
       // A rule whose date has already passed is waiting to be booked in the app; the
       // calendar's job is the days still ahead, so the backlog is left out.
       if (occurrence.on < today) continue;

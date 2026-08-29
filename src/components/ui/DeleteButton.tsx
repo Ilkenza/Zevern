@@ -3,19 +3,32 @@
 import { useEffect, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
 import { Trash2 } from "lucide-react";
-import { buttonClasses } from "./Button";
+import { cn } from "@/lib/utils";
+import { buttonClasses, type ButtonVariant } from "./Button";
 
 export function DeleteButton({
   action,
   label = "Delete",
   confirmText = "Delete this permanently? This cannot be undone.",
   compact = false,
+  variant = "danger",
+  className,
 }: {
   action: () => void | Promise<void>;
   label?: string;
   confirmText?: string;
   /** Row variant: just the bin icon, no button chrome. The confirm modal stays the same. */
   compact?: boolean;
+  /**
+   * How loud the trigger is. The confirm step inside the dialog stays exactly as it is,
+   * and its own button stays red — that is the one that actually deletes something.
+   *
+   * A solid red trigger is right where deleting is one of several things on offer. It is
+   * wrong where it is the only other thing you can do beside Save: two filled buttons in
+   * one footer means the panel is recommending both.
+   */
+  variant?: ButtonVariant;
+  className?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -91,7 +104,7 @@ export function DeleteButton({
           onClick={() => setOpen(true)}
           aria-label={label}
           title={label}
-          className="zv-rowctrl zv-rowctrl-danger"
+          className={cn("zv-rowctrl zv-rowctrl-danger", className)}
         >
           <Trash2 className="h-3.75 w-3.75" />
         </button>
@@ -99,7 +112,7 @@ export function DeleteButton({
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className={buttonClasses("danger")}
+          className={buttonClasses(variant, className)}
         >
           <Trash2 className="h-4 w-4" />
           {label}
@@ -114,3 +127,4 @@ export function DeleteButton({
     </>
   );
 }
+

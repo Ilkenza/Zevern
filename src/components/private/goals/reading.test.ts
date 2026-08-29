@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { GoalLine } from "@/lib/types";
 import { daysBetween, isOpen, read } from "./reading";
-import { formatRsd } from "@/lib/money";
+import { formatRsd, formatRsdExact } from "@/lib/money";
 
 const TODAY = "2026-08-25";
 
@@ -196,5 +196,33 @@ describe("isOpen", () => {
     expect(isOpen(goal())).toBe(true);
     expect(isOpen(goal({ archived: true }))).toBe(true);
     expect(isOpen(goal({ completed_at: "2026-08-01" }))).toBe(false);
+  });
+});
+
+describe("what a month has to look like", () => {
+  /*
+    The figure has one job: pay that much, that often, and the goal is clear on the day.
+    It used to divide by a fraction of a month — 126 days is 4.14 of them — so four
+    payments of what it said left you thousands short on the due date.
+  */
+  it("divides by the payments left, not by a fraction of a month", () => {
+    const r = read(
+      goal({ target_rsd: 123105.92, saved: 0, target_date: "2027-01-01" }),
+      "2026-08-28",
+      formatRsd,
+      formatRsdExact,
+    );
+    // 126 days is four whole months of payments, and 123.105,92 / 4 is 30.776,48 —
+    // printed to the para, because it is a figure you are meant to act on.
+    expect(r.pace).toContain("30.776,48");
+  });
+
+  it("clears the goal when you actually pay it", () => {
+    const target = 123105.92;
+    const months = Math.floor(126 / 30.44);
+    expect(months).toBe(4);
+    const per = Math.ceil((target / months) * 100) / 100;
+    expect(per).toBe(30776.48);
+    expect(per * months).toBeGreaterThanOrEqual(target);
   });
 });

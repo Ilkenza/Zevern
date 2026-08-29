@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -10,13 +10,21 @@ import {
   AlertTriangle,
   Inbox,
   CalendarRange,
-  ListFilter,
+  ArrowLeft,
+  CalendarDays,
+  Check,
+  SkipForward,
 } from "lucide-react";
 import { SlideOver } from "@/components/ui/SlideOver";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { buttonClasses } from "@/components/ui/Button";
 import { DeleteButton } from "@/components/ui/DeleteButton";
-import { deleteTask, quickAddTask } from "@/app/(app)/tasks/actions";
+import {
+  deleteTask,
+  quickAddTask,
+  rescheduleTask,
+  toggleTask,
+} from "@/app/(app)/tasks/actions";
 import { priorityBadge } from "@/lib/status";
 import { formatDateTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -28,7 +36,7 @@ export type TasksPanel = { mode: "new" } | { mode: "edit"; task: Task } | null;
 export type TaskWorkspace = "work" | "personal";
 
 /** The main panel is a focus list, not the whole backlog. */
-const FOCUS_LIMIT = 5;
+const FOCUS_LIMIT = 10;
 
 /** `iso` moved by whole days, kept as a wall-clock date string. */
 function addDays(iso: string, days: number): string {
@@ -367,7 +375,11 @@ export function TasksView({
 
   // Late first, because a day you have already missed outranks the one you are in.
   const [picked, setPicked] = useState<string | null>(null);
-  const [remainingOpen, setRemainingOpen] = useState(false);
+  const [reviewing, setReviewing] = useState(false);
+  const [reviewIndex, setReviewIndex] = useState(0);
+  const [reviewed, setReviewed] = useState(0);
+  const [reviewTotal, setReviewTotal] = useState(0);
+  const [reviewPending, startReviewTransition] = useTransition();
   const fallback = bands.some((b) => b.key === "late") ? "late" : today;
   const activeKey = picked && bands.some((b) => b.key === picked) ? picked : fallback;
   const band = bands.find((b) => b.key === activeKey) ?? bands[0];
@@ -377,6 +389,11 @@ export function TasksView({
   );
   const focusTasks = rankedTasks.slice(0, FOCUS_LIMIT);
   const remainingTasks = rankedTasks.slice(FOCUS_LIMIT);
+  const safeReviewIndex = remainingTasks.length
+    ? Math.min(reviewIndex, remainingTasks.length - 1)
+    : 0;
+  const reviewTask = remainingTasks[safeReviewIndex] ?? null;
+  const reviewComplete = reviewing && (reviewed >= reviewTotal || reviewTask === null);
 
   const lateCount = bands.find((b) => b.key === "late")?.tasks.length ?? 0;
   const todayCount = bands.find((b) => b.key === today)?.tasks.length ?? 0;
@@ -388,6 +405,77 @@ export function TasksView({
     if (todayCount) said.push(`${plural(todayCount, "is", "are")} due today`);
     if (!said.length) return `Nothing due yet — ${plural(open.length, "task", "tasks")} ahead.`;
     return `${said.join(", ")}.`;
+  })();
+
+  const leaveReview = () => {
+    setReviewing(false);
+    setReviewIndex(0);
+    setReviewed(0);
+    setReviewTotal(0);
+  };
+
+  const beginReview = () => {
+    setReviewing(true);
+    setReviewIndex(0);
+    setReviewed(0);
+    setReviewTotal(remainingTasks.length);
+  };
+
+  const reviewMove = (dueOn: string | null) => {
+    if (!reviewTask || reviewPending) return;
+    startReviewTransition(async () => {
+      await rescheduleTask(reviewTask.id, dueOn, workspace);
+      setReviewed((value) => value + 1);
+      router.refresh();
+    });
+  };
+
+  const reviewDone = () => {
+    if (!reviewTask || reviewPending) return;
+    startReviewTransition(async () => {
+      await toggleTask(reviewTask.id, true);
+      setReviewed((value) => value + 1);
+      router.refresh();
+    });
+  };
+
+  const reviewSkip = () => {
+    if (!reviewTask || reviewPending) return;
+    setReviewed((value) => value + 1);
+    setReviewIndex((value) => (remainingTasks.length > 1 ? (value + 1) % remainingTasks.length : 0));
+  };
+
+  const reviewDates = (() => {
+    if (!band) return [];
+    if (band.key === "late") {
+      return [
+        { label: "Today", on: today },
+        { label: "Tomorrow", on: addDays(today, 1) },
+      ];
+    }
+    if (band.key === today) {
+      return [
+        { label: "Tomorrow", on: addDays(today, 1) },
+        { label: "Later", on: addDays(today, 7) },
+      ];
+    }
+    if (band.key === "later") {
+      return [
+        { label: "Today", on: today },
+        { label: "No date", on: null },
+      ];
+    }
+    if (band.key === "undated") {
+      return [
+        { label: "Today", on: today },
+        { label: "Tomorrow", on: addDays(today, 1) },
+      ];
+    }
+    const reviewDue = reviewTask ? dayOf(reviewTask) : null;
+    return [
+      { label: "Today", on: today },
+      { label: "Later", on: addDays(reviewDue ?? today, 7) },
+    ];
   })();
 
   return (
@@ -433,7 +521,15 @@ export function TasksView({
         <>
           <nav className="task-rail" aria-label="Pick a day">
             {bands.map((b) => (
-              <Chip key={b.key} band={b} on={b.key === activeKey} onPick={() => setPicked(b.key)} />
+              <Chip
+                key={b.key}
+                band={b}
+                on={b.key === activeKey}
+                onPick={() => {
+                  setPicked(b.key);
+                  leaveReview();
+                }}
+              />
             ))}
           </nav>
 
@@ -457,14 +553,100 @@ export function TasksView({
                 </span>
               </header>
 
-              <QuickAdd
-                workspace={workspace}
-                dueOn={band.dueOn}
-                placeholder={band.placeholder}
-                hint={band.hint}
-              />
+              {!reviewing && (
+                <QuickAdd
+                  workspace={workspace}
+                  dueOn={band.dueOn}
+                  placeholder={band.placeholder}
+                  hint={band.hint}
+                />
+              )}
 
-              {band.tasks.length === 0 ? (
+              {reviewing ? (
+                <div className="task-review">
+                  <div className="task-review-head">
+                    <button type="button" onClick={leaveReview}>
+                      <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
+                      Back to list
+                    </button>
+                    <span className="mono">
+                      {reviewComplete ? reviewTotal : Math.min(reviewed + 1, reviewTotal)} of{" "}
+                      {reviewTotal}
+                    </span>
+                  </div>
+
+                  {reviewComplete ? (
+                    <div className="task-review-complete">
+                      <span className="task-review-complete-icon">
+                        <Check className="h-5 w-5" aria-hidden />
+                      </span>
+                      <strong>Review complete</strong>
+                      <p>
+                        {remainingTasks.length > 0
+                          ? `${remainingTasks.length} skipped ${
+                              remainingTasks.length === 1 ? "task is" : "tasks are"
+                            } still here.`
+                          : "Every remaining task now has a clear place."}
+                      </p>
+                      <button type="button" onClick={leaveReview}>Back to your tasks</button>
+                    </div>
+                  ) : reviewTask ? (
+                    <div key={reviewTask.id} className="task-review-card">
+                      <div className="task-review-task">
+                        <PriorityDot priority={reviewTask.priority} />
+                        <strong>{reviewTask.title}</strong>
+                        {reviewTask.project?.title && (
+                          <span>
+                            {reviewTask.project.client?.name
+                              ? `${reviewTask.project.client.name} · `
+                              : ""}
+                            {reviewTask.project.title}
+                          </span>
+                        )}
+                        {reviewTask.due_at && (
+                          <small className="mono">Due {formatDateTime(reviewTask.due_at)}</small>
+                        )}
+                      </div>
+
+                      <div className="task-review-actions">
+                        {reviewDates.map((choice) => (
+                          <button
+                            key={choice.label}
+                            type="button"
+                            disabled={reviewPending}
+                            onClick={() => reviewMove(choice.on)}
+                          >
+                            <CalendarDays className="h-3.5 w-3.5" aria-hidden />
+                            {choice.label}
+                          </button>
+                        ))}
+                        <Link href={`${basePath}?edit=${reviewTask.id}`} onClick={leaveReview}>
+                          <CalendarRange className="h-3.5 w-3.5" aria-hidden />
+                          Pick date
+                        </Link>
+                        <button
+                          type="button"
+                          className="is-complete"
+                          disabled={reviewPending}
+                          onClick={reviewDone}
+                        >
+                          <Check className="h-3.5 w-3.5" aria-hidden />
+                          Complete
+                        </button>
+                        <button
+                          type="button"
+                          className="is-skip"
+                          disabled={reviewPending}
+                          onClick={reviewSkip}
+                        >
+                          <SkipForward className="h-3.5 w-3.5" aria-hidden />
+                          Skip
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              ) : band.tasks.length === 0 ? (
                 <p className="task-panel-empty">{band.empty}</p>
               ) : (
                 <div className="task-panel-body">
@@ -483,15 +665,18 @@ export function TasksView({
                     />
                   ))}
                   {remainingTasks.length > 0 && (
-                    <button
-                      type="button"
-                      className="task-view-remaining"
-                      onClick={() => setRemainingOpen(true)}
-                    >
-                      <ListFilter className="h-4 w-4" aria-hidden />
-                      <span>View remaining {remainingTasks.length}</span>
-                      <small>Sorted by priority</small>
-                    </button>
+                    <div className="task-review-cta">
+                      <div>
+                        <strong>Review remaining {remainingTasks.length}</strong>
+                        <span>Make one decision at a time</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={beginReview}
+                      >
+                        Start review
+                      </button>
+                    </div>
                   )}
                 </div>
               )}
@@ -513,30 +698,6 @@ export function TasksView({
           </div>
         </details>
       )}
-
-      <SlideOver
-        open={remainingOpen}
-        onClose={() => setRemainingOpen(false)}
-        title={band ? `${band.title} · remaining tasks` : "Remaining tasks"}
-      >
-        <div className="task-remaining-list">
-          {remainingTasks.map((t) => (
-            <TaskRow
-              key={t.id}
-              task={t}
-              basePath={basePath}
-              workspace={workspace}
-              hideDate={band?.tone === "day" || band?.tone === "today"}
-              note={
-                band?.tone === "late" && dayOf(t)
-                  ? lateBy(dayOf(t) as string, today)
-                  : undefined
-              }
-              onEdit={() => setRemainingOpen(false)}
-            />
-          ))}
-        </div>
-      </SlideOver>
 
       <SlideOver
         open={panel !== null}

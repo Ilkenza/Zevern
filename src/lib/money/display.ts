@@ -15,7 +15,7 @@
  *    itself never moves: each entry keeps the rate it was written at.
  */
 
-import { formatAmount, formatRsd, rateFor, type Currency, type Rates } from "./index";
+import { formatAmount, formatRsd, formatRsdExact, rateFor, type Currency, type Rates } from "./index";
 
 export type Display = { currency: Currency; rates: Rates };
 
@@ -39,6 +39,13 @@ export function formatDisplay(rsd: number, display: Display): string {
   return formatAmount(rounded, display.currency);
 }
 
+/** The same, with the decimals kept — for a figure somebody is meant to act on. */
+export function formatDisplayExact(rsd: number, display: Display): string {
+  if (display.currency === "RSD") return formatRsdExact(rsd);
+  const converted = fromRsd(rsd, display);
+  return formatAmount(Math.round(converted * 100) / 100, display.currency);
+}
+
 /** The compact form used on tight rows: "1,2k", "340". */
 export function formatDisplayShort(rsd: number, display: Display): string {
   const n = fromRsd(rsd, display);
@@ -53,6 +60,8 @@ export function formatDisplayShort(rsd: number, display: Display): string {
 export type Money = {
   /** A figure held in dinars, printed in the reader's currency. */
   fmt: (rsd: number | null | undefined) => string;
+  /** The same, keeping the decimals — for a figure that is an instruction. */
+  fmtExact: (rsd: number | null | undefined) => string;
   /** The same, compact. */
   fmtShort: (rsd: number | null | undefined) => string;
   /** The code itself, for labels like "Target (EUR)". */
@@ -64,6 +73,7 @@ export type Money = {
 export function makeMoney(display: Display): Money {
   return {
     fmt: (rsd) => formatDisplay(Number(rsd) || 0, display),
+    fmtExact: (rsd) => formatDisplayExact(Number(rsd) || 0, display),
     fmtShort: (rsd) => formatDisplayShort(Number(rsd) || 0, display),
     code: display.currency,
     display,

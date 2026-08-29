@@ -7,17 +7,18 @@ import { createClient } from "@/lib/supabase/server";
 import { userId } from "@/lib/supabase/current-user";
 import { todayISO } from "@/lib/format";
 import { monthKey, monthRange, shiftMonth } from "@/lib/money";
-import { median, occurrencesFor } from "@/lib/money/occurrences";
+import { goalCapFor, median, occurrencesFor } from "@/lib/money/occurrences";
 import type { BudgetLine } from "@/lib/types";
 import {
   estimateFor,
-  getBudgets,
   getCategories,
   getRates,
   getRecurring,
   recentBookings,
 } from "./core";
 import { getMonthSummary } from "./transactions";
+import { getGoalRemaining } from "./goals";
+import { getCategoryBudgetCaps } from "./budget-plans";
 
 /**
  * The dated charges in a month, per category: what has already booked, and what is
@@ -75,6 +76,7 @@ async function fixedByCategory(
     exactly the amount most likely to break it.
   */
   const floor = from > today ? from : null;
+  const goalRoom = await getGoalRemaining();
 
   for (const rule of rules) {
     // A goal rule reserves money rather than spending it, and a rule with no category
@@ -83,7 +85,14 @@ async function fixedByCategory(
     const estimate = estimateFor(rule, past, rates);
     if (!estimate) continue;
 
-    for (const occ of occurrencesFor(rule, estimate.each, estimate.estimated, to, estimate.samples)) {
+    for (const occ of occurrencesFor(
+      rule,
+      estimate.each,
+      estimate.estimated,
+      to,
+      estimate.samples,
+      goalCapFor(rule, goalRoom),
+    )) {
       if (floor && occ.on < floor) continue;
       due.set(rule.category_id, (due.get(rule.category_id) ?? 0) + occ.amount);
     }
@@ -116,9 +125,16 @@ export async function getBudgetLines(month = monthKey()): Promise<BudgetLine[]> 
   const from = monthRange(shiftMonth(month, -BUDGET_HISTORY_MONTHS)).from;
   const to = monthRange(shiftMonth(month, -1)).to;
 
-  const [categories, budgets, summary, history, fixed] = await Promise.all([
+  const [categories, caps, summary, history, fixed] = await Promise.all([
     getCategories(),
-    getBudgets(),
+    /*
+      The caps come from the budgets you keep now, not from the retired per-category
+      table. That table still holds the figures it held the day the budgets screen was
+      rewritten, and reading it meant this screen printed a red "over limit" against a
+      number nothing could change — and printed it for money that had been deliberately
+      filed somewhere else.
+    */
+    getCategoryBudgetCaps(month),
     getMonthSummary(month),
     uid
       ? supabase
@@ -134,7 +150,6 @@ export async function getBudgetLines(month = monthKey()): Promise<BudgetLine[]> 
       : Promise.resolve({ paid: new Map<string, number>(), due: new Map<string, number>() }),
   ]);
 
-  const limitBy = new Map(budgets.map((b) => [b.category_id, Number(b.amount_rsd) || 0]));
   const spentBy = new Map(summary.byCategory.map((c) => [c.id, c.spent]));
 
   // category -> month -> total
@@ -159,8 +174,9 @@ export async function getBudgetLines(month = monthKey()): Promise<BudgetLine[]> 
         : 0;
       return {
         category,
-        limit: limitBy.get(category.id) ?? 0,
+        limit: caps[category.id]?.limit ?? 0,
         spent: spentBy.get(category.id) ?? 0,
+        counted: caps[category.id]?.counted ?? spentBy.get(category.id) ?? 0,
         typical,
         fixedPaid: Math.round(fixed.paid.get(category.id) ?? 0),
         fixedDue: Math.round(fixed.due.get(category.id) ?? 0),

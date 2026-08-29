@@ -5,8 +5,9 @@ import { Panel } from "@/components/ui/Panel";
 import { cn } from "@/lib/utils";
 import type { OnHand } from "@/lib/data/money";
 import type { GoalLine } from "@/lib/types";
-import { NO_COLOUR, PanelMeta, caps } from "./shared";
+import { PanelMeta, caps } from "./shared";
 import { useMoney } from "@/lib/money/currency";
+import { GOAL_ACCENT } from "./reading";
 
 /** One figure of the reconciliation strip. The operator lives in the label. */
 function Figure({
@@ -147,7 +148,7 @@ export function Overall({ goals, onHand }: { goals: GoalLine[]; onHand: OnHand }
                         style={{
                           width: `${share}%`,
                           minWidth: "3px",
-                          background: g.color ?? NO_COLOUR,
+                          background: GOAL_ACCENT,
                         }}
                       />
                     );

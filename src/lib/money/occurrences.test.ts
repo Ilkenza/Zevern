@@ -234,3 +234,55 @@ describe("PER_MONTH", () => {
     expect(PER_MONTH.week).toBeCloseTo(4.333, 3);
   });
 });
+
+describe("cadence and the goal cap", () => {
+  const rule = (over: Record<string, unknown> = {}) =>
+    ({
+      id: "r1",
+      name: "Rule",
+      kind: "expense",
+      active: true,
+      every: "month",
+      every_count: 1,
+      next_on: "2026-09-01",
+      ends_on: null,
+      installments_total: null,
+      installments_done: 0,
+      anchor_day: null,
+      goal_id: null,
+      category: null,
+      goal: null,
+      ...over,
+    }) as never;
+
+  it("walks the count, so a quarterly rule lands four times a year", () => {
+    const out = occurrencesFor(rule({ every: "month", every_count: 3 }), 1000, false, "2027-08-31");
+    expect(out.map((o) => o.on)).toEqual([
+      "2026-09-01",
+      "2026-12-01",
+      "2027-03-01",
+      "2027-06-01",
+    ]);
+  });
+
+  /*
+    The point of the cap: a standing order into a goal stops when the goal is full, and
+    the last payment is what is left rather than a full one. Without the trim the app
+    would promise to put 5.000 into a goal with 2.000 of room, and the forecast would be
+    3.000 out on the one date people actually plan around.
+  */
+  it("stops when the goal is full, and trims the last payment", () => {
+    const out = occurrencesFor(rule(), 5000, false, "2027-12-31", [], 12000);
+    expect(out.map((o) => o.amount)).toEqual([5000, 5000, 2000]);
+    expect(out).toHaveLength(3);
+  });
+
+  it("books nothing at all into a goal that is already full", () => {
+    expect(occurrencesFor(rule(), 5000, false, "2027-12-31", [], 0)).toEqual([]);
+  });
+
+  it("leaves every other rule uncapped", () => {
+    const out = occurrencesFor(rule(), 5000, false, "2026-12-31");
+    expect(out.every((o) => o.amount === 5000)).toBe(true);
+  });
+});

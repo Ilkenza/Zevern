@@ -61,6 +61,8 @@ export type TransactionRow = MoneyTransaction & {
   category: { name: string; color: string | null; kind: string } | null;
   account: { name: string; currency: string } | null;
   goal: { name: string } | null;
+  /** The budget it was filed into by hand, if any — see `TX_SELECT`. */
+  budget: { name: string } | null;
   /*
     What was in the bag.
 
@@ -120,6 +122,17 @@ export type BudgetLine = {
   category: MoneyCategory;
   limit: number;
   spent: number;
+  /**
+   * What the budget owning this category actually counts, which is not always what the
+   * category cost.
+   *
+   * They differ by the entries you put in a budget by hand: a lunch filed under a
+   * holiday is real spending on Eating out — so it belongs in `spent`, which is a report
+   * — and is not an overspend against the monthly Eating out budget, because it was
+   * never that budget's money. Optional, and falls back to `spent`, so a category no
+   * budget owns is judged against itself exactly as before.
+   */
+  counted?: number;
   /**
    * What a normal month costs this category — the median of the six completed months
    * before the one being viewed. `0` means there is no typical month to speak of, and
@@ -200,6 +213,16 @@ export type GoalLine = MoneyGoal & {
  * two because every screen wants "the figure this budget is about", and splitting it
  * would only move the `if` somewhere less careful.
  */
+/** Extra room a one-off budget grants a recurring one, for every window it falls in. */
+export type MoneyBudgetBoost = {
+  id: string;
+  user_id: string;
+  source_budget_id: string;
+  target_budget_id: string;
+  amount_rsd: number | string;
+  created_at: string;
+};
+
 export type BudgetPlanLine = {
   plan: MoneyBudgetPlan;
   window: BudgetWindow;
@@ -210,4 +233,35 @@ export type BudgetPlanLine = {
   used: number;
   /** How many entries are behind that figure. */
   entries: number;
+  /**
+   * The part of `used` that is also counted by a budget you keep by hand.
+   *
+   * An entry belongs to the category it was on and to the trip it was filed into, and
+   * both budgets count it — that is what putting a category and a budget on one entry
+   * means. This is the overlap, so the card can name it instead of leaving the reader to
+   * add two cards together and get a number that was never spent. Nought on a hand-kept
+   * budget and on a savings one, where the question does not arise.
+   */
+  filed: number;
+  /** Which hand-kept budgets that overlap sits in, for the note under the bar. */
+  filedIn: string[];
+  /** Dinars the plan's own amount says, before anything is granted to this window. */
+  baseRsd: number;
+  /**
+   * Extra room granted to this window by one-off budgets that fall inside it.
+   *
+   * A month with a holiday in it is not the same month as the eleven around it, and this
+   * is how much more it is allowed to cost. Nought for almost every window.
+   */
+  extra: number;
+  /** The budgets that granted it, earliest first — the screen has to say where it came from. */
+  boostedBy: string[];
+  /**
+   * What this window is actually allowed: `baseRsd + extra`.
+   *
+   * Every screen judges against this rather than the plan's own amount, so a raised
+   * window is raised everywhere at once and nowhere by accident.
+   */
+  limitRsd: number;
 };
+

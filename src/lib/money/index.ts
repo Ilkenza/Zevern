@@ -40,6 +40,29 @@ export function formatRsd(value: number | null | undefined): string {
   }
 }
 
+/**
+ * Dinars with the para, when there are any.
+ *
+ * `formatRsd` throws the decimals away, which is right nearly everywhere — nobody reads
+ * a month's spending to the para. It is wrong for a figure you are meant to act on: "put
+ * 30.777 a month aside" is not what the arithmetic said, and the two dinars of
+ * difference are the app rounding in front of you without saying so. Whole figures still
+ * print whole, so nothing that lands on a round number grows a ",00".
+ */
+export function formatRsdExact(value: number | null | undefined): string {
+  const n = typeof value === "number" && Number.isFinite(value) ? value : 0;
+  try {
+    return new Intl.NumberFormat("sr-RS", {
+      style: "currency",
+      currency: "RSD",
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
+    }).format(n);
+  } catch {
+    return `${n} RSD`;
+  }
+}
+
 /** Compact form for tight spots: 128.400 din -> "128,4k". */
 export function formatRsdShort(value: number | null | undefined): string {
   const n = typeof value === "number" && Number.isFinite(value) ? value : 0;
@@ -211,6 +234,13 @@ export function isLoanKind(kind: string): boolean {
  * They stay in `TX_KIND_ALL` because an entry that already is one has to be able to say
  * so while it is being edited.
  */
+/*
+  The one rule the entry form and the budget arithmetic both have to obey, re-exported
+  here so a form imports it from the same place it imports the kinds themselves.
+*/
+export { canFileInto, contributionOf } from "./budget-match";
+export type { BudgetMatchPlan, BudgetMatchRow } from "./budget-match";
+
 export const TX_KIND_OPTIONS: { value: TxKind; label: string }[] = [
   { value: "expense", label: "Expense" },
   { value: "income", label: "Income" },
@@ -259,17 +289,27 @@ export const EVERY_OPTIONS = [
  * last day of the next one, which is how bills anchored to month-end behave, and
  * any other day is clamped so the 31st lands on the 30th or the 28th.
  */
-export function nextDate(from: string, every: string, anchorDay?: number | null): string {
+export function nextDate(
+  from: string,
+  every: string,
+  anchorDay?: number | null,
+  count = 1,
+): string {
   const d = new Date(`${from}T00:00:00Z`);
-  if (every === "week") {
-    d.setUTCDate(d.getUTCDate() + 7);
+  // A count of `n` is `n` of whatever the unit is, and nothing else changes — the
+  // month-end clamping below is the same arithmetic whether the step is one month or
+  // six. Defaulting to 1 keeps every existing call site meaning exactly what it did.
+  const n = Math.max(1, Math.floor(count) || 1);
+
+  if (every === "day" || every === "week") {
+    d.setUTCDate(d.getUTCDate() + n * (every === "week" ? 7 : 1));
     return d.toISOString().slice(0, 10);
   }
 
   const year = d.getUTCFullYear();
   const month = d.getUTCMonth();
   const day = d.getUTCDate();
-  const step = every === "year" ? 12 : 1;
+  const step = (every === "year" ? 12 : 1) * n;
 
   const target = new Date(Date.UTC(year, month + step, 1));
   const lastOfTarget = new Date(
@@ -435,3 +475,4 @@ export function monthNetNote(net: number, income: number, onFile = true): NetNot
  * deserve a row in the ledger.
  */
 export type CashDifference = { kind: "expense" | "income"; amount: number } | null;
+

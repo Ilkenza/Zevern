@@ -13,8 +13,8 @@ import { GoalIcon } from "@/components/icons/GoalIcon";
 import { cn } from "@/lib/utils";
 import type { AccountBalance } from "@/lib/data/money";
 import type { GoalLine } from "@/lib/types";
-import { GOALS_HREF, NO_COLOUR } from "./shared";
-import { read, firstStepFor } from "./reading";
+import { GOALS_HREF } from "./shared";
+import { GOAL_ACCENT, firstStepFor, read } from "./reading";
 import { GoalHistory } from "./GoalHistory";
 import { MoveMoney } from "./MoveMoney";
 import { PayOff } from "./PayOff";
@@ -93,9 +93,9 @@ export function GoalCard({
   closing: boolean;
   onToggle: () => void;
 }) {
-  const { fmt, code } = useMoney();
-  const r = read(goal, today, fmt);
-  const colour = goal.color ?? NO_COLOUR;
+  const { fmt, fmtExact, code } = useMoney();
+  const r = read(goal, today, fmt, fmtExact);
+  const accent = GOAL_ACCENT;
   const target = Math.max(Number(goal.target_rsd) || 0, 0);
   /*
     A target says the currency it was set in, and converts underneath only when that is
@@ -121,14 +121,18 @@ export function GoalCard({
         "money-card-premium goal-card-premium relative flex flex-col overflow-hidden rounded-card border",
         r.done ? "goal-card-reached border-gold/45" : "border-line bg-surface",
       )}
-      style={{ "--goal-accent": colour } as CSSProperties}
+      style={{ "--goal-accent": accent } as CSSProperties}
     >
-      {/* The goal's own colour, down the whole edge — its identity in the grid. */}
-      <span
-        aria-hidden="true"
-        className="goal-accent-rail absolute inset-y-0 left-0 w-1"
-        style={{ background: colour }}
-      />
+      {/*
+        The accent, down the whole edge — its identity in the grid.
+
+        The paint is not set here. A flat inline `background` beats any rule in the
+        stylesheet, so the rail could only ever be one colour laid on flat, and flat is
+        exactly what made it read as khaki rather than gold. The card declares
+        `--goal-accent` above and `.goal-accent-rail` reads it — same arrangement the
+        hover sheen uses, and the rule is then free to give the edge a top and a bottom.
+      */}
+      <span aria-hidden="true" className="goal-accent-rail absolute inset-y-0 left-0 w-1" />
 
       {/* Small, high, out of the way — the only register a watermark works in. */}
       <GoalIcon className="goal-card-mark" aria-hidden="true" strokeWidth={1.1} />
@@ -278,7 +282,7 @@ export function GoalCard({
                 className="money-progress-fill h-full rounded-pill transition-[width] duration-700 motion-reduce:transition-none"
                 style={{
                   width: `${goal.progress > 0 ? Math.max(r.pct * 100, 2) : 0}%`,
-                  background: colour,
+                  background: accent,
                 }}
               />
             </div>
@@ -444,3 +448,4 @@ export function GoalCard({
     </article>
   );
 }
+

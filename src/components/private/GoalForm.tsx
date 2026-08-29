@@ -280,6 +280,7 @@ export function GoalForm({
     in the ledger attached to a goal that no longer counts them.
   */
   const [paying, setPaying] = useState(goal?.direction === "expense");
+  const [hasDeadline, setHasDeadline] = useState(Boolean(goal?.target_date));
   const locked = Boolean(goal);
 
   return (
@@ -360,14 +361,53 @@ export function GoalForm({
         </div>
 
         {/* color-scheme is inherited, so this reaches the native date picker. */}
-        <Field
-          className="scheme-dark"
-          label="Target date"
-          name="target_date"
-          type="date"
-          defaultValue={goal?.target_date ?? ""}
-          help="Optional. With one, the goal says what a month has to look like."
-        />
+        {/*
+          A deadline, or plainly none.
+
+          The date was already optional and nothing said so: an empty box means "no
+          deadline" only if you happen to know it does, and once a date is in a native
+          date input, getting it back out is a fight. Two words settle both — and picking
+          "no deadline" removes the field rather than clearing it, so there is nothing
+          left to argue with.
+        */}
+        <div className="mb-3.25">
+          <div className="mb-1.5 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+            <span className="text-xs font-semibold text-[#C6CAD6]">Deadline</span>
+            {[
+              { value: false, label: "no deadline" },
+              { value: true, label: "a date" },
+            ].map((o) => (
+              <button
+                key={o.label}
+                type="button"
+                onClick={() => setHasDeadline(o.value)}
+                aria-pressed={hasDeadline === o.value}
+                className={cn(
+                  "text-[12.5px] font-semibold underline-offset-4 transition-colors",
+                  hasDeadline === o.value
+                    ? "text-gold underline decoration-gold/50"
+                    : "text-faint hover:text-ink hover:decoration-dotted hover:underline",
+                )}
+              >
+                {o.label}
+              </button>
+            ))}
+          </div>
+
+          {hasDeadline ? (
+            <Field
+              className="scheme-dark mb-0"
+              name="target_date"
+              type="date"
+              defaultValue={goal?.target_date ?? ""}
+              help="With one, the goal can say what a month has to look like."
+            />
+          ) : (
+            <p className="text-[11.5px] text-muted">
+              It fills when it fills — no month is late.
+            </p>
+          )}
+        </div>
 
         <input type="hidden" name="color" value={GOAL_COLOUR} />
 

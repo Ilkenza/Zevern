@@ -41,7 +41,15 @@ export function readPlan(
   today: string,
   fmt: (value: number) => string,
 ): PlanReading {
-  const limit = Number(line.plan.amount_rsd) || 0;
+  /*
+    What this window is allowed, which is not always what the plan says.
+
+    A month a trip falls in is allowed more, and the extra lives on the line rather than
+    being worked out again by every screen — the Overview card, the Budgets screen and
+    the `needs you` row all judge the same figure, so a raised window is raised in all
+    three at once and in none of them by accident.
+  */
+  const limit = line.limitRsd;
   const used = line.used;
   const pace = windowProgress(line.window, today);
   const daysLeft = daysLeftInWindow(line.window, today);
@@ -104,20 +112,25 @@ export function readPlan(
     pace,
     daysLeft,
     /*
-      "Left" is the figure people act on, and per-day is the one they act on when there
-      are days to spread it over. On the last day of a window the division says nothing
-      the first half of the sentence has not already said, so it is dropped.
+      What is left, and nothing else.
+
+      This carried "· 1.755 RSD a day" beside it, on the theory that a figure to spread
+      over the remaining days is the one you act on. It is not — not for these. A month of
+      eating out is four evenings, not thirty-one two-hundredths of an evening, and the
+      per-day figure moved every time the screen was opened while saying nothing that
+      changed a decision. On a strip of six budgets it was six numbers nobody used, in the
+      same weight as the one everybody does.
     */
-    note:
-      daysLeft > 1
-        ? `${fmt(left)} left · ${fmt(left / daysLeft)} a day`
-        : `${fmt(left)} left`,
+    note: `${fmt(left)} left`,
   };
 }
 
 export const PLAN_STATUS_LABEL: Record<PlanStatus, string> = {
   over: "Over",
-  ahead: "Ahead of pace",
+  // Expense budgets are the only ones that reach this state, and on an expense budget
+  // being ahead of the calendar means the money is leaving faster than the days are —
+  // which "Ahead" reads as good news. It is the warning before `Over`, and it says so.
+  ahead: "Spending fast",
   ontrack: "On track",
   met: "Target met",
   behind: "Behind",
@@ -125,24 +138,36 @@ export const PLAN_STATUS_LABEL: Record<PlanStatus, string> = {
 };
 
 /** One word in, one colour out — so a bar can never disagree with the words beside it. */
+/*
+  `text-warn` was two of these, and there is no `--color-warn` in the palette — so
+  Tailwind generated nothing for it and 'Ahead of pace' and 'Behind' printed in whatever
+  colour they happened to inherit. Gold is this app's "worth a look", said so in the
+  palette's own comment and used by the verdict line on the overview; that is the token
+  those two wanted.
+*/
 export const PLAN_STATUS_TONE: Record<PlanStatus, string> = {
   over: "text-danger",
-  ahead: "text-warn",
+  ahead: "text-gold-hi",
   ontrack: "text-ok",
   met: "text-ok",
-  behind: "text-warn",
+  behind: "text-gold-hi",
   unset: "text-faint",
 };
 
-/** What the window reads as on the card: "Aug 1 – Aug 31". */
-export function windowLabel(window: BudgetWindow): string {
-  const short = (iso: string) => {
-    const [, m, d] = iso.split("-").map(Number);
-    const months = [
-      "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-      "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
-    ];
-    return `${months[(m ?? 1) - 1]} ${d}`;
-  };
-  return window.from === window.to ? short(window.from) : `${short(window.from)} – ${short(window.to)}`;
+/** One end of a window, as a person says it: "Aug 31". */
+export function shortDate(iso: string): string {
+  const [, m, d] = iso.split("-").map(Number);
+  const months = [
+    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+  ];
+  return `${months[(m ?? 1) - 1]} ${d}`;
 }
+
+/** What the window reads as in a sentence: "Aug 1 – Aug 31". */
+export function windowLabel(window: BudgetWindow): string {
+  return window.from === window.to
+    ? shortDate(window.from)
+    : `${shortDate(window.from)} – ${shortDate(window.to)}`;
+}
+

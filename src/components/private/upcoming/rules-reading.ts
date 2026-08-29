@@ -7,7 +7,7 @@
  */
 
 import { toRsd, type Rates } from "@/lib/money";
-import { PER_MONTH } from "@/lib/money/occurrences";
+import { perMonth } from "@/lib/money/occurrences";
 import type { RecurringRow } from "@/lib/types";
 import { isRunning } from "./index";
 
@@ -57,7 +57,7 @@ export type Reading = {
 export function monthlyFor(item: RecurringRow, rates: Rates): number | null {
   const amount = Number(item.amount);
   if (item.variable || !(amount > 0)) return null;
-  return toRsd(amount, item.currency, rates) * (PER_MONTH[item.every] ?? 1);
+  return toRsd(amount, item.currency, rates) * perMonth(item.every, item.every_count);
 }
 
 /**

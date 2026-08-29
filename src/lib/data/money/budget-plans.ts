@@ -12,8 +12,16 @@ import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { userId } from "@/lib/supabase/current-user";
 import { todayISO } from "@/lib/format";
-import { budgetWindow, type BudgetClock, type BudgetWindow } from "@/lib/money/budget-periods";
-import type { BudgetPlanLine, MoneyBudgetPlan } from "@/lib/types";
+import {
+  budgetWindow,
+  shiftBudgetWindow,
+  type BudgetClock,
+  type BudgetWindow,
+} from "@/lib/money/budget-periods";
+import { amountAt, type AmountChange } from "@/lib/money/budget-amounts";
+import { contributionOf } from "@/lib/money/budget-match";
+import { boostFor, type Boost } from "@/lib/money/budget-boosts";
+import type { BudgetPlanLine, MoneyBudgetBoost, MoneyBudgetPlan } from "@/lib/types";
 
 /** The clock a plan keeps, in the shape the date arithmetic wants. */
 export function clockOf(plan: MoneyBudgetPlan): BudgetClock {
@@ -51,9 +59,34 @@ export const getBudgetPlanLines = cache(async (on?: string): Promise<BudgetPlanL
   if (!plans || plans.length === 0) return [];
 
   const ids = plans.map((p) => p.id);
-  const [{ data: catLinks }, { data: accLinks }] = await Promise.all([
+  const [{ data: catLinks }, { data: accLinks }, { data: boostRows }, { data: amountRows }] =
+    await Promise.all([
     supabase.from("money_budget_categories").select("budget_id, category_id").in("budget_id", ids),
     supabase.from("money_budget_accounts").select("budget_id, account_id").in("budget_id", ids),
+    /*
+      What a trip grants the monthly limits, for the months it falls in.
+
+      Read with the plans rather than per card: the granting budget is one of the plans
+      already in hand, so its dates and its name cost nothing extra, and a boost is a
+      handful of rows even for somebody who travels constantly.
+    */
+    supabase
+      .from("money_budget_boosts")
+      .select("source_budget_id, target_budget_id, amount_rsd")
+      .eq("user_id", uid),
+    /*
+      What each budget allowed, and from when.
+
+      A plan's own `amount_rsd` is the current figure and stays that — every form reads it
+      — but a finished window has to be judged by what it actually ran under. Reading the
+      whole history costs one query for a handful of rows per budget, and it is the only
+      thing standing between "you overspent July" and July quietly changing its mind the
+      next time somebody edits the limit.
+    */
+    supabase
+      .from("money_budget_amounts")
+      .select("budget_id, starts_on, amount_rsd")
+      .eq("user_id", uid),
   ]);
 
   const categoriesOf = new Map<string, Set<string>>();
@@ -72,6 +105,37 @@ export const getBudgetPlanLines = cache(async (on?: string): Promise<BudgetPlanL
   const windows = new Map<string, BudgetWindow>(
     plans.map((p) => [p.id, budgetWindow(clockOf(p), today)]),
   );
+
+  /*
+    Every boost, grouped by the budget that receives it, with the granting budget's own
+    dates and name attached — which is all `boostFor` needs to decide.
+
+    A boost whose granting budget has been archived or deleted is simply not here: the
+    plans query is already filtered, so the join below finds nothing and the room quietly
+    goes away with the trip it belonged to. That is the honest outcome — a raise nobody
+    can point at the reason for is exactly what this design set out to avoid.
+  */
+  const changesFor = new Map<string, AmountChange[]>();
+  for (const row of amountRows ?? []) {
+    const list = changesFor.get(row.budget_id) ?? [];
+    list.push({ starts_on: row.starts_on, amount: Number(row.amount_rsd) || 0 });
+    changesFor.set(row.budget_id, list);
+  }
+
+  const byId = new Map(plans.map((p) => [p.id, p]));
+  const boostsFor = new Map<string, Boost[]>();
+  for (const row of boostRows ?? []) {
+    const source = byId.get(row.source_budget_id);
+    if (!source || !source.ends_on) continue;
+    const list = boostsFor.get(row.target_budget_id) ?? [];
+    list.push({
+      from: source.starts_on,
+      to: source.ends_on,
+      amount: Number(row.amount_rsd) || 0,
+      source: source.name,
+    });
+    boostsFor.set(row.target_budget_id, list);
+  }
 
   // The one span that covers every window on the screen. Fetching per budget would be
   // exact and would also be a query per card.
@@ -99,35 +163,59 @@ export const getBudgetPlanLines = cache(async (on?: string): Promise<BudgetPlanL
 
     let used = 0;
     let entries = 0;
+    /*
+      How much of `used` is money that also belongs to a budget kept by hand.
+
+      An entry counts in every budget it belongs to — the category it was on and the trip
+      it was filed into — which is what the person entering it means and is two true
+      statements about one dinar. The one thing that must not happen is the reader adding
+      the two cards together and believing the total. So the overlap is measured here and
+      named on the card: "54.895 also in na moru", under the bar it explains.
+
+      Only on a sweeping expense budget. On a hand-kept one everything is filed into it by
+      definition, and on a savings budget the figure is a balance rather than a ceiling.
+    */
+    let filed = 0;
+    const filedIn = new Set<string>();
 
     for (const row of rows ?? []) {
       if (row.occurred_on < window.from || row.occurred_on > window.to) continue;
-
-      if (plan.membership === "added") {
-        // You chose these by hand, so no filter gets a say — that is the entire point of
-        // a budget you add to. A holiday's flights, hotel and dinners live in three
-        // different categories and no filter would ever gather exactly those.
-        if (row.budget_id !== plan.id) continue;
-      } else {
-        // Empty means "everything on this axis". A budget with no categories named
-        // watches them all, which is what somebody typing "Monthly spending" means.
-        if (cats && cats.size > 0 && (!row.category_id || !cats.has(row.category_id))) continue;
-        if (accs && accs.size > 0 && (!row.account_id || !accs.has(row.account_id))) continue;
-      }
-
-      const value = Number(row.amount_rsd) || 0;
-
-      if (plan.kind === "savings") {
-        // What is left over, which is the only figure that answers "am I actually
-        // saving": money in less money out. A month of no income and no spending
-        // saves nothing, and this says so rather than reporting a full budget.
-        used += row.kind === "income" ? value : -value;
-      } else {
-        if (row.kind !== "expense") continue;
-        used += value;
-      }
+      // Whether it belongs here, and for how much, lives in `budget-match` — three rules
+      // that have to agree, kept in one readable place and tested without a database.
+      const contribution = contributionOf(plan, row, cats, accs);
+      if (contribution === null) continue;
+      used += contribution;
       entries += 1;
+
+      if (plan.membership === "all" && plan.kind === "expense" && row.budget_id) {
+        filed += contribution;
+        const owner = byId.get(row.budget_id);
+        if (owner) filedIn.add(owner.name);
+      }
     }
+
+    const baseRsd = amountAt(window, changesFor.get(plan.id) ?? [], Number(plan.amount_rsd) || 0);
+    const { extra, sources } = boostFor(window, boostsFor.get(plan.id) ?? []);
+
+    /*
+      Money that came out of a budget you keep by hand pays for itself.
+
+      The figure above counts it, because it is real spending on this category and hiding
+      it made the app say he had spent nothing on eating out in a month he spent 14.737 on
+      it. But it was already budgeted once — the trip has its own ceiling and that ceiling
+      is what allowed it — so charging it a second time against the ordinary monthly
+      allowance is asking the same dinar to fit under two lids.
+
+      So the allowance rises by exactly what was filed. Eating out on 300 a month with
+      14.737 filed into `na moru` reads `14.737 of 15.037`: the spending is visible, the
+      300 for ordinary dinners is untouched, and when the trip is over both numbers fall
+      back on their own.
+
+      This is the automatic half of the same idea `boostFor` does by hand. A hand-set
+      raise is for what stays ordinary during a trip — the fuel, the shopping before you
+      go — money that never went into the trip's own budget and so is not covered here.
+    */
+    const covered = Math.round(filed * 100) / 100;
 
     return {
       plan,
@@ -136,6 +224,12 @@ export const getBudgetPlanLines = cache(async (on?: string): Promise<BudgetPlanL
       accountIds,
       used: Math.round(used * 100) / 100,
       entries,
+      filed: covered,
+      filedIn: [...filedIn],
+      baseRsd,
+      extra,
+      boostedBy: sources,
+      limitRsd: baseRsd + extra + covered,
     };
   });
 });
@@ -166,3 +260,364 @@ export const getAddableBudgets = cache(async (on?: string): Promise<MoneyBudgetP
     return today >= w.from && today <= w.to;
   });
 });
+
+/**
+ * The per-category cap a month should be judged against, from the budgets that exist.
+ *
+ * The spending breakdown wants one figure per category — "you are 867 over on
+ * Groceries" — and a budget does not owe it one: a budget can watch four categories, or
+ * none, and run in fortnights. Only one shape answers the question the breakdown asks,
+ * and it is exactly the shape the old per-category limits became: one monthly expense
+ * budget watching one category. Anything else is left alone, and its own card on the
+ * Budgets screen is where it is read.
+ *
+ * `counted` is the figure to judge against, not the category's total. They differ by the
+ * entries you put in a budget by hand: a lunch filed under a holiday is real spending on
+ * Eating out and belongs in the breakdown, and is not an overspend against the monthly
+ * Eating out budget, because it was never that budget's money.
+ */
+export async function getCategoryBudgetCaps(
+  month: string,
+): Promise<Record<string, { limit: number; counted: number }>> {
+  // A day inside the month being read, so each budget's own window lands on that month
+  // rather than on today's.
+  const anchor = `${month}-28`;
+  const lines = await getBudgetPlanLines(anchor);
+
+  const caps: Record<string, { limit: number; counted: number }> = {};
+  for (const line of lines) {
+    const { plan } = line;
+    if (plan.membership !== "all" || plan.kind !== "expense") continue;
+    if (plan.period !== "month" || plan.period_count !== 1) continue;
+    if (line.categoryIds.length !== 1) continue;
+
+    const id = line.categoryIds[0];
+    // Two budgets on one category is unusual and adding them is the honest reading:
+    // between them that is what you allowed yourself.
+    const at = caps[id] ?? { limit: 0, counted: 0 };
+    caps[id] = {
+      // `limitRsd`, not the plan's own amount: a month with a trip in it is allowed more,
+      // and the breakdown has to judge it against the same figure the budget card does.
+      limit: at.limit + line.limitRsd,
+      counted: at.counted + line.used,
+    };
+  }
+  return caps;
+}
+
+/**
+ * Every grant on the profile, for the form that edits them.
+ *
+ * The screen reads these by the budget that *gives* the room, which is the opposite of
+ * how `getBudgetPlanLines` uses them — there they are grouped by the budget that
+ * receives it. One small table, read whole, rather than two shapes of the same query.
+ */
+export const getBudgetBoosts = cache(async (): Promise<MoneyBudgetBoost[]> => {
+  const supabase = await createClient();
+  const uid = await userId(supabase);
+  if (!uid) return [];
+
+  const { data, error } = await supabase
+    .from("money_budget_boosts")
+    .select("*")
+    .eq("user_id", uid);
+  if (error) console.error("getBudgetBoosts:", error.message);
+  return data ?? [];
+});
+
+/** One finished window of a budget, judged by what it actually ran under. */
+export type BudgetPast = {
+  window: BudgetWindow;
+  /** Dinars: spent, for an expense budget; kept, for a savings one. */
+  used: number;
+  /** What that window was allowed — the amount in force then, plus anything granted to it. */
+  limitRsd: number;
+  /** The plan's own amount at the time, before any grant. */
+  baseRsd: number;
+  /** Budgets that raised it, if any. */
+  boostedBy: string[];
+  /**
+   * The window still running.
+   *
+   * Drawn brighter than the rest and left out of the count, because a month you are three
+   * days into is not a month that kept its budget — it is a month that has not finished
+   * losing. It is on the strip at all so the comparison has a "you are here": five bars of
+   * history with today missing is a chart you have to hold the current figure in your head
+   * to read.
+   */
+  current: boolean;
+};
+
+/**
+ * How far back the record goes: a year of finished windows plus the one still running.
+ *
+ * The strip on the card shows the last six of these; the history panel shows all of them.
+ * Twelve because the question a record answers is seasonal — "is December always like
+ * this" — and six months cannot answer it.
+ */
+const PAST_WINDOWS = 13;
+
+/**
+ * The windows behind the current one, for every budget, each measured by its own rules.
+ *
+ * The point of showing them is to answer a question one card cannot: is this month
+ * unusual, or is this simply what this budget always does. Four of the last six over the
+ * line is not an overspend, it is a limit set too low — opposite problems with opposite
+ * fixes, and identical on a card that only knows about today.
+ *
+ * Every figure is worked out the way the current window is: the same membership rules,
+ * the same category and account filters, the same exclusivity for entries filed into a
+ * budget by hand — and against the amount that was in force at the time rather than
+ * today's. A history drawn against today's limit rearranges itself every time you edit
+ * the budget, which is worse than no history at all.
+ *
+ * All budgets in one pass. Six windows for six budgets is thirty-six figures, and doing
+ * it per card would be five queries per card for a screen that already had its data.
+ */
+export const getBudgetHistories = cache(
+  async (on?: string): Promise<Record<string, BudgetPast[]>> => {
+    const today = on ?? todayISO();
+    const supabase = await createClient();
+    const uid = await userId(supabase);
+    if (!uid) return {};
+
+    const { data: plans } = await supabase
+      .from("money_budget_plans")
+      .select("*")
+      .eq("user_id", uid)
+      .eq("archived", false);
+    if (!plans || plans.length === 0) return {};
+
+    /*
+      A budget with fixed dates has one window and therefore no history. Walking back from
+      it returns the same window six times, which reads as six identical months.
+    */
+    const repeating = plans.filter((p) => p.period !== "custom");
+    if (repeating.length === 0) return {};
+
+    const windowsOf = new Map<string, BudgetWindow[]>();
+    for (const plan of repeating) {
+      const clock = clockOf(plan);
+      const windows: BudgetWindow[] = [];
+      for (let back = PAST_WINDOWS - 1; back >= 0; back -= 1) {
+        const window = shiftBudgetWindow(clock, today, -back);
+        // Before the budget existed. Nothing was allowed and nothing was measured.
+        if (window.to < plan.starts_on) continue;
+        if (!windows.some((w) => w.from === window.from)) windows.push(window);
+      }
+      if (windows.length) windowsOf.set(plan.id, windows);
+    }
+    if (windowsOf.size === 0) return {};
+
+    const ids = [...windowsOf.keys()];
+    const [{ data: catLinks }, { data: accLinks }, { data: amountRows }, { data: boostRows }] =
+      await Promise.all([
+        supabase
+          .from("money_budget_categories")
+          .select("budget_id, category_id")
+          .in("budget_id", ids),
+        supabase.from("money_budget_accounts").select("budget_id, account_id").in("budget_id", ids),
+        supabase
+          .from("money_budget_amounts")
+          .select("budget_id, starts_on, amount_rsd")
+          .eq("user_id", uid),
+        supabase
+          .from("money_budget_boosts")
+          .select("source_budget_id, target_budget_id, amount_rsd")
+          .eq("user_id", uid),
+      ]);
+
+    const catsOf = new Map<string, Set<string>>();
+    for (const l of catLinks ?? []) {
+      (catsOf.get(l.budget_id) ?? catsOf.set(l.budget_id, new Set()).get(l.budget_id)!).add(
+        l.category_id,
+      );
+    }
+    const accsOf = new Map<string, Set<string>>();
+    for (const l of accLinks ?? []) {
+      (accsOf.get(l.budget_id) ?? accsOf.set(l.budget_id, new Set()).get(l.budget_id)!).add(
+        l.account_id,
+      );
+    }
+
+    const changesOf = new Map<string, AmountChange[]>();
+    for (const row of amountRows ?? []) {
+      const list = changesOf.get(row.budget_id) ?? [];
+      list.push({ starts_on: row.starts_on, amount: Number(row.amount_rsd) || 0 });
+      changesOf.set(row.budget_id, list);
+    }
+
+    const byId = new Map(plans.map((p) => [p.id, p]));
+    const boostsOf = new Map<string, Boost[]>();
+    for (const row of boostRows ?? []) {
+      const source = byId.get(row.source_budget_id);
+      if (!source?.ends_on) continue;
+      const list = boostsOf.get(row.target_budget_id) ?? [];
+      list.push({
+        from: source.starts_on,
+        to: source.ends_on,
+        amount: Number(row.amount_rsd) || 0,
+        source: source.name,
+      });
+      boostsOf.set(row.target_budget_id, list);
+    }
+
+    // One span covering every bar on every strip, rather than a query per budget.
+    let from = "9999-12-31";
+    let to = "0001-01-01";
+    for (const windows of windowsOf.values()) {
+      if (windows[0].from < from) from = windows[0].from;
+      if (windows[windows.length - 1].to > to) to = windows[windows.length - 1].to;
+    }
+
+    const { data: rows } = await supabase
+      .from("money_transactions")
+      .select("kind, amount_rsd, category_id, account_id, budget_id, occurred_on")
+      .eq("user_id", uid)
+      .in("kind", ["expense", "income"])
+      .gte("occurred_on", from)
+      .lte("occurred_on", to);
+
+    const out: Record<string, BudgetPast[]> = {};
+    for (const [planId, windows] of windowsOf) {
+      const plan = byId.get(planId)!;
+      const cats = catsOf.get(planId);
+      const accs = accsOf.get(planId);
+      const changes = changesOf.get(planId) ?? [];
+      const boosts = boostsOf.get(planId) ?? [];
+
+      out[planId] = windows.map((window) => {
+        let used = 0;
+        /*
+          Same rule as the card: what a hand-kept budget already paid for does not also
+          eat the ordinary allowance. Without it here the strip would paint a month red
+          that the card on the same screen calls on track.
+        */
+        let filed = 0;
+        for (const row of rows ?? []) {
+          if (row.occurred_on < window.from || row.occurred_on > window.to) continue;
+          const contribution = contributionOf(plan, row, cats, accs);
+          if (contribution === null) continue;
+          used += contribution;
+          if (plan.membership === "all" && plan.kind === "expense" && row.budget_id) {
+            filed += contribution;
+          }
+        }
+
+        const baseRsd = amountAt(window, changes, Number(plan.amount_rsd) || 0);
+        const { extra, sources: boostedBy } = boostFor(window, boosts);
+        const covered = Math.round(filed * 100) / 100;
+
+        return {
+          window,
+          used: Math.round(used * 100) / 100,
+          baseRsd,
+          limitRsd: baseRsd + extra + covered,
+          boostedBy,
+          current: today >= window.from && today <= window.to,
+        };
+      });
+    }
+
+    return out;
+  },
+);
+
+
+
+/** One entry a budget counted, in the shape the panel prints it. */
+export type BudgetEntry = {
+  id: string;
+  on: string;
+  title: string | null;
+  category: string | null;
+  /**
+   * The budget this entry was filed into by hand, when that is a different budget.
+   *
+   * On a sweeping budget these are exactly the rows the card's note is about — "14.737
+   * covered by na moru" is a claim about specific entries, and this is where you find
+   * out which ones. On the hand-kept budget itself every row would carry its own name,
+   * which says nothing, so it is left null there.
+   */
+  filedInto: string | null;
+  /** What it contributed, already signed the way this plan reads money. */
+  amount: number;
+};
+
+/**
+ * The entries behind a budget's figure, for the window it is in now.
+ *
+ * The card says `5.237 of 20.000` and until this existed the app had no answer to
+ * "which 5.237" — which is the first question anybody asks about a number they did not
+ * expect. The period history answered a different one ("how does this month compare"),
+ * and it is not reachable at all until a window has finished.
+ *
+ * The one rule here is that it must not compute anything. `contributionOf` decides what
+ * belongs to a budget everywhere else in the app, so it decides it here too — a list
+ * built from its own reading of the same intent is a list that will eventually disagree
+ * with the figure above it, and a screen where the total and its own rows disagree is
+ * worse than no list.
+ */
+export async function getBudgetEntries(planId: string, on?: string): Promise<BudgetEntry[]> {
+  const today = on ?? todayISO();
+  const supabase = await createClient();
+  const uid = await userId(supabase);
+  if (!uid) return [];
+
+  // Scoped by owner as well as by id: a plan id belonging to somebody else finds nothing
+  // here rather than finding their ledger.
+  const { data: plan } = await supabase
+    .from("money_budget_plans")
+    .select("*")
+    .eq("id", planId)
+    .eq("user_id", uid)
+    .maybeSingle();
+  if (!plan) return [];
+
+  const [{ data: catLinks }, { data: accLinks }] = await Promise.all([
+    supabase.from("money_budget_categories").select("category_id").eq("budget_id", plan.id),
+    supabase.from("money_budget_accounts").select("account_id").eq("budget_id", plan.id),
+  ]);
+  const categories = new Set((catLinks ?? []).map((l) => l.category_id));
+  const accounts = new Set((accLinks ?? []).map((l) => l.account_id));
+
+  const window = budgetWindow(clockOf(plan), today);
+
+  const { data: rows, error } = await supabase
+    .from("money_transactions")
+    .select(
+      "id, kind, amount_rsd, category_id, account_id, budget_id, occurred_on, title, category:money_categories(name), budget:money_budget_plans!money_transactions_budget_id_fkey(name)",
+    )
+    .eq("user_id", uid)
+    .in("kind", ["expense", "income"])
+    .gte("occurred_on", window.from)
+    .lte("occurred_on", window.to)
+    .order("occurred_on", { ascending: false })
+    .order("created_at", { ascending: false });
+  if (error) console.error("getBudgetEntries:", error.message);
+
+  const out: BudgetEntry[] = [];
+  for (const row of rows ?? []) {
+    const amount = contributionOf(
+      { id: plan.id, kind: plan.kind, membership: plan.membership },
+      row,
+      categories,
+      accounts,
+    );
+    if (amount === null) continue;
+    out.push({
+      id: row.id,
+      on: row.occurred_on,
+      title: row.title,
+      // PostgREST types an embedded one-to-one as an array; take whichever shape arrives.
+      category: (Array.isArray(row.category) ? row.category[0] : row.category)?.name ?? null,
+      filedInto:
+        row.budget_id && row.budget_id !== plan.id
+          ? ((Array.isArray(row.budget) ? row.budget[0] : row.budget)?.name ?? null)
+          : null,
+      amount,
+    });
+  }
+  return out;
+}
+

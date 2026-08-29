@@ -36,7 +36,19 @@ export async function getTransactions(filter: TxFilter = {}): Promise<Transactio
   if (filter.accountId) q = q.eq("account_id", filter.accountId);
   if (filter.kind) q = q.eq("kind", filter.kind);
 
-  q = q.order("occurred_on", { ascending: false }).order("created_at", { ascending: false });
+  /*
+    Day, then time of day, then the order they were typed.
+
+    The time is optional, and `nullsFirst: false` is what makes the fallback honest: an
+    entry with no time sorts after the ones that have one on the same day, because a
+    known 18:40 is later in the afternoon than "sometime that Tuesday". Reversed, every
+    untimed entry would jump to the top of its day and the list would reorder itself the
+    first time somebody filled the field in.
+  */
+  q = q
+    .order("occurred_on", { ascending: false })
+    .order("occurred_at", { ascending: false, nullsFirst: false })
+    .order("created_at", { ascending: false });
   if (filter.limit) q = q.limit(filter.limit);
 
   const { data, error } = await q;
@@ -65,6 +77,7 @@ export async function getUnpricedTransactions(limit = 25): Promise<TransactionRo
     .eq("user_id", uid)
     .is("amount", null)
     .order("occurred_on", { ascending: true })
+    .order("occurred_at", { ascending: true, nullsFirst: false })
     .limit(limit);
   if (error) console.error("getUnpricedTransactions:", error.message);
   return (data ?? []) as TransactionRow[];

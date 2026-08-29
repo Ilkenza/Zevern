@@ -265,3 +265,27 @@ describe("monthNetNote", () => {
   });
 });
 
+
+describe("nextDate with a cadence count", () => {
+  it("steps whole units, not one at a time", () => {
+    expect(nextDate("2026-08-01", "month", null, 6)).toBe("2027-02-01");
+    expect(nextDate("2026-08-03", "week", null, 2)).toBe("2026-08-17");
+    expect(nextDate("2026-08-03", "day", null, 10)).toBe("2026-08-13");
+    expect(nextDate("2026-08-01", "year", null, 2)).toBe("2028-08-01");
+  });
+
+  it("clamps a month-end anchor across a six-month step", () => {
+    // 31 August plus six months is 28 February, not 3 March.
+    expect(nextDate("2026-08-31", "month", 31, 6)).toBe("2027-02-28");
+  });
+
+  it("means exactly what it used to when no count is given", () => {
+    expect(nextDate("2026-03-14", "month")).toBe(nextDate("2026-03-14", "month", null, 1));
+    expect(nextDate("2026-03-14", "week")).toBe(nextDate("2026-03-14", "week", null, 1));
+  });
+
+  it("treats a nonsense count as one rather than standing still", () => {
+    expect(nextDate("2026-03-14", "month", null, 0)).toBe("2026-04-14");
+    expect(nextDate("2026-03-14", "month", null, -3)).toBe("2026-04-14");
+  });
+});

@@ -72,10 +72,21 @@ export {
 } from "./transactions";
 
 export { getBudgetLines } from "./budgets";
+export { getCategoryHistory } from "./category-history";
+export type { CategoryHistory, CategoryMonth } from "./category-history";
 
-export { clockOf, getAddableBudgets, getBudgetPlanLines } from "./budget-plans";
+export {
+  clockOf,
+  getAddableBudgets,
+  getBudgetBoosts,
+  getBudgetEntries,
+  getBudgetHistories,
+  getBudgetPlanLines,
+  getCategoryBudgetCaps,
+} from "./budget-plans";
+export type { BudgetEntry, BudgetPast } from "./budget-plans";
 
-export { getGoalLines, getGoals, isGoalOpen } from "./goals";
+export { getGoalLines, getGoalRemaining, getGoals, isGoalOpen } from "./goals";
 
 export {
   getAccountBalances,

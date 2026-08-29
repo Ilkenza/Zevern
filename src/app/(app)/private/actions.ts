@@ -6,7 +6,10 @@ import { createClient as createSupabaseServerClient } from "@/lib/supabase/serve
 import { userId } from "@/lib/supabase/current-user";
 import { todayISO } from "@/lib/format";
 import { saveErrorMessage } from "@/lib/supabase/errors";
-import { getAccountBalances, getMoney, getRates } from "@/lib/data/money";
+import {
+  getBudgetEntries,
+  getCategoryHistory, getAccountBalances, getGoalRemaining, getMoney, getRates } from "@/lib/data/money";
+import type { BudgetEntry, CategoryHistory } from "@/lib/data/money";
 import { fetchNbsRates } from "@/lib/rates/nbs";
 import {
   CURRENCIES,
@@ -88,7 +91,8 @@ async function ownsMoneyRow(
     | "money_goals"
     | "money_loans"
     | "money_recurring"
-    | "money_planned",
+    | "money_planned"
+    | "money_budget_plans",
   id: string | null,
   uid: string,
 ): Promise<boolean> {
@@ -231,6 +235,15 @@ export async function saveTransaction(_prev: MoneyState, formData: FormData): Pr
   // skip, so null is a real answer here and the list falls back to the category name.
   const title = String(formData.get("title") ?? "").trim().slice(0, 80) || null;
   const occurredOn = String(formData.get("occurred_on") ?? "").trim() || today();
+  /*
+    The time of day, when there is one.
+
+    Optional on purpose — quick add is two taps, and an entry typed from memory on Friday
+    honestly has no time — so an empty box is a real answer and stores null rather than
+    midnight. Midnight would be a lie that sorts first and reads as a fact.
+  */
+  const timeRaw = String(formData.get("occurred_at") ?? "").trim();
+  const occurredAt = /^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/.test(timeRaw) ? timeRaw : null;
   // Only an 'added only' budget can be chosen; checked below rather than trusted, since
   // this id arrives from a browser like every other.
   const budgetId = String(formData.get("budget_id") ?? "").trim() || null;
@@ -476,6 +489,7 @@ export async function saveTransaction(_prev: MoneyState, formData: FormData): Pr
     loan_id: loanRef,
     note,
     occurred_on: occurredOn,
+    occurred_at: occurredAt,
     // `null` rather than `[]`, so "this entry has no list" is one value everywhere
     // instead of two that every read would have to treat the same.
     items: items.length > 0 ? items : null,
@@ -893,7 +907,6 @@ export async function saveBudgetPlan(_prev: MoneyState, formData: FormData): Pro
   const periodCount = Math.min(60, Math.max(1, Math.floor(num(formData.get("period_count"), 1))));
   const startsOn = String(formData.get("starts_on") ?? "").trim() || today();
   const endsOnRaw = String(formData.get("ends_on") ?? "").trim();
-  const color = hexColor(formData.get("color"));
   const categoryIds = formData.getAll("category_ids").map((v) => String(v)).filter(Boolean);
   const accountIds = formData.getAll("account_ids").map((v) => String(v)).filter(Boolean);
 
@@ -939,11 +952,30 @@ export async function saveBudgetPlan(_prev: MoneyState, formData: FormData): Pro
     period_count: periodCount,
     starts_on: startsOn,
     ends_on: endsOn,
-    color,
+    // Budgets are gold, like goals. The column stays so the migration that carried the
+    // old category limits over did not have to throw their colours away, but nothing
+    // sets it and nothing reads it.
+    color: null,
   };
 
   let budgetId = id;
+  /*
+    What it allowed before this save, read before the update overwrites it.
+
+    The comparison is the whole reason: a new row in the history for every save, whether
+    or not the number moved, would turn "raised on 28 August" into a wall of identical
+    entries and lose the one date that mattered.
+  */
+  let wasRsd: number | null = null;
   if (id) {
+    const { data: before } = await supabase
+      .from("money_budget_plans")
+      .select("amount_rsd")
+      .eq("id", id)
+      .eq("user_id", uid)
+      .maybeSingle();
+    wasRsd = before ? Number(before.amount_rsd) || 0 : null;
+
     const { error } = await supabase
       .from("money_budget_plans")
       .update(payload)
@@ -960,6 +992,32 @@ export async function saveBudgetPlan(_prev: MoneyState, formData: FormData): Pro
     budgetId = data.id;
   }
 
+  /*
+    Record what it allows from now on, so finished windows keep the amount they ran under.
+
+    Dated today rather than at the start of the period: raising a limit on the 28th means
+    "this month is allowed more", and `amountAt` measures against the window's last day, so
+    August picks it up and July does not. A new budget is dated from its own start instead
+    — there is no past to protect and dating it today would leave its first days measured
+    by a fallback.
+
+    Best effort. A budget that saved but whose history row did not is a budget that reads
+    exactly as it did before this table existed, which is a far better failure than
+    refusing the save somebody actually asked for.
+  */
+  if (!id || (wasRsd !== null && wasRsd !== amountRsd)) {
+    const { error } = await supabase.from("money_budget_amounts").upsert(
+      {
+        user_id: uid,
+        budget_id: budgetId,
+        starts_on: id ? today() : startsOn,
+        amount_rsd: amountRsd,
+      },
+      { onConflict: "budget_id,starts_on" },
+    );
+    if (error) console.error("saveBudgetPlan amount history:", error.message);
+  }
+
   await supabase.from("money_budget_categories").delete().eq("budget_id", budgetId);
   await supabase.from("money_budget_accounts").delete().eq("budget_id", budgetId);
 
@@ -974,6 +1032,108 @@ export async function saveBudgetPlan(_prev: MoneyState, formData: FormData): Pro
       .from("money_budget_accounts")
       .insert(accs.map((a) => ({ budget_id: budgetId, account_id: a })));
     if (error) return { error: saveErrorMessage(error) };
+  }
+
+  /*
+    The extra room this budget grants the monthly limits, for every month it falls in.
+
+    Cleared and rewritten rather than patched, like the filters above: the form submits
+    the whole list every time, so a row that is gone from the form is a row the person
+    removed. Cleared unconditionally, including when this is no longer a budget with
+    fixed dates — flip a holiday to 'every month' and its grants have to go with it, or
+    they sit in the database raising limits for a trip that no longer exists.
+  */
+  await supabase
+    .from("money_budget_boosts")
+    .delete()
+    .eq("source_budget_id", budgetId)
+    .eq("user_id", uid);
+
+  if (period === "custom" && endsOn) {
+    const targets = formData.getAll("boost_target").map((v) => String(v));
+    const amounts = formData.getAll("boost_amount").map((v) => num(v));
+
+    // Last one wins, so a form that somehow submits a target twice writes one row rather
+    // than tripping the unique index and losing the whole save.
+    const wanted = new Map<string, number>();
+    targets.forEach((target, i) => {
+      const amount = Math.round((amounts[i] ?? 0) * rate * 100) / 100;
+      if (!target || target === budgetId) return;
+      if (!(amount > 0) || amount >= MAX_AMOUNT) return;
+      wanted.set(target, amount);
+    });
+
+    if (wanted.size) {
+      /*
+        The database refuses a target that is not yours — the trigger on the table checks
+        both budgets against `auth.uid()`. This is the second lock, not the only one: it
+        turns a forged id into a sentence rather than a raw constraint error, and it fails
+        the whole save instead of writing the rows that happened to be legitimate.
+      */
+      const ownsAll = await Promise.all(
+        [...wanted.keys()].map((t) => ownsMoneyRow(supabase, "money_budget_plans", t, uid)),
+      );
+      if (ownsAll.some((ok) => !ok)) return { error: "That budget is not on your profile." };
+
+      const { error } = await supabase.from("money_budget_boosts").insert(
+        [...wanted].map(([target, amount]) => ({
+          user_id: uid,
+          source_budget_id: budgetId,
+          target_budget_id: target,
+          amount_rsd: amount,
+        })),
+      );
+      if (error) return { error: saveErrorMessage(error) };
+    }
+  }
+
+  /*
+    The same relationship written from the other end.
+
+    A raise has two sides and you notice you need one while looking at the limit, not at
+    the trip: Eating out is red, 14.437 over, and the holiday causing it is on another
+    card. Editing a repeating budget therefore submits the raises pointed *at* it, and
+    they are cleared and rewritten exactly like the ones pointed away.
+
+    The two blocks cannot collide: a budget is either 'custom' or it is not, and only one
+    of them runs for any save.
+  */
+  if (period !== "custom") {
+    await supabase
+      .from("money_budget_boosts")
+      .delete()
+      .eq("target_budget_id", budgetId)
+      .eq("user_id", uid);
+
+    const sources = formData.getAll("raise_source").map((v) => String(v));
+    const raiseAmounts = formData.getAll("raise_amount").map((v) => num(v));
+
+    const incoming = new Map<string, number>();
+    sources.forEach((source, i) => {
+      const amount = Math.round((raiseAmounts[i] ?? 0) * rate * 100) / 100;
+      if (!source || source === budgetId) return;
+      if (!(amount > 0) || amount >= MAX_AMOUNT) return;
+      incoming.set(source, amount);
+    });
+
+    if (incoming.size) {
+      const ownsAll = await Promise.all(
+        [...incoming.keys()].map((sourceId) =>
+          ownsMoneyRow(supabase, "money_budget_plans", sourceId, uid),
+        ),
+      );
+      if (ownsAll.some((ok) => !ok)) return { error: "That budget is not on your profile." };
+
+      const { error } = await supabase.from("money_budget_boosts").insert(
+        [...incoming].map(([source, amount]) => ({
+          user_id: uid,
+          source_budget_id: source,
+          target_budget_id: budgetId,
+          amount_rsd: amount,
+        })),
+      );
+      if (error) return { error: saveErrorMessage(error) };
+    }
   }
 
   refresh();
@@ -1693,21 +1853,44 @@ export async function saveRecurring(_prev: MoneyState, formData: FormData): Prom
   const shownRaw = String(formData.get("display_currency") ?? "").trim();
   const displayCurrency =
     shownRaw && (CURRENCIES as readonly string[]).includes(shownRaw) ? shownRaw : null;
-  const every = ["week", "month", "year"].includes(String(formData.get("every")))
+  const every = ["day", "week", "month", "year"].includes(String(formData.get("every")))
     ? String(formData.get("every"))
     : "month";
+  // The count next to the unit. "Every 6 months" and "every 2 weeks" are the two
+  // cadences people actually asked for and neither could be written down before.
+  const everyCount = Math.min(60, Math.max(1, Math.floor(num(formData.get("every_count"), 1))));
   const nextOn = String(formData.get("next_on") ?? "").trim() || today();
   const accountId = String(formData.get("account_id") ?? "").trim() || null;
   const categoryId = goalId ? null : String(formData.get("category_id") ?? "").trim() || null;
   const active = formData.get("active") != null;
   const installmentsRaw = String(formData.get("installments_total") ?? "").trim();
-  const installmentsTotal = installmentsRaw ? Math.trunc(num(installmentsRaw)) : null;
-  const endsOn = String(formData.get("ends_on") ?? "").trim() || null;
+  /*
+    When this stops, said once instead of inferred.
+
+    It used to be read off whichever column happened to be filled in, which meant a rule
+    carrying both an end date and a count meant whatever the reading code checked first.
+    The condition is now the fact, and the columns that do not belong to it are cleared
+    — so a rule switched from "for 12 months" to "forever" cannot keep a count that
+    quietly stops it next year.
+  */
+  const endsWhenRaw = String(formData.get("ends_when") ?? "never");
+  const endsWhen = ["never", "date", "installments", "goal"].includes(endsWhenRaw)
+    ? endsWhenRaw
+    : "never";
+  const installmentsTotal =
+    endsWhen === "installments" && installmentsRaw ? Math.trunc(num(installmentsRaw)) : null;
+  const endsOn =
+    endsWhen === "date" ? String(formData.get("ends_on") ?? "").trim() || null : null;
 
   if (!name) return { error: "Name is required." };
   if (!variable && !(amount > 0)) return { error: "Set an amount, or mark it as variable." };
-  if (installmentsTotal != null && !(installmentsTotal > 0))
-    return { error: "Number of payments has to be at least 1, or left empty." };
+  if (endsWhen === "installments" && !(installmentsTotal != null && installmentsTotal > 0))
+    return { error: "Say how many payments there are, or pick another way for it to end." };
+  if (endsWhen === "date" && !endsOn) return { error: "Pick the date it stops on." };
+  // The goal is what tells this one it is finished; without one the condition has
+  // nothing to watch and the rule would run for ever while claiming otherwise.
+  if (endsWhen === "goal" && !goalId)
+    return { error: "Only a rule paying into a goal can stop when that goal is full." };
   if (endsOn && endsOn < nextOn) return { error: "The end date cannot fall before the next due date." };
   // The account is what the money is set aside on, so a goal rule cannot do without one.
   if (goalId && !accountId) return { error: "Pick the account this comes off every time." };
@@ -1744,6 +1927,8 @@ export async function saveRecurring(_prev: MoneyState, formData: FormData): Prom
     currency,
     variable,
     every,
+    every_count: everyCount,
+    ends_when: endsWhen,
     next_on: nextOn,
     // The day the rule belongs to, kept so a February can never re-anchor it.
     anchor_day: anchorDayFor(nextOn, every),
@@ -1907,10 +2092,23 @@ export async function postRecurring(id: string, amountOverride?: number): Promis
   // One installment down. Whichever limit is reached first — the count or the end
   // date — pauses the item; the entries already booked stay untouched.
   const done = (item.installments_done ?? 0) + 1;
-  const next = nextDate(item.next_on, item.every, item.anchor_day);
+  const next = nextDate(item.next_on, item.every, item.anchor_day, item.every_count ?? 1);
+  /*
+    "Until the goal is full" is the one end condition the rule cannot answer on its own,
+    because the answer is in the ledger: the goal fills from this rule, from money put
+    in by hand, and empties again when some is taken back out. So it is asked here, of
+    what the goal actually holds now that this booking has landed — which also means an
+    extra deposit made by hand genuinely brings the finish forward, rather than the rule
+    carrying on to a count nobody is keeping.
+  */
+  const goalFull =
+    item.ends_when === "goal" && item.goal_id != null
+      ? ((await getGoalRemaining()).get(item.goal_id) ?? 0) <= PENNY
+      : false;
   const finished =
     (item.installments_total != null && done >= item.installments_total) ||
-    (item.ends_on != null && next > item.ends_on);
+    (item.ends_on != null && next > item.ends_on) ||
+    goalFull;
 
   /*
     The date this booked is part of the condition, not just part of the payload.
@@ -1969,13 +2167,13 @@ export async function skipRecurring(id: string): Promise<MoneyState> {
 
   const { data: item } = await supabase
     .from("money_recurring")
-    .select("id, next_on, every, ends_on, anchor_day")
+    .select("id, next_on, every, every_count, ends_on, anchor_day")
     .eq("id", id)
     .eq("user_id", uid)
     .maybeSingle();
   if (!item) return { error: "Recurring item not found." };
 
-  const next = nextDate(item.next_on, item.every, item.anchor_day);
+  const next = nextDate(item.next_on, item.every, item.anchor_day, item.every_count ?? 1);
   const { error } = await supabase
     .from("money_recurring")
     .update({
@@ -2378,3 +2576,35 @@ export async function saveRates(_prev: MoneyState, formData: FormData): Promise<
   refresh();
   return { ok: true };
 }
+
+/**
+ * A year of one category, fetched when its panel is opened rather than with the screen.
+ *
+ * The Money screen already knows what every category cost *this* month; a year of every
+ * category is a dozen times that for a panel most visits never open. So it is a call of
+ * its own, made on demand — the screen stays the same weight it was.
+ *
+ * `getCategoryHistory` reads under the caller's own session, so RLS decides what comes
+ * back. A crafted category id belonging to somebody else matches no rows of yours and
+ * returns nothing, which is the honest answer and not an error worth naming.
+ */
+export async function loadCategoryHistory(categoryId: string): Promise<CategoryHistory | null> {
+  const id = String(categoryId ?? "").trim();
+  if (!id) return null;
+  return getCategoryHistory(id);
+}
+
+
+/**
+ * The entries behind one budget's figure, fetched when its panel opens.
+ *
+ * A server action rather than data carried down with every card: eleven budgets' worth
+ * of ledger rows would ride to the browser on every page load for a list almost nobody
+ * opens, and the panel wants a fresh read anyway. Ownership is checked inside
+ * `getBudgetEntries` — an id that is not yours finds no plan and therefore no rows.
+ */
+export async function loadBudgetEntries(planId: string): Promise<BudgetEntry[]> {
+  if (typeof planId !== "string" || planId.length === 0) return [];
+  return getBudgetEntries(planId);
+}
+

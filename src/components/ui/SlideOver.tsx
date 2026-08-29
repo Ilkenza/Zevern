@@ -157,6 +157,15 @@ export function SlideOver({
         */}
         <div className="ag-panel-body-in zv-scroll-fade flex-1 overflow-y-auto overscroll-contain p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
           {children}
+          {/*
+            Room under the last control, as content rather than as padding.
+
+            Chrome does not count a scroll container's bottom padding as scrollable, so
+            the panel's own `pb-` is invisible the moment the content is taller than the
+            panel — which is exactly when it is needed. A spacer is content, so it always
+            scrolls into view, and the Save button stops sitting on the bottom edge.
+          */}
+          <div aria-hidden className="h-6" />
         </div>
       </div>
     </div>,

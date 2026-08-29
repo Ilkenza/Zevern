@@ -53,8 +53,12 @@ export default async function MoneyPage({
     client and needs one number per category id; sending the whole budget line would
     ship six fields per category across the wire for the sake of one.
   */
-  const limits: Record<string, number> = {};
-  for (const line of budgetLines) if (line.limit > 0) limits[line.category.id] = line.limit;
+  const limits: Record<string, { limit: number; counted: number }> = {};
+  for (const line of budgetLines) {
+    if (line.limit > 0) {
+      limits[line.category.id] = { limit: line.limit, counted: line.counted ?? line.spent };
+    }
+  }
 
   let panel: MoneyPanel = null;
   if (params.new) {

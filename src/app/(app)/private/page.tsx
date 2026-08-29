@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import {
   getBudgetLines,
+  getBudgetPlanLines,
   getDueRecurring,
   getDueSoon,
   getExpenseTrend,
@@ -16,7 +17,6 @@ import {
   getMonthSummary,
   getOnHand,
   getAccountBalances,
-  getTransactions,
   getUnpricedTransactions,
   getLoans,
   loanTotals,
@@ -29,14 +29,14 @@ import { Panel } from "@/components/ui/Panel";
 import { Kpi } from "@/components/ui/Kpi";
 import { NetKpi } from "@/components/private/NetKpi";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { buttonClasses } from "@/components/ui/Button";
 import { TaskCheckbox } from "@/components/tasks/TaskCheckbox";
-import { DueRecurringPanel } from "@/components/private/DueRecurringPanel";
-import { DueSoonPanel } from "@/components/private/DueSoonPanel";
 import { MoreRow } from "@/components/ui/MoreRow";
 import { CAT_REST, catTone } from "@/lib/money/tone";
 import { remedyFor } from "@/components/private/budgets/status";
-import { UnpricedPanel } from "@/components/private/UnpricedPanel";
+import { NeedsList } from "@/components/private/overview/NeedsList";
+import { BudgetsStrip } from "@/components/private/overview/BudgetsStrip";
+import { daysUntil, readNeeds, whenPhrase } from "@/components/private/overview/needs-you";
+import { readPlan } from "@/components/private/budgets/plan-reading";
 import {
   monthKey,
   monthLabel,
@@ -81,30 +81,8 @@ const TODAY_SHOWN = 5;
 const CATS_SHOWN = 5;
 const GOALS_SHOWN = 5;
 
-const SHORT_MONTHS = [
-  "Jan",
-  "Feb",
-  "Mar",
-  "Apr",
-  "May",
-  "Jun",
-  "Jul",
-  "Aug",
-  "Sep",
-  "Oct",
-  "Nov",
-  "Dec",
-] as const;
-
-/** A ledger date in the amount of space an Overview row can honestly spend on it. */
-function recentDateLabel(value: string, today: string) {
-  if (value === today) return "Today";
-  const [year, month, day] = today.split("-").map(Number);
-  const yesterday = new Date(Date.UTC(year, month - 1, day - 1)).toISOString().slice(0, 10);
-  if (value === yesterday) return "Yesterday";
-  const [, valueMonth, valueDay] = value.split("-").map(Number);
-  return `${valueDay} ${SHORT_MONTHS[valueMonth - 1] ?? ""}`.trim();
-}
+/** Long enough to read as a date rather than a code, in the one place a date is the point. */
+const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 export default async function PrivateOverviewPage({
   searchParams,
@@ -114,7 +92,7 @@ export default async function PrivateOverviewPage({
   // The month was fixed to today, which left the page showing a month it gave you no
   // way to leave — while Money and Budgets both let you walk back through them.
   const params = await searchParams;
-  const { fmt, fmtShort } = await getMoney();
+  const { fmt, fmtExact, fmtShort } = await getMoney();
 
   const current = monthKey();
   const today = todayISO();
@@ -146,11 +124,10 @@ export default async function PrivateOverviewPage({
     screen should not pay for what it is not going to draw. The placeholders are never
     read — every one of them sits behind `live` in the markup below.
   */
-  const [summary, lines, recent, trend, incomeOnFile, allGoals, due, tasks, onHand, accounts, unpriced, soon, loans] =
+  const [summary, lines, trend, incomeOnFile, allGoals, due, tasks, onHand, accounts, unpriced, soon, loans, plans] =
     await Promise.all([
       getMonthSummary(month),
       getBudgetLines(month),
-      getTransactions({ month, limit: 6 }),
       getExpenseTrend(6),
       // Not "did anything arrive this month" — whether the profile has ever said what
       // comes in at all. The net note needs the difference; see `monthNetNote`. Asked
@@ -184,6 +161,13 @@ export default async function PrivateOverviewPage({
         claim on it.
       */
       live ? getLoans() : Promise.resolve([]),
+      /*
+        The named budgets. They were on this page only as per-category caps, which is
+        the narrowest shape a budget can take — one month, one category — so a
+        fortnightly one, a savings one, or a holiday you file purchases into by hand
+        was invisible here however much of it you had spent.
+      */
+      live ? getBudgetPlanLines() : Promise.resolve([]),
     ]);
 
   const { owedToYou, youOwe } = loanTotals(loans);
@@ -200,7 +184,6 @@ export default async function PrivateOverviewPage({
     : accounts.slice(0, 2);
 
   const pace = monthProgress(month);
-  const budgeted = lines.filter((l) => l.limit > 0);
 
   /*
     The one line on this page that is not a measurement.
@@ -247,12 +230,127 @@ export default async function PrivateOverviewPage({
   const peak = Math.max(1, ...trend.map((t) => t.expense));
 
   // What this page knows that no card below it repeats: how this month compares with
-  // the last one, and what is still sitting unbooked.
+  // the last one.
   const prevKey = shiftMonth(month, -1);
   const prevName = monthLabel(prevKey).split(" ")[0];
   const prevExpense = trend.find((t) => t.month === prevKey)?.expense ?? 0;
+  /*
+    Bills whose date is already inside this month and which have not been booked yet.
+
+    `getDueSoon` looks fourteen days ahead, which runs past the end of the month — and a
+    figure headed "by the 31st" that quietly includes a bill dated the 4th of September
+    is the sort of small lie that makes somebody stop reading the whole block.
+  */
+  const monthEnd = monthRange(month).to;
+  const dueBeforeMonthEnd = soon.items
+    .filter((item) => item.on <= monthEnd)
+    .reduce((sum, item) => sum + item.amount, 0);
   const delta = prevExpense > 0 ? (summary.expense - prevExpense) / prevExpense : null;
-  const waiting = due.length;
+
+  /*
+    Everything still waiting on a decision, ranked once, in `needs-you`.
+
+    The page already knew all of it — as four panels stacked in the order they were
+    written, each certain its own contents came first. So on 28 August a 30.776,48
+    instalment falling due in three days sat in the third panel down, under two smaller
+    things, and the screen's answer to "is anything about to go wrong" was "read all of
+    it and decide". One ranking gives the top of the page a sentence and gives the band
+    below it a count.
+
+    The panels keep rendering themselves. Repeating their rows here would be the same
+    payment reported twice a hand's width apart, so `needs.budgets` is only the part
+    that no panel owns.
+  */
+  const needs = live
+    ? readNeeds({
+        today,
+        // Only the ones waiting for a tap. The fixed rules entered ahead of time book
+        // themselves when the screen opens, and listing them as things that need you
+        // would be asking about work already done by the time you read it.
+        dueNow: due.filter(
+          (r) => r.variable || !(Number(r.amount) > 0) || String(r.created_at).slice(0, 10) >= r.next_on,
+        ),
+        // Already-due items are the `dueNow` list above; counting them from both
+        // sources would report one late bill as two.
+        coming: soon.items
+          .filter((i) => i.on >= soon.from)
+          .map((i) => ({ id: i.id, name: i.name, amount: i.amount, on: i.on })),
+        unpriced,
+        budgets: plans.map((line) => ({ line, reading: readPlan(line, today, fmt) })),
+        fmt,
+      })
+    : { all: [], shown: [], hidden: 0, count: 0, headline: null };
+
+  /*
+    What is next, for the mornings when nothing is wrong.
+
+    The sentence under `Today` had two states and one of them was "Nothing needs you" —
+    word for word the calm line four blocks further down, printed in the one place on the
+    screen that is read first and read every day. A masthead that empties itself on a good
+    morning teaches you to skip it, and by the bad morning you are skipping it.
+
+    So the good-day sentence reports instead of reassuring: the next thing that has a date
+    on it. It is already fetched, it is rarely the same two days running, and it is the
+    only forward-looking line above the month rule.
+  */
+  const nextUp = live ? (soon.items.find((item) => item.on >= today) ?? null) : null;
+
+  /*
+    Money already promised to something that is happening now.
+
+    `Free to spend` is accounts less what goals hold, and a goal holds money because the
+    dinars actually moved. A budget moves nothing — the money is still on the account and
+    still spendable — so subtracting it would claim a movement that never happened. But
+    20.474 of that headline is the rest of a holiday you are four days into, and a figure
+    that calls it free is a figure that will be wrong by the time you get home.
+
+    So it reads as a clause, exactly like borrowed money does two lines up: this is what
+    you have, and this is what already has a claim on it. Only the budgets you file into
+    by hand count: a budget that watches a category is already being spent out of the
+    balance as it happens, so counting it here would claim the same dinar twice.
+  */
+  const promisedTo = plans
+    .filter(
+      (line) =>
+        line.plan.membership === "added" &&
+        line.plan.kind === "expense" &&
+        /*
+          Its own dates, not a monthly ceiling.
+
+          Without this the clause counted `odeca obuca` — 80.000 a month, added only — and
+          announced `110.474 RSD` as a claim on a balance of 101.641. A monthly cap is not
+          a promise: nothing is owed to it, nobody is waiting for it, and the money is only
+          spoken for if you happen to spend it. A budget with a start and an end is the
+          opposite — you are four days into the thing it is for, and the rest of it will be
+          gone by the time it closes.
+        */
+        line.plan.period === "custom" &&
+        today >= line.window.from &&
+        today <= line.window.to &&
+        line.limitRsd - line.used > 0,
+    )
+    .map((line) => ({ name: line.plan.name, left: line.limitRsd - line.used }))
+    .sort((a, b) => b.left - a.left);
+
+  const promised = promisedTo.reduce((sum, item) => sum + item.left, 0);
+
+  /*
+    Named, not described.
+
+    This read "30.474 RSD planned for trips running", and every word of that had to be
+    decoded: which trips, running where, and why this figure and not the one on the
+    Budgets card. Half of them are not trips — one is a plain spending cap — so the
+    sentence was also wrong about its own contents.
+
+    A category with no natural name gets named by its members instead. "left on na moru
+    and 1 more" cannot be misread, needs nothing decoded, and is the same length.
+  */
+  const promisedLabel =
+    promisedTo.length === 1
+      ? `${fmt(promised)} left on ${promisedTo[0].name}`
+      : `${fmt(promised)} left on ${promisedTo[0]?.name} and ${promisedTo.length - 1} more`;
+
+  const weekday = WEEKDAYS[new Date(`${today}T00:00:00Z`).getUTCDay()];
 
   /*
     Where the month went, as parts of a whole.
@@ -272,24 +370,39 @@ export default async function PrivateOverviewPage({
     .filter((l) => l.spent > 0)
     .sort((a, b) => b.spent - a.spent);
 
-  /*
-    The five biggest, plus anything that has broken its limit.
-
-    Ordered by spend, because the question this panel answers first is "where did it
-    go". But a small category blown to three times its cap is the one line on the page
-    somebody needs to see, and by size it sits ninth — so it is pulled in rather than
-    cut. That is the whole reason the cut is not a plain `slice`: a limit that is only
-    reported when the category happens to be large is a limit that is not reported.
-  */
-  const over = spentCats.filter((l) => l.limit > 0 && l.spent > l.limit);
-  const topCats = [
-    ...spentCats.slice(0, CATS_SHOWN),
-    ...over.filter((l) => !spentCats.slice(0, CATS_SHOWN).includes(l)),
-  ].slice(0, CATS_SHOWN + 2);
   const uncategorizedSpend =
     summary.byCategory.find((category) => category.id === UNCATEGORIZED_CATEGORY_ID)?.spent ?? 0;
+
+  /*
+    Every slice of the month, ranked by size — uncategorised included.
+
+    It used to be appended after the cut, below whatever five named categories won, and
+    drawn without a bar or a share. In August that put 4.000 — nine percent of the
+    month, more than Subscriptions, Learning and Transport put together — under all
+    three of them, as a footnote. A panel whose whole subject is proportion cannot rank
+    one of its slices by what kind of thing it is instead of how big it is.
+
+    So it competes for its place like the rest. It is not a category and never will be,
+    which is the point: money you have not filed is a real part of where the month went,
+    and seeing it sit third is what makes anyone go and file it.
+
+    The cut is a plain slice by size. It used to drag in any category that had broken
+    its cap however small — an overspend reported only when the category happens to be
+    large is an overspend that is not reported — but the Budgets card above reports
+    every one of them now, in the panel that owns limits.
+  */
+  type Slice = { id: string; name: string; spent: number };
+  const slices: Slice[] = [
+    ...spentCats.map((l) => ({ id: l.category.id, name: l.category.name, spent: l.spent })),
+    ...(uncategorizedSpend > 0
+      ? [{ id: UNCATEGORIZED_CATEGORY_ID, name: "Uncategorized", spent: uncategorizedSpend }]
+      : []),
+  ].sort((a, b) => b.spent - a.spent);
+
+  const topCats = slices.slice(0, CATS_SHOWN);
+  const shownIds = new Set(topCats.map((slice) => slice.id));
   const otherSpend = Math.max(
-    summary.expense - uncategorizedSpend - topCats.reduce((a, l) => a + l.spent, 0),
+    summary.expense - topCats.reduce((a, slice) => a + slice.spent, 0),
     0,
   );
   const share = (v: number) => (summary.expense > 0 ? v / summary.expense : 0);
@@ -315,14 +428,24 @@ export default async function PrivateOverviewPage({
     money is real.
   */
   const SUGGEST_SHARE = 0.1;
-  const suggestion = [...topCats]
-    .filter((l) => l.limit === 0 && summary.expense > 0 && l.spent / summary.expense >= SUGGEST_SHARE)
+  // From the rows on screen, and only the real categories among them — `Uncategorized`
+  // is not a thing you can put a limit on.
+  const suggestion = spentCats
+    .filter(
+      (l) =>
+        shownIds.has(l.category.id) &&
+        l.limit === 0 &&
+        summary.expense > 0 &&
+        l.spent / summary.expense >= SUGGEST_SHARE,
+    )
     .sort((a, b) => b.spent - a.spent)[0];
 
   // Where the month itself stands. The cards below say what was spent and what is
   // left; nothing on the page says how much of the month those numbers cover — and a
   // figure without its share of the month is half a sentence.
   const monthDays = Number(monthRange(month).to.slice(8));
+  /** "August" — the month named rather than numbered, wherever it closes a sentence. */
+  const monthName = monthLabel(month).split(" ")[0];
   /*
     The day of the month, read locally.
 
@@ -349,99 +472,137 @@ export default async function PrivateOverviewPage({
 
   return (
     <div className="money-premium mx-auto max-w-300 space-y-4">
-      <header className="masthead">
-        <div className="masthead-say">
-          <span className={`masthead-kicker${month === current ? " is-live" : ""}`}>
-            <i aria-hidden />
-            {phase}
-          </span>
+      {/*
+        The top of the screen is about now, and nothing up here can disagree with a month
+        picker — because the picker is not up here any more. It sits on the rule further
+        down, over the blocks it actually governs.
 
-          <h1 className="masthead-title">
-            <span className="rv">
-              <span className="rv-i">{monthLabel(month)}</span>
+        That was the quarrel between the two halves of this page. One masthead was trying
+        to head both a live screen and a month's record, and a heading naming August over
+        a block reporting this afternoon is one wrong reading of both.
+      */}
+      {live ? (
+        <header className="masthead">
+          <div className="masthead-say">
+            <span className="masthead-kicker is-live">
+              <i aria-hidden />
+              {weekday}
             </span>
-          </h1>
+
+            <h1 className="masthead-title">
+              <span className="rv">
+                <span className="rv-i">Today</span>
+              </span>
+            </h1>
+
+            {/*
+              The one sentence the screen could not say before.
+
+              `readNeeds` has already decided which of the bills, overspends and unpriced
+              entries is the most pressing; this prints it with its figure and its date,
+              and is a door to where it gets dealt with.
+
+              Exact rather than rounded. An instalment is a figure somebody else will take
+              to the dinar, and `30.776` here against 30.776,48 on the statement is the
+              kind of small lie that makes a person stop believing the rest of the page.
+            */}
+            <p className="masthead-blurb">
+              {needs.headline ? (
+                <Link
+                  href={
+                    needs.headline.action.kind === "link"
+                      ? needs.headline.action.href
+                      : "/private/upcoming"
+                  }
+                  className="is-up is-door"
+                >
+                  {needs.headline.title} · {needs.headline.detail}
+                  {needs.headline.amount !== null && ` · ${fmtExact(needs.headline.amount)}`}
+                </Link>
+              ) : nextUp ? (
+                <>
+                  <span className="is-quiet">Nothing needs you</span>
+                  <Link href="/private/upcoming" className="is-door">
+                    Next: {nextUp.name} {whenPhrase(daysUntil(today, nextUp.on))} ·{" "}
+                    {fmtExact(nextUp.amount)}
+                  </Link>
+                </>
+              ) : (
+                <span className="is-quiet">Nothing needs you</span>
+              )}
+            </p>
+          </div>
 
           {/*
-            Only what this page knows, and one of it is a door.
-
-            A screen that tells you something is waiting and then makes you find it in
-            the sidebar has done half a job. When there is something to book, that
-            fact is the link to the place you book it; when there is nothing, it is
-            plain text, because a link to an empty screen is a trap.
+            The day, not the month. This numeral read `08/12` beside a month name, which
+            was true and belonged to the half of the page that reports a month. Up here
+            the unit is the day: how far into August you are is what makes "3 days left"
+            mean anything.
           */}
-          <p className="masthead-blurb">
-            {/*
-              The month-on-month comparison used to live here as a sentence. It sits on
-              the `Spent` card now, as an arrow and a percentage against the figure it
-              actually describes — which is where a delta belongs. Saying it in prose up
-              here as well would be the same fact in two voices.
-            */}
-            {/*
-              This said "3 items waiting to book" under a July heading too, which is
-              the same fault as the blocks below: nothing is waiting to book *in July*,
-              it is waiting now. A month that has not started gets the one sentence that
-              is true of it, and a door to the screen where its contents actually live.
-            */}
-            {live ? (
-              waiting > 0 ? (
+          <span className="masthead-num" aria-label={`Day ${dayNow} of ${monthDays}`}>
+            {String(dayNow).padStart(2, "0")}
+            <i aria-hidden>/{monthDays}</i>
+          </span>
+        </header>
+      ) : (
+        /*
+          A month you have walked back to. There is no "now" block under this, so the
+          masthead is the month's own heading and carries the picker itself rather than
+          handing it to a rule two centimetres below.
+        */
+        <header className="masthead">
+          <div className="masthead-say">
+            <span className="masthead-kicker">
+              <i aria-hidden />
+              {phase}
+            </span>
+
+            <h1 className="masthead-title">
+              <span className="rv">
+                <span className="rv-i">{monthLabel(month)}</span>
+              </span>
+            </h1>
+
+            <p className="masthead-blurb">
+              {month > current ? (
                 <Link href="/private/upcoming" className="is-up is-door">
-                  {waiting} {waiting === 1 ? "payment needs" : "payments need"} your review
+                  Not started — see what is scheduled
                 </Link>
               ) : (
-                <span>All payments are up to date</span>
-              )
-            ) : month > current ? (
-              <Link href="/private/upcoming" className="is-up is-door">
-                Not started — see what is scheduled
-              </Link>
-            ) : (
-              <span className="is-quiet">A closed month — this is the record</span>
-            )}
-          </p>
+                <span className="is-quiet">A closed month — this is the record</span>
+              )}
+            </p>
 
-          <div className="money-month-nav">
-            <Link
-              href={`/private?month=${shiftMonth(month, -1)}`}
-              aria-label={`Go to ${monthLabel(shiftMonth(month, -1))}`}
-              className="money-month-arrow"
-            >
-              <ChevronLeft className="h-4 w-4" />
-              <span>{shortMonthLabel(shiftMonth(month, -1), month)}</span>
-            </Link>
-            <Link
-              href={`/private?month=${shiftMonth(month, 1)}`}
-              aria-label={`Go to ${monthLabel(shiftMonth(month, 1))}`}
-              className="money-month-arrow"
-            >
-              <span>{shortMonthLabel(shiftMonth(month, 1), month)}</span>
-              <ChevronRight className="h-4 w-4" />
-            </Link>
-            {month !== current && (
+            <div className="money-month-nav">
+              <Link
+                href={`/private?month=${shiftMonth(month, -1)}`}
+                aria-label={`Go to ${monthLabel(shiftMonth(month, -1))}`}
+                className="money-month-arrow"
+              >
+                <ChevronLeft className="h-4 w-4" />
+                <span>{shortMonthLabel(shiftMonth(month, -1), month)}</span>
+              </Link>
+              <Link
+                href={`/private?month=${shiftMonth(month, 1)}`}
+                aria-label={`Go to ${monthLabel(shiftMonth(month, 1))}`}
+                className="money-month-arrow"
+              >
+                <span>{shortMonthLabel(shiftMonth(month, 1), month)}</span>
+                <ChevronRight className="h-4 w-4" />
+              </Link>
               <Link href="/private" className="money-month-back">
                 <CornerUpLeft className="h-3.5 w-3.5" aria-hidden />
                 This month
               </Link>
-            )}
+            </div>
           </div>
-        </div>
 
-        {/*
-          The number, carrying a fact.
-
-          "08" was ornament: it said nothing that "August" did not. "08/12" says which
-          month *and* how much of the year is behind you — which is on no other screen
-          in the app, and is the only honest reason a number gets to be this size.
-
-          Quick add is gone from here. It sits in the topbar on every screen, so a
-          second one thirty centimetres away was the page repeating an app-level
-          control — the same duplication as New.
-        */}
-        <span className="masthead-num" aria-label={`Month ${month.slice(5, 7)} of 12`}>
-          {month.slice(5, 7)}
-          <i aria-hidden>/12</i>
-        </span>
-      </header>
+          <span className="masthead-num" aria-label={`Month ${month.slice(5, 7)} of 12`}>
+            {month.slice(5, 7)}
+            <i aria-hidden>/12</i>
+          </span>
+        </header>
+      )}
 
       {/*
         The figure the page exists to give you.
@@ -507,6 +668,7 @@ export default async function PrivateOverviewPage({
           {owedToYou > 0 && (
             <Link href="/private/money">{fmt(owedToYou)} owed to you</Link>
           )}
+          {promised > 0 && <Link href="/private/budgets">{promisedLabel}</Link>}
         </p>
         </div>
 
@@ -516,14 +678,11 @@ export default async function PrivateOverviewPage({
             {overviewAccounts.map((account) => (
               <div key={account.id} className="onhand-account">
                 <span className="onhand-account-name">
-                  {account.name} ({account.currency})
+                  {account.name.trim().endsWith(`(${account.currency})`)
+                    ? account.name
+                    : `${account.name} (${account.currency})`}
                 </span>
                 <span className="mono onhand-account-value">{fmt(account.balance)}</span>
-                {account.reserved > 0 && (
-                  <span className="onhand-account-note">
-                    {fmt(account.free)} available · {fmt(account.reserved)} set aside
-                  </span>
-                )}
               </div>
             ))}
             <Link href="/private/setup#setup-accounts" className="onhand-manage">
@@ -534,128 +693,51 @@ export default async function PrivateOverviewPage({
       )}
 
 
-      {/* No "Spent this month" card: the masthead is that figure, and printing it
-          twice on one screen is how a page stops looking composed. */}
       {/*
-        One column, then two, then three.
+        One heading over everything that wants a decision, and a count on it.
 
-        It began at two and stayed there until 1024px, which does two things badly on a
-        phone: `145.983 RSD` at 24px has about 170px to live in and does not fit, and
-        the third card sits alone beside a gap because three does not divide by two.
+        These panels used to sit here in the order they were written, each a card with
+        its own title, so the screen's answer to "is there anything" was four answers
+        and a scroll. The count is the answer; the panels under it are the work.
 
-        The last card spanning the row in the two-column band fixes the orphan without a
-        fourth figure invented to fill it. Net is the right one to widen — it is the
-        conclusion the other two are the working for.
-      */}
-      <div className="money-card-grid grid grid-cols-1 gap-3 min-[520px]:grid-cols-2 lg:grid-cols-3 [&>*:last-child]:min-[520px]:col-span-2 [&>*:last-child]:lg:col-span-1">
-        {/*
-          A zero that is a fact, told as one.
-
-          Income really is nothing this month, so it prints `0` — hiding a measured
-          zero in an app about money is the one thing this screen must never do. What
-          it was missing is the half-sentence that separates "you earned nothing" from
-          "this is broken", which is the only reason a zero ever looks like a bug.
-        */}
-        <Kpi
-          className="money-card-premium"
-          label="Income"
-          value={fmt(summary.income)}
-          hint={
-            summary.income === 0
-              ? month === current
-                ? "Nothing logged yet this month"
-                : "None logged that month"
-              : undefined
-          }
-        />
-        {/*
-          `On accounts` used to be the third card and it is gone, because the hero now
-          owns the balance question completely — available, total and reserved are all
-          said up there, in the one place that answers "how much do I have".
-
-          What took its seat is the figure the screen was actually missing. Spend was
-          nowhere on the page as a number: it had been pulled from the cards as
-          redundant with the masthead, and then pulled from the masthead too when that
-          became the month numeral. You could only infer it from a negative net.
-
-          So the three cards are now one thing — the month's flow. In, out, and what
-          those two leave. The hero is position, these are movement.
-        */}
-        <Kpi
-          className="money-card-premium"
-          label="Spent"
-          value={fmt(summary.expense)}
-          delta={{
-            pct: delta === null ? null : delta * 100,
-            label: delta === null ? `No ${prevName} to compare` : `vs ${prevName}`,
-            riseIsGood: false,
-          }}
-        />
-        <NetKpi
-          className="money-card-premium"
-          net={summary.net}
-          income={summary.income}
-          saved={summary.saved}
-          incomeOnFile={incomeOnFile}
-        />
-      </div>
-
-      {/*
-        The claim on the figures above.
-
-        This began as a clause on the hero note — "66.200 due in 7 days" — on the
-        principle that a figure needing a caveat should not keep the caveat somewhere
-        else. The clause was the weakest way of honouring it: it could say how much and
-        never what, so it read as a warning you could not act on.
-
-        Its first home as a card was directly under the hero, which honoured the letter
-        of that principle and broke something better. The hero and the three cards under
-        it are one statement read top to bottom — where you stand, then how the month
-        moved — and a list wedged into the middle of it split a pair that was composed.
-        Distance from the headline costs less than that.
-
-        So it sits at the head of the band of things that want dealing with, above "Due
-        now", which is what it is: the same kind of list, one step earlier in time.
+        Order is by how much it presses, not by kind: a bill whose date has gone by
+        first, then entries that cannot be counted until you price them, then a budget
+        already past its ceiling, and last what is merely coming.
       */}
       {/*
-        The verdict, directly under the three figures it is drawn from.
+        The heading appears when there is something under it to head.
 
-        It only appears once there is a limit to judge against — with nothing budgeted
-        there is no plan to be off, and the "Where it went" panel below already offers
-        to set the first one. Silence is the honest state there, not encouragement.
+        It used to be unconditional, so on a clear morning the screen printed "Needs you"
+        with no count over a card whose only contents were the fortnight's total — a
+        heading contradicted by the thing it was heading. A count that can read zero is
+        the one number on this page that must never be decoration.
       */}
-      {live && budgeted.length > 0 && (
-        <p className={`money-verdict${remedy ? " is-warn" : ""}`}>
-          {remedy ? (
-            remedy.room > 0 ? (
-              <>
-                <b>{remedy.category}</b> is {fmtShort(remedy.gap)} past its pace —{" "}
-                <Link href="/private/budgets">{fmtShort(remedy.perWeek)} a week</Link> for
-                the rest of the month keeps it inside.
-              </>
-            ) : (
-              <>
-                <b>{remedy.category}</b> has spent its whole limit, and there{" "}
-                {daysLeft === 1 ? "is 1 day" : `are ${daysLeft} days`} of the month left.
-              </>
-            )
-          ) : (
-            <>Every limit is on pace.</>
-          )}
-        </p>
+      {live && needs.count > 0 && (
+        <div className="ov-eyebrow">
+          <span>Needs you</span>
+          <b>{needs.count}</b>
+        </div>
       )}
 
-      {live && <DueSoonPanel soon={soon} free={onHand.free} />}
-
-      {live && <DueRecurringPanel due={due} />}
-
       {/*
-        Under "Due now", because they are the same kind of thing: a short list of
-        entries only you can finish, and both are gone from the screen the moment you
-        have. A purchase with no price yet is half an entry — this is where the other
-        half gets typed.
+        On a quiet day this renders nothing at all.
+
+        It used to render a green card saying "Nothing needs you", under a heading saying
+        "Needs you", under a masthead line saying "Nothing needs you" — three ways of
+        reporting an absence, and a whole block of screen spent on the fact that there is
+        no news. The masthead says it once, in the place the eye starts, and the fortnight
+        total that was in the card's footer belongs to Upcoming, which is a tap away and
+        exists for exactly that.
       */}
-      {live && <UnpricedPanel entries={unpriced} />}
+      {live && (
+        <NeedsList
+          needs={needs.shown}
+          hidden={needs.hidden}
+          due={due}
+          soon={soon}
+          free={onHand.free}
+        />
+      )}
 
       {/*
         Today and Goals are both facts about right now, not about the month in the
@@ -684,7 +766,21 @@ export default async function PrivateOverviewPage({
                   >
                     <TaskCheckbox id={t.id} done={t.status === "done"} />
                     <span className="flex-1 truncate text-[13.5px] text-ink">{t.title}</span>
-                    <span className="mono text-[11.5px] text-muted">{t.due_at?.slice(0, 10)}</span>
+                    {/*
+                      The date, only when it is not today's.
+
+                      Every row in a panel headed "Today" printed a full `2026-08-27`, which
+                      is eleven characters saying either "today" — which the heading already
+                      said — or "this is late", which is the only case worth a word. Five of
+                      them down the card were five long numerals carrying, between them, one
+                      fact. Now the late ones say how late, and the rest say nothing.
+                    */}
+                    {t.due_at?.slice(0, 10) &&
+                      t.due_at.slice(0, 10) < today && (
+                        <span className="text-[11.5px] font-semibold text-spend">
+                          {whenPhrase(daysUntil(today, t.due_at.slice(0, 10)))}
+                        </span>
+                      )}
                   </div>
                 ))}
               </div>
@@ -779,6 +875,173 @@ export default async function PrivateOverviewPage({
       )}
 
       {/*
+        Where now ends and the month begins.
+
+        Everything above this line is true this afternoon and has no month in it.
+        Everything below is a report on whichever month the picker names, and the picker
+        lives here, on the rule, rather than at the top of a screen it only governs half
+        of. Walk back to July and the blocks under this rule become July; the balance and
+        the things that need you simply are not on the page, because "what needs you in
+        July" is not a question.
+      */}
+      {live && (
+        <div className="month-rule">
+          <h2 className="month-rule-title">{monthLabel(month)}</h2>
+          {/*
+            No `Day 29/31` here. The numeral in the masthead already says which day of the
+            month it is, in letters four times the size, and a screen that counts the same
+            day twice in two places is a screen asking you to check whether they agree.
+            The rule is a boundary and a heading; the arrows beside it say the rest.
+          */}
+          <div className="money-month-nav">
+            <Link
+              href={`/private?month=${shiftMonth(month, -1)}`}
+              aria-label={`Go to ${monthLabel(shiftMonth(month, -1))}`}
+              className="money-month-arrow"
+            >
+              <ChevronLeft className="h-4 w-4" />
+              <span>{shortMonthLabel(shiftMonth(month, -1), month)}</span>
+            </Link>
+            <Link
+              href={`/private?month=${shiftMonth(month, 1)}`}
+              aria-label={`Go to ${monthLabel(shiftMonth(month, 1))}`}
+              className="money-month-arrow"
+            >
+              <span>{shortMonthLabel(shiftMonth(month, 1), month)}</span>
+              <ChevronRight className="h-4 w-4" />
+            </Link>
+          </div>
+        </div>
+      )}
+
+      {/*
+        One column, then two, then three.
+
+        It began at two and stayed there until 1024px, which does two things badly on a
+        phone: `145.983 RSD` at 24px has about 170px to live in and does not fit, and
+        the third card sits alone beside a gap because three does not divide by two.
+
+        The last card spanning the row in the two-column band fixes the orphan without a
+        fourth figure invented to fill it. Net is the right one to widen — it is the
+        conclusion the other two are the working for.
+      */}
+      <div className="money-card-grid grid grid-cols-1 gap-3 min-[520px]:grid-cols-2 lg:grid-cols-3 [&>*:last-child]:min-[520px]:col-span-2 [&>*:last-child]:lg:col-span-1">
+        {/*
+          A zero that is a fact, told as one.
+
+          Income really is nothing this month, so it prints `0` — hiding a measured
+          zero in an app about money is the one thing this screen must never do. What
+          it was missing is the half-sentence that separates "you earned nothing" from
+          "this is broken", which is the only reason a zero ever looks like a bug.
+        */}
+        <Kpi
+          className="money-card-premium"
+          label="Income"
+          value={fmt(summary.income)}
+          hint={
+            summary.income === 0
+              ? month === current
+                ? "Nothing logged yet this month"
+                : "None logged that month"
+              : undefined
+          }
+        />
+        {/*
+          `On accounts` used to be the third card and it is gone, because the hero now
+          owns the balance question completely — available, total and reserved are all
+          said up there, in the one place that answers "how much do I have".
+
+          What took its seat is the figure the screen was actually missing. Spend was
+          nowhere on the page as a number: it had been pulled from the cards as
+          redundant with the masthead, and then pulled from the masthead too when that
+          became the month numeral. You could only infer it from a negative net.
+
+          So the three cards are now one thing — the month's flow. In, out, and what
+          those two leave. The hero is position, these are movement.
+        */}
+        <Kpi
+          className="money-card-premium"
+          label="Spent"
+          value={fmt(summary.expense)}
+          delta={{
+            pct: delta === null ? null : delta * 100,
+            label: delta === null ? `No ${prevName} to compare` : `vs ${prevName}`,
+            riseIsGood: false,
+          }}
+        />
+        <NetKpi
+          className="money-card-premium"
+          net={summary.net}
+          income={summary.income}
+          saved={summary.saved}
+          incomeOnFile={incomeOnFile}
+        />
+      </div>
+
+      {/*
+        The claim on the figures above.
+
+        This began as a clause on the hero note — "66.200 due in 7 days" — on the
+        principle that a figure needing a caveat should not keep the caveat somewhere
+        else. The clause was the weakest way of honouring it: it could say how much and
+        never what, so it read as a warning you could not act on.
+
+        Its first home as a card was directly under the hero, which honoured the letter
+        of that principle and broke something better. The hero and the three cards under
+        it are one statement read top to bottom — where you stand, then how the month
+        moved — and a list wedged into the middle of it split a pair that was composed.
+        Distance from the headline costs less than that.
+
+        So it sits at the head of the band of things that want dealing with, above "Due
+        now", which is what it is: the same kind of list, one step earlier in time.
+      */}
+      {/*
+        The verdict, directly under the three figures it is drawn from.
+
+        It only appears once there is a limit to judge against — with nothing budgeted
+        there is no plan to be off, and the "Where it went" panel below already offers
+        to set the first one. Silence is the honest state there, not encouragement.
+      */}
+      {/*
+        Only when there is drift to report.
+
+        This line used to fall back to "Every limit is on pace." on a clear day, which is
+        the same news the masthead already gives in the first sentence on the screen —
+        "Nothing needs you" is precisely "no limit is over and none is drifting". Two
+        reassurances a screen apart do not reassure twice; they make the reader check
+        whether they are talking about the same thing.
+
+        Silence is the honest calm state here. A line that only ever appears when
+        something is drifting is a line that is read the day it appears.
+      */}
+      {live && remedy && !needs.all.some((n) => n.tone === "over") && (
+        <p className="money-verdict is-warn">
+          {remedy.room > 0 ? (
+            <>
+              <b>{remedy.category}</b> is {fmtShort(remedy.gap)} past its pace —{" "}
+              <Link href="/private/budgets">{fmtShort(remedy.perWeek)} a week</Link> for
+              the rest of the month keeps it inside.
+            </>
+          ) : (
+            <>
+              <b>{remedy.category}</b> has spent its whole limit, and there{" "}
+              {daysLeft === 1 ? "is 1 day" : `are ${daysLeft} days`} of the month left.
+            </>
+          )}
+        </p>
+      )}
+
+      {/*
+        The budgets themselves, under the three figures they are the plan for.
+
+        Above "Where it went" on purpose: the breakdown says where the money went, and a
+        budget says where it was allowed to go. The second question is the one you set
+        yourself, so it is read first, and the breakdown below explains whatever answer
+        it gives.
+      */}
+      {live && <BudgetsStrip lines={plans} today={today} />}
+
+      {/*
         Where the month went, and where it was capped — one panel.
 
         These were two. A "Budgets" panel drew limit bars for the handful of categories
@@ -796,14 +1059,7 @@ export default async function PrivateOverviewPage({
         Full width, because it is now the only category readout on the page and the
         stacked band is the one element here that is better for being wide.
       */}
-      <Panel
-        title="Where it went"
-        action={
-          <Link href="/private/budgets" className="text-[12px] font-semibold text-gold-hi">
-            Set limits
-          </Link>
-        }
-      >
+      <Panel title="Where it went">
         {summary.expense === 0 ? (
           <EmptyState
             icon={Wallet}
@@ -828,25 +1084,42 @@ export default async function PrivateOverviewPage({
               together without needing a second colour system to remember.
             */}
             <div className="flex h-2.5 gap-0.5 overflow-hidden rounded-pill bg-white/6">
-              {topCats.map((l, i) => (
+              {topCats.map((slice, i) => (
                 <span
-                  key={l.category.id}
-                  style={{ width: `${share(l.spent) * 100}%`, background: catTone(i) }}
+                  key={slice.id}
+                  style={{ width: `${share(slice.spent) * 100}%`, background: catTone(i) }}
                 />
               ))}
-              {uncategorizedSpend > 0 && (
-                <span
-                  style={{
-                    width: `${share(uncategorizedSpend) * 100}%`,
-                    background: "var(--color-muted)",
-                  }}
-                />
-              )}
               {otherSpend > 0 && (
                 <span style={{ width: `${share(otherSpend) * 100}%`, background: CAT_REST }} />
               )}
             </div>
 
+            {/*
+              One line a category, and one thing said on it: how much of the month it
+              was.
+
+              This row carried a limit until now, and that made two budget systems on
+              one screen. The Budgets card above draws a red bar for Groceries being
+              1.237 over; this list drew a second red bar, full width, for the same
+              1.237 — and neither of them could tell 6 percent over from 600 percent,
+              because both fill to the end and stop. Two voices, one fact, and the
+              louder of them in the panel whose name promises something else.
+
+              So limits leave. "Where it went" answers where it went: the bar is this
+              category's share of the month, in the same tone as its segment in the band
+              above, so the row and the band are visibly the same measurement. Nothing
+              in this panel is red, because nothing in it is a verdict.
+
+              It also settles what a category counts as, which the cap made impossible.
+              Eating out cost 14.737 in August and all of it is filed into the `na moru`
+              trip: real spending on Eating out, and not one dinar of the monthly Eating
+              out budget. As a share of the month that is one number and it is true; as
+              a fraction of a cap it was two numbers that disagreed.
+
+              The historical note below is kept because it is why the percentage column
+              went, and the percentage has not come back — the bar draws it.
+            */}
             {/*
               One line a category, and one denominator on it.
 
@@ -867,18 +1140,16 @@ export default async function PrivateOverviewPage({
               between a name and a number.
             */}
             <ul className="overview-cats mt-4">
-              {topCats.map((l, i) => {
-                const capped = l.limit > 0;
-                const used = capped ? Math.min(l.spent / l.limit, 1) : 0;
-                const isOver = capped && l.spent > l.limit;
+              {topCats.map((slice, i) => {
+                const part = share(slice.spent);
                 return (
-                  <li key={l.category.id}>
+                  <li key={slice.id}>
                     {/*
                       A door, like its twin on Money — each row there filters the ledger
                       under it, and here it goes to the same entries.
                     */}
                     <Link
-                      href={`/private/money?month=${month}&cat=${l.category.id}`}
+                      href={`/private/money?month=${month}&cat=${slice.id}`}
                       className="overview-cat"
                     >
                       <span
@@ -886,65 +1157,27 @@ export default async function PrivateOverviewPage({
                         style={{ background: catTone(i) }}
                         aria-hidden
                       />
-                      <span className="overview-cat-name">{l.category.name}</span>
+                      <span className="overview-cat-name">{slice.name}</span>
 
                       {/*
-                        The bar means the cap: how much of what this category was allowed
-                        to cost has gone. Its colour is the row's own, the same as the
-                        dot; red is the one state that takes a colour of its own, because
-                        red is not in the ramp and cannot be mistaken for a rank.
+                        The amount and its share, and no third drawing of the same thing.
 
-                        Without a cap it says so, in words, and offers nothing. That is
-                        the correction: plenty of categories cannot sensibly have a limit
-                        at all — a domain renews for what it renews for, a utility bill
-                        is whatever the meter says — so a "Set a limit" control on every
-                        uncapped row was the screen treating a fact as an unfinished
-                        task. Five buttons asking you to fix five things that are not
-                        broken.
-
-                        Words, then. A label never reads as a bar that failed to render,
-                        which is what the blank cell and the dashed ghost before it did,
-                        and it makes no demand. The single offer that remains is under
-                        the list, and only when it is worth making.
+                        Every row used to carry a bar as well, which made this panel state
+                        one month's composition three times over: once in the stacked band
+                        at the top, once as six bars down the middle, once as six
+                        percentages on the right. The band is the picture and it is free —
+                        ten pixels, no column — so the middle one is the one that goes.
+                        What is left is a legend: the dot ties the row to its segment, the
+                        name says which, and the two figures say how much and how much of.
                       */}
-                      {capped ? (
-                        <span className="overview-cat-track" aria-hidden>
-                          <span
-                            style={{
-                              width: `${used * 100}%`,
-                              background: isOver ? "var(--color-danger)" : catTone(i),
-                            }}
-                          />
-                        </span>
-                      ) : (
-                        <span className="overview-cat-note">no limit</span>
-                      )}
-
-                      <span className={`mono overview-cat-amt${isOver ? " is-over" : ""}`}>
-                        {fmtShort(l.spent)}
-                        {capped && <i>/ {fmtShort(l.limit)}</i>}
+                      <span className="mono overview-cat-amt">
+                        {fmtShort(slice.spent)}
+                        <i>{Math.round(part * 100)}%</i>
                       </span>
                     </Link>
                   </li>
                 );
               })}
-              {uncategorizedSpend > 0 && (
-                <li>
-                  <Link
-                    href={`/private/money?month=${month}&cat=${UNCATEGORIZED_CATEGORY_ID}`}
-                    className="overview-cat is-rest"
-                  >
-                    <span
-                      className="overview-cat-dot"
-                      style={{ background: "var(--color-muted)" }}
-                      aria-hidden
-                    />
-                    <span className="overview-cat-name">Uncategorized</span>
-                    <span className="overview-cat-note">needs category</span>
-                    <span className="mono overview-cat-amt">{fmtShort(uncategorizedSpend)}</span>
-                  </Link>
-                </li>
-              )}
               {otherSpend > 0 && (
                 <li>
                   <div className="overview-cat is-rest">
@@ -954,15 +1187,10 @@ export default async function PrivateOverviewPage({
                       aria-hidden
                     />
                     <span className="overview-cat-name">Other</span>
-                    {/*
-                      Nothing in the middle, and nothing said about it. The row is
-                      already marked as the tail — grey dot, muted name, last in the
-                      list — so a caption explaining that was the screen telling you
-                      what you could already see. The cell stays so the columns keep
-                      lining up.
-                    */}
-                    <span className="overview-cat-note" aria-hidden />
-                    <span className="mono overview-cat-amt">{fmtShort(otherSpend)}</span>
+                    <span className="mono overview-cat-amt">
+                      {fmtShort(otherSpend)}
+                      <i>{Math.round(share(otherSpend) * 100)}%</i>
+                    </span>
                   </div>
                 </li>
               )}
@@ -1000,133 +1228,115 @@ export default async function PrivateOverviewPage({
         )}
       </Panel>
 
-      <div className="grid items-start gap-4 lg:grid-cols-2">
-        <Panel
-          title="Recent transactions"
-          action={
-            <Link href="/private/money" className="text-[12px] font-semibold text-gold-hi">
-              See all
-            </Link>
-          }
-        >
-          {recent.length === 0 ? (
-            /*
-              The invitation only makes sense on the month you are living in. Quick add
-              writes today's date, so offering it under a July heading is offering to
-              file a July entry that will land in August.
-            */
-            <EmptyState
-              icon={Wallet}
-              title={live ? "Nothing logged yet" : "Nothing logged that month"}
-              description={
-                live
-                  ? "Log it the moment you spend it — that is the whole habit."
-                  : "No entries were recorded for this month."
-              }
-              action={
-                live ? (
-                  <Link href="/private/quick" className={buttonClasses("primary")}>
-                    Add the first one
-                  </Link>
-                ) : undefined
-              }
-            />
-          ) : (
-            <div>
-              {recent.map((t) => (
-                <div
-                  key={t.id}
-                  className="flex items-center gap-3 border-b border-line-soft px-4 py-2.5 last:border-b-0"
-                >
-                  <span
-                    className="h-6 w-1 shrink-0 rounded-pill"
-                    /* Rhythm, not identity — see `@/lib/money/tone`. */
-                    style={{ background: "var(--color-faint)" }}
-                  />
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[13px] text-ink">
-                      {t.title ?? t.category?.name ?? t.goal?.name ?? t.note ?? "—"}
-                    </span>
-                    <span className="mono mt-0.5 block text-[10.5px] text-faint">
-                      {recentDateLabel(t.occurred_on, today)}
-                    </span>
-                  </span>
-                  {/*
-                    A deposit into a goal was getting the same minus sign as a purchase,
-                    so five rows of saving read as five rows of spending. Money into a
-                    goal goes in, money out of one comes back, and neither is a minus.
-                  */}
-                  {/*
-                    An entry logged without a price has no figure to show, and showing
-                    `0` would be a lie the row cannot take back. It says so instead, in
-                    the quietest tone on the screen — it is not an error, it is an entry
-                    that is not finished.
-                  */}
-                  {t.amount_rsd === null ? (
-                    <span className="text-[11.5px] font-semibold text-faint">no price</span>
-                  ) : (
-                    <span className="mono text-[12.5px] text-muted">
-                      {t.kind === "income"
-                        ? "+"
-                        : t.kind === "saving"
-                          ? "→"
-                          : t.kind === "withdraw"
-                            ? "←"
-                            : t.kind === "transfer"
-                              ? "⇄"
-                              : "−"}{" "}
-                      {fmt(Number(t.amount_rsd))}
-                    </span>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </Panel>
-        <Panel title="Spending · last 6 months">
-        <div className="flex items-end gap-3 px-4 py-4">
+      {/*
+        Where the month is heading, which is the one thing about it nothing else says.
+
+        This row used to be the last six transactions beside a six-month bar chart. The
+        ledger is one click away and has had search, filters and sorting since today, so
+        six of its rows here were six rows of a list that exists in full elsewhere; and a
+        chart of six monthly totals was the weakest of the three histories the app now
+        keeps — budgets carry their own strip, categories carry a year with the entries
+        under it.
+
+        What replaces both is arithmetic rather than a forecast: what has gone, what is
+        already dated before the month ends, and what those two come to. No extrapolation
+        of everyday spending — that would be a guess wearing the same typeface as the
+        facts beside it. The six bars stay as the context they always were, small.
+      */}
+      <Panel title={`How ${monthName} is going`}>
+        <div className="px-4 py-4">
           {/*
-            The same zero rule as the goals, for the same reason.
+            Three figures, and only while three of them exist.
 
-            A month with no rows and a month where you genuinely spent nothing come
-            back from the query as the identical `0`, so printing `0` claims a
-            measurement the data cannot support. Five columns of `0` over five empty
-            bars also read as a chart that failed rather than a history that is short.
-            The dash says "nothing recorded", which is the honest version.
+            Gone plus coming makes the total, which is a sum worth drawing — but with
+            nothing else dated the middle column was an em dash and the third was the
+            first one printed again. `44.023 RSD · spent so far` beside `— · nothing else
+            dated` beside `44.023 RSD · by the 31` is a panel doing arithmetic on zero in
+            front of you, and the eye reads two identical figures as a duplicate before it
+            reads them as an answer.
+
+            So the working appears when there is working to show, and otherwise the one
+            fact is said once. Same in both: the closing date is named rather than left as
+            a bare numeral — `by the 31` is a fragment, `by August 31` is a date.
           */}
-          {trend.map((t, i) => (
-            <div key={t.month} className="flex flex-1 flex-col items-center gap-1.5">
-              <span className="mono text-[10.5px] text-faint">
-                {t.expense > 0 ? fmtShort(t.expense) : "—"}
+          {dueBeforeMonthEnd > 0 ? (
+            <div className="month-ahead">
+              <span>
+                <b className="mono">{fmt(summary.expense)}</b>
+                <i>spent so far</i>
               </span>
-              <div
-                className={`money-bar-in w-full rounded-t-[4px] ${
-                  t.expense === 0
-                    ? "bg-white/5"
-                    : t.month === month
-                      ? "bg-gold"
-                      : "bg-white/12"
-                }`}
-                /*
-                  Grown rather than printed, the same way the breakdown above it draws
-                  its fills. Six columns arriving at once is the one part of this page
-                  that still just appeared — and the eye reads a chart that lands whole
-                  as an image, while one that rises reads as a measurement.
-
-                  45ms apart, matching `breakdown-row`, so the two charts on this screen
-                  are visibly the same object moving.
-                */
-                style={{
-                  height: `${Math.max(4, (t.expense / peak) * 90)}px`,
-                  animationDelay: `${240 + i * 45}ms`,
-                }}
-              />
-              <span className="text-[10.5px] text-muted">{t.month.slice(5)}</span>
+              <span>
+                <b className="mono">{fmt(dueBeforeMonthEnd)}</b>
+                <i>already dated before the end</i>
+              </span>
+              <span className="is-sum">
+                <b className="mono">{fmt(summary.expense + dueBeforeMonthEnd)}</b>
+                <i>
+                  by {monthName} {monthDays}
+                  {prevExpense > 0 && ` · ${prevName} came to ${fmtShort(prevExpense)}`}
+                </i>
+              </span>
             </div>
-          ))}
+          ) : (
+            /*
+              With nothing else dated there is no sum to show, and the figure that would
+              head it — what has been spent — is the `Spent` card two blocks up, at twice
+              the size. Printing it again here made this panel look like a fourth KPI and
+              made the reader check whether the two agreed. What is actually new is the
+              absence, so the absence is what it says, in a caption rather than a figure.
+            */
+            <p className="month-ahead-quiet">
+              Nothing else is dated before {monthName} {monthDays}
+              {prevExpense > 0 && ` · ${prevName} came to ${fmtShort(prevExpense)}`}
+            </p>
+          )}
+
+          {/*
+            Six months at one scale, in six slots of one size.
+
+            The bar used to be its whole column wide — a sixth of a full-width panel, so on
+            a 1440px screen August was a gold rectangle 165 across and 63 tall, which is a
+            block and not a bar, and the five months before it were a hairline each with a
+            dash floating over them. That picture did not say "six comparable months". It
+            said one thing had loaded and five had failed.
+
+            The slot is the fix. Every month gets the same track drawn at full height, so a
+            month with nothing in it reads as an empty month rather than a missing one, and
+            the bar is capped narrow enough to be a measurement again. Only the month you
+            are standing in is gold; the finished ones are all one weight, because ranking
+            them would be a second story in a panel that has one.
+
+            And the axis says Mar Apr May Jun Jul Aug rather than 03 04 05 06 07 08. The
+            numerals were the cheapest thing to print and the slowest thing to read, on the
+            one row of this panel whose whole job is to be read at a glance.
+          */}
+          <div className="month-bars">
+            {trend.map((t, i) => (
+              <div
+                key={t.month}
+                className={`month-bar${t.month === month ? " is-now" : ""}${
+                  t.expense === 0 ? " is-empty" : ""
+                }`}
+              >
+                <span className="mono month-bar-val">
+                  {t.expense > 0 ? fmtShort(t.expense) : "—"}
+                </span>
+                <span className="month-bar-track">
+                  <i
+                    className="money-bar-in"
+                    style={{
+                      height: `${t.expense > 0 ? Math.max(6, (t.expense / peak) * 100) : 0}%`,
+                      animationDelay: `${240 + i * 45}ms`,
+                    }}
+                  />
+                </span>
+                <span className="month-bar-key">{shortMonthLabel(t.month, month)}</span>
+              </div>
+            ))}
+          </div>
         </div>
-        </Panel>
-      </div>
+      </Panel>
     </div>
   );
 }
+

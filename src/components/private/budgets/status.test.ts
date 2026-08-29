@@ -235,3 +235,25 @@ describe("remedyFor", () => {
     expect(remedyFor([line(0, 9000)], 0.5, 14)).toBeNull();
   });
 });
+
+describe("what a budget is judged on", () => {
+  /*
+    A lunch on holiday is real spending on Eating out, so it belongs in the breakdown's
+    figure — and it is not an overspend against the monthly Eating out budget, because it
+    was filed into the holiday and was never that budget's money. The screen used to call
+    the same 14.737 both, and print a red "11.685 over limit" for money that had been
+    deliberately set aside somewhere else.
+  */
+  it("counts what the budget owns, not what the category cost", () => {
+    const holidayLunch: BudgetLine = { ...line(3052, 14737), counted: 3000 };
+    expect(statusOf(holidayLunch, 0.9)).toBe("ontrack");
+    expect(totalsOf([holidayLunch], 0.9, true).spent).toBe(3000);
+  });
+
+  it("judges a category no budget owns against itself, as before", () => {
+    const plain = line(3052, 14737);
+    expect(plain.counted).toBeUndefined();
+    expect(statusOf(plain, 0.9)).toBe("over");
+    expect(totalsOf([plain], 0.9, true).spent).toBe(14737);
+  });
+});

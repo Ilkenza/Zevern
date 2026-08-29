@@ -3,6 +3,19 @@ import type { BudgetLine } from "@/lib/types";
 export type Status = "over" | "ahead" | "ontrack" | "untracked" | "unset";
 
 /**
+ * The figure a budget is judged against.
+ *
+ * `spent` is what the category cost and is a report; `counted` is what the budget that
+ * owns it actually counts, and they differ by the entries deliberately filed into a
+ * budget of their own — a holiday's lunches are real spending on Eating out and are not
+ * an overspend against the monthly Eating out budget. Falling back to `spent` keeps a
+ * category no budget owns judged against itself, exactly as before.
+ */
+export function judged(line: BudgetLine): number {
+  return line.counted ?? line.spent;
+}
+
+/**
  * How much of a category's month should have been spent by now.
  *
  * The naive answer — limit times the fraction of days gone — is wrong for any category
@@ -43,15 +56,17 @@ export function expectedBy(line: BudgetLine, pace: number): number {
  * entered, and a status that changes that easily is one nobody reads.
  */
 export function statusOf(line: BudgetLine, pace: number): Status {
-  if (line.limit <= 0) return line.spent > 0 ? "untracked" : "unset";
-  if (line.spent > line.limit) return "over";
-  if (line.spent / line.limit > expectedBy(line, pace) / line.limit + 0.15) return "ahead";
+  const used = judged(line);
+  if (line.limit <= 0) return used > 0 ? "untracked" : "unset";
+  if (used > line.limit) return "over";
+  if (used / line.limit > expectedBy(line, pace) / line.limit + 0.15) return "ahead";
   return "ontrack";
 }
 
 export const STATUS_LABEL: Record<Status, string> = {
   over: "Over",
-  ahead: "Ahead of pace",
+  // Same condition, same word as the plans screen: money leaving faster than the days.
+  ahead: "Spending fast",
   ontrack: "On track",
   untracked: "No limit",
   unset: "No activity",
@@ -97,7 +112,7 @@ export function totalsOf(lines: BudgetLine[], pace: number, isCurrentMonth: bool
   // must not make the categories that do have limits look further spent than they are.
   const limited = lines.filter((line) => line.limit > 0);
   const limit = limited.reduce((s, l) => s + l.limit, 0);
-  const spent = limited.reduce((s, l) => s + l.spent, 0);
+  const spent = limited.reduce((s, l) => s + judged(l), 0);
   const fixedPaid = limited.reduce((s, l) => s + Math.max(l.fixedPaid ?? 0, 0), 0);
   const fixedDue = limited.reduce((s, l) => s + Math.max(l.fixedDue ?? 0, 0), 0);
 
@@ -171,13 +186,13 @@ export function remedyFor(lines: BudgetLine[], pace: number, daysLeft: number): 
   let worst: { line: BudgetLine; gap: number } | null = null;
   for (const line of lines) {
     if (line.limit <= 0) continue;
-    const gap = line.spent - expectedBy(line, pace);
+    const gap = judged(line) - expectedBy(line, pace);
     if (gap <= 0) continue;
     if (!worst || gap > worst.gap) worst = { line, gap };
   }
   if (!worst) return null;
 
-  const room = Math.max(worst.line.limit - worst.line.spent, 0);
+  const room = Math.max(worst.line.limit - judged(worst.line), 0);
   return {
     category: worst.line.category.name,
     gap: Math.round(worst.gap),

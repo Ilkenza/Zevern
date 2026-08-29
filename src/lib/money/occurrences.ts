@@ -48,13 +48,48 @@ export type Occurrence = {
   days: number;
 };
 
+/**
+ * The money a goal-ending rule may still book, or `undefined` for every other rule.
+ *
+ * Separated from `occurrencesFor` because that function has no database in it and is
+ * tested without one: the caller looks the figure up, this decides whether it applies.
+ * A rule pointing at a goal that no longer exists caps at zero rather than running
+ * forever — the safer of the two wrong answers.
+ */
+export function goalCapFor(
+  item: { ends_when?: string | null; goal_id: string | null },
+  remaining: Map<string, number>,
+): number | undefined {
+  if (item.ends_when !== "goal") return undefined;
+  if (!item.goal_id) return 0;
+  return remaining.get(item.goal_id) ?? 0;
+}
+
 /** True when this rule puts money aside rather than paying a bill. */
 export function feedsGoal(item: { goal_id: string | null }): boolean {
   return item.goal_id != null;
 }
 
 /** Weekly and yearly items normalised to a month so one number can be compared. */
-export const PER_MONTH: Record<string, number> = { week: 52 / 12, month: 1, year: 1 / 12 };
+export const PER_MONTH: Record<string, number> = {
+  day: 365.25 / 12,
+  week: 52 / 12,
+  month: 1,
+  year: 1 / 12,
+};
+
+/**
+ * How many times a month a rule fires, cadence included.
+ *
+ * A count divides: every two weeks is half as often as every week, every three months a
+ * third as often as monthly. Without this, a quarterly insurance bill of 30.000 was
+ * being counted as 30.000 a month in every "what do the standing charges cost" figure
+ * on the app — four times its real weight, in the one number people set budgets from.
+ */
+export function perMonth(every: string, count: number | null | undefined): number {
+  const base = PER_MONTH[every] ?? 1;
+  return base / Math.max(1, Math.floor(count ?? 1) || 1);
+}
 
 /** Guard against a runaway walk if an item ever ends up with a nonsense date. */
 const MAX_STEPS = 400;
@@ -70,6 +105,14 @@ export function occurrencesFor(
   estimated: boolean,
   horizon: string,
   samples: Booking[] = [],
+  /**
+   * Money this rule may still book before it stops — what is left to fill on the goal
+   * it feeds, for a rule that ends when that goal is full.
+   *
+   * Passed in rather than read here because this file has no database in it and is
+   * tested without one. `undefined` means no cap, which is every other kind of rule.
+   */
+  cap?: number,
 ): Occurrence[] {
   if (!item.active) return [];
 
@@ -78,19 +121,30 @@ export function occurrencesFor(
       ? Infinity
       : Math.max(0, item.installments_total - (item.installments_done ?? 0));
   if (left === 0) return [];
+  // A goal already full stops the rule now rather than at the next due date. Anything
+  // else would project a deposit into a goal that has nowhere to put it.
+  if (cap != null && cap <= 0) return [];
 
   const out: Occurrence[] = [];
   let on = item.next_on;
+  let booked = 0;
 
   for (let step = 0; step < MAX_STEPS && out.length < left && on <= horizon; step++) {
     if (item.ends_on != null && on > item.ends_on) break;
+    /*
+      The last deposit into a goal is usually smaller than the rest, and it is the one
+      people actually want the date of — "when am I done" is the whole question a goal
+      asks. So the walk stops the moment the cap is covered, and the occurrence that
+      covers it carries only what is left rather than a full instalment.
+    */
+    if (cap != null && booked >= cap) break;
     out.push({
       id: item.id,
       source: "recurring",
       name: item.name,
       kind: item.kind,
       on,
-      amount,
+      amount: cap != null ? Math.min(amount, cap - booked) : amount,
       estimated,
       category: item.category?.name ?? null,
       // A goal rule has no category — its colour is the goal's, so it reads on the
@@ -100,7 +154,8 @@ export function occurrencesFor(
       samples,
       days: 0,
     });
-    on = nextDate(on, item.every, item.anchor_day ?? null);
+    booked += cap != null ? Math.min(amount, cap - booked) : amount;
+    on = nextDate(on, item.every, item.anchor_day ?? null, item.every_count ?? 1);
   }
 
   return out;

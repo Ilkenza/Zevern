@@ -2,6 +2,7 @@
 
 import { useState, type InputHTMLAttributes } from "react";
 import { cn } from "@/lib/utils";
+import { cleanMoney, groupMoney, plainMoney, typedMoney } from "@/lib/money/field";
 
 /**
  * Money typed the way it is read.
@@ -16,40 +17,13 @@ import { cn } from "@/lib/utils";
  */
 
 /*
-  Money is stored as numeric(14, 2) — twelve digits before the decimal point, a shade
-  under a thousand billion. Past that Postgres refuses the row, so a field that accepts
-  a thirteenth digit is a field that accepts a value it cannot save: the person types,
-  the form looks fine, and the save fails on something they cannot see. Stopping the
-  keystroke says the same thing at the only moment it is useful.
+  The four string functions this field is built on live in `@/lib/money/field` so they
+  can be tested without a browser — telling a typed decimal point apart from the dots
+  this field inserts itself is the fiddliest thing in the money screens, and it was
+  quietly wrong until it had tests. Re-exported here because both other call sites
+  already import them from this file.
 */
-const MAX_WHOLE = 12;
-
-/** Digits, and at most one comma for the decimal. Dots are grouping, so they go. */
-export function cleanMoney(input: string): string {
-  const only = input.replace(/[^\d,]/g, "");
-  const [first = "", ...rest] = only.split(",");
-  const whole = first.slice(0, MAX_WHOLE);
-  return rest.length ? `${whole},${rest.join("").slice(0, 2)}` : whole;
-}
-
-/** "1234567,5" → "1.234.567,5". The grouping is Serbian, and so is the comma. */
-export function groupMoney(value: string): string {
-  if (!value) return "";
-  const [whole, decimal] = value.split(",");
-  const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-  return decimal !== undefined ? `${grouped},${decimal}` : grouped;
-}
-
-/** What the form submits: a number the server parses without knowing any of this. */
-export function plainMoney(value: string): string {
-  return value.replace(",", ".");
-}
-
-/** A stored amount ("1234.5") shown the way it is typed here ("1234,5"). */
-export function typedMoney(value: string | number | null | undefined): string {
-  if (value === null || value === undefined || value === "") return "";
-  return cleanMoney(String(value).replace(".", ","));
-}
+export { cleanMoney, groupMoney, plainMoney, typedMoney } from "@/lib/money/field";
 
 type Props = Omit<InputHTMLAttributes<HTMLInputElement>, "value" | "onChange" | "defaultValue"> & {
   name: string;

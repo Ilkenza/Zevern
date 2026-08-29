@@ -12,12 +12,14 @@ import { userId } from "@/lib/supabase/current-user";
 import { todayISO } from "@/lib/format";
 import { monthRange, shiftMonth, toRsd } from "@/lib/money";
 import {
+  goalCapFor,
   feedsGoal,
   nextDay,
   occurrencesFor,
   type Occurrence,
 } from "@/lib/money/occurrences";
 import { estimateFor, getPlanned, getRates, getRecurring, recentBookings } from "./core";
+import { getGoalRemaining } from "./goals";
 import { NO_SPENDING, getSpendingProjection, type SpendingProjection } from "./spending";
 import { getOnHand } from "./accounts";
 
@@ -142,12 +144,20 @@ export async function getDueSoon(days = 14): Promise<DueSoon> {
   ]);
 
   const items: DueItem[] = [];
+  const goalRoom = await getGoalRemaining();
 
   for (const rule of rules) {
     if (!rule.active || rule.kind !== "expense" || feedsGoal(rule)) continue;
     const estimate = estimateFor(rule, past, rates);
     if (!estimate) continue;
-    for (const occ of occurrencesFor(rule, estimate.each, estimate.estimated, horizon, estimate.samples)) {
+    for (const occ of occurrencesFor(
+      rule,
+      estimate.each,
+      estimate.estimated,
+      horizon,
+      estimate.samples,
+      goalCapFor(rule, goalRoom),
+    )) {
       items.push({
         id: occ.id,
         source: "recurring",
@@ -263,6 +273,7 @@ export async function getForecast(windows: number[] = [30, 60, 90]): Promise<For
   let estimated = 0;
   let unknown = 0;
   const all: Occurrence[] = [];
+  const goalRoom = await getGoalRemaining();
 
   for (const item of items) {
     if (!item.active) continue;
@@ -275,7 +286,14 @@ export async function getForecast(windows: number[] = [30, 60, 90]): Promise<For
     if (reading.estimated) estimated++;
 
     all.push(
-      ...occurrencesFor(item, reading.each, reading.estimated, horizon, reading.samples),
+      ...occurrencesFor(
+        item,
+        reading.each,
+        reading.estimated,
+        horizon,
+        reading.samples,
+        goalCapFor(item, goalRoom),
+      ),
     );
   }
 

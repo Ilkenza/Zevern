@@ -579,6 +579,8 @@ export type Database = {
           display_currency: string | null
           ends_on: string | null
           every: string
+          every_count: number
+          ends_when: string
           goal_id: string | null
           id: string
           installments_done: number
@@ -601,6 +603,8 @@ export type Database = {
           display_currency?: string | null
           ends_on?: string | null
           every?: string
+          every_count?: number
+          ends_when?: string
           goal_id?: string | null
           id?: string
           installments_done?: number
@@ -623,6 +627,8 @@ export type Database = {
           display_currency?: string | null
           ends_on?: string | null
           every?: string
+          every_count?: number
+          ends_when?: string
           goal_id?: string | null
           id?: string
           installments_done?: number
@@ -665,6 +671,7 @@ export type Database = {
           kind: string
           note: string | null
           occurred_on: string
+          occurred_at: string | null
           rate: number
           title: string | null
           recurring_id: string | null
@@ -684,6 +691,7 @@ export type Database = {
           kind?: string
           note?: string | null
           occurred_on?: string
+          occurred_at?: string | null
           rate?: number
           title?: string | null
           recurring_id?: string | null
@@ -703,6 +711,7 @@ export type Database = {
           kind?: string
           note?: string | null
           occurred_on?: string
+          occurred_at?: string | null
           rate?: number
           title?: string | null
           recurring_id?: string | null
