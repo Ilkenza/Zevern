@@ -12,6 +12,7 @@ import { useMoney } from "@/lib/money/currency";
 import { clockLabel } from "@/lib/money/budget-periods";
 import { boostNote, filedNote } from "@/lib/money/budget-boosts";
 import { cn } from "@/lib/utils";
+import { fold } from "@/lib/money/entry-search";
 import type {
   BudgetPlanLine,
   MoneyAccount,
@@ -710,12 +711,15 @@ export function BudgetPlansView({
   const [state, setState] = useState<BudgetState | null>(null);
 
   /** Four questions the page cannot answer on its own. `Need` is its own opinion. */
-  const ORDERS: [string, string][] = [
-    ["need", "Need"],
-    ["date", "Ending"],
-    ["name", "Name"],
-    ["big", "Largest"],
+  const ORDERS = [
+    { value: "need", label: "What needs you first" },
+    { value: "date", label: "Ending soonest" },
+    { value: "name", label: "Name A–Z" },
+    { value: "big", label: "Largest first" },
   ];
+
+  /** Twenty-four budgets is past the point where you find one by looking. */
+  const [q, setQ] = useState("");
 
   const [panel, setPanel] = useState<
     | { mode: "new" }
@@ -862,10 +866,13 @@ export function BudgetPlansView({
   // chip goes with it. Falling back to every budget beats a page that shows none.
   const active = census.some(([key]) => key === state) ? state : null;
 
+  const term = fold(q.trim());
+  const keep = (l: BudgetPlanLine) =>
+    (!active || stateOf(l) === active) && (!term || fold(l.plan.name).includes(term));
+  const shownCount = lines.filter(keep).length;
+
   const split = (kind: string) => {
-    const mine = lines.filter(
-      (l) => l.plan.kind === kind && (!active || stateOf(l) === active),
-    );
+    const mine = lines.filter((l) => l.plan.kind === kind && keep(l));
     return {
       repeating: mine.filter((l) => l.plan.period !== "custom").sort(order),
       dated: mine.filter((l) => l.plan.period === "custom").sort(order),
@@ -897,7 +904,7 @@ export function BudgetPlansView({
     dated one prints its two dates where a repeating one prints its rhythm — which is the
     same argument that took this page from four headings to two.
   */
-  const flat = lines.filter((l) => !active || stateOf(l) === active).sort(order);
+  const flat = lines.filter(keep).sort(order);
 
   const grid = (rows: BudgetPlanLine[]) => (
     <div className="grid gap-2.5 md:grid-cols-2">
@@ -948,13 +955,35 @@ export function BudgetPlansView({
           */}
           {lines.length >= 2 && (
             <ListBar
-              all={{ count: lines.length }}
-              tags={census.map(([key, label, count]) => ({ key, label, count }))}
-              tag={active}
-              onTag={(key) => setState(key as BudgetState | null)}
-              orders={ORDERS}
-              order={view}
-              onOrder={(key) => setView(key as typeof view)}
+              query={q}
+              onQuery={setQ}
+              searchLabel="Search budgets…"
+              filters={[
+                {
+                  value: active ?? "",
+                  onChange: (v) => setState((v || null) as BudgetState | null),
+                  label: "Filter by state",
+                  all: `All ${lines.length}`,
+                  // The count rides in the label: the breakdown a chip row showed at rest
+                  // is one click away here rather than nought, and nothing else was lost.
+                  options: census.map(([key, label, count]) => ({
+                    value: key,
+                    label: `${label} (${count})`,
+                  })),
+                },
+              ]}
+              sort={{
+                value: view,
+                onChange: (v) => setView(v as typeof view),
+                label: "Order the budgets",
+                options: ORDERS,
+              }}
+              shown={shownCount}
+              total={lines.length}
+              onClear={() => {
+                setQ("");
+                setState(null);
+              }}
             />
           )}
 
@@ -1049,6 +1078,7 @@ export function BudgetPlansView({
     </div>
   );
 }
+
 
 
 

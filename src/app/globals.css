@@ -9759,3 +9759,76 @@ input[type="date"]:focus::-webkit-calendar-picker-indicator {
   font-size: 12px;
 }
 
+
+/*
+  The toolbar over a list — search, the selects that narrow it, the order, and what the
+  narrowing costs. One shape, everywhere, taken from the Upcoming rules strip because
+  that was the one that worked.
+*/
+.zv-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+/* Inside a Panel it wears the panel's gutter and a rule instead of page spacing. */
+.zv-toolbar.is-in-panel {
+  margin-bottom: 0;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--color-line-soft);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+/* The field grows into the space the selects do not need, and stops before it becomes
+   a banner: a search box the width of the page reads as the page's search, not the
+   list's. */
+.zv-toolbar-find {
+  position: relative;
+  min-width: 160px;
+  flex: 1 1 auto;
+}
+
+@media (min-width: 560px) {
+  .zv-toolbar-find { max-width: 224px; }
+}
+
+.zv-toolbar-find-icon {
+  position: absolute;
+  top: 50%;
+  left: 10px;
+  width: 15px;
+  height: 15px;
+  color: var(--color-faint);
+  pointer-events: none;
+  transform: translateY(-50%);
+}
+
+.zv-toolbar-find input::-webkit-search-cancel-button { display: none; }
+
+/*
+  Pushed to the far end, so it reads as a consequence of the controls rather than
+  another one of them.
+*/
+.zv-toolbar-count {
+  display: flex;
+  margin-left: auto;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  color: var(--color-muted);
+  font-size: 11.5px;
+}
+
+.zv-toolbar-count button {
+  padding: 4px 8px;
+  border-radius: var(--radius-ctrl);
+  color: var(--color-gold-hi);
+  font-size: 11.5px;
+  font-weight: 600;
+  transition: background-color 160ms ease;
+}
+
+.zv-toolbar-count button:hover { background: var(--color-active-bg); }
+

@@ -21,6 +21,7 @@ import { GoalCard } from "./goals/GoalCard";
 import { ClosedRow } from "./goals/ClosedRow";
 import { Overall } from "./goals/Overall";
 import { todayISO } from "@/lib/format";
+import { fold } from "@/lib/money/entry-search";
 import { useMoney } from "@/lib/money/currency";
 
 export type GoalsPanel = { mode: "new" } | { mode: "edit"; goal: GoalLine } | null;
@@ -142,6 +143,9 @@ export function GoalsView({
   /** Which state is being looked at on its own. Null — every open goal — is where it starts. */
   const [state, setState] = useState<GoalState | null>(null);
 
+  /** Twenty-nine open goals is past the point where you find one by looking. */
+  const [q, setQ] = useState("");
+
   /*
     One open card, held here rather than in each card.
 
@@ -235,7 +239,10 @@ export function GoalsView({
   // behind and its chip goes with it. Falling back to every goal beats a page of nothing.
   const active = census.some(([key]) => key === state) ? state : null;
 
-  const kept = active ? saving.filter((g) => stateOf(g) === active) : saving;
+  const term = fold(q.trim());
+  const kept = saving.filter(
+    (g) => (!active || stateOf(g) === active) && (!term || fold(g.name).includes(term)),
+  );
 
   const byDate = (a: GoalLine, b: GoalLine) => {
     if (!a.target_date !== !b.target_date) return a.target_date ? -1 : 1;
@@ -311,18 +318,38 @@ export function GoalsView({
           */}
           {saving.length > 1 && (
             <ListBar
-              all={{ count: saving.length }}
-              tags={census.map(([key, count]) => ({ key, label: key, count }))}
-              tag={active}
-              onTag={(key) => setState(key as GoalState | null)}
-              orders={[
-                ["mine", "My order"],
-                ["closest", "Closest"],
-                ["soonest", "Soonest"],
-                ["largest", "Largest"],
+              query={q}
+              onQuery={setQ}
+              searchLabel="Search goals…"
+              filters={[
+                {
+                  value: active ?? "",
+                  onChange: (v) => setState((v || null) as GoalState | null),
+                  label: "Filter by state",
+                  all: `All ${saving.length}`,
+                  options: census.map(([key, count]) => ({
+                    value: key,
+                    label: `${key} (${count})`,
+                  })),
+                },
               ]}
-              order={order}
-              onOrder={(key) => setOrder(key as typeof order)}
+              sort={{
+                value: order,
+                onChange: (v) => setOrder(v as typeof order),
+                label: "Order the goals",
+                options: [
+                  { value: "mine", label: "My order" },
+                  { value: "closest", label: "Closest to done" },
+                  { value: "soonest", label: "Due soonest" },
+                  { value: "largest", label: "Largest first" },
+                ],
+              }}
+              shown={ordered.length}
+              total={saving.length}
+              onClear={() => {
+                setQ("");
+                setState(null);
+              }}
             />
           )}
 
@@ -533,6 +560,7 @@ export function GoalsView({
     </div>
   );
 }
+
 
 
 

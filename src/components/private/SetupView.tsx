@@ -205,17 +205,30 @@ export function SetupView({
               one of them is on the screen already and a search box is furniture.
             */}
             {allExpense.length >= 10 && (
-              <div className="setup-listbar">
-                <ListBar
-                  all={{ count: allExpense.length }}
-                  tags={catTags}
-                  tag={activeCatTag}
-                  onTag={setCatTag}
-                  query={catQuery}
-                  onQuery={setCatQuery}
-                  searchLabel="Search categories"
-                />
-              </div>
+              <ListBar
+                inPanel
+                query={catQuery}
+                onQuery={setCatQuery}
+                searchLabel="Search categories…"
+                filters={[
+                  {
+                    value: activeCatTag ?? "",
+                    onChange: (v) => setCatTag(v || null),
+                    label: "Filter categories by use",
+                    all: `All ${allExpense.length}`,
+                    options: catTags.map((t) => ({
+                      value: t.key,
+                      label: `${t.label} (${t.count})`,
+                    })),
+                  },
+                ]}
+                shown={expense.length}
+                total={allExpense.length}
+                onClear={() => {
+                  setCatQuery("");
+                  setCatTag(null);
+                }}
+              />
             )}
 
             {allExpense.length === 0 ? (
@@ -384,4 +397,5 @@ export function SetupView({
     </div>
   );
 }
+
 

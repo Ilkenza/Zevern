@@ -555,14 +555,22 @@ export function TasksView({
             being possible; below that the rail already shows you everything.
           */}
           {tasks.length >= 12 && (
-            <ListBar query={q} onQuery={setQ} searchLabel="Search tasks" />
+            <ListBar
+              query={q}
+              onQuery={setQ}
+              searchLabel="Search tasks…"
+              shown={hits}
+              total={tasks.length}
+              onClear={() => setQ("")}
+            />
           )}
 
+          {/* What the counts in the rail now mean, said before they are read as days. */}
           {term !== "" && (
             <p className="task-hits">
               {hits === 0
                 ? `Nothing matches “${q.trim()}”. All ${tasks.length} are still here.`
-                : `${hits} ${hits === 1 ? "task" : "tasks"} match — the rail counts below are the matches, not the day.`}
+                : "The counts in the rail are the matches, not the day."}
             </p>
           )}
 
@@ -760,4 +768,5 @@ export function TasksView({
     </div>
   );
 }
+
 

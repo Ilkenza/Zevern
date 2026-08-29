@@ -5,10 +5,10 @@ import { Search } from "lucide-react";
 import { Panel } from "@/components/ui/Panel";
 import { Kpi } from "@/components/ui/Kpi";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { ListBar } from "@/components/ui/ListBar";
 import { buttonClasses } from "@/components/ui/Button";
 import { type Rates } from "@/lib/money";
 import { useMoney } from "@/lib/money/currency";
-import { cn } from "@/lib/utils";
 import type { RecurringTotals } from "@/lib/data/money";
 import type { RecurringRow } from "@/lib/types";
 import { isRunning } from "./upcoming";
@@ -17,11 +17,9 @@ import { RuleHead, RuleRow } from "./upcoming/RuleRow";
 import {
   EVERY_FILTER,
   FILTERS_FROM,
-  Filter,
   SORTS,
   accountKey,
   accountLabel,
-  control,
   costRank,
   optionsFrom,
   purposeKey,
@@ -63,7 +61,6 @@ export function UpcomingRules({
   const intervals = EVERY_FILTER.filter((o) => items.some((i) => i.every === o.value));
 
   const term = q.trim().toLowerCase();
-  const narrowed = Boolean(term || purpose || account || every);
 
   const matching = items.filter((item) => {
     if (term && !item.name.toLowerCase().includes(term)) return false;
@@ -100,76 +97,53 @@ export function UpcomingRules({
     setEvery("");
   };
 
+  /*
+    The toolbar this screen used to own is `ui/ListBar` now.
+
+    It was written here first and turned out to be the shape the whole app wanted — three
+    axes, a search, an order and a live count of what is being left out. So it moved out
+    rather than being copied: Budgets, Goals, Setup and Tasks use the same component, and
+    the register that invented it stopped being the one screen that spoke differently.
+  */
   const toolbar = items.length >= FILTERS_FROM && (
-    <div className="flex flex-wrap items-center gap-2 border-b border-line-soft bg-white/[0.02] px-4 py-2.5">
-      <div className="relative min-w-40 flex-1 min-[560px]:max-w-56">
-        <Search
-          aria-hidden="true"
-          className="pointer-events-none absolute top-1/2 left-2.5 h-3.75 w-3.75 -translate-y-1/2 text-faint"
-        />
-        <input
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          type="search"
-          placeholder="Search by name…"
-          aria-label="Search rules by name"
-          className={cn(control, "w-full py-1.5 pr-2.5 pl-8 placeholder:text-faint")}
-        />
-      </div>
-
-      <Filter
-        value={purpose}
-        onChange={setPurpose}
-        label="Filter by category or goal"
-        all="All categories"
-        options={purposes}
-      />
-      <Filter
-        value={account}
-        onChange={setAccount}
-        label="Filter by account"
-        all="All accounts"
-        options={accounts}
-      />
-      <Filter
-        value={every}
-        onChange={setEvery}
-        label="Filter by how often it repeats"
-        all="Any interval"
-        options={intervals}
-      />
-
-      <select
-        value={sort}
-        onChange={(e) => setSort(e.target.value as SortKey)}
-        aria-label="Sort rules"
-        className={control}
-      >
-        {SORTS.map((o) => (
-          <option key={o.value} value={o.value} className="bg-surface">
-            {o.label}
-          </option>
-        ))}
-      </select>
-
-      {/* What is being left out, said out loud. A list that quietly shrank is a list
-          you cannot trust to be complete when you go looking for something. */}
-      {narrowed && (
-        <div className="ml-auto flex items-center gap-2 whitespace-nowrap">
-          <span aria-live="polite" className="mono text-[11.5px] text-muted">
-            {sorted.length} of {items.length}
-            <span className="sr-only"> rules shown</span>
-          </span>
-          <button
-            type="button"
-            onClick={clear}
-            className="rounded-ctrl px-2 py-1 text-[11.5px] font-semibold text-gold-hi transition-colors hover:bg-active-bg"
-          >
-            Clear
-          </button>
-        </div>
-      )}
-    </div>
+    <ListBar
+      inPanel
+      query={q}
+      onQuery={setQ}
+      searchLabel="Search by name…"
+      filters={[
+        {
+          value: purpose,
+          onChange: setPurpose,
+          label: "Filter by category or goal",
+          all: "All categories",
+          options: purposes,
+        },
+        {
+          value: account,
+          onChange: setAccount,
+          label: "Filter by account",
+          all: "All accounts",
+          options: accounts,
+        },
+        {
+          value: every,
+          onChange: setEvery,
+          label: "Filter by how often it repeats",
+          all: "Any interval",
+          options: intervals,
+        },
+      ]}
+      sort={{
+        value: sort,
+        onChange: (v) => setSort(v as SortKey),
+        label: "Sort rules",
+        options: SORTS,
+      }}
+      shown={sorted.length}
+      total={items.length}
+      onClear={clear}
+    />
   );
 
   return (
@@ -298,3 +272,4 @@ export function UpcomingRules({
     </>
   );
 }
+
