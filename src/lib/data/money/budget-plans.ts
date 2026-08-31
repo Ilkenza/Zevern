@@ -12,6 +12,7 @@ import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { userId } from "@/lib/supabase/current-user";
 import { todayISO } from "@/lib/format";
+import { readAll } from "@/lib/money/paging";
 import {
   budgetWindow,
   shiftBudgetWindow,
@@ -558,7 +559,22 @@ export type BudgetEntry = {
  * with the figure above it, and a screen where the total and its own rows disagree is
  * worse than no list.
  */
-export async function getBudgetEntries(planId: string, on?: string): Promise<BudgetEntry[]> {
+export async function getBudgetEntries(
+  planId: string,
+  on?: string,
+  /**
+   * A span to read instead of the budget's own window.
+   *
+   * The panel used to be locked to the running period, which is the right default and
+   * the wrong only option: "what has this budget actually held all year" is the question
+   * the strip of past periods asks in aggregate, and there was no way to ask it entry by
+   * entry. Membership is unchanged — the same categories and accounts decide what counts
+   * — so widening the dates widens the answer without changing what the question means.
+   *
+   * Both ends may be empty, which is how "all time" arrives: no bound at all.
+   */
+  span?: { from: string; to: string },
+): Promise<BudgetEntry[]> {
   const today = on ?? todayISO();
   const supabase = await createClient();
   const uid = await userId(supabase);
@@ -581,23 +597,35 @@ export async function getBudgetEntries(planId: string, on?: string): Promise<Bud
   const categories = new Set((catLinks ?? []).map((l) => l.category_id));
   const accounts = new Set((accLinks ?? []).map((l) => l.account_id));
 
-  const window = budgetWindow(clockOf(plan), today);
+  const window = span ?? budgetWindow(clockOf(plan), today);
 
-  const { data: rows, error } = await supabase
-    .from("money_transactions")
-    .select(
-      "id, kind, amount_rsd, category_id, account_id, budget_id, occurred_on, title, category:money_categories(name), budget:money_budget_plans!money_transactions_budget_id_fkey(name)",
-    )
-    .eq("user_id", uid)
-    .in("kind", ["expense", "income"])
-    .gte("occurred_on", window.from)
-    .lte("occurred_on", window.to)
-    .order("occurred_on", { ascending: false })
-    .order("created_at", { ascending: false });
-  if (error) console.error("getBudgetEntries:", error.message);
+  /*
+    Paged, because the span is no longer bounded by a month.
+
+    Over one window this is a hundred rows and one request. Asked for `All time` on a
+    two-year ledger it is the whole thing, and a plain select would hand back the first
+    thousand with no error — a panel quietly showing part of a period while its heading
+    counts them all.
+  */
+  const rows = await readAll((lo, hi) => {
+    let q = supabase
+      .from("money_transactions")
+      .select(
+        "id, kind, amount_rsd, category_id, account_id, budget_id, occurred_on, title, category:money_categories(name), budget:money_budget_plans!money_transactions_budget_id_fkey(name)",
+      )
+      .eq("user_id", uid)
+      .in("kind", ["expense", "income"]);
+    if (window.from) q = q.gte("occurred_on", window.from);
+    if (window.to) q = q.lte("occurred_on", window.to);
+    return q
+      .order("occurred_on", { ascending: false })
+      .order("created_at", { ascending: false })
+      .order("id")
+      .range(lo, hi);
+  }, "getBudgetEntries");
 
   const out: BudgetEntry[] = [];
-  for (const row of rows ?? []) {
+  for (const row of rows) {
     const amount = contributionOf(
       { id: plan.id, kind: plan.kind, membership: plan.membership },
       row,

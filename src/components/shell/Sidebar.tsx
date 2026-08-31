@@ -49,8 +49,15 @@ export function Sidebar({
         </span>
       </div>
 
-      {/* Workspace switch — the app has two halves and only one is ever open */}
-      <div className="mx-3 mb-2 grid grid-cols-2 gap-1 rounded-ctrl border border-line bg-white/[0.03] p-1">
+      {/*
+        Workspace switch — the app has two halves and only one is ever open.
+
+        `zv-seg` is the app's segmented control, already worn by the entry form and the
+        goal form. Nothing about this one is special enough to earn a second look for
+        the same job, and the switch is on every screen — so a look of its own would be
+        the most visible inconsistency in the product rather than the least.
+      */}
+      <div className="zv-seg mx-3">
         {WORKSPACES.map((w) => {
           const active = workspace === w.key;
           return (
@@ -59,12 +66,7 @@ export function Sidebar({
               href={w.href}
               onClick={onNavigate}
               aria-current={active ? "true" : undefined}
-              className={cn(
-                "zv-switch-option rounded-[6px] px-2 py-[7px] text-center text-[12.5px] font-bold",
-                active
-                  ? "bg-gold text-on-gold"
-                  : "text-muted hover:bg-white/4 hover:text-ink",
-              )}
+              className={cn(active && "is-on")}
             >
               {w.label}
             </Link>
@@ -146,3 +148,5 @@ export function Sidebar({
     </aside>
   );
 }
+
+

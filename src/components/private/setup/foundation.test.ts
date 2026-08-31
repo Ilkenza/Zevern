@@ -19,8 +19,8 @@ describe("foundationOf", () => {
     expect(f.total).toBe(4);
     expect(f.done).toBe(0);
     expect(f.ready).toBe(false);
-    // Six sections in the index, four of them required.
-    expect(f.steps).toHaveLength(6);
+    // Seven sections in the index, four of them required.
+    expect(f.steps).toHaveLength(7);
   });
 
   it("is ready once the accounts, both kinds of category and the income exist", () => {
@@ -59,13 +59,40 @@ describe("foundationOf", () => {
     expect(f.steps.find((s) => s.key === "income")?.done).toBe(false);
   });
 
-  it("does not hold readiness back over the two optional ones", () => {
+  it("does not hold readiness back over the optional ones", () => {
     const f = foundationOf({ ...base, accounts: 1, expense: 1, income: 1, earning: true });
     expect(f.ready).toBe(true);
+    /*
+      The shopping list joined them, and it is optional for a stronger reason than the
+      other two: it fills itself. Nothing about the app is worse for it being empty, so
+      a page that told you to go and build one would be inventing a chore.
+    */
     expect(f.steps.filter((s) => !s.required).map((s) => s.key)).toEqual([
+      "things",
       "rates",
       "calendar",
     ]);
+  });
+
+  it("counts what is on the shopping list, and never asks for it", () => {
+    const empty = foundationOf({ ...base, accounts: 1, expense: 1, income: 1, earning: true });
+    const filled = foundationOf({
+      ...base,
+      accounts: 1,
+      expense: 1,
+      income: 1,
+      earning: true,
+      things: 12,
+    });
+
+    const of = (f: ReturnType<typeof foundationOf>) => f.steps.find((s) => s.key === "things")!;
+    expect(of(empty).done).toBe(false);
+    expect(of(filled).done).toBe(true);
+    expect(of(filled).count).toBe(12);
+    // Neither state moves the score, because the step is not required.
+    expect(empty.total).toBe(filled.total);
+    expect(empty.ready).toBe(true);
+    expect(filled.ready).toBe(true);
   });
 
   it("marks the optional two done once they have actually been used", () => {

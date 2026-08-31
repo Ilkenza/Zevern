@@ -6,28 +6,17 @@ import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { userId } from "@/lib/supabase/current-user";
 import type { GoalEntry, GoalLine, MoneyGoal } from "@/lib/types";
+import { GOAL_MOVE_KINDS, goalKinds, walkGoal } from "@/lib/money/goal-progress";
 import { getAccounts, readAll } from "./core";
 
 /** How many movements a goal card shows before it starts saying "and N more". */
 const GOAL_HISTORY_LIMIT = 30;
 
 /*
-  What can move a goal, and which way.
-
-  A saving goal is fed by money set aside: the dinars stay on the account and a claim
-  is put on them, which is why `saving`/`withdraw` are their own kinds. A paying-off
-  goal is fed by money that has already gone — an ordinary expense that happens to name
-  the goal — so it reserves nothing and needs no kind of its own.
-
-  Reading them per direction rather than per entry is what stops a mis-filed row from
-  counting: an expense that names a saving goal is not one of its movements, whatever
-  the column says.
+  Which entries move a goal, and which way, is in `@/lib/money/goal-progress` — it is the
+  rule every figure on the Goals screen rests on, and it belongs somewhere it can be
+  tested without a database.
 */
-const SAVING_KINDS = ["saving", "withdraw"] as const;
-const PAYING_KINDS = ["expense", "income"] as const;
-
-/** The kinds that move a goal toward its target; everything else moves it back. */
-const TOWARD = new Set<string>(["saving", "expense"]);
 
 /**
  * Every goal with its own movements attached — deposits and withdrawals, newest first.
@@ -63,7 +52,7 @@ export const getGoalLines = cache(async (): Promise<GoalLine[]> => {
           .select("id, goal_id, kind, amount_rsd, occurred_on, title, note, account_id, recurring_id")
           .eq("user_id", uid)
           .not("goal_id", "is", null)
-          .in("kind", [...SAVING_KINDS, ...PAYING_KINDS])
+          .in("kind", [...GOAL_MOVE_KINDS])
           .order("occurred_on", { ascending: true })
           .order("created_at", { ascending: true })
           .order("id")
@@ -99,26 +88,12 @@ export const getGoalLines = cache(async (): Promise<GoalLine[]> => {
 
   return (goals ?? []).map((g: MoneyGoal) => {
     const paying = g.direction === "expense";
-    const own: readonly string[] = paying ? PAYING_KINDS : SAVING_KINDS;
+    const own = goalKinds(paying);
 
     // Walked oldest first, so `peak` is the most the goal ever actually stood at rather
     // than the sum of everything that ever counted toward it.
     const ordered = (byGoal.get(g.id) ?? []).filter((e) => own.includes(e.kind));
-    let progress = 0;
-    let peak = 0;
-    let deposited = 0;
-    let withdrawn = 0;
-
-    for (const e of ordered) {
-      if (TOWARD.has(e.kind)) {
-        progress += e.amount;
-        deposited += e.amount;
-      } else {
-        progress -= e.amount;
-        withdrawn += e.amount;
-      }
-      if (progress > peak) peak = progress;
-    }
+    const { progress, peak, deposited, withdrawn } = walkGoal(ordered, paying);
 
     return {
       ...g,

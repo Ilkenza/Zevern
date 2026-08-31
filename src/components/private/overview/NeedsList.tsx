@@ -187,7 +187,7 @@ export function NeedsList({
   soon: DueSoon;
   free: number;
 }) {
-  const { fmt } = useMoney();
+  const { fmt, fmtShort } = useMoney();
   const router = useRouter();
   const posted = useRef(false);
   const [busy, setBusy] = useState(false);
@@ -283,15 +283,26 @@ export function NeedsList({
         fortnight, and what survives it. When there is not enough the label changes rather
         than the figure growing a minus sign — a shortfall read at a glance as a negative
         is a shortfall read as a typo.
+
+        Rounded, unlike the rows above it, and the difference is not a style choice. Every
+        figure in the list is an amount somebody is about to pay, and those are read to the
+        dinar. These two are a sum and a remainder — nobody writes a cheque for either, and
+        at nine digits the exact one takes a second to read and tells you nothing the
+        rounded one did not. The full figures are on the hero, three inches up.
       */}
       {soon.count > 0 && (
         <div className="due-soon-band">
-          <span className="due-soon-total">{fmt(soon.total)}</span>
+          <span className="due-soon-total" title={fmt(soon.total)}>
+            {fmtShort(soon.total)}
+          </span>
           <span className="due-soon-when">
             out over {soon.days} days · {soon.count} {soon.count === 1 ? "item" : "items"}
           </span>
-          <span className={`due-soon-left${after < 0 ? " is-short" : ""}`}>
-            {after < 0 ? `Short by ${fmt(-after)}` : `Leaves ${fmt(after)} free`}
+          <span
+            className={`due-soon-left${after < 0 ? " is-short" : ""}`}
+            title={fmt(Math.abs(after))}
+          >
+            {after < 0 ? `Short by ${fmtShort(-after)}` : `Leaves ${fmtShort(after)} free`}
           </span>
         </div>
       )}

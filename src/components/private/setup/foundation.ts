@@ -16,7 +16,14 @@
  * thing standing between the two was a step nobody had been asked to take.
  */
 
-export type StepKey = "accounts" | "expense" | "income" | "earning" | "rates" | "calendar";
+export type StepKey =
+  | "accounts"
+  | "expense"
+  | "income"
+  | "earning"
+  | "things"
+  | "rates"
+  | "calendar";
 
 export type Step = {
   key: StepKey;
@@ -47,6 +54,7 @@ export function foundationOf({
   earning,
   ratesUpdatedOn,
   calendarToken,
+  things = 0,
 }: {
   accounts: number;
   expense: number;
@@ -55,6 +63,8 @@ export function foundationOf({
   earning: boolean;
   ratesUpdatedOn: string | null;
   calendarToken: string | null;
+  /** How many things are on the shopping list. */
+  things?: number;
 }): Foundation {
   const steps: Step[] = [
     {
@@ -92,6 +102,19 @@ export function foundationOf({
       count: null,
       required: true,
       todo: "A category says income can be recorded. This is recording it — the pay, and the day it lands.",
+    },
+    /*
+      The shopping list. Optional, and it fills itself — a name earns a place the second
+      time it is used — so it is here to be corrected rather than to be built.
+    */
+    {
+      key: "things",
+      id: "setup-things",
+      label: "Things you buy",
+      done: things > 0,
+      count: things,
+      required: false,
+      todo: "Nothing on the list yet — it fills itself as you file the same name twice.",
     },
     {
       key: "rates",

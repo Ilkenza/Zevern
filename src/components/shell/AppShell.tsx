@@ -6,6 +6,7 @@ import { Sidebar } from "./Sidebar";
 import { Topbar } from "./Topbar";
 import type { ShellUser } from "./types";
 import type { NavCounts } from "@/lib/nav";
+import { useCardSheen } from "./use-card-sheen";
 
 /**
  * The frame, and the one place that decides how a route change looks.
@@ -31,6 +32,9 @@ export function AppShell({
   children: React.ReactNode;
 }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
+
+  /* The band of light that crosses a card on hover — see `use-card-sheen`. */
+  useCardSheen();
 
   return (
     <div className="min-h-screen bg-base lg:grid lg:grid-cols-[260px_1fr]">

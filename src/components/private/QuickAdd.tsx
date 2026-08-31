@@ -9,18 +9,21 @@ import { buttonClasses } from "@/components/ui/Button";
 import { MoneyField } from "@/components/ui/MoneyField";
 import { CURRENCIES, rateFor, type Rates } from "@/lib/money";
 import { cn } from "@/lib/utils";
-import type { MoneyAccount, MoneyCategory } from "@/lib/types";
+import type { MoneyAccount, MoneyCategory, MoneyItem } from "@/lib/types";
 import { useDefaultCurrency, useMoney } from "@/lib/money/currency";
 
 /** Phone-first entry: amount, category, done. Two taps and it is in. */
 export function QuickAdd({
   accounts,
   categories,
+  items = [],
   rates,
   spentToday,
 }: {
   accounts: MoneyAccount[];
   categories: MoneyCategory[];
+  /** The things bought before, most used first — the whole point of this screen. */
+  items?: MoneyItem[];
   rates: Rates;
   spentToday: number;
 }) {
@@ -183,6 +186,45 @@ export function QuickAdd({
                 )}
               >
                 {a.name}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/*
+          The things you actually buy, one tap each.
+
+          This is what makes the screen live up to its name. Standing in a shop, the two
+          taps were `amount` and `save`, and the name — the part worth having later —
+          was thirty characters of typing on a phone keyboard, so it got skipped. A row of
+          the things bought most often fills the name, the price, the currency and the
+          category in a single tap, and the amount stays yours to correct.
+
+          Only on spending, and only when there is something on the list. It fills itself:
+          a name earns a place here the second time it is used.
+        */}
+        {kind === "expense" && items.length > 0 && (
+          <div className="quick-things" role="group" aria-label="Things you buy">
+            {items.slice(0, 10).map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => {
+                  setTitle(item.name);
+                  if (item.price !== null && Number(item.price) > 0) {
+                    setAmount(String(item.price).replace(".", ","));
+                    setCurrency(item.currency);
+                  }
+                  if (item.category_id) setCategoryId(item.category_id);
+                }}
+                className={cn("quick-thing", title === item.name && "is-on")}
+              >
+                <span className="truncate">{item.name}</span>
+                {item.price !== null && (
+                  <span className="mono quick-thing-price">
+                    {Number(item.price).toLocaleString("sr-RS")}
+                  </span>
+                )}
               </button>
             ))}
           </div>

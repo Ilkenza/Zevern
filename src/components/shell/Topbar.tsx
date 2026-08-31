@@ -1,9 +1,9 @@
 "use client";
 
-import { Fragment, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, Search, Plus, Zap, X } from "lucide-react";
+import { Menu, Plus, Zap, X } from "lucide-react";
 import { buttonClasses } from "@/components/ui/Button";
 import { NEW_ITEMS, PRIVATE_NEW_ITEMS, workspaceFor } from "@/lib/nav";
 import type { ShellUser } from "./types";
@@ -21,6 +21,38 @@ export function Topbar({
   onMenu: () => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
+
+  /*
+    Pressing anywhere outside it closes it, and so does Escape.
+
+    This was a full-screen sheet behind the menu, which is the usual way and did not work
+    here: the header carries `backdrop-blur`, and a blurred element becomes the containing
+    block for anything `fixed` inside it — so `fixed inset-0` covered the header strip and
+    nothing else. Every click on the page below went straight past it and the menu could
+    only be closed by its own X.
+
+    A listener has no such problem, because it is not a rectangle. It also closes on a
+    press anywhere in the header, which the sheet could not do without covering the very
+    controls it sat over. The whole group is the reference, not just the menu, so pressing
+    `New` while it is open reaches the button's own toggle instead of being read as an
+    outside press and re-opened by it.
+  */
+  const group = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onDown = (e: PointerEvent) => {
+      if (!group.current?.contains(e.target as Node)) setMenuOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMenuOpen(false);
+    };
+    document.addEventListener("pointerdown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [menuOpen]);
   const pathname = usePathname();
   const isPrivate = workspaceFor(pathname) === "private";
   const firstName = user.fullName?.trim().split(/\s+/)[0] ?? null;
@@ -51,11 +83,19 @@ export function Topbar({
         </div>
       </div>
 
-      {/* Quick add — one tap to log a spend, phone-first */}
+      {/*
+        Quick add, on the screens it is actually for.
+
+        It is the shop path: one amount, one tap on a thing you buy often, done — and that
+        is a phone standing at a till. On a desktop the same person has `New` two pixels to
+        the right, which opens the full form, and the entry panel is one click from every
+        money screen. A third door to the same room, permanently in the header, is what it
+        was there — so it now stops at the width where the full form gets awkward.
+      */}
       {isPrivate && (
         <Link
           href="/private/quick"
-          className={buttonClasses("secondary", "zv-press border")}
+          className={buttonClasses("secondary", "zv-press border md:hidden")}
           aria-label="Quick add"
         >
           <Zap className="h-4 w-4" />
@@ -63,19 +103,23 @@ export function Topbar({
         </Link>
       )}
 
-      {/* Search (visual placeholder in Phase 2) */}
-      <div className="relative hidden md:block">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-faint" />
-        <input
-          type="search"
-          placeholder="Search…"
-          aria-label="Search"
-          className="zv-search w-55 rounded-ctrl border border-line bg-white/[0.035] py-2 pl-9 pr-3 text-[13px] text-ink placeholder:text-faint focus:border-gold focus:shadow-ring focus:outline-none"
-        />
-      </div>
+      {/*
+        The search box is gone.
+
+        It was a placeholder: a box you could click into, type a whole sentence in, press
+        Enter, and nothing happened — on every screen in the app, at the top, next to two
+        controls that do work. A control that does nothing is worse than a missing one,
+        because the missing one does not make a promise.
+
+        Every list that holds enough to need searching has its own search in its own
+        toolbar, scoped to what is in front of you, and those work. What this one was
+        reaching for is a different thing — one box that finds an entry, a task, a goal or
+        a debt from anywhere — and that belongs behind a key rather than in a permanent
+        box. When it exists it can come back.
+      */}
 
       {/* + New */}
-      <div className="relative">
+      <div ref={group} className="relative">
         <button
           onClick={() => setMenuOpen((v) => !v)}
           aria-haspopup="menu"
@@ -87,18 +131,12 @@ export function Topbar({
         </button>
         {menuOpen && (
           <>
-            <button
-              aria-hidden
-              tabIndex={-1}
-              onClick={() => setMenuOpen(false)}
-              className="fixed inset-0 z-40 cursor-default"
-            />
             <div
               role="menu"
               className="zv-menu absolute right-0 z-50 mt-2 w-53 rounded-card border border-line bg-surface p-1.5 shadow-[0_16px_40px_-12px_rgba(0,0,0,0.6)]"
             >
               {/*
-                Tapping the page behind it closed the menu, but nothing on screen said
+                Pressing the page behind it closes the menu, but nothing on screen says
                 so — on a phone that reads as a menu with no way out. The X is the way
                 out that says it, and it sits where every other panel keeps one.
               */}
@@ -161,3 +199,4 @@ export function Topbar({
     </header>
   );
 }
+

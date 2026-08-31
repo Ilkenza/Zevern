@@ -31,7 +31,27 @@ export const EXPORT_TABLES = [
   "money_accounts",
   "money_categories",
   "money_transactions",
+  /*
+    Seven tables were missing from this list, and every one of them was written after it.
+
+    `money_loans` is what is owed in both directions. `money_budget_plans` and the four
+    tables under it are the whole budgets system — its plans, what each allowed and from
+    when, the categories and accounts each one watches, and the extra room a one-off
+    grants a recurring one. `money_items` is the shopping list.
+
+    Nothing complained, which is the point: the file above promises a complete copy and
+    a loud failure, and it delivered a quiet partial one. A table that does not appear
+    here is not read, and a person taking their data out has no way to know the
+    difference — the export they hold looks exactly like the whole of it.
+  */
+  "money_items",
+  "money_loans",
   "money_budgets",
+  "money_budget_plans",
+  "money_budget_amounts",
+  "money_budget_categories",
+  "money_budget_accounts",
+  "money_budget_boosts",
   "money_goals",
   "money_recurring",
   "money_planned",
@@ -48,13 +68,41 @@ export type ExportResult =
   | { ok: false; error: string };
 
 /**
- * `profiles` is keyed by `id`, every other table by `user_id`. RLS would scope these
- * anyway; the explicit filter is here so the export cannot depend on a policy being
- * right, and so a read that returns nothing is unambiguous.
+ * How a table's rows are tied to the account, and what makes a page of them stable.
+ *
+ * Nearly every table carries `user_id` and a unique `id`, so the default covers it and
+ * only the exceptions are written down. `profiles` is the account, keyed by `id`. The
+ * two join tables under a budget carry neither: they are `(budget_id, category_id)` and
+ * `(budget_id, account_id)`, reached through the budgets the account owns, and ordered
+ * by both of their columns because that pair is the only unique thing about a row.
+ *
+ * The order is not decoration. `range()` is an offset into a result set and Postgres
+ * promises nothing about the order of one without `order by` — so page two of an
+ * unordered read can repeat or skip rows from page one, which in an export means
+ * duplicated or missing records in a file nobody will check.
  */
-function ownerColumn(table: string): "id" | "user_id" {
-  return table === "profiles" ? "id" : "user_id";
-}
+type Scope = { owner: "id" | "user_id" | "budget_id"; order: string[] };
+
+const DEFAULT_SCOPE: Scope = { owner: "user_id", order: ["id"] };
+
+const SCOPES: Partial<Record<ExportTable, Scope>> = {
+  profiles: { owner: "id", order: ["id"] },
+  money_budget_categories: { owner: "budget_id", order: ["budget_id", "category_id"] },
+  money_budget_accounts: { owner: "budget_id", order: ["budget_id", "account_id"] },
+};
+
+/**
+ * How many rows PostgREST hands back before it stops, without saying that it did.
+ *
+ * The export read every table in one `select` with no range, so any table past this
+ * came out cut off at exactly a thousand rows — no error, no flag, an ordinary-looking
+ * array. A ledger of 1.942 entries exported as 1.000 of them, in a file whose whole
+ * promise is that it is everything.
+ */
+const PAGE = 1000;
+
+/** Sixteen thousand rows of one table is years of a real ledger; past that, something is wrong. */
+const MAX_PAGES = 64;
 
 export async function collectExport(): Promise<ExportResult> {
   const supabase = await createClient();
@@ -65,20 +113,58 @@ export async function collectExport(): Promise<ExportResult> {
   const counts: Record<string, number> = {};
 
   for (const table of EXPORT_TABLES) {
-    const { data: rows, error } = await supabase
-      .from(table)
-      .select("*")
-      .eq(ownerColumn(table), uid);
+    const scope = SCOPES[table] ?? DEFAULT_SCOPE;
 
-    // One failed table fails the whole export. Half a copy of your data, handed over
-    // as though it were all of it, is the outcome this is written to prevent.
-    if (error) {
-      console.error(`export ${table}:`, error.message);
-      return { ok: false, error: `Could not read ${table}. Nothing was exported.` };
+    /*
+      The budgets have to be in hand before the two tables that hang off them can be
+      read. They are earlier in the list for that reason, so this is a lookup and not a
+      second round trip.
+    */
+    let budgetIds: string[] = [];
+    if (scope.owner === "budget_id") {
+      budgetIds = (data["money_budget_plans"] ?? []).map((row) => String(row.id));
+      if (budgetIds.length === 0) {
+        data[table] = [];
+        counts[table] = 0;
+        continue;
+      }
     }
 
-    data[table] = (rows ?? []) as ExportRow[];
-    counts[table] = data[table].length;
+    const rows: ExportRow[] = [];
+    for (let i = 0; ; i++) {
+      if (i >= MAX_PAGES) {
+        return {
+          ok: false,
+          error: `${table} is larger than this export can read. Nothing was exported.`,
+        };
+      }
+
+      let query = supabase.from(table).select("*");
+      query =
+        scope.owner === "budget_id"
+          ? query.in("budget_id", budgetIds)
+          : query.eq(scope.owner, uid);
+      for (const column of scope.order) query = query.order(column);
+
+      const { data: page, error } = await query.range(i * PAGE, i * PAGE + PAGE - 1);
+
+      // One failed table fails the whole export. Half a copy of your data, handed over
+      // as though it were all of it, is the outcome this is written to prevent — and a
+      // page that fails halfway through is the same thing wearing a longer file.
+      if (error) {
+        console.error(`export ${table}:`, error.message);
+        return { ok: false, error: `Could not read ${table}. Nothing was exported.` };
+      }
+
+      const got = (page ?? []) as ExportRow[];
+      rows.push(...got);
+      // The short page is the last one — which is also why a table whose size is an
+      // exact multiple of PAGE costs one empty round trip rather than losing its tail.
+      if (got.length < PAGE) break;
+    }
+
+    data[table] = rows;
+    counts[table] = rows.length;
   }
 
   return { ok: true, data, counts };

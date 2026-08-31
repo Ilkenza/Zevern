@@ -45,7 +45,21 @@ export function byMonth(lines: ForecastLine[]): MonthGroup[] {
   return groups;
 }
 
-export function MonthHead({ group }: { group: MonthGroup }) {
+export function MonthHead({
+  group,
+  narrowed = false,
+}: {
+  group: MonthGroup;
+  /**
+   * A filter is on, so the totals here describe the slice rather than the month.
+   *
+   * `leaves` is dropped when it is: the closing figure is the running balance after the
+   * last row of the *whole* schedule for that month, and printed beside three totals that
+   * only count what is on screen it reads as their consequence. It is not. The other
+   * three are honest either way — they are sums of the rows under them.
+   */
+  narrowed?: boolean;
+}) {
   const { fmt } = useMoney();
   const dated = group.rows.filter((r) => r.source !== "everyday").length;
 
@@ -62,10 +76,14 @@ export function MonthHead({ group }: { group: MonthGroup }) {
         {group.income > 0 && <> · +{fmt(group.income)}</>}
         {group.saving > 0 && <span className="text-held"> · {fmt(group.saving)} aside</span>}
         {group.everyday > 0 && <> · {fmt(group.everyday)} living</>}
-        {" · "}
-        <span className={group.closing < 0 ? "text-danger" : "text-faint"}>
-          leaves {fmt(group.closing)}
-        </span>
+        {!narrowed && (
+          <>
+            {" · "}
+            <span className={group.closing < 0 ? "text-danger" : "text-faint"}>
+              leaves {fmt(group.closing)}
+            </span>
+          </>
+        )}
       </span>
     </div>
   );

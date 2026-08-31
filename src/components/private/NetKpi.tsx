@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Kpi } from "@/components/ui/Kpi";
-import { monthNetNote } from "@/lib/money";
+import { monthNetNote, type NetScope } from "@/lib/money";
 import { useMoney } from "@/lib/money/currency";
 
 /**
@@ -21,6 +21,7 @@ export function NetKpi({
   income,
   saved = 0,
   incomeOnFile = true,
+  scope = "month",
   className,
 }: {
   net: number;
@@ -35,15 +36,24 @@ export function NetKpi({
    * the first is a gap to close, the second is Tuesday.
    */
   incomeOnFile?: boolean;
+  /**
+   * Which stretch the figure covers, which is also what it is called.
+   *
+   * `Net for the month` over four years of ledger is the same class of mistake as a note
+   * about "this month" under it: the label is part of the number.
+   */
+  scope?: NetScope;
   className?: string;
 }) {
   const { fmt } = useMoney();
-  const note = monthNetNote(net, income, incomeOnFile);
+  const note = monthNetNote(net, income, incomeOnFile, scope);
 
   return (
     <Kpi
       className={className}
-      label="Net for the month"
+      label={
+        scope === "all" ? "Net total" : scope === "span" ? "Net for these dates" : "Net for the month"
+      }
       value={fmt(net)}
       hint={
         <span className={note?.tone === "danger" ? "text-danger" : "text-muted"}>
@@ -69,3 +79,4 @@ export function NetKpi({
     />
   );
 }
+

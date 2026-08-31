@@ -6,7 +6,7 @@
  * arrives when the queries do. Before these files, every navigation held the whole
  * screen blank until the last query resolved.
  */
-import { CardsSkeleton } from "@/components/ui/Skeleton";
+import { BudgetsSkeleton } from "@/components/ui/Skeleton";
 
 /*
   The skeleton is measured to the page it covers.
@@ -17,5 +17,5 @@ import { CardsSkeleton } from "@/components/ui/Skeleton";
   standing in for, or it is announcing a layout that never arrives.
 */
 export default function Loading() {
-  return <CardsSkeleton kpis={3} panels={1} maxWidth="max-w-280" />;
+  return <BudgetsSkeleton />;
 }

@@ -6,20 +6,11 @@ import { Field } from "@/components/ui/Field";
 import { MoneyField } from "@/components/ui/MoneyField";
 import { TxItems } from "@/components/private/TxItems";
 import { itemsArePriced, itemsTotal, parseItems } from "@/lib/money/items";
+import { fillFromPick, fillFromTyping, type Fill } from "@/lib/money/known";
 import { Select } from "@/components/ui/Select";
 import { Button } from "@/components/ui/Button";
 import { DeleteButton } from "@/components/ui/DeleteButton";
-import {
-  CURRENCY_OPTIONS,
-  TX_KIND_ALL,
-  TX_KIND_OPTIONS,
-  canFileInto,
-  isGoalKind,
-  isPayingKind,
-  isLoanKind,
-  rateFor,
-  type Rates,
-} from "@/lib/money";
+import { canFileInto, CURRENCY_OPTIONS, isGoalKind, isLoanKind, isPayingKind, NEW_LOAN, rateFor, TX_KIND_ALL, TX_KIND_OPTIONS, type Rates } from "@/lib/money";
 import { cn } from "@/lib/utils";
 import type {
   LoanLine,
@@ -27,9 +18,11 @@ import type {
   MoneyBudgetPlan,
   MoneyCategory,
   MoneyGoal,
+  MoneyItem,
   TransactionRow,
 } from "@/lib/types";
 import { ChipPicker } from "@/components/ui/ChipPicker";
+import { ItemPicker } from "@/components/ui/ItemPicker";
 import { todayISO } from "@/lib/format";
 import { useDefaultCurrency, useMoney } from "@/lib/money/currency";
 
@@ -41,6 +34,14 @@ export type TxFormData = {
   budgets?: MoneyBudgetPlan[];
   /** Open debts, so a movement can say which one it belongs to. */
   loans: LoanLine[];
+  /**
+   * The things already bought, so a purchase can be picked instead of retyped.
+   *
+   * Optional: the form opens on screens that have no reason to read the list — a goal's
+   * deposit, a debt movement — and an empty list simply makes the name field an ordinary
+   * name field, which is what it was before.
+   */
+  items?: MoneyItem[];
   rates: Rates;
 };
 
@@ -49,7 +50,7 @@ export type TxFormData = {
  * says nothing; "What did you buy?" gets a real answer typed into it.
  */
 /** The value the debt picker uses to mean "none of these — make one". */
-const NEW_LOAN = "__new";
+
 
 const TITLE_LABEL: Record<string, string> = {
   expense: "What did you buy?",
@@ -81,11 +82,27 @@ export function TransactionForm({
     undefined,
   );
   const [kind, setKind] = useState(tx?.kind ?? defaultKind);
+  /*
+    The category is held rather than defaulted, so picking a thing off the shopping list
+    can fill it. Keyed off the entry being edited, like every other default here.
+  */
+  const [categoryId, setCategoryId] = useState(tx?.category_id ?? "");
   const [budgetId, setBudgetId] = useState<string[]>(tx?.budget_id ? [tx.budget_id] : []);
   const [currency, setCurrency] = useState(tx?.currency ?? fallback);
   // `tx.amount` is null on an entry logged without a price, and `String(null)` is the
   // word "null" — which is what the field would have opened with.
   const [amount, setAmount] = useState(tx?.amount == null ? "" : String(tx.amount));
+
+  /*
+    What the shopping list is allowed to change. Which fields those are is decided in
+    `@/lib/money/known` and tested there; here it is only the setting of them, and an
+    absent key means a field nobody is touching.
+  */
+  const apply = (fill: Fill) => {
+    if (fill.categoryId !== undefined) setCategoryId(fill.categoryId);
+    if (fill.amount !== undefined) setAmount(fill.amount);
+    if (fill.currency !== undefined) setCurrency(fill.currency);
+  };
 
   /*
     The list, and the figure it makes.
@@ -107,6 +124,12 @@ export function TransactionForm({
   */
   const [initialItems] = useState(() => parseItems(tx?.items));
   const [many, setMany] = useState(() => initialItems.length > 0);
+  /*
+    One purchase, one name — which is the only entry the shopping list has anything to say
+    about. A receipt with six things on it has its own list two fields down, and every
+    other kind is a movement rather than a thing bought.
+  */
+  const shopping = kind === "expense" && !many;
   const [itemsSum, setItemsSum] = useState(() => itemsTotal(initialItems));
   const [itemCount, setItemCount] = useState(initialItems.length);
   /* Only a list where every line carries a figure can stand in for the amount. */
@@ -121,7 +144,7 @@ export function TransactionForm({
   */
   const [loanChoice, setLoanChoice] = useState<string>(tx?.loan_id ?? "");
 
-  const { accounts, categories, goals, loans, rates, budgets = [] } = data;
+  const { accounts, categories, goals, loans, rates, budgets = [], items: known = [] } = data;
 
   /*
     The row offers five, plus whatever this entry already is.
@@ -176,19 +199,37 @@ export function TransactionForm({
   /*
     Only the goals this kind can belong to.
 
-    A goal that collects is fed by money set aside; one being paid off is fed by an
-    ordinary expense. Offering both lists to both kinds would let an instalment land on
-    a savings pot, where it would read as money still held — so the list is narrowed
-    here, and the pairing is checked again on the server.
+    A goal being saved up holds money that is still on the account; one being paid off is
+    fed by money that has already gone. Offering both lists to every kind would let an
+    instalment land on a savings pot, where it would read as money still held — so the
+    list is narrowed here, and the pairing is checked again on the server.
+
+    Income is the one kind that can name either, and it is not a loophole — it is the
+    same word meaning two things that are both true. Into a goal being saved up it is
+    money that arrived and was kept: the balance rises, the claim rises with it, and
+    `free to spend` does not move. Against a goal being paid off it is that payment
+    coming back. Which one it is comes from the goal, not from the form, so there is
+    nothing here for anybody to get wrong.
   */
   const payingGoals = goals.filter((g) => g.direction === "expense");
-  const goalPool = isPayingKind(kind)
-    ? payingGoals
-    : goals.filter((g) => g.direction !== "expense");
+  const savingGoals = goals.filter((g) => g.direction !== "expense");
+  const goalPool =
+    kind === "income" ? goals : kind === "expense" ? payingGoals : savingGoals;
+  /*
+    With both kinds of goal in one list the name alone stops being enough — `Letovanje
+    2027` and `Laptop instalments` look identical in a dropdown and do opposite things to
+    the figure. The tag is added only when the list actually holds both.
+  */
+  const mixedGoals = payingGoals.length > 0 && savingGoals.length > 0 && kind === "income";
   // A goal that has since been closed is no longer offered, but an entry already
   // pointing at one still has to be able to name it — otherwise editing that entry
   // would quietly move the money to whatever sat at the top of the list.
-  const goalOptions = goalPool.map((g) => ({ value: g.id, label: g.name }));
+  const goalOptions = goalPool.map((g) => ({
+    value: g.id,
+    label: mixedGoals
+      ? `${g.name} — ${g.direction === "expense" ? "paying off" : "saving up"}`
+      : g.name,
+  }));
   const loanOptions = loans
     .filter((l) => l.settled_on == null)
     .map((l) => ({
@@ -224,17 +265,23 @@ export function TransactionForm({
         */}
         {!budgetOffered && <input type="hidden" name="budget_id" value="" />}
 
-        {/* Kind — one tap, no dropdown. Three to a row until there is room for all five. */}
-        <div className="mb-3.25 grid grid-cols-3 gap-1 rounded-ctrl border border-line bg-white/[0.03] p-1 min-[400px]:grid-cols-5">
+        {/*
+          Kind — one tap, no dropdown. Three to a row until there is room for all five.
+
+          It is `zv-seg`, which is the control this app already uses for a row of choices:
+          the workspace switch above every screen, `Is this one thing or several?` eight
+          lines below this one, and `Which way does this goal run?` on the goal form. This
+          row had its own answer — a flat gold slab under black text — which made the most
+          used control on the busiest panel the one place the app spoke differently. The
+          chosen half is tinted and gold-lettered here like everywhere else.
+        */}
+        <div className="zv-seg is-kinds" role="group" aria-label="What kind of entry is this?">
           {kindOptions.map((k) => (
             <button
               key={k.value}
               type="button"
               onClick={() => setKind(k.value)}
-              className={cn(
-                "rounded-[6px] px-1 py-2 text-[12px] font-bold transition-colors",
-                kind === k.value ? "bg-gold text-on-gold" : "text-muted hover:bg-white/4 hover:text-ink",
-              )}
+              className={cn(kind === k.value && "is-on")}
             >
               {k.label}
             </button>
@@ -353,20 +400,57 @@ export function TransactionForm({
           Optional then, too. The list is the record; a shop name is useful and not
           worth blocking a save over.
         */}
-        <Field
-          label={many ? "Where from? (optional)" : (TITLE_LABEL[kind] ?? "Name")}
-          name="title"
-          defaultValue={tx?.title ?? ""}
-          maxLength={80}
-          placeholder={
-            many
-              ? "Maxi, pijaca, apoteka…"
-              : kind === "income"
-                ? "Client, invoice, gift…"
-                : "Shop, bill, ticket…"
-          }
-          required={!many}
-        />
+        {shopping ? (
+          /*
+            On a purchase the name field is also the list of things already bought — see
+            `ItemPicker`. Everywhere else it stays an ordinary field: a transfer has no
+            product in it, and offering a shopping list on one would be the form answering
+            a question nobody asked.
+          */
+          <ItemPicker
+            name="title"
+            label={TITLE_LABEL[kind] ?? "Name"}
+            items={known}
+            defaultValue={tx?.title ?? ""}
+            placeholder="Shop, bill, ticket…"
+            help={
+              known.length > 0
+                ? "Start typing — anything bought before comes up with its last price."
+                : undefined
+            }
+            onPick={(item) => apply(fillFromPick(item))}
+            /*
+              A name that has been filed before files itself.
+
+              Say once that `Maxi` is Groceries and every later entry called `Maxi`
+              opens with Groceries already chosen — which is half of what filling this
+              form ever was. The pairing is not asked for anywhere: it is what the last
+              entry with this name was filed as, kept by `rememberItem` on save.
+
+              Only into fields still empty, and that limit is the whole of the trust
+              here. Overwriting a category somebody just chose, because of a name typed
+              after it, would be the form arguing — and a form that quietly changes an
+              answer is one you have to re-read every time, which costs more than it
+              ever saved. Empty stays fillable; answered stays answered.
+            */
+            onExact={(item) => apply(fillFromTyping(item, { categoryId, amount }))}
+          />
+        ) : (
+          <Field
+            label={many ? "Where from? (optional)" : (TITLE_LABEL[kind] ?? "Name")}
+            name="title"
+            defaultValue={tx?.title ?? ""}
+            maxLength={80}
+            placeholder={
+              many
+                ? "Maxi, pijaca, apoteka…"
+                : kind === "income"
+                  ? "Client, invoice, gift…"
+                  : "Shop, bill, ticket…"
+            }
+            required={!many}
+          />
+        )}
 
         {/*
           Purchases only, for now.
@@ -380,6 +464,7 @@ export function TransactionForm({
           <TxItems
             initial={initialItems}
             currency={currency}
+            known={known}
             onTotalChange={(total, count, priced) => {
               setItemsSum(total);
               setItemCount(count);
@@ -458,7 +543,13 @@ export function TransactionForm({
           <Select
             label="Category"
             name="category_id"
-            defaultValue={tx?.category_id ?? ""}
+            /*
+              Held rather than defaulted, because picking a thing off the list fills this
+              too — it gets filed where it was filed last time. Still a plain select: the
+              filling is a suggestion and changing it is one click.
+            */
+            value={categoryId}
+            onChange={(e) => setCategoryId(e.target.value)}
             placeholder={categoryOptions.length ? "No category" : "No categories yet"}
             options={categoryOptions}
           />
@@ -475,21 +566,30 @@ export function TransactionForm({
         )}
 
         {/*
-          Which goal this pays down — offered, never required, and only once there is
-          one to name.
+          Which goal this belongs to — offered, never required, and only once there is one
+          to name.
 
-          The same shape as the debt picker below it: an ordinary expense that also
-          clears something has to be able to say what, and an expense that clears
-          nothing must not be made to answer a question about it. So the field appears
-          with the first paying-off goal and starts on nothing.
+          The same shape as the debt picker below it: an entry that also moves something
+          has to be able to say what, and one that moves nothing must not be made to
+          answer a question about it. So the field appears with the first goal and starts
+          on nothing.
+
+          On an expense that means the goals being paid off. On income it means all of
+          them, because income is the one entry that can either fill a goal or reverse a
+          payment against one — see the pool above.
         */}
-        {isPayingKind(kind) && payingGoals.length > 0 && (
+        {isPayingKind(kind) && goalPool.length > 0 && (
           <Select
-            label={kind === "income" ? "Refund on" : "Towards"}
+            label={kind === "income" ? "Goal" : "Towards"}
             name="goal_id"
             defaultValue={tx?.goal_id ?? ""}
-            placeholder={kind === "income" ? "Not a refund" : "Not towards a goal"}
+            placeholder={kind === "income" ? "Not tied to a goal" : "Not towards a goal"}
             options={goalOptions}
+            help={
+              kind === "income"
+                ? "A goal being saved up keeps this money — the balance rises and free to spend does not. A goal being paid off reads it as that payment coming back."
+                : undefined
+            }
           />
         )}
 
@@ -647,4 +747,5 @@ export function TransactionForm({
     </div>
   );
 }
+
 

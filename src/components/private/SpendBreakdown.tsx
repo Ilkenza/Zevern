@@ -49,14 +49,22 @@ export function SpendBreakdown({
   byCategory,
   categories,
   total,
-  month,
+  base,
   activeCategory,
   limits,
 }: {
   byCategory: { id: string; spent: number }[];
   categories: MoneyCategory[];
   total: number;
-  month: string;
+  /**
+   * The address of the screen this sits on, span and all.
+   *
+   * It took `month` and rebuilt `?month=…` from it, which was fine while the screen only
+   * ever showed a month. It is not fine now: standing in `All time` and clicking the
+   * category whose figure surprised you sent you to August — the one navigation on the
+   * page that exists to answer "what is in that number" answered a different number.
+   */
+  base: string;
   activeCategory?: string;
   /** Monthly cap per category id, for the ones that have one. */
   /**
@@ -134,9 +142,7 @@ export function SpendBreakdown({
             <Link
               key={row.id}
               href={
-                on
-                  ? `/private/money?month=${month}`
-                  : `/private/money?month=${month}&cat=${row.id}`
+                on ? base : `${base}&cat=${row.id}`
               }
               className={`breakdown-row${on ? " breakdown-row-on" : ""}${
                 over ? " breakdown-row-over" : ""
@@ -155,7 +161,7 @@ export function SpendBreakdown({
               <span
                 className="breakdown-track"
                 role="img"
-                aria-label={`${Math.round((row.spent / total) * 100)}% of this month's spending`}
+                aria-label={`${Math.round((row.spent / total) * 100)}% of the spending shown`}
               >
                 <span
                   className="breakdown-fill money-progress-segment"
@@ -208,3 +214,4 @@ export function SpendBreakdown({
     </section>
   );
 }
+

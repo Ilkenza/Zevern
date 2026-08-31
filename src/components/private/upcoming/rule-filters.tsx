@@ -16,10 +16,10 @@ export const FILTERS_FROM = 6;
 
 export type SortKey = "due" | "cost" | "name";
 
-export const SORTS: { value: SortKey; label: string }[] = [
-  { value: "due", label: "Next due first" },
-  { value: "cost", label: "Costs most first" },
-  { value: "name", label: "Name A–Z" },
+export const SORTS: { value: SortKey; label: string; reverse: string }[] = [
+  { value: "due", label: "Next due first", reverse: "Furthest off first" },
+  { value: "cost", label: "Costs most first", reverse: "Costs least first" },
+  { value: "name", label: "Name A–Z", reverse: "Name Z–A" },
 ];
 
 export const EVERY_FILTER: { value: string; label: string }[] = [
@@ -119,4 +119,5 @@ export function Filter({
     </select>
   );
 }
+
 

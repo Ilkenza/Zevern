@@ -2,7 +2,7 @@
 
 import { useState, type InputHTMLAttributes } from "react";
 import { cn } from "@/lib/utils";
-import { cleanMoney, groupMoney, plainMoney, typedMoney } from "@/lib/money/field";
+import { editMoney, groupMoney, plainMoney, typedMoney } from "@/lib/money/field";
 
 /**
  * Money typed the way it is read.
@@ -23,7 +23,7 @@ import { cleanMoney, groupMoney, plainMoney, typedMoney } from "@/lib/money/fiel
   quietly wrong until it had tests. Re-exported here because both other call sites
   already import them from this file.
 */
-export { cleanMoney, groupMoney, plainMoney, typedMoney } from "@/lib/money/field";
+export { cleanMoney, editMoney, groupMoney, plainMoney, typedMoney } from "@/lib/money/field";
 
 type Props = Omit<InputHTMLAttributes<HTMLInputElement>, "value" | "onChange" | "defaultValue"> & {
   name: string;
@@ -55,8 +55,15 @@ export function MoneyField({
   const typed = value !== undefined ? typedMoney(value) : inner;
   const inputId = props.id ?? name;
 
+  /*
+    What the input is showing right now. The keystroke is read against it, because a dot
+    in the finished string cannot be told from a dot the field wrote itself — see
+    `editMoney`.
+  */
+  const shown = groupMoney(typed);
+
   const change = (next: string) => {
-    const cleaned = cleanMoney(next);
+    const cleaned = editMoney(shown, next);
     if (value === undefined) setInner(cleaned);
     onValueChange?.(plainMoney(cleaned));
   };
@@ -74,7 +81,7 @@ export function MoneyField({
       <input
         {...props}
         id={inputId}
-        value={groupMoney(typed)}
+        value={shown}
         onChange={(e) => change(e.target.value)}
         inputMode="decimal"
         autoComplete="off"

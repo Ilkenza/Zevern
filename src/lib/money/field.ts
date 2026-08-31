@@ -92,3 +92,93 @@ export function typedMoney(value: string | number | null | undefined): string {
   if (value === null || value === undefined || value === "") return "";
   return cleanMoney(String(value).replace(".", ","));
 }
+
+/*
+  Dots are grouping, a comma is the decimal, and nothing is guessed.
+
+  `cleanMoney` has to guess because all it gets is a string. This one is used where the
+  guess is unnecessary — where we already know from the edit itself that no decimal mark
+  was typed — and there the field's own dots can simply be thrown away.
+*/
+function strictMoney(input: string): string {
+  const only = input.replace(/[^\d,]/g, "");
+  const cut = only.indexOf(",");
+  const whole = (cut >= 0 ? only.slice(0, cut) : only).replace(/\D/g, "").slice(0, MAX_WHOLE);
+  if (cut < 0) return whole;
+  return `${whole},${only.slice(cut + 1).replace(/\D/g, "").slice(0, 2)}`;
+}
+
+type Edit = { kind: "insert" | "remove"; index: number; char: string };
+
+/**
+ * The single character that turned one string into the other, or nothing if more than one
+ * did — a paste, a replaced selection, a value filled in by the browser.
+ */
+function oneEdit(shown: string, next: string): Edit | null {
+  if (next.length === shown.length + 1) {
+    let i = 0;
+    while (i < shown.length && shown[i] === next[i]) i += 1;
+    return next.slice(0, i) + next.slice(i + 1) === shown
+      ? { kind: "insert", index: i, char: next[i] }
+      : null;
+  }
+
+  if (next.length === shown.length - 1) {
+    let i = 0;
+    while (i < next.length && shown[i] === next[i]) i += 1;
+    return shown.slice(0, i) + shown.slice(i + 1) === next
+      ? { kind: "remove", index: i, char: shown[i] }
+      : null;
+  }
+
+  return null;
+}
+
+/**
+ * One keystroke, read against what was on the screen before it.
+ *
+ * This exists because a dot cannot be read from the finished string. Type 150000 and the
+ * field prints 150.000; press Backspace and the input hands back "150.00", where the dot
+ * now has two digits after it and every rule for reading a string on its own says
+ * decimal. A hundred and fifty thousand became a hundred and fifty, in one keystroke,
+ * with nothing on screen admitting it.
+ *
+ * The keystroke settles it. A dot that is still there after a *deletion* was never typed
+ * by anybody — the field wrote it — so it is grouping, whatever it looks like now. A dot
+ * that arrives as an *insertion* is the decimal key being pressed, and where it landed
+ * among the digits is what it means. Nothing has to be inferred from the shape of the
+ * number, which is the part that could never be made right.
+ *
+ * `shown` is the grouped string the input was displaying; `next` is what it holds now.
+ */
+export function editMoney(shown: string, next: string): string {
+  if (next === shown) return strictMoney(next);
+
+  const edit = oneEdit(shown, next);
+  // No single keystroke to read — a paste, or a selection typed over. Back to guessing.
+  if (!edit) return cleanMoney(next);
+
+  if (edit.kind === "insert") {
+    if (edit.char !== "." && edit.char !== ",") {
+      // A digit, or a character that is not part of a figure and drops out either way.
+      return strictMoney(next);
+    }
+    // The decimal key. One mark is all a figure gets, so a second press changes nothing.
+    if (shown.includes(",")) return strictMoney(shown);
+    const digits = shown.replace(/\D/g, "");
+    const before = shown.slice(0, edit.index).replace(/\D/g, "").length;
+    const whole = digits.slice(0, before).slice(0, MAX_WHOLE);
+    return `${whole},${digits.slice(before).slice(0, 2)}`;
+  }
+
+  /*
+    A deletion. Backspacing a grouping dot is aimed at the digit in front of it — the dot
+    is not a character anyone put there — so that digit goes instead, which is also the
+    only reading under which the figure changes by one digit rather than by a thousand.
+  */
+  if (edit.char === ".") {
+    return strictMoney(next.slice(0, edit.index - 1) + next.slice(edit.index));
+  }
+
+  return strictMoney(next);
+}

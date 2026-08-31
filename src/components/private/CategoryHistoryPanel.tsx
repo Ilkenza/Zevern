@@ -19,7 +19,13 @@ import { useMemo, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { FilterChip, LedgerControls } from "./LedgerControls";
 import { useMoney } from "@/lib/money/currency";
-import { siftEntries, totalsByMonth, type EntrySort } from "@/lib/money/entry-search";
+import {
+  siftEntries,
+  totalsByMonth,
+  type EntrySort,
+  type SortWay,
+} from "@/lib/money/entry-search";
+import { rangeFor, type RangeKey } from "@/lib/money/date-range";
 import type { CategoryHistory } from "@/lib/data/money";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -43,18 +49,37 @@ export function CategoryHistoryPanel({
   history,
   name,
   loading,
+  today,
 }: {
   history: CategoryHistory | null;
   name: string;
   loading: boolean;
+  /** Handed down from the server, so a span can never mean one thing on the server and
+   *  another after hydration. */
+  today: string;
 }) {
   const { fmt, fmtShort } = useMoney();
   const [query, setQuery] = useState("");
-  const [sort, setSort] = useState<EntrySort>("newest");
+  const [sort, setSort] = useState<EntrySort>("date");
+  const [way, setWay] = useState<SortWay>("asc");
   const [account, setAccount] = useState("");
   const [unpricedOnly, setUnpricedOnly] = useState(false);
-  const [fromDay, setFromDay] = useState("");
-  const [toDay, setToDay] = useState("");
+  /*
+    The same span control the ledger has, filtering client-side.
+
+    The ledger changes its span by reloading, because the server reads by span there.
+    Here the whole year is already in hand, so a preset is a filter over what is loaded
+    — different mechanism, identical control and identical words, which is the part that
+    matters. `custom` keeps whatever is in the two pickers; every other span computes
+    them, so the pickers stay the single place the dates live.
+  */
+  const [range, setRange] = useState<RangeKey>("all");
+  const [custom, setCustom] = useState({ from: "", to: "" });
+  const span = range === "custom" ? custom : rangeFor(range, today);
+  const fromDay = span.from;
+  const toDay = span.to;
+  const setFromDay = (value: string) => setCustom((c) => ({ ...c, from: value }));
+  const setToDay = (value: string) => setCustom((c) => ({ ...c, to: value }));
 
   const entries = useMemo(() => history?.entries ?? [], [history]);
 
@@ -74,8 +99,9 @@ export function CategoryHistoryPanel({
         entries,
         { query, accountName: account, unpricedOnly, from: fromDay, to: toDay },
         sort,
+        way,
       ),
-    [entries, query, account, unpricedOnly, sort, fromDay, toDay],
+    [entries, query, account, unpricedOnly, sort, way, fromDay, toDay],
   );
 
   /*
@@ -93,7 +119,8 @@ export function CategoryHistoryPanel({
           from: fromDay,
           to: toDay,
         },
-        "newest",
+        // Counting, not showing: the order does not matter, only how many survive.
+        "date",
       );
     return {
       account: (a: string) => rows({ account: a }).length,
@@ -151,7 +178,8 @@ export function CategoryHistoryPanel({
     months interleave, and a heading that appears three times down the list is a heading
     that has stopped meaning anything — so the date moves onto the row instead.
   */
-  const grouped = sort === "newest" || sort === "oldest";
+  /* Month headings only make sense while the list is in date order, either way round. */
+  const grouped = sort === "date";
   const byMonth = new Map<string, typeof shown>();
   if (grouped) {
     for (const entry of shown) {
@@ -167,6 +195,10 @@ export function CategoryHistoryPanel({
         onQuery={setQuery}
         sort={sort}
         onSort={setSort}
+        way={way}
+        onWay={setWay}
+        range={range}
+        onRange={setRange}
         from={fromDay}
         to={toDay}
         onFrom={setFromDay}
@@ -360,5 +392,6 @@ function EntryRow({
     </li>
   );
 }
+
 
 

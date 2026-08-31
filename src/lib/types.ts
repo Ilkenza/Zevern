@@ -51,6 +51,8 @@ export type MoneyAccount = Tables<"money_accounts">;
 export type MoneyCategory = Tables<"money_categories">;
 export type MoneyGoal = Tables<"money_goals">;
 export type MoneyLoan = Tables<"money_loans">;
+/** A thing bought, remembered so it can be picked instead of retyped. */
+export type MoneyItem = Tables<"money_items">;
 export type MoneyRecurring = Tables<"money_recurring">;
 export type MoneyBudget = Tables<"money_budgets">;
 export type MoneyBudgetPlan = Tables<"money_budget_plans">;

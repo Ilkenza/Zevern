@@ -409,6 +409,50 @@ export type Database = {
         }
         Relationships: []
       }
+      money_items: {
+        Row: {
+          category_id: string | null
+          created_at: string
+          currency: string
+          id: string
+          last_used_on: string | null
+          name: string
+          price: number | null
+          user_id: string
+          uses: number
+        }
+        Insert: {
+          category_id?: string | null
+          created_at?: string
+          currency?: string
+          id?: string
+          last_used_on?: string | null
+          name: string
+          price?: number | null
+          user_id?: string
+          uses?: number
+        }
+        Update: {
+          category_id?: string | null
+          created_at?: string
+          currency?: string
+          id?: string
+          last_used_on?: string | null
+          name?: string
+          price?: number | null
+          user_id?: string
+          uses?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "money_items_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "money_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       money_loans: {
         Row: {
           created_at: string

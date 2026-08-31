@@ -3,8 +3,10 @@
 import { useEffect, useRef, useState } from "react";
 import { Minus, Plus, Trash2 } from "lucide-react";
 import { MAX_ITEMS, itemsArePriced, itemsTotal, type TxItem } from "@/lib/money/items";
-import { cleanMoney, groupMoney, plainMoney, typedMoney } from "@/components/ui/MoneyField";
+import { editMoney, groupMoney, plainMoney, typedMoney } from "@/components/ui/MoneyField";
 import { formatAmount } from "@/lib/money";
+import { fold } from "@/lib/money/entry-search";
+import type { MoneyItem } from "@/lib/types";
 
 /**
  * What was in the bag, as a list rather than a sentence.
@@ -80,10 +82,26 @@ function useRepeat(step: (n: number) => void) {
 export function TxItems({
   initial,
   currency,
+  known = [],
   onTotalChange,
 }: {
   initial: TxItem[];
   currency: string;
+  /**
+   * Things bought before, offered on every line.
+   *
+   * This is where the shopping list earns its keep. One coffee is quick to type either
+   * way; a receipt with eight lines on it is the case the list was made for, and it was
+   * the one place the list was not offered.
+   *
+   * A native `datalist` rather than the portalled menu the single-name field uses. Eight
+   * of those menus stacked in a scrolling list is eight portals fighting for the same
+   * few hundred pixels, and the row is already four controls wide. The browser's own
+   * dropdown costs no layout, filters as you type, works with the keyboard, and on a
+   * phone comes up as the keyboard's own suggestion strip — which is exactly the right
+   * shape for a line in a list.
+   */
+  known?: MoneyItem[];
   /**
    * The parent locks its Amount field to this while `priced` holds.
    *
@@ -195,11 +213,21 @@ export function TxItems({
         the sum under the figures — which is one label instead of two.
       */}
       <div className="tx-items-rows">
+        {/* One list for every row, named once and pointed at by each input. */}
+        {known.length > 0 && (
+          <datalist id={LIST_ID}>
+            {known.map((item) => (
+              <option key={item.id} value={item.name} />
+            ))}
+          </datalist>
+        )}
+
         {rows.map((row) => (
           <ItemRow
             key={row.key}
             row={row}
             currency={currency}
+            known={known}
             open={openKey === row.key}
             onOpen={() => setOpenKey(row.key)}
             onClose={() => setOpenKey((k) => (k === row.key ? null : k))}
@@ -253,9 +281,13 @@ export function TxItems({
   );
 }
 
+/** The id the rows' inputs point at. One list, however many lines there are. */
+const LIST_ID = "tx-known-items";
+
 function ItemRow({
   row,
   currency,
+  known,
   autoFocus,
   open,
   onOpen,
@@ -267,6 +299,7 @@ function ItemRow({
 }: {
   row: Row;
   currency: string;
+  known: MoneyItem[];
   /** This line was just added by the person, so the cursor belongs in it. */
   autoFocus: boolean;
   open: boolean;
@@ -349,7 +382,30 @@ function ItemRow({
       <div className="tx-it-top">
         <input
           value={row.name}
-          onChange={(e) => onPatch({ name: e.target.value })}
+          list={known.length > 0 ? LIST_ID : undefined}
+          onChange={(e) => {
+            const name = e.target.value;
+            /*
+              A name that has been bought before brings its price with it — but only
+              into a line that has none yet, and only when the price is in the currency
+              this entry is being written in. A dinar price dropped into a euro receipt
+              would be a number that looks right and is off by a hundred.
+            */
+            const key = fold(name.trim());
+            const same = key ? known.find((i) => fold(i.name) === key) : undefined;
+            if (
+              same &&
+              row.amount === 0 &&
+              same.currency === currency &&
+              same.price !== null &&
+              Number(same.price) > 0
+            ) {
+              const typed = typedMoney(Number(same.price));
+              onPatch({ name, typed, amount: Number(plainMoney(typed)) || 0 });
+              return;
+            }
+            onPatch({ name });
+          }}
           onKeyDown={onKey}
           placeholder="Kafa 3 u 1"
           aria-label="Item"
@@ -370,7 +426,7 @@ function ItemRow({
         <input
           value={groupMoney(row.typed)}
           onChange={(e) => {
-            const typed = cleanMoney(e.target.value);
+            const typed = editMoney(groupMoney(row.typed), e.target.value);
             onPatch({ typed, amount: Number(plainMoney(typed)) || 0 });
           }}
           onFocus={selectAll}

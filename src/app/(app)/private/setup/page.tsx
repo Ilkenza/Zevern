@@ -3,6 +3,7 @@ import {
   getAccountBalances,
   getCategories,
   getCategoryUsage,
+  getItems,
   getRates,
   getRecurring,
   hasIncomeOnFile,
@@ -28,7 +29,7 @@ async function currentOrigin(): Promise<string> {
 }
 
 export default async function PrivateSetupPage() {
-  const [accounts, categories, rates, profile, rules, incomeOnFile, origin, usage] =
+  const [accounts, categories, rates, profile, rules, incomeOnFile, origin, usage, items] =
     await Promise.all([
       getAccountBalances(),
       getCategories(),
@@ -38,6 +39,7 @@ export default async function PrivateSetupPage() {
       hasIncomeOnFile(),
       currentOrigin(),
       getCategoryUsage(),
+      getItems(),
     ]);
 
   /*
@@ -52,6 +54,7 @@ export default async function PrivateSetupPage() {
       accounts={accounts}
       categories={categories}
       usage={usage}
+      items={items}
       rates={rates}
       ratesUpdatedOn={profile?.rates_updated_on ?? null}
       calendarToken={profile?.calendar_token ?? null}

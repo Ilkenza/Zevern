@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { cn } from "@/lib/utils";
 import { ArrowRight } from "lucide-react";
 
 /**
@@ -19,6 +20,7 @@ export function MoreRow({
   href,
   noun,
   label,
+  className,
 }: {
   /** How many were cut. The row draws nothing at zero, so callers need no guard. */
   count: number;
@@ -33,14 +35,24 @@ export function MoreRow({
   noun?: string;
   /** The whole phrase, for the cases where "s" is the wrong plural or the wrong word. */
   label?: string;
+  /**
+   * Extra classes, for a card that fills its row.
+   *
+   * `mt-auto` is what this exists for: in a stretched two-column row the taller card
+   * decides the height, and the slack has to land somewhere. Above this row is the only
+   * place it can land and still look deliberate — the count is a footer, and a footer
+   * sitting on the card's bottom edge is a card that ends where it says it does.
+   */
+  className?: string;
 }) {
   if (count <= 0) return null;
   const text = label ?? `${count} more ${count === 1 ? noun : `${noun}s`}`;
-  if (!href) return <p className="zv-more is-static">{text}</p>;
+  if (!href) return <p className={cn("zv-more is-static", className)}>{text}</p>;
   return (
-    <Link href={href} className="zv-more">
+    <Link href={href} className={cn("zv-more", className)}>
       <span>{text}</span>
       <ArrowRight className="h-3.5 w-3.5" aria-hidden />
     </Link>
   );
 }
+

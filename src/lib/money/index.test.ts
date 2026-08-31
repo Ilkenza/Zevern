@@ -289,3 +289,18 @@ describe("nextDate with a cadence count", () => {
     expect(nextDate("2026-03-14", "month", null, -3)).toBe("2026-04-14");
   });
 });
+
+describe("monthNetNote across a span", () => {
+  it("says which stretch it is describing when nothing came in", () => {
+    // The words are part of the figure: `All time` carrying "this month" is a false note.
+    expect(monthNetNote(-100, 0, true, "month")?.text).toBe("Nothing in yet this month");
+    expect(monthNetNote(-100, 0, true, "all")?.text).toBe("Nothing in on the whole ledger");
+    expect(monthNetNote(-100, 0, true, "span")?.text).toBe("Nothing in over these dates");
+  });
+
+  it("keeps the two notes that do not depend on the stretch", () => {
+    expect(monthNetNote(-100, 0, false, "all")).toMatchObject({ setup: true });
+    expect(monthNetNote(-100, 500, true, "all")?.text).toBe("More went out than came in");
+    expect(monthNetNote(50, 0, true, "all")).toBeNull();
+  });
+});

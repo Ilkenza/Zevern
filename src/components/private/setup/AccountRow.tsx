@@ -13,7 +13,7 @@ import {
 } from "@/app/(app)/private/actions";
 import { Button } from "@/components/ui/Button";
 import { ACCOUNT_KIND_OPTIONS, CURRENCIES, formatAmount } from "@/lib/money";
-import { cleanMoney, groupMoney, plainMoney } from "@/components/ui/MoneyField";
+import { editMoney, groupMoney, plainMoney } from "@/components/ui/MoneyField";
 import { cn } from "@/lib/utils";
 import type { AccountBalance } from "@/lib/data/money";
 import { useDefaultCurrency, useMoney } from "@/lib/money/currency";
@@ -225,7 +225,7 @@ function BalanceFixer({
       <input
         id={`fix-${account.id}`}
         value={groupMoney(typed)}
-        onChange={(e) => setTyped(cleanMoney(e.target.value))}
+        onChange={(e) => setTyped(editMoney(groupMoney(typed), e.target.value))}
         onKeyDown={(e) => {
           // Enter belongs to this question, not to the account form around it.
           if (e.key === "Enter") {
@@ -341,7 +341,7 @@ export function AccountRow({ account, arrived }: { account?: AccountBalance; arr
         rowMotion,
         isNew
           ? "rounded-b-card border-t border-line bg-white/[0.02] py-3.5"
-          : "border-b border-line-soft py-2.5 last:border-b-0",
+          : "is-quiet border-b border-line-soft py-2.5 last:border-b-0",
         arrived && "zv-row-in",
         leaving && "translate-x-1 opacity-0",
       )}

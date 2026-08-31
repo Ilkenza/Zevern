@@ -98,46 +98,46 @@ describe("what a search matches", () => {
 
 describe("filtering", () => {
   it("keeps only the account asked for", () => {
-    const kept = siftEntries(all, { accountName: "Cash" }, "newest");
+    const kept = siftEntries(all, { accountName: "Cash" }, "date");
     expect(kept.map((e) => e.id)).toEqual(["b", "d"]);
   });
 
   it("keeps only what still needs a price", () => {
-    const kept = siftEntries(all, { unpricedOnly: true }, "newest");
+    const kept = siftEntries(all, { unpricedOnly: true }, "date");
     expect(kept.map((e) => e.id)).toEqual(["d"]);
   });
 
   it("stacks a search on top of a filter", () => {
-    expect(siftEntries(all, { accountName: "Cash", query: "kafa" }, "newest").map((e) => e.id))
+    expect(siftEntries(all, { accountName: "Cash", query: "kafa" }, "date").map((e) => e.id))
       .toEqual(["b"]);
-    expect(siftEntries(all, { accountName: "Bank (RSD)", query: "kafa" }, "newest")).toEqual([]);
+    expect(siftEntries(all, { accountName: "Bank (RSD)", query: "kafa" }, "date")).toEqual([]);
   });
 });
 
 describe("ordering", () => {
   it("puts the newest first by default, and the time of day decides a shared day", () => {
-    expect(siftEntries(all, {}, "newest").map((e) => e.id)).toEqual(["a", "b", "d", "c"]);
+    expect(siftEntries(all, {}, "date").map((e) => e.id)).toEqual(["a", "b", "d", "c"]);
   });
 
   it("reverses cleanly for oldest first", () => {
-    expect(siftEntries(all, {}, "oldest").map((e) => e.id)).toEqual(["c", "d", "b", "a"]);
+    expect(siftEntries(all, {}, "date", "desc").map((e) => e.id)).toEqual(["c", "d", "b", "a"]);
   });
 
   it("sorts by size, with an unpriced entry counting as nothing", () => {
-    expect(siftEntries(all, {}, "largest").map((e) => e.id)).toEqual(["a", "c", "b", "d"]);
-    expect(siftEntries(all, {}, "smallest").map((e) => e.id)).toEqual(["d", "b", "c", "a"]);
+    expect(siftEntries(all, {}, "size").map((e) => e.id)).toEqual(["a", "c", "b", "d"]);
+    expect(siftEntries(all, {}, "size", "desc").map((e) => e.id)).toEqual(["d", "b", "c", "a"]);
   });
 
   it("breaks a tie on date so equal amounts do not swap between renders", () => {
     const one = entry({ id: "1", occurred_on: "2026-08-01", amount_rsd: 3000 });
     const two = entry({ id: "2", occurred_on: "2026-08-09", amount_rsd: 3000 });
-    expect(siftEntries([one, two], {}, "largest").map((e) => e.id)).toEqual(["2", "1"]);
-    expect(siftEntries([two, one], {}, "largest").map((e) => e.id)).toEqual(["2", "1"]);
+    expect(siftEntries([one, two], {}, "size").map((e) => e.id)).toEqual(["2", "1"]);
+    expect(siftEntries([two, one], {}, "size").map((e) => e.id)).toEqual(["2", "1"]);
   });
 
   it("leaves the list it was given alone", () => {
     const original = [...all];
-    siftEntries(all, {}, "largest");
+    siftEntries(all, {}, "size");
     expect(all).toEqual(original);
   });
 });
@@ -156,26 +156,26 @@ describe("adding up what survived", () => {
 
 describe("a date range", () => {
   it("keeps both ends, because a person who says to the 19th means the 19th", () => {
-    const kept = siftEntries(all, { from: "2026-07-19", to: "2026-08-20" }, "oldest");
+    const kept = siftEntries(all, { from: "2026-07-19", to: "2026-08-20" }, "date", "desc");
     expect(kept.map((e) => e.id)).toEqual(["c", "d"]);
   });
 
   it("takes an open end at either side", () => {
-    expect(siftEntries(all, { from: "2026-08-01" }, "oldest").map((e) => e.id)).toEqual([
+    expect(siftEntries(all, { from: "2026-08-01" }, "date", "desc").map((e) => e.id)).toEqual([
       "d",
       "b",
       "a",
     ]);
-    expect(siftEntries(all, { to: "2026-07-31" }, "oldest").map((e) => e.id)).toEqual(["c"]);
+    expect(siftEntries(all, { to: "2026-07-31" }, "date", "desc").map((e) => e.id)).toEqual(["c"]);
   });
 
   it("returns nothing for a range that is the wrong way round, rather than everything", () => {
-    expect(siftEntries(all, { from: "2026-08-20", to: "2026-08-01" }, "newest")).toEqual([]);
+    expect(siftEntries(all, { from: "2026-08-20", to: "2026-08-01" }, "date")).toEqual([]);
   });
 
   it("stacks with a search and a chip", () => {
     expect(
-      siftEntries(all, { from: "2026-08-01", accountName: "Cash", query: "kafa" }, "newest").map(
+      siftEntries(all, { from: "2026-08-01", accountName: "Cash", query: "kafa" }, "date").map(
         (e) => e.id,
       ),
     ).toEqual(["b"]);

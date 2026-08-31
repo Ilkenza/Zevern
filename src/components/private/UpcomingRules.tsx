@@ -52,6 +52,7 @@ export function UpcomingRules({
   const [account, setAccount] = useState("");
   const [every, setEvery] = useState("");
   const [sort, setSort] = useState<SortKey>("due");
+  const [dir, setDir] = useState<"asc" | "desc">("asc");
 
   const running = items.filter(isRunning);
   const stopped = items.filter((i) => !isRunning(i));
@@ -70,7 +71,7 @@ export function UpcomingRules({
     return true;
   });
 
-  const sorted = [...matching].sort((a, b) => {
+  const compare = (a: (typeof matching)[number], b: (typeof matching)[number]) => {
     if (sort === "name") return a.name.localeCompare(b.name);
     if (sort === "cost") {
       const ra = costRank(a, rates);
@@ -82,7 +83,12 @@ export function UpcomingRules({
       return rb - ra || a.name.localeCompare(b.name);
     }
     return a.next_on.localeCompare(b.next_on) || a.name.localeCompare(b.name);
-  });
+  };
+
+  // Backwards is the comparison with its arguments swapped, which keeps every tie-break
+  // the right way round — `reverse()` would turn ties over too, and two rules that tie
+  // on cost would trade places for no reason the screen could explain.
+  const sorted = [...matching].sort(dir === "asc" ? compare : (a, b) => compare(b, a));
 
   // The split survives the filter: paused and finished rules go on sitting under their
   // own heading at the bottom, because they mean something different from the rest and
@@ -95,6 +101,7 @@ export function UpcomingRules({
     setPurpose("");
     setAccount("");
     setEvery("");
+    setDir("asc");
   };
 
   /*
@@ -139,6 +146,8 @@ export function UpcomingRules({
         onChange: (v) => setSort(v as SortKey),
         label: "Sort rules",
         options: SORTS,
+        direction: dir,
+        onDirection: setDir,
       }}
       shown={sorted.length}
       total={items.length}
@@ -272,4 +281,5 @@ export function UpcomingRules({
     </>
   );
 }
+
 

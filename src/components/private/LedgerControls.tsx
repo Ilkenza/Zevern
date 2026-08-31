@@ -12,14 +12,11 @@
  */
 
 import { Search, X } from "lucide-react";
-import type { EntrySort } from "@/lib/money/entry-search";
+import { ENTRY_SORTS, type EntrySort, type SortWay } from "@/lib/money/entry-search";
+import { SortPicker } from "@/components/ui/SortPicker";
+import { RANGE_OPTIONS, type RangeKey } from "@/lib/money/date-range";
 
-const SORTS: { value: EntrySort; label: string }[] = [
-  { value: "newest", label: "Newest first" },
-  { value: "oldest", label: "Oldest first" },
-  { value: "largest", label: "Largest first" },
-  { value: "smallest", label: "Smallest first" },
-];
+
 
 export function FilterChip({
   on,
@@ -64,6 +61,10 @@ export function LedgerControls({
   onQuery,
   sort,
   onSort,
+  way,
+  onWay,
+  range,
+  onRange,
   from,
   to,
   onFrom,
@@ -78,6 +79,12 @@ export function LedgerControls({
   onQuery: (value: string) => void;
   sort: EntrySort;
   onSort: (value: EntrySort) => void;
+  /** Which end of that order the list starts at. */
+  way: SortWay;
+  onWay: (value: SortWay) => void;
+  /** Which named span the list is standing in. */
+  range: RangeKey;
+  onRange: (value: RangeKey) => void;
   from: string;
   to: string;
   onFrom: (value: string) => void;
@@ -112,60 +119,86 @@ export function LedgerControls({
         {children}
 
         {/*
-          Both ends of a range, and both optional.
+          When, as a span with a name.
 
-          Bounded to the span the list actually covers: offering a day outside it is
-          offering a filter whose only possible answer is an empty list. Marked when it is
-          set, because a narrowed date is the one filter with nothing on screen to show for
-          itself — a chip is obviously on, a date that quietly says "since the 12th" is not.
+          This was two empty `dd. mm. yyyy.` boxes and an arrow, which is the control a
+          database hands you rather than one anybody asked for: six digits before it does
+          anything, two calendar visits to ask "how did last week go", and once set it is
+          a pair of dates you have to read and subtract to know what you are looking at.
+          A named span is one click and says what it is afterwards.
+
+          The pickers are still here, behind `Pick dates…`, for the case no preset covers.
+          They are the exception now instead of the whole control.
         */}
-        <span className={`zv-range${from || to ? " is-on" : ""}`}>
-          <input
-            type="date"
-            value={from}
-            min={minDate}
-            max={to || maxDate}
-            onChange={(e) => onFrom(e.target.value)}
-            aria-label="From date"
-          />
-          <i aria-hidden>→</i>
-          <input
-            type="date"
-            value={to}
-            min={from || minDate}
-            max={maxDate}
-            onChange={(e) => onTo(e.target.value)}
-            aria-label="To date"
-          />
-          {(from || to) && (
-            <button
-              type="button"
-              onClick={() => {
-                onFrom("");
-                onTo("");
-              }}
-              aria-label="Clear dates"
-            >
-              <X className="h-3 w-3" aria-hidden />
-            </button>
-          )}
-        </span>
-
         <select
-          value={sort}
-          onChange={(e) => onSort(e.target.value as EntrySort)}
-          aria-label="Sort entries"
-          className="zv-sort ml-auto"
+          value={range}
+          onChange={(e) => onRange(e.target.value as RangeKey)}
+          aria-label="Which dates to show"
+          className={`zv-sort${range === "all" ? "" : " is-on"}`}
         >
-          {SORTS.map((s) => (
-            <option key={s.value} value={s.value}>
-              {s.label}
+          {RANGE_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
             </option>
           ))}
         </select>
+
+        {range === "custom" && (
+          <span className="zv-range">
+            <input
+              type="date"
+              value={from}
+              min={minDate}
+              max={to || maxDate}
+              onChange={(e) => onFrom(e.target.value)}
+              aria-label="From date"
+            />
+            <i aria-hidden>→</i>
+            <input
+              type="date"
+              value={to}
+              min={from || minDate}
+              max={maxDate}
+              onChange={(e) => onTo(e.target.value)}
+              aria-label="To date"
+            />
+            {(from || to) && (
+              <button
+                type="button"
+                onClick={() => {
+                  onFrom("");
+                  onTo("");
+                }}
+                aria-label="Clear dates"
+              >
+                <X className="h-3 w-3" aria-hidden />
+              </button>
+            )}
+          </span>
+        )}
+
+        {/*
+          The same order picker the list toolbars wear, in this bar's own chrome.
+
+          This toolbar is the last one in Private that is not `ListBar`, and it keeps its
+          pill controls until it is — but the question it asks about order is the app's
+          question now, asked once, in one component.
+        */}
+        <SortPicker
+          value={sort}
+          onChange={(value) => onSort(value as EntrySort)}
+          label="Order the entries"
+          options={ENTRY_SORTS}
+          direction={way}
+          onDirection={onWay}
+          chrome="zv-sort"
+          className="is-pill ml-auto"
+        />
       </div>
     </>
   );
 }
+
+
 
 

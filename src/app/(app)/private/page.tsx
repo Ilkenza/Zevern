@@ -1,5 +1,6 @@
 import Link from "next/link";
 import {
+  ArrowRight,
   ChevronLeft,
   ChevronRight,
   CornerUpLeft,
@@ -16,6 +17,7 @@ import {
   getGoalLines,
   getMonthSummary,
   getOnHand,
+  getTransactions,
   getAccountBalances,
   getUnpricedTransactions,
   getLoans,
@@ -66,16 +68,22 @@ import {
   Goals and the due list take four because their rows are two lines tall.
 */
 /*
-  A card should end where its content ends.
+  A card should end level with the card beside it.
 
-  These sit in two-column rows, and a grid stretches its items to the tallest in the
-  row — so a Goals card with four goals beside a Today card with a dozen tasks grew a
-  band of nothing under its last row, inside its own border. Dead space inside a card
-  reads as something that failed to load; the same space outside it reads as two cards
-  of different lengths, which is what they are. Hence `items-start` on both rows.
+  This was `items-start` for a while, on the argument that a card should end where its
+  content ends and that stretching leaves a dead band inside the border. That argument
+  was right about the band and wrong about the fix. Both panels show five rows, so the
+  row is not lopsided because one holds more — it is lopsided because a goal's row is
+  two lines and a task's is one, and no amount of counting evens that out. Two cards
+  ending forty-odd pixels apart, for no reason a reader can see, is the version that
+  looks unfinished.
 
-  Five rather than four while we are here. The two panels beside each other now show
-  the same number of things, which is the other half of why that row looked lopsided.
+  So they stretch, and the slack goes above the `N more` footer rather than below it.
+  The footer lands on the bottom edge of both cards, which is where a footer belongs,
+  and there is no orphaned band under a last row — the thing `items-start` was avoiding.
+
+  Five rather than four while we are here: the two panels beside each other show the
+  same number of things, which is the other half of why that row looked lopsided.
 */
 const TODAY_SHOWN = 5;
 const CATS_SHOWN = 5;
@@ -83,6 +91,19 @@ const GOALS_SHOWN = 5;
 
 /** Long enough to read as a date rather than a code, in the one place a date is the point. */
 const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+/**
+ * Which of three sizes the headline figure is set at.
+ *
+ * By the printed string rather than by the number, because the currency code and the
+ * grouping dots take width too — `4.493.463.750 RSD` is seventeen characters whether the
+ * amount is dinars or euros, and it is the character count the band has to hold.
+ */
+function heroLength(figure: string): "m" | "l" | "xl" {
+  if (figure.length >= 19) return "xl";
+  if (figure.length >= 15) return "l";
+  return "m";
+}
 
 export default async function PrivateOverviewPage({
   searchParams,
@@ -124,11 +145,12 @@ export default async function PrivateOverviewPage({
     screen should not pay for what it is not going to draw. The placeholders are never
     read — every one of them sits behind `live` in the markup below.
   */
-  const [summary, lines, trend, incomeOnFile, allGoals, due, tasks, onHand, accounts, unpriced, soon, loans, plans] =
+  const [summary, lines, trend, incomeOnFile, allGoals, due, tasks, onHand, accounts, unpriced, soon, loans, plans, past] =
     await Promise.all([
       getMonthSummary(month),
       getBudgetLines(month),
-      getExpenseTrend(6),
+      // The six months up to the one being read, so the strip is always about this page.
+      getExpenseTrend(6, month),
       // Not "did anything arrive this month" — whether the profile has ever said what
       // comes in at all. The net note needs the difference; see `monthNetNote`. Asked
       // for every month, because the note it feeds is on the card for every month.
@@ -168,20 +190,75 @@ export default async function PrivateOverviewPage({
         was invisible here however much of it you had spent.
       */
       live ? getBudgetPlanLines() : Promise.resolve([]),
+      /*
+        The month itself, and only for a month that is over.
+
+        A closed month dropped eight of the blocks above — the hero, what needs you,
+        today's tasks, the goals, the budgets — because every one of them is about now
+        and a record has no now. What was left was three figures and a bar chart, on a
+        page with a screen and a half of nothing under it, and the page read as broken
+        rather than as finished.
+
+        The fix is not to put the live blocks back with stale numbers in them. It is that
+        a finished month has facts of its own that the live page has no room for: what the
+        largest things actually were, and where the money came from. One read for both,
+        and it is the read the live page spends thirteen on not needing.
+      */
+      live ? Promise.resolve([]) : getTransactions({ month }),
     ]);
 
   const { owedToYou, youOwe } = loanTotals(loans);
-  // `select('*')` lets an older remote schema keep serving the page while migration
-  // 0044 is waiting to be applied. Until the column arrives, preserve the old compact
-  // behaviour with the first two accounts; once it exists, null explicitly means hide.
-  const hasOverviewPreference = accounts.some(
-    (account) => typeof account.overview_rank === "number" || account.overview_rank === null,
-  );
-  const overviewAccounts = hasOverviewPreference
-    ? accounts
-        .filter((account) => typeof account.overview_rank === "number")
-        .sort((a, b) => (a.overview_rank ?? 0) - (b.overview_rank ?? 0))
-    : accounts.slice(0, 2);
+
+  /*
+    The eight largest things that happened, biggest first.
+
+    Not a top-of-mind list — a record. Nothing anywhere in this app names a single entry
+    of a month that is over; "Where it went" ranks categories, which answers what kind of
+    thing the money was and never which one. Eight, because a month usually has three or
+    four that decided it and the rest is noise, and a list long enough to scroll stops
+    being a summary.
+
+    Entries with no price yet are left out rather than sorted as zero: an unpriced row is
+    a thing whose size is unknown, and ranking it last states the opposite.
+  */
+  const biggest = past
+    .filter((t) => t.kind === "expense" && t.amount_rsd !== null)
+    .sort((a, b) => (Number(b.amount_rsd) || 0) - (Number(a.amount_rsd) || 0))
+    .slice(0, 8);
+
+  /*
+    Where it came from, which is the half `Where it went` has never had.
+
+    The income side of a month exists on this page as one figure, and one figure cannot
+    tell a salary from a sale from money a client finally paid. On a live month that is
+    fine — the question people bring to a live month is what is left. On a closed one it
+    is half the record.
+  */
+  const cameFrom = (() => {
+    const by = new Map<string, number>();
+    for (const t of past) {
+      if (t.kind !== "income") continue;
+      const key = t.category?.name ?? "Uncategorised";
+      by.set(key, (by.get(key) ?? 0) + (Number(t.amount_rsd) || 0));
+    }
+    return [...by.entries()]
+      .map(([name, total]) => ({ name, total }))
+      .sort((a, b) => b.total - a.total);
+  })();
+  /*
+    The two accounts this page repeats, in the order they were chosen.
+
+    There used to be a fallback here — first two accounts — for a database that did not
+    have `overview_rank` yet, because migration 0044 sat in the repository unapplied while
+    the app was already reading and writing the column. It is applied now, so the column is
+    on every row and the fallback could never be reached: its guard asked whether any
+    account had the property at all, which is true of every row the moment the column
+    exists. A rank means shown, in that place; null means not shown, including when that
+    leaves none — which is a choice `Show on overview` is allowed to make.
+  */
+  const overviewAccounts = accounts
+    .filter((account) => typeof account.overview_rank === "number")
+    .sort((a, b) => (a.overview_rank ?? 0) - (b.overview_rank ?? 0));
 
   const pace = monthProgress(month);
 
@@ -630,7 +707,25 @@ export default async function PrivateOverviewPage({
           wondering whether they are two figures.
         */}
         <span className="money-hero-label">Free to spend</span>
-        <div className={`money-hero-figure${onHand.free < 0 ? " is-short" : ""}`}>
+        {/*
+          The whole figure, at a size that depends on how long it is.
+
+          Shortening it was the other option — `4,5M RSD` where `4.493.463.750 RSD` is
+          now — and it is right in the six little month bars, where the point is the
+          comparison and a thousandth of it changes nothing. It is wrong here. This is the
+          one number on the app somebody reads to decide whether they can spend something,
+          and `4,5M` cannot tell 4.45 million from 4.54 — ninety thousand, hidden inside a
+          rounding, on the figure that exists to be exact.
+
+          What was actually wrong is that a thirteen-digit figure was set at the size
+          chosen for a six-digit one. So the size follows the length: the same headline for
+          an ordinary amount, stepped down for the ones that would otherwise take the whole
+          band. The number stays whole either way.
+        */}
+        <div
+          className={`money-hero-figure${onHand.free < 0 ? " is-short" : ""}`}
+          data-len={heroLength(fmt(onHand.free))}
+        >
           {fmt(onHand.free)}
         </div>
         {/*
@@ -660,13 +755,19 @@ export default async function PrivateOverviewPage({
             Lent money is the mirror and is kept separate rather than netted off. The
             two are not the same money, and cancelling them would hide both.
           */}
+          {/*
+            Both go to the debts screen rather than to the ledger. They were pointing at
+            Money, which is where the *entries* are — so a figure that raises the question
+            "which debts" answered it with a list of transactions. The question these two
+            lines ask has its own page now.
+          */}
           {youOwe > 0 && (
-            <Link href="/private/money" className="is-owed">
+            <Link href="/private/debts" className="is-owed">
               {fmt(youOwe)} still to repay
             </Link>
           )}
           {owedToYou > 0 && (
-            <Link href="/private/money">{fmt(owedToYou)} owed to you</Link>
+            <Link href="/private/debts">{fmt(owedToYou)} owed to you</Link>
           )}
           {promised > 0 && <Link href="/private/budgets">{promisedLabel}</Link>}
         </p>
@@ -745,8 +846,10 @@ export default async function PrivateOverviewPage({
         that survive still make an even row.
       */}
       {live && (
-        <div className="grid items-start gap-4 lg:grid-cols-2">
+        <div className="grid gap-4 lg:grid-cols-2">
           <Panel
+            className="flex h-full flex-col"
+            bodyClassName="flex flex-1 flex-col"
             title="Today"
             action={
               <Link href="/private/tasks" className="text-[12px] font-semibold text-gold-hi">
@@ -785,6 +888,7 @@ export default async function PrivateOverviewPage({
                 ))}
               </div>
               <MoreRow
+                className="mt-auto"
                 count={tasks.length - TODAY_SHOWN}
                 href="/private/tasks"
                 noun="task"
@@ -793,6 +897,8 @@ export default async function PrivateOverviewPage({
             )}
           </Panel>
           <Panel
+            className="flex h-full flex-col"
+            bodyClassName="flex flex-1 flex-col"
             title="Goals"
             action={
               <Link href="/private/goals" className="text-[12px] font-semibold text-gold-hi">
@@ -855,11 +961,25 @@ export default async function PrivateOverviewPage({
                           {target > 0 ? ` / ${fmtShort(target)}` : ""}
                         </span>
                       </div>
+                      {/*
+                        One colour for every bar, and it is the colour the app already uses
+                        for money a goal is holding.
+
+                        These were painted with each goal's own saved colour — a decoration
+                        chosen once on the goal form, drawn nowhere else that matters. On a
+                        list of five bars that is the loudest signal on the panel spent on
+                        the one thing here that means nothing: orange beside green beside
+                        grey reads as behind, on track, done, and it is none of those. It is
+                        which swatch was open when the goal was made.
+
+                        A bar's colour has to say something or say nothing. This one says
+                        what the bar is made of, which is the same thing on every row.
+                      */}
                       {!untouched && (
                         <div className="mt-1.5 h-1.5 overflow-hidden rounded-pill bg-white/6">
                           <div
                             className="h-full rounded-pill"
-                            style={{ width: `${pct * 100}%`, background: g.color ?? "var(--color-muted)" }}
+                            style={{ width: `${pct * 100}%`, background: "var(--color-held)" }}
                           />
                         </div>
                       )}
@@ -867,7 +987,7 @@ export default async function PrivateOverviewPage({
                   );
                 })}
               </div>
-              <MoreRow count={goals.length - GOALS_SHOWN} href="/private/goals" noun="goal" />
+              <MoreRow className="mt-auto" count={goals.length - GOALS_SHOWN} href="/private/goals" noun="goal" />
               </>
             )}
           </Panel>
@@ -977,6 +1097,55 @@ export default async function PrivateOverviewPage({
           incomeOnFile={incomeOnFile}
         />
       </div>
+
+      {/* What a finished month has to say for itself. See `biggest` and `cameFrom`. */}
+      {!live && (biggest.length > 0 || cameFrom.length > 0) && (
+        <div className="past-month">
+          {biggest.length > 0 && (
+            <Panel title="The biggest of them">
+              <div className="past-list">
+                {biggest.map((tx) => (
+                  <Link
+                    key={tx.id}
+                    href={`/private/money?month=${month}&edit=${tx.id}`}
+                    className="past-row"
+                  >
+                    <span className="mono past-row-on">{String(tx.occurred_on).slice(5)}</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="past-row-name">
+                        {tx.title ?? tx.category?.name ?? "—"}
+                      </span>
+                      {tx.category?.name && tx.title && (
+                        <span className="past-row-cat">{tx.category.name}</span>
+                      )}
+                    </span>
+                    <span className="mono past-row-amount">{fmt(Number(tx.amount_rsd) || 0)}</span>
+                  </Link>
+                ))}
+              </div>
+              <Link href={`/private/money?month=${month}`} className="zv-more">
+                <span>Every entry that month</span>
+                <ArrowRight className="h-3.5 w-3.5" aria-hidden />
+              </Link>
+            </Panel>
+          )}
+
+          {cameFrom.length > 0 && (
+            <Panel title="Where it came from">
+              <div className="past-list">
+                {cameFrom.map((row) => (
+                  <div key={row.name} className="past-row is-static">
+                    <span className="min-w-0 flex-1">
+                      <span className="past-row-name">{row.name}</span>
+                    </span>
+                    <span className="mono past-row-amount text-ok">{fmt(row.total)}</span>
+                  </div>
+                ))}
+              </div>
+            </Panel>
+          )}
+        </div>
+      )}
 
       {/*
         The claim on the figures above.
@@ -1273,7 +1442,7 @@ export default async function PrivateOverviewPage({
                 <b className="mono">{fmt(summary.expense + dueBeforeMonthEnd)}</b>
                 <i>
                   by {monthName} {monthDays}
-                  {prevExpense > 0 && ` · ${prevName} came to ${fmtShort(prevExpense)}`}
+                  {prevExpense > 0 && ` · ${prevName} finished at ${fmtShort(prevExpense)}`}
                 </i>
               </span>
             </div>
@@ -1287,7 +1456,7 @@ export default async function PrivateOverviewPage({
             */
             <p className="month-ahead-quiet">
               Nothing else is dated before {monthName} {monthDays}
-              {prevExpense > 0 && ` · ${prevName} came to ${fmtShort(prevExpense)}`}
+              {prevExpense > 0 && ` · ${prevName} finished at ${fmtShort(prevExpense)}`}
             </p>
           )}
 
@@ -1310,33 +1479,65 @@ export default async function PrivateOverviewPage({
             numerals were the cheapest thing to print and the slowest thing to read, on the
             one row of this panel whose whole job is to be read at a glance.
           */}
+          {/*
+            Each bar is the way into its month.
+
+            Six months were drawn as a comparison and then left inert, which is the one
+            thing a comparison must not be: you see that April was six times March, and the
+            obvious next move — look at April — had to be made with the arrows in the
+            masthead, one month at a time, past every month in between. It is the same
+            `?month=` the arrows use, so nothing new is being invented, only reached.
+
+            The month you are standing in is not a link. A control that reloads the page
+            you are on is a control that answers "nothing happened", and the gold bar
+            already says which month this is.
+          */}
           <div className="month-bars">
-            {trend.map((t, i) => (
-              <div
-                key={t.month}
-                className={`month-bar${t.month === month ? " is-now" : ""}${
-                  t.expense === 0 ? " is-empty" : ""
-                }`}
-              >
-                <span className="mono month-bar-val">
-                  {t.expense > 0 ? fmtShort(t.expense) : "—"}
-                </span>
-                <span className="month-bar-track">
-                  <i
-                    className="money-bar-in"
-                    style={{
-                      height: `${t.expense > 0 ? Math.max(6, (t.expense / peak) * 100) : 0}%`,
-                      animationDelay: `${240 + i * 45}ms`,
-                    }}
-                  />
-                </span>
-                <span className="month-bar-key">{shortMonthLabel(t.month, month)}</span>
-              </div>
-            ))}
+            {trend.map((t, i) => {
+              const here = t.month === month;
+              const bar = (
+                <>
+                  <span className="mono month-bar-val">
+                    {t.expense > 0 ? fmtShort(t.expense) : "—"}
+                  </span>
+                  <span className="month-bar-track">
+                    <i
+                      className="money-bar-in"
+                      style={{
+                        height: `${t.expense > 0 ? Math.max(6, (t.expense / peak) * 100) : 0}%`,
+                        animationDelay: `${240 + i * 45}ms`,
+                      }}
+                    />
+                  </span>
+                  <span className="month-bar-key">{shortMonthLabel(t.month, month)}</span>
+                </>
+              );
+              const className = `month-bar${here ? " is-now" : ""}${
+                t.expense === 0 ? " is-empty" : ""
+              }`;
+
+              return here ? (
+                <div key={t.month} className={className}>
+                  {bar}
+                </div>
+              ) : (
+                <Link
+                  key={t.month}
+                  href={`/private?month=${t.month}`}
+                  className={`${className} is-link`}
+                  aria-label={`Go to ${monthLabel(t.month)}`}
+                >
+                  {bar}
+                </Link>
+              );
+            })}
           </div>
         </div>
       </Panel>
     </div>
   );
 }
+
+
+
 

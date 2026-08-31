@@ -35,13 +35,48 @@ export const accountCols =
   "grid grid-cols-1 gap-2 min-[420px]:grid-cols-2 min-[720px]:grid-cols-[minmax(0,1fr)_8.5rem_5.5rem_11rem_9.5rem] min-[720px]:items-center min-[720px]:gap-3";
 
 /*
-  On a phone this was two equal halves, which put a colour swatch in one and a Save
-  button floating in the other — two controls of unrelated size sitting side by side
-  with a gap between them for no reason. The swatch only ever needs its own width, so
-  it takes it, and everything else gets the rest of the row.
+  The composer's own two columns: the name, and the button that files it.
+
+  It used to share a template with the saved categories, and that is what put a phantom
+  7.5rem column at the end of every saved row — a track sized for controls the composer
+  does not have. They are no longer the same shape anyway: the saved ones are tiles in a
+  grid, and this is the single full-width line underneath them.
 */
-export const categoryCols =
-  "grid grid-cols-[auto_minmax(0,1fr)] items-center gap-2 min-[480px]:grid-cols-[minmax(0,1fr)_auto_7.5rem] min-[480px]:gap-3";
+export const categoryAddCols =
+  "grid grid-cols-1 gap-2 min-[480px]:grid-cols-[minmax(0,1fr)_9rem] min-[480px]:items-center min-[480px]:gap-3";
+
+/**
+ * Whether anything has ever been filed here.
+ *
+ * It used to be the name's first letter in a 26px box, and the letter was never worth
+ * its room: it is the first character of the word printed beside it, so the box repeated
+ * what the row already said and did it sixty times down a grid, which reads as a wall of
+ * boxes before it reads as anything. The one fact in there was the ring — gold when the
+ * ledger has entries under this name, plain when it has none and nothing would be lost
+ * by removing it.
+ *
+ * So the box went and the fact stayed, as the rail it always was underneath: a lit edge
+ * on what is in use, an unlit one on what is not. Same column to scan down, none of the
+ * glyphs.
+ */
+export function RowMark({ used }: { used: boolean }) {
+  return <span className={cn("setup-mark", used && "is-used")} aria-hidden="true" />;
+}
+
+/**
+ * What has been filed here — the fact that tells a real category from a typo, and the one
+ * that says whether removing it would lose anything.
+ */
+export function RowUses({ count }: { count: number }) {
+  // Nothing to say when nothing has been filed: the mark beside it is already unlit, and
+  // a tile that spells out "not used yet" fifty times is a wall of the same sentence.
+  if (count === 0) return <span className="setup-uses is-empty" aria-hidden="true" />;
+  return (
+    <span className="setup-uses mono" title={`${count} ${count === 1 ? "entry" : "entries"}`}>
+      {count}
+    </span>
+  );
+}
 
 /**
  * How a row leaves: it fades and drifts a little towards the trash it was sent

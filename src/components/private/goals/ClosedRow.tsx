@@ -66,14 +66,42 @@ export function ClosedRow({ goal }: { goal: GoalLine }) {
                 · closed <span className="mono">{goal.completed_at}</span>
               </>
             )}
+            {/*
+              What it is holding now, when that is not what went into it.
+
+              Closing a goal takes its money back out — either you bought the thing, in
+              which case the purchase is in the ledger, or you freed it. Either way the
+              row above says `40.000 went in` and the goal holds nothing, and the two read
+              as a contradiction unless the second one is said out loud. It is also the
+              answer to the question Reopen raises, which is what you get back.
+            */}
+            {!goal.paying && goal.deposited > 0 && goal.progress <= 0 && (
+              <> · holds nothing now</>
+            )}
           </div>
         </div>
 
         <div className="flex shrink-0 items-center gap-1">
+          {/*
+            Reopening brings the goal back, not the money.
+
+            Closing withdrew whatever it held, and if it was closed with `I bought it` that
+            money is an expense in the ledger — spent, on the thing. So a reopened goal
+            starts from what it actually holds, which after a purchase is nothing. It is
+            the same goal with its whole history, not a new one; it is simply empty, and
+            the button now says so before it is pressed rather than after.
+          */}
           <button
             type="button"
             onClick={() => run(() => reopenGoal(goal.id))}
             disabled={pending}
+            title={
+              goal.paying
+                ? "Put it back on the list, with everything paid against it."
+                : goal.progress > 0
+                  ? `It comes back holding ${fmt(goal.progress)}.`
+                  : "It comes back empty — what it held was taken out when it closed. Every deposit it ever took is still on its record."
+            }
             className={buttonClasses("secondary", "px-2.5 py-1 text-[12px] disabled:opacity-50")}
           >
             <RotateCcw className="h-3.5 w-3.5" />

@@ -198,16 +198,28 @@ function CloseGoal({
       <input type="hidden" name="goal_id" value={goal.id} />
 
       <div className="text-[13px] font-semibold text-ink">Close this goal</div>
+      {/*
+        `goes back to an account` was the wrong sentence, and it contradicted the one at
+        the top of the screen — money set aside never left an account, so it cannot go
+        back to one. What a goal holds is a *claim* on dinars that have been sitting on
+        the account the whole time; closing it lifts the claim, and nothing moves.
+
+        The account picker below is still needed, and this now says why: the claim was
+        made against a particular account and has to be lifted from that one, or the
+        figures for the other accounts would move for no reason.
+      */}
       <p className="mt-1 text-[11.5px] leading-relaxed text-muted">
         {held > 0 ? (
           <>
-            The <span className="mono text-ink">{fmt(held)}</span> it still holds goes back
-            to an account and is free to spend again. If you spent it on the thing itself, log
-            that purchase in Money — this only stops the goal claiming it.
+            The <span className="mono text-ink">{fmt(held)}</span> it is holding stops being
+            claimed and counts as free to spend again. Nothing moves — the money has been on
+            the account all along. Say which account it was set aside on. If you spent it on
+            the thing itself, log that purchase in Money; this only stops the goal claiming
+            it.
           </>
         ) : (
           <>
-            It holds nothing, so there is nothing to hand back. It moves to the closed list and
+            It holds nothing, so there is no claim to lift. It moves to the closed list and
             stops taking up room here.
           </>
         )}
@@ -217,7 +229,7 @@ function CloseGoal({
         <select
           name="account_id"
           defaultValue={preferred}
-          aria-label="Account the money goes back to"
+          aria-label="The account the money was set aside on"
           className={cn(
             "mt-2.5 w-full rounded-ctrl border border-line bg-white/[0.035] px-2.5 py-2 text-[13px] text-ink scheme-dark",
             "focus:border-gold focus:shadow-ring",
@@ -226,7 +238,7 @@ function CloseGoal({
           {accounts.length === 0 && <option value="">No accounts yet</option>}
           {accounts.map((a) => (
             <option key={a.id} value={a.id} className="bg-surface">
-              Back to {a.name}
+              Free it on {a.name}
             </option>
           ))}
         </select>

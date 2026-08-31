@@ -9,9 +9,11 @@ import {
   AddCaption,
   RowDelete,
   RowError,
+  RowMark,
+  RowUses,
   SavedFlash,
   SwapLabel,
-  categoryCols,
+  categoryAddCols,
   field,
   rowMotion,
   useRowCommit,
@@ -22,10 +24,13 @@ export function CategoryRow({
   category,
   kind,
   arrived,
+  uses = 0,
 }: {
   category?: MoneyCategory;
   kind: "expense" | "income";
   arrived?: boolean;
+  /** How many entries have been filed here — the fact that tells a real one from a typo. */
+  uses?: number;
 }) {
   const [state, formAction, pending] = useActionState<MoneyState, FormData>(saveCategory, undefined);
   const isNew = !category;
@@ -39,11 +44,11 @@ export function CategoryRow({
       onInput={commit.onInput}
       onBlur={commit.onBlur}
       className={cn(
-        "setup-row-premium px-4",
+        "setup-row-premium",
         rowMotion,
         isNew
-          ? "rounded-b-card border-t border-line bg-white/[0.02] py-3.5"
-          : "border-b border-line-soft py-2.5 last:border-b-0",
+          ? "setup-cat-add rounded-b-card border-t border-line bg-white/[0.02] px-4 py-3.5"
+          : "setup-cat is-quiet",
         arrived && "zv-row-in",
         leaving && "translate-x-1 opacity-0",
       )}
@@ -56,23 +61,33 @@ export function CategoryRow({
       {category && <input type="hidden" name="id" value={category.id} />}
       <input type="hidden" name="kind" value={category?.kind ?? kind} />
 
-      <div className={categoryCols}>
+      <div className={isNew ? categoryAddCols : "setup-cat-in"}>
+        {/*
+          A saved category is a tile: mark, name, and how much has been filed here.
+
+          It was a full-width row, and fifty-eight of those is four screens of one line
+          each — every line the same shape, the same length, and mostly empty, so scrolling
+          for one category meant reading past fifty-seven names one under the other. A tile
+          holds exactly the same three things in a quarter of the width, which puts a whole
+          screen of them in front of you at once. The list is not shorter; the distance the
+          eye has to travel to find something in it is.
+
+          The colour picker that used to sit in the row is gone — a category's colour is
+          drawn nowhere, so the control asked for a decision that changed nothing. What
+          replaced it is not another control: it is which one this is, and whether it has
+          ever been used. The mark carries the second of those in its ring, so the figure
+          beside it is only a figure, and an unused category says it with an empty space
+          rather than with two more words.
+        */}
+        {category && <RowMark used={uses > 0} />}
         <input
           name="name"
           defaultValue={category?.name ?? ""}
           placeholder="Category name"
           aria-label="Category name"
           required
-          className={cn(field, "col-span-2 w-full min-w-0 font-medium min-[480px]:col-span-1")}
+          className={cn(field, "w-full min-w-0 font-medium", !isNew && "setup-cat-name")}
         />
-
-        {/*
-          The colour picker is gone.
-
-          A category's colour is no longer drawn anywhere — see `@/lib/money/tone` for
-          why — so the control was asking for a decision that changed nothing on any
-          screen. Goals lost theirs for the same reason and before this one.
-        */}
 
         {isNew ? (
           <Button
@@ -84,20 +99,24 @@ export function CategoryRow({
             <SwapLabel pending={pending} idle="Add" busy="Adding…" />
           </Button>
         ) : (
-          <div className="flex min-w-0 items-center justify-end gap-3">
+          <>
             {/*
-              Only while there is something to save. The column keeps its width either
-              way, so the bin does not walk sideways when the button comes and goes.
+              Save takes the count's place rather than sitting next to it. There is no room
+              in a tile for both, and while you are mid-edit the count is not the thing you
+              are looking at — a tile only ever needs to say one thing on that side, and
+              which thing depends on whether there is work to keep.
             */}
-            {(commit.dirty || pending) && (
+            {commit.dirty || pending ? (
               <Button
                 type="submit"
                 variant="secondary"
-                className="money-premium-button w-full px-3 py-1.5 text-[12.5px] min-[480px]:w-21"
+                className="money-premium-button setup-cat-save px-2.5 py-1 text-[11.5px]"
                 disabled={pending}
               >
                 <SwapLabel pending={pending} idle="Save" busy="Saving…" />
               </Button>
+            ) : (
+              <RowUses count={uses} />
             )}
             <RowDelete
               onDelete={async () => {
@@ -106,7 +125,7 @@ export function CategoryRow({
               label={`Delete ${category.name}`}
               onLeaving={setLeaving}
             />
-          </div>
+          </>
         )}
       </div>
 
@@ -115,4 +134,5 @@ export function CategoryRow({
     </form>
   );
 }
+
 

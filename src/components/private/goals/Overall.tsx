@@ -57,10 +57,35 @@ export function Overall({ goals, onHand }: { goals: GoalLine[]; onHand: OnHand }
   const left = Math.max(totalTarget - towards, 0);
   const pct = totalTarget > 0 ? towards / totalTarget : null;
   const many = goals.length > 1;
-  // Seams only when every drawn segment is wide enough to read as its own band.
-  const seams = targeted
-    .filter((g) => g.saved > 0)
-    .every((g) => Math.min(g.saved, Number(g.target_rsd)) / totalTarget >= 0.02);
+
+  /*
+    Where one goal's share of the bar ends and the next begins, as a percentage of the
+    whole track.
+
+    Boundaries rather than segments, and that is the fix for a bar that lied.
+
+    It used to be a flex row of one element per goal, each with a 3px floor so a first
+    deposit was visible, and a 1px gap between them. With thirty-nine goals that is
+    thirty-eight gaps and a floor under every small one, so the gold ran forty or fifty
+    pixels past where the arithmetic said it should stop — a bar reporting 23% and drawing
+    26%, and drawing it in pieces, with the last few detached from the rest.
+
+    A single fill of exactly `pct`, with hairlines laid over it, cannot do that: the end
+    of the gold is the figure, by construction, and a seam costs no width at all. Seams
+    are dropped below two percent, where there are no bands left to tell apart — only a
+    row of scratches through six pixels of gold.
+  */
+  const seams: number[] = [];
+  if (pct !== null) {
+    let run = 0;
+    for (const g of targeted) {
+      const share = (Math.min(g.saved, Number(g.target_rsd)) / totalTarget) * 100;
+      if (share <= 0) continue;
+      // The seam belongs to the band before it, so a hair-thin band draws none.
+      if (run > 0 && share >= 2) seams.push(run);
+      run += share;
+    }
+  }
 
   return (
     <Panel
@@ -104,22 +129,19 @@ export function Overall({ goals, onHand }: { goals: GoalLine[]; onHand: OnHand }
               <>
                 <div
                   aria-hidden="true"
-                  /*
-                    The 1px seams between goals are dropped once any segment is too small
-                    to survive them.
-
-                    Each segment carries a 3px floor so a first deposit is visible at all.
-                    With 2.000 spread over two goals against a 2.598.012 target, both
-                    segments sit on that floor — and a 1px gap cut through six pixels of
-                    gold reads as a broken pill, not as two goals. Seams are for telling
-                    wide bands apart; below about two percent of the bar there are no
-                    bands to tell apart, only a mark showing something is in.
-                  */
-                  className={cn(
-                    "goal-progress-track relative mt-3 flex h-2.5 overflow-hidden rounded-pill bg-white/6",
-                    seams && "gap-px",
-                  )}
+                  className="goal-progress-track relative mt-3 h-2.5 overflow-hidden rounded-pill bg-white/6"
                 >
+                  {/* The whole of it, in one piece, ending exactly where the figure says. */}
+                  <span
+                    className="goal-progress-fill"
+                    style={{ width: `${Math.min(pct, 1) * 100}%`, background: GOAL_ACCENT }}
+                  />
+
+                  {/* Where one goal hands over to the next. Drawn on the gold, not through it. */}
+                  {seams.map((at) => (
+                    <span key={at} className="goal-progress-seam" style={{ left: `${at}%` }} />
+                  ))}
+
                   {/*
                     The same quarter marks the goal cards carry, for the same reason:
                     progress that only ever reports a percentage gives you nothing to
@@ -131,28 +153,10 @@ export function Overall({ goals, onHand }: { goals: GoalLine[]; onHand: OnHand }
                   {[25, 50, 75].map((mark) => (
                     <span
                       key={mark}
-                      className={cn(
-                        "goal-milestone",
-                        pct * 100 >= mark && "is-passed",
-                      )}
+                      className={cn("goal-milestone", pct * 100 >= mark && "is-passed")}
                       style={{ left: `${mark}%` }}
                     />
                   ))}
-                  {targeted.map((g) => {
-                    const share = (Math.min(g.saved, Number(g.target_rsd)) / totalTarget) * 100;
-                    if (share <= 0) return null;
-                    return (
-                      <span
-                        key={g.id}
-                        className="money-progress-segment h-full shrink-0"
-                        style={{
-                          width: `${share}%`,
-                          minWidth: "3px",
-                          background: GOAL_ACCENT,
-                        }}
-                      />
-                    );
-                  })}
                 </div>
                 <p className="mt-2 text-[12px] text-muted">
                   {left === 0 ? (
@@ -197,19 +201,19 @@ export function Overall({ goals, onHand }: { goals: GoalLine[]; onHand: OnHand }
           />
         </div>
         {/*
-          Five lines cut to one.
+          Five lines cut to one, and then to none.
 
-          The paragraph explained the mechanism twice over and then covered currency
-          conversion as well — a manual page sitting permanently under a panel people
-          read in two seconds. The equation directly above it already shows what the
-          words were describing: on accounts, less set aside, equals free to spend. One
-          line is enough to say the money has not gone anywhere; anyone who needs the
-          currency rule will meet it on the card that applies it.
+          The paragraph here explained the mechanism twice over and covered currency
+          conversion as well — a manual page under a panel people read in two seconds. It
+          became one sentence: "money set aside never leaves the account". That sentence is
+          the page's own subtitle, forty pixels above this panel's top edge, and two
+          identical sentences in one screenful do not explain a thing twice — they make the
+          reader stop and check whether they are about the same thing.
+
+          The equation directly above says it without words anyway: on accounts, less set
+          aside, equals free to spend. Three figures that visibly add up are a better
+          argument that nothing went anywhere than a sentence claiming it.
         */}
-        <p className="mt-2 text-[11.5px] leading-relaxed text-muted">
-          Money set aside never leaves the account — it only stops counting as free to
-          spend.
-        </p>
       </div>
     </Panel>
   );

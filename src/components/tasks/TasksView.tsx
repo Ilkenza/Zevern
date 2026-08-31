@@ -16,6 +16,7 @@ import {
   SkipForward,
 } from "lucide-react";
 import { SlideOver } from "@/components/ui/SlideOver";
+import { TaskMonth } from "./TaskMonth";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ListBar } from "@/components/ui/ListBar";
 import { buttonClasses } from "@/components/ui/Button";
@@ -322,6 +323,13 @@ export function TasksView({
     time and puts the rest in a rail you can count at a glance: the page stops growing,
     and "what does Thursday look like" becomes one click instead of a scroll.
   */
+  /*
+    The day on screen. Declared above the bands because one of them is built from it: the
+    calendar can land on a day the seven-day rail has no chip for, and that day needs a
+    band like any other.
+  */
+  const [picked, setPicked] = useState<string | null>(null);
+
   const bands = useMemo<Band[]>(() => {
     const horizon = addDays(today, 6);
     const list: Band[] = [];
@@ -400,11 +408,44 @@ export function TasksView({
       hint: "no date",
     });
 
-    return list;
-  }, [open, today]);
+    /*
+      And the day the calendar is standing on, when the rail has no chip for it.
 
-  // Late first, because a day you have already missed outranks the one you are in.
-  const [picked, setPicked] = useState<string | null>(null);
+      Added here rather than handled beside the rail so that everything downstream — the
+      panel, the quick add that lands on the right date, the review — carries on unchanged.
+      A day is a day; where it was chosen is not the list's business.
+    */
+    if (picked && /^\d{4}-\d{2}-\d{2}$/.test(picked) && !list.some((b) => b.key === picked)) {
+      const p = parts(picked);
+      list.push({
+        key: picked,
+        lead: p.weekday,
+        sub: `${p.day} ${p.month}`,
+        tone: picked < today ? "late" : "day",
+        tasks: open
+          .filter((t) => dayOf(t) === picked)
+          .sort((a, b) => (dayOf(a) ?? "").localeCompare(dayOf(b) ?? "")),
+        dueOn: picked,
+        title: `${p.weekday} ${p.day} ${p.month}`,
+        empty: "Nothing due that day.",
+        placeholder: `What needs doing on ${p.day} ${p.month}?`,
+        hint: `lands on ${p.day} ${p.month}`,
+      });
+    }
+
+    return list;
+  }, [open, today, picked]);
+
+  /*
+    Which of the two readings of the same list is on screen.
+
+    `Days` is the rail — seven days and three buckets, the shape for "what is today". The
+    calendar is the shape for the other question, which is *when*: it is the only view
+    that can show an empty Thursday three weeks out without reading every row between here
+    and there. Nothing below the switch knows which one chose the day.
+  */
+  const [asMonth, setAsMonth] = useState(false);
+  const [month, setMonth] = useState(() => today.slice(0, 7));
   const [reviewing, setReviewing] = useState(false);
   const [reviewIndex, setReviewIndex] = useState(0);
   const [reviewed, setReviewed] = useState(0);
@@ -424,6 +465,24 @@ export function TasksView({
     : 0;
   const reviewTask = remainingTasks[safeReviewIndex] ?? null;
   const reviewComplete = reviewing && (reviewed >= reviewTotal || reviewTask === null);
+
+  /*
+    How many open tasks land on each day, and which of those days are already behind.
+
+    Over every open task rather than over the bands, because the bands stop at seven days
+    and the calendar does not — that is the whole reason it exists.
+  */
+  const byDay = useMemo(() => {
+    const counts = new Map<string, number>();
+    const late = new Set<string>();
+    for (const task of open) {
+      const day = dayOf(task);
+      if (!day) continue;
+      counts.set(day, (counts.get(day) ?? 0) + 1);
+      if (day < today) late.add(day);
+    }
+    return { counts, late };
+  }, [open, today]);
 
   const lateCount = bands.find((b) => b.key === "late")?.tasks.length ?? 0;
   const todayCount = bands.find((b) => b.key === today)?.tasks.length ?? 0;
@@ -574,19 +633,61 @@ export function TasksView({
             </p>
           )}
 
-          <nav className="task-rail" aria-label="Pick a day">
-            {bands.map((b) => (
-              <Chip
-                key={b.key}
-                band={b}
-                on={b.key === activeKey}
-                onPick={() => {
-                  setPicked(b.key);
-                  leaveReview();
-                }}
-              />
-            ))}
-          </nav>
+          {/*
+            Two readings of one list. The switch is the app's own segmented control — the
+            same one the workspace uses above every screen and the entry form uses for its
+            kinds — so a person meets it here already knowing what it does.
+          */}
+          <div className="zv-seg task-views" role="group" aria-label="How to look at them">
+            <button
+              type="button"
+              onClick={() => setAsMonth(false)}
+              aria-pressed={!asMonth}
+              className={cn(!asMonth && "is-on")}
+            >
+              <CalendarRange className="h-3.5 w-3.5" aria-hidden /> Days
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setAsMonth(true);
+                setMonth((activeKey.length === 10 ? activeKey : today).slice(0, 7));
+              }}
+              aria-pressed={asMonth}
+              className={cn(asMonth && "is-on")}
+            >
+              <CalendarDays className="h-3.5 w-3.5" aria-hidden /> Month
+            </button>
+          </div>
+
+          {asMonth ? (
+            <TaskMonth
+              month={month}
+              onMonth={setMonth}
+              today={today}
+              counts={byDay.counts}
+              late={byDay.late}
+              selected={activeKey.length === 10 ? activeKey : null}
+              onPick={(day) => {
+                setPicked(day);
+                leaveReview();
+              }}
+            />
+          ) : (
+            <nav className="task-rail" aria-label="Pick a day">
+              {bands.map((b) => (
+                <Chip
+                  key={b.key}
+                  band={b}
+                  on={b.key === activeKey}
+                  onPick={() => {
+                    setPicked(b.key);
+                    leaveReview();
+                  }}
+                />
+              ))}
+            </nav>
+          )}
 
           {band && (
             <section className="task-panel">

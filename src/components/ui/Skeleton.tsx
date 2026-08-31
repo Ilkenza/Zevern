@@ -101,6 +101,88 @@ export function ListSkeleton({
 }
 
 /**
+ * What the budgets screen shows while its cards are in flight.
+ *
+ * It was borrowing `CardsSkeleton` — three figures across the top and one panel — and
+ * the budgets screen is none of those things: it is a short heading, a toolbar, and a
+ * two-column grid of cards. So the placeholder drew a layout the page never arrives at,
+ * and the whole screen rearranged itself the moment the data landed. Which is the one
+ * thing the comment in that `loading.tsx` says a skeleton must not do.
+ *
+ * The card shell is `.bud-card` itself rather than a shape that resembles it, for the
+ * same reason the entries skeleton borrows `.zv-entry`: padding, border and radius
+ * cannot drift from the thing they stand in for if they are the same rule.
+ */
+export function BudgetsSkeleton({ cards = 6 }: { cards?: number }) {
+  // Fixed cycle, not random: a random width differs between server and client, and
+  // React calls that a hydration error.
+  const names = ["8rem", "10.5rem", "7rem", "9.5rem", "11rem", "8.5rem"];
+
+  return (
+    <div className="pb-10" aria-busy="true" aria-live="polite">
+      <span className="sr-only">Loading…</span>
+
+      <div className="mb-5 flex items-center justify-between gap-3">
+        <div>
+          <Skeleton w="6.5rem" h={22} />
+          <Skeleton className="mt-2.5" w="19rem" h={11} />
+        </div>
+        <Skeleton w="8.5rem" h={34} />
+      </div>
+
+      <div className="zv-toolbar mb-5">
+        <div className="zv-toolbar-find">
+          <Skeleton w="100%" h={31} />
+        </div>
+        <Skeleton w="8.5rem" h={31} />
+        <Skeleton w="10rem" h={31} />
+        <Skeleton w="32px" h={31} />
+      </div>
+
+      <div className="grid gap-2.5 md:grid-cols-2">
+        {Array.from({ length: cards }, (_, i) => (
+          <div key={i} className="bud-card">
+            {/*
+              The real card's own rhythm, measured off the live page rather than guessed:
+              a 37px head, the line of time at 73, the note at 100, the strip at 142, and
+              222 in total. The first draft left the strip out and came to 121 — a hundred
+              pixels short on every card, which on a two-column grid is the page growing
+              half a screen at the moment the data lands.
+            */}
+            <div style={{ gridColumn: "1 / -1" }}>
+              <div className="flex h-[37px] items-center justify-between gap-4">
+                <Skeleton w={names[i % names.length]} h={13} />
+                <Skeleton w="6rem" h={19} />
+              </div>
+
+              <div className="mt-[21px] flex h-4 items-center gap-2.5">
+                <Skeleton w="2.6rem" h={10} />
+                <Skeleton className="flex-1 rounded-pill" w="100%" h={8} />
+                <Skeleton w="2.6rem" h={10} />
+              </div>
+
+              <div className="mt-[11px] flex h-[30px] items-center">
+                <Skeleton w="11rem" h={11} />
+              </div>
+
+              {/* The strip of finished periods, which most cards carry. */}
+              <div className="mt-3 h-[62px] border-t border-line-soft pt-2.5">
+                <div className="grid grid-cols-6 items-end gap-1.5" style={{ minHeight: "28px" }}>
+                  {[14, 22, 18, 26, 11, 24].map((h, k) => (
+                    <Skeleton key={k} w="100%" h={h} />
+                  ))}
+                </div>
+                <Skeleton className="mt-2" w="9rem" h={10} />
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/**
  * What a screen made of cards shows — the overview, the money pages. A row of figures
  * across the top, then panels.
  */
@@ -164,3 +246,5 @@ export function CardsSkeleton({
     </div>
   );
 }
+
+

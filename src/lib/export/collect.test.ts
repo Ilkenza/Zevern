@@ -1,4 +1,7 @@
 import { describe, expect, it } from "vitest";
+import { readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { EXPORT_TABLES, exportStem, toCsv } from "./collect";
 
 describe("toCsv", () => {
@@ -64,6 +67,43 @@ describe("EXPORT_TABLES", () => {
     ]) {
       expect(EXPORT_TABLES).toContain(table);
     }
+  });
+});
+
+/*
+  The check that would have caught it.
+
+  The list above is written by hand, and the test that guarded it was written by hand
+  too — so both said the same thing and both were missing the same seven tables. A list
+  cannot check itself. This reads the migrations, which is where a table actually comes
+  into existence, and asks whether each one ever reached the export.
+
+  It is one direction of the check only: a table created straight against the database,
+  with no migration written for it, is invisible here as well. Two of them exist —
+  `money_budget_boosts` and `money_budget_amounts` — which is worth knowing on its own.
+*/
+describe("every table that exists is exported", () => {
+  /** Created once and dropped since. Listed rather than guessed, so the reason survives. */
+  const GONE = new Set(["seo_usage"]);
+
+  it("misses no table any migration creates", () => {
+    const dir = fileURLToPath(new URL("../../../supabase/migrations", import.meta.url));
+    const sql = readdirSync(dir)
+      .filter((f) => f.endsWith(".sql"))
+      .map((f) => readFileSync(join(dir, f), "utf8"))
+      .join("\n");
+
+    const made = new Set<string>();
+    for (const m of sql.matchAll(/create\s+table\s+(?:if\s+not\s+exists\s+)?(?:public\.)?([a-z_]+)/gi)) {
+      if (!GONE.has(m[1])) made.add(m[1]);
+    }
+
+    expect(made.size).toBeGreaterThan(15);
+    expect([...made].filter((t) => !(EXPORT_TABLES as readonly string[]).includes(t))).toEqual([]);
+  });
+
+  it("names no table twice", () => {
+    expect(new Set(EXPORT_TABLES).size).toBe(EXPORT_TABLES.length);
   });
 });
 

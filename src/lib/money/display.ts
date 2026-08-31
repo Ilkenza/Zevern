@@ -46,14 +46,41 @@ export function formatDisplayExact(rsd: number, display: Display): string {
   return formatAmount(Math.round(converted * 100) / 100, display.currency);
 }
 
-/** The compact form used on tight rows: "1,2k", "340". */
+/**
+ * The compact form used on tight rows: "$485k", "$2.8M", "1,2k", "340".
+ *
+ * It stopped at thousands, which was right while everything on these screens was dinars
+ * and a month was a six-figure number. In dollars a month of a holding company is seven,
+ * and the bars over the trend panel read `2827k` — a unit nobody uses, next to `1939k` and
+ * `464k`, which is three numbers you have to divide before you can compare them. Millions
+ * and billions get their own step, so the label is always one or two significant places
+ * and a letter.
+ *
+ * The symbol comes with it where there is one. A bar chart of money whose labels are bare
+ * numerals is a bar chart of something; one character says which. `RSD` has no symbol and
+ * its mark is four characters wide, so it stays bare in this form — the same as it has
+ * always printed here — and the decimal comma stays with it, because that is the notation
+ * the number is written in, not a property of the screen.
+ */
 export function formatDisplayShort(rsd: number, display: Display): string {
   const n = fromRsd(rsd, display);
-  if (Math.abs(n) >= 1000) {
-    const k = n / 1000;
-    return `${k.toFixed(Math.abs(k) < 100 ? 1 : 0).replace(".", ",")}k`;
-  }
-  return String(Math.round(n));
+  const abs = Math.abs(n);
+  const [scale, suffix] =
+    abs >= 1e9 ? [1e9, "B"] : abs >= 1e6 ? [1e6, "M"] : abs >= 1e3 ? [1e3, "k"] : [1, ""];
+
+  const scaled = abs / scale;
+  // One decimal while the mantissa is small enough for it to mean anything: `2.8M` says
+  // more than `3M`, `485k` says everything `485.2k` does.
+  const body = scaled
+    .toFixed(suffix && scaled < 100 ? 1 : 0)
+    // `1.0M` is a decimal that carries nothing but its own point.
+    .replace(/\.0$/, "");
+
+  const symbol = display.currency === "EUR" ? "€" : display.currency === "USD" ? "$" : "";
+  const text = display.currency === "RSD" ? body.replace(".", ",") : body;
+  // The minus goes in front of the money, not in front of the amount: `-$2.8M`, the way
+  // every other figure on these screens prints it.
+  return `${n < 0 ? "-" : ""}${symbol}${text}${suffix}`;
 }
 
 /** What every screen calls to print money. One object, so a component takes one line. */
@@ -79,3 +106,4 @@ export function makeMoney(display: Display): Money {
     display,
   };
 }
+

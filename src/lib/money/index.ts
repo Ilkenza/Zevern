@@ -7,6 +7,17 @@ export const CURRENCIES = ["RSD", "EUR", "USD"] as const;
 
 /** URL-safe value used when an expense deliberately has no category row to point at. */
 export const UNCATEGORIZED_CATEGORY_ID = "uncategorized";
+
+/**
+ * What the debt picker sends when the debt does not exist yet.
+ *
+ * It lived in the form as a private constant, and the form posts it in the same field as a
+ * real id — so the action checked `__new` against the debts on the profile, found nothing,
+ * and answered "That debt is not on your profile" to somebody in the middle of creating
+ * one. A sentinel that crosses to the server is not a private constant; it is part of the
+ * contract, and it belongs where both ends can see it.
+ */
+export const NEW_LOAN = "__new";
 export type Currency = (typeof CURRENCIES)[number];
 
 export const CURRENCY_OPTIONS = CURRENCIES.map((c) => ({ value: c, label: c }));
@@ -454,11 +465,34 @@ export type NetNote = {
  * `onFile` covers standing rules as well as bookings, so writing down the salary
  * silences the setup prompt immediately rather than a month later.
  */
-export function monthNetNote(net: number, income: number, onFile = true): NetNote {
+/**
+ * Which stretch of time the figure covers. The money screen can stand in any of three.
+ *
+ * The note used to say "this month" whatever was on screen, so `All time` — a figure over
+ * nineteen hundred entries and four years — carried a sentence about a month. A number is
+ * only as true as the words beside it.
+ */
+export type NetScope = "month" | "all" | "span";
+
+export function monthNetNote(
+  net: number,
+  income: number,
+  onFile = true,
+  scope: NetScope = "month",
+): NetNote {
   if (net >= 0) return null;
   if (income <= 0 && !onFile)
     return { text: "Nothing on file as income yet", tone: "muted", setup: true };
-  if (income <= 0) return { text: "Nothing in yet this month", tone: "muted" };
+  if (income <= 0)
+    return {
+      text:
+        scope === "all"
+          ? "Nothing in on the whole ledger"
+          : scope === "span"
+            ? "Nothing in over these dates"
+            : "Nothing in yet this month",
+      tone: "muted",
+    };
   return { text: "More went out than came in", tone: "danger" };
 }
 

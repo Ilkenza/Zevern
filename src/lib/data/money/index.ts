@@ -96,6 +96,7 @@ export {
   type OnHand,
 } from "./accounts";
 
+export { getItems } from "./items";
 export { getLoans, isLoanOpen, loanTotals } from "./loans";
 
 export { getMoney } from "./display";

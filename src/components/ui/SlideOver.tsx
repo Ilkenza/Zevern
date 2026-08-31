@@ -81,6 +81,11 @@ export function SlideOver({
     */
     const scrollY = window.scrollY;
     const body = document.body;
+    // Pinning does not scroll, but anything React does under the panel on this tick
+    // might — and it would animate for the same reason the restore did.
+    const htmlOnOpen = document.documentElement;
+    const smoothOnOpen = htmlOnOpen.style.scrollBehavior;
+    htmlOnOpen.style.scrollBehavior = "auto";
     const previous = {
       position: body.style.position,
       top: body.style.top,
@@ -93,15 +98,41 @@ export function SlideOver({
     body.style.overflow = "hidden";
 
     document.addEventListener("keydown", onKey);
+    htmlOnOpen.style.scrollBehavior = smoothOnOpen;
 
     return () => {
       document.removeEventListener("keydown", onKey);
+
+      /*
+        The restore must not animate, and by default it did.
+
+        `html { scroll-behavior: smooth }` is set a few lines into the stylesheet so that
+        jumping to a section from an index does not teleport. It applies to every
+        programmatic scroll on the page, including this one — and this one runs the
+        instant the body stops being fixed, which is the instant the page is at the top.
+        So closing a panel opened from a card halfway down the page played a visible
+        four-hundred-millisecond scroll from the top of the list back down to that card,
+        every time. The page was not losing its place; it was finding it again in public.
+
+        Turned off for the two lines that put the page back, then restored — rather than
+        dropped from the stylesheet, because on an anchor jump the smoothness is the
+        point.
+      */
+      const html = document.documentElement;
+      const smooth = html.style.scrollBehavior;
+      html.style.scrollBehavior = "auto";
+
       body.style.position = previous.position;
       body.style.top = previous.top;
       body.style.width = previous.width;
       body.style.overflow = previous.overflow;
       window.scrollTo(0, scrollY);
-      returnTo.current?.focus?.();
+
+      html.style.scrollBehavior = smooth;
+
+      // The second mover: focusing what opened the panel scrolls it into view, and the
+      // browser is free to animate that too. The element is already where it was.
+      returnTo.current?.focus?.({ preventScroll: true });
     };
   }, [open, onClose]);
 
@@ -172,3 +203,4 @@ export function SlideOver({
     document.body,
   );
 }
+

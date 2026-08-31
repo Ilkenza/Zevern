@@ -1,7 +1,12 @@
 "use client";
 
+import { useState } from "react";
+import { Search } from "lucide-react";
 import { Panel } from "@/components/ui/Panel";
 import { Kpi } from "@/components/ui/Kpi";
+import { ListBar } from "@/components/ui/ListBar";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { buttonClasses } from "@/components/ui/Button";
 
 import { useMoney } from "@/lib/money/currency";
 import { cn } from "@/lib/utils";
@@ -33,7 +38,7 @@ export function UpcomingTimeline({
   /** Every one-off still waiting — the window shows most of them, not all. */
   planned: PlannedRow[];
 }) {
-  const { fmt } = useMoney();
+  const { fmt, fmtShort } = useMoney();
   const {
     lines,
     windows,
@@ -58,7 +63,58 @@ export function UpcomingTimeline({
     null,
   );
 
-  const groups = byMonth(lines);
+  /*
+    The timeline can be narrowed, and only the timeline.
+
+    Everything above the panel — the shortfall banner, the runway card, the three windows,
+    the starting balance — is read off the whole schedule and stays that way. A forecast
+    that re-ran itself against a search box would be answering a different question from
+    the one it is for: what is coming is what is coming, whether or not you are currently
+    looking for the word "rent".
+  */
+  const [q, setQ] = useState("");
+  const [kind, setKind] = useState("");
+  const [source, setSource] = useState("");
+  const [order, setOrder] = useState<"soon" | "big" | "name">("soon");
+  const [dir, setDir] = useState<"asc" | "desc">("asc");
+
+  // A standing order into a goal books a saving, whatever the rule behind it says.
+  const lineKind = (line: ForecastLine) => (line.goal ? "saving" : line.kind);
+
+  const term = q.trim().toLowerCase();
+  const matching = lines.filter((line) => {
+    if (
+      term &&
+      ![line.name, line.category ?? "", line.goal ?? ""].some((value) =>
+        value.toLowerCase().includes(term),
+      )
+    ) {
+      return false;
+    }
+    if (source && line.source !== source) return false;
+    if (kind && lineKind(line) !== kind) return false;
+    return true;
+  });
+
+  const compare = (a: ForecastLine, b: ForecastLine) => {
+    if (order === "big") return b.amount - a.amount || a.on.localeCompare(b.on);
+    if (order === "name") return a.name.localeCompare(b.name) || a.on.localeCompare(b.on);
+    return a.on.localeCompare(b.on) || a.name.localeCompare(b.name);
+  };
+  // Backwards is the comparison with its arguments swapped, so ties keep their order.
+  const shownLines = [...matching].sort(dir === "asc" ? compare : (a, b) => compare(b, a));
+  const narrowed = shownLines.length !== lines.length;
+
+  /*
+    Months only survive in date order, running forwards.
+
+    `byMonth` cuts the list where the month changes, and the closing balance it prints is
+    the balance after the last row it saw. Sorted by size the months interleave; run
+    backwards, the "leaves" figure would be the balance at the *start* of the month with
+    the month's name over it. Either way the heading stops being true, so it goes.
+  */
+  const grouped = order === "soon" && dir === "asc";
+  const groups = byMonth(shownLines);
   const running = items.filter(isRunning).length;
   const everydayTotal = lines
     .filter((l) => l.source === "everyday")
@@ -107,28 +163,37 @@ export function UpcomingTimeline({
                 key={w.days}
                 label={`Next ${w.days} days`}
                 value={fmt(w.expense)}
+                /*
+                  One line under the figure, and it is the answer.
+
+                  There were four: how many items, what is coming in, what goes into goals,
+                  what everyday spending is projected at, and then what it all leaves. Every
+                  one of them is true and only the last is the reason anybody looks at this
+                  card — the other three are the working, and the working is on the timeline
+                  directly underneath, item by item, where it can actually be checked.
+
+                  Three cards of four dense lines is twelve lines of figures above a panel
+                  that says the same thing at length. What survives is the count, because it
+                  says how much is behind the number, and what it leaves, because that is
+                  the question. The rest is a hover away.
+                */
                 hint={
-                  <>
-                    <span className="block">
-                      {w.count} {w.count === 1 ? "item" : "items"}
-                      {w.income > 0 && <> · {fmt(w.income)} coming in</>}
-                      {w.saving > 0 && (
-                        <span className="text-held"> · {fmt(w.saving)} into goals</span>
-                      )}
-                    </span>
-                    {w.everyday > 0 && (
-                      <span className="block font-normal text-faint">
-                        plus {fmt(w.everyday)} projected for living
-                      </span>
-                    )}
-                    <span className="block">
-                      leaves{" "}
-                      <span className={cn("mono", leaves < 0 ? "text-danger" : "text-ink")}>
-                        {fmt(leaves)}
-                      </span>{" "}
-                      free
-                    </span>
-                  </>
+                  <span
+                    className="block"
+                    title={[
+                      w.income > 0 ? `${fmt(w.income)} coming in` : null,
+                      w.saving > 0 ? `${fmt(w.saving)} into goals` : null,
+                      w.everyday > 0 ? `${fmt(w.everyday)} projected for living` : null,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  >
+                    {w.count} {w.count === 1 ? "item" : "items"} · leaves{" "}
+                    <span className={cn("mono", leaves < 0 ? "text-danger" : "text-ink")}>
+                      {fmtShort(leaves)}
+                    </span>{" "}
+                    free
+                  </span>
                 }
               />
             );
@@ -169,22 +234,107 @@ export function UpcomingTimeline({
           />
         ) : (
           <div>
-            <div
-              aria-hidden="true"
-              className="hidden items-center justify-between border-b border-line-soft px-4 py-1.5 min-[480px]:flex"
-            >
-              <span className={caps}>What falls due</span>
-              <span className={caps}>Amount / left after</span>
-            </div>
+            {/* Under a dozen rows every one of them is already on the screen, and a bar
+                over them is furniture. */}
+            {lines.length >= 12 && (
+              <ListBar
+                inPanel
+                query={q}
+                onQuery={setQ}
+                searchLabel="Search by name, category or goal…"
+                filters={[
+                  {
+                    value: kind,
+                    onChange: setKind,
+                    label: "Filter by what it books",
+                    all: `All ${lines.length}`,
+                    options: [
+                      { value: "expense", label: "Going out" },
+                      { value: "income", label: "Coming in" },
+                      { value: "saving", label: "Into goals" },
+                    ],
+                  },
+                  {
+                    value: source,
+                    onChange: setSource,
+                    label: "Filter by where it comes from",
+                    all: "Rules and one-offs",
+                    options: [
+                      { value: "recurring", label: "Repeating" },
+                      { value: "planned", label: "Planned once" },
+                      { value: "everyday", label: "Everyday living" },
+                    ],
+                  },
+                ]}
+                sort={{
+                  value: order,
+                  onChange: (value) => setOrder(value as typeof order),
+                  label: "Order the timeline",
+                  options: [
+                    { value: "soon", label: "Soonest first", reverse: "Furthest off first" },
+                    { value: "big", label: "Largest first", reverse: "Smallest first" },
+                    { value: "name", label: "Name A–Z", reverse: "Name Z–A" },
+                  ],
+                  direction: dir,
+                  onDirection: setDir,
+                }}
+                shown={shownLines.length}
+                total={lines.length}
+                onClear={() => {
+                  setQ("");
+                  setKind("");
+                  setSource("");
+                }}
+              />
+            )}
 
-            {groups.map((group) => (
-              <div key={group.key}>
-                <MonthHead group={group} />
-                {group.rows.map((line, i) => (
-                  <Row key={`${line.id}-${line.on}-${i}`} line={line} from={from} />
-                ))}
-              </div>
-            ))}
+            {shownLines.length === 0 ? (
+              <EmptyState
+                icon={Search}
+                title="Nothing here matches"
+                description={`All ${lines.length} are still coming — the search or a filter is hiding them.`}
+                action={
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setQ("");
+                      setKind("");
+                      setSource("");
+                    }}
+                    className={buttonClasses("secondary")}
+                  >
+                    Clear the filters
+                  </button>
+                }
+              />
+            ) : (
+              <>
+                <div
+                  aria-hidden="true"
+                  className="hidden items-center justify-between border-b border-line-soft px-4 py-1.5 min-[480px]:flex"
+                >
+                  <span className={caps}>What falls due</span>
+                  <span className={caps}>Amount / left after</span>
+                </div>
+
+                {grouped ? (
+                  groups.map((group) => (
+                    <div key={group.key}>
+                      <MonthHead group={group} narrowed={narrowed} />
+                      {group.rows.map((line, i) => (
+                        <Row key={`${line.id}-${line.on}-${i}`} line={line} from={from} />
+                      ))}
+                    </div>
+                  ))
+                ) : (
+                  <div>
+                    {shownLines.map((line, i) => (
+                      <Row key={`${line.id}-${line.on}-${i}`} line={line} from={from} />
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
           </div>
         )}
       </Panel>
@@ -222,3 +372,4 @@ export function UpcomingTimeline({
     </>
   );
 }
+

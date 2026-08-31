@@ -29,6 +29,7 @@ import { formatCurrency, formatDate, isToday, isOverdue } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { leadProfileUrl } from "@/lib/leads/profile-url";
 import type { Lead } from "@/lib/types";
+import { SortPicker } from "@/components/ui/SortPicker";
 import { LeadForm } from "./LeadForm";
 
 export type LeadsPanel = { mode: "new" } | { mode: "edit"; lead: Lead } | null;
@@ -161,6 +162,7 @@ export function LeadsView({
   const [serviceF, setServiceF] = useState("");
   const [statusF, setStatusF] = useState("");
   const [sortBy, setSortBy] = useState("newest");
+  const [way, setWay] = useState<"asc" | "desc">("asc");
 
   const term = q.trim().toLowerCase();
   const filtered = leads.filter((l) => {
@@ -176,7 +178,7 @@ export function LeadsView({
     return true;
   });
 
-  const sorted = [...filtered].sort((a, b) => {
+  const compare = (a: Lead, b: Lead) => {
     switch (sortBy) {
       case "name":
         return a.name.localeCompare(b.name);
@@ -189,7 +191,12 @@ export function LeadsView({
       default:
         return (b.created_at ?? "").localeCompare(a.created_at ?? "");
     }
-  });
+  };
+
+  // Backwards is the comparison with its arguments swapped, so ties keep their order.
+  const sorted = [...filtered].sort(
+    way === "asc" ? compare : (a, b) => compare(b, a),
+  );
 
   const selectClass =
     "rounded-ctrl border border-line bg-white/[0.035] px-2.5 py-2 text-[12.5px] text-ink [color-scheme:dark] focus:border-gold focus:shadow-ring focus:outline-none";
@@ -292,25 +299,20 @@ export function LeadsView({
             ))}
           </select>
 
-          <select
+          <SortPicker
             value={sortBy}
-            onChange={(e) => setSortBy(e.target.value)}
-            aria-label="Sort"
-            className={selectClass}
-          >
-            <option value="newest" className={optClass}>
-              Newest first
-            </option>
-            <option value="name" className={optClass}>
-              Name A–Z
-            </option>
-            <option value="value" className={optClass}>
-              Value (high→low)
-            </option>
-            <option value="followup" className={optClass}>
-              Follow-up (soonest)
-            </option>
-          </select>
+            onChange={setSortBy}
+            label="Order the leads"
+            options={[
+              { value: "newest", label: "Newest first", reverse: "Oldest first" },
+              { value: "name", label: "Name A–Z", reverse: "Name Z–A" },
+              { value: "value", label: "Biggest first", reverse: "Smallest first" },
+              { value: "followup", label: "Follow-up soonest", reverse: "Follow-up last" },
+            ]}
+            direction={way}
+            onDirection={setWay}
+            chrome={selectClass}
+          />
 
           {(statusF || serviceF || q) && (
             <span className="mono text-[11.5px] text-faint">
@@ -361,3 +363,4 @@ export function LeadsView({
     </div>
   );
 }
+

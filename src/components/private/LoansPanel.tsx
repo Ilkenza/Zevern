@@ -2,13 +2,24 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Check, HandCoins, RotateCcw } from "lucide-react";
+import Link from "next/link";
+import { ArrowRight, Check, HandCoins, RotateCcw } from "lucide-react";
 import { settleLoan } from "@/app/(app)/private/actions";
 import { Panel } from "@/components/ui/Panel";
 import { buttonClasses } from "@/components/ui/Button";
 import { useMoney } from "@/lib/money/currency";
 import { cn } from "@/lib/utils";
 import type { LoanLine } from "@/lib/types";
+
+/*
+  How many debts the panel draws before it offers the rest.
+
+  It drew every one of them, and a list with no end is a panel that pushes everything
+  under it — the settled list, and whatever the page puts below — off the bottom of the
+  screen for good. Six is a screenful: enough that the panel is a list rather than a
+  teaser, few enough that the page still has a shape.
+*/
+const LOANS_DRAWN = 6;
 
 /**
  * What is owed, both ways.
@@ -26,9 +37,21 @@ export function LoansPanel({ loans }: { loans: LoanLine[] }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [drawn, setDrawn] = useState(LOANS_DRAWN);
 
-  const open = loans.filter((l) => l.settled_on == null);
+  /*
+    Biggest first. Once the list is cut, which end it is cut from is a decision: in the
+    order they were opened, a three-million debt can sit below the fold under four
+    thousand-dinar ones, and the panel would be hiding exactly the figure it exists to
+    show.
+  */
+  const open = loans
+    .filter((l) => l.settled_on == null)
+    .sort((a, b) => b.outstanding - a.outstanding);
   if (open.length === 0) return null;
+
+  const shown = open.slice(0, drawn);
+  const rest = open.length - shown.length;
 
   const owedToYou = open
     .filter((l) => l.direction === "lent")
@@ -58,10 +81,18 @@ export function LoansPanel({ loans }: { loans: LoanLine[] }) {
           {owedToYou > 0 && <b className="text-ok">{fmt(owedToYou)} owed to you</b>}
           {owedToYou > 0 && youOwe > 0 && <i aria-hidden>·</i>}
           {youOwe > 0 && <b className="text-gold-hi">{fmt(youOwe)} you owe</b>}
+          {/*
+            The way to the whole list. This panel is a summary — six of them, biggest
+            first — and a summary that cannot be opened is a dead end on the one screen
+            where the next question is always "which ones".
+          */}
+          <Link href="/private/debts" className="loans-open">
+            Manage <ArrowRight className="h-3 w-3" aria-hidden />
+          </Link>
         </span>
       </div>
 
-      {open.map((loan) => {
+      {shown.map((loan) => {
         const paid = loan.settled;
         const total = Number(loan.total_rsd) || 0;
         // A friend's tenner has nothing to draw — it is owed in full until it is not.
@@ -71,6 +102,16 @@ export function LoansPanel({ loans }: { loans: LoanLine[] }) {
 
         return (
           <div key={loan.id} className="loan-row">
+            {/*
+              Name, figure, and the one thing you can do about it, on one line.
+
+              The button used to sit on a line of its own under the row, opposite a
+              progress note — and on a debt nothing has been paid off yet, that note is an
+              empty string, so every untouched debt was a line of nothing followed by a
+              button hanging in the middle of it. Sixteen of those is half a screen of
+              blank. The button belongs beside the figure it settles; the progress note
+              only exists when there is progress, and now only appears then.
+            */}
             <div className="loan-row-top">
               <span className="loan-row-id">
                 <span className="loan-row-name">{loan.name}</span>
@@ -92,35 +133,52 @@ export function LoansPanel({ loans }: { loans: LoanLine[] }) {
               <span className={cn("mono loan-row-amount", lent ? "text-ok" : "text-gold-hi")}>
                 {fmt(loan.outstanding)}
               </span>
-            </div>
-
-            {paid > 0 && (
-              <div className="loan-bar">
-                <span
-                  className="loan-bar-fill"
-                  style={{ width: `${share * 100}%` }}
-                  aria-hidden="true"
-                />
-              </div>
-            )}
-
-            <div className="loan-row-foot">
-              <span className="min-w-0 truncate">
-                {paid > 0 ? `${fmt(paid)} of ${fmt(total)} settled` : ""}
-              </span>
               <button
                 type="button"
                 onClick={() => settle(loan.id, true)}
                 disabled={pending}
-                className={buttonClasses("secondary", "shrink-0 px-2.5 py-1 text-[11.5px] disabled:opacity-50")}
+                className={buttonClasses(
+                  "secondary",
+                  "loan-row-do shrink-0 px-2.5 py-1 text-[11.5px] disabled:opacity-50",
+                )}
               >
                 <Check className="h-3.5 w-3.5" aria-hidden />
                 {lent ? "Collected" : "Settled"}
               </button>
             </div>
+
+            {paid > 0 && (
+              <>
+                <div className="loan-bar">
+                  <span
+                    className="loan-bar-fill"
+                    style={{ width: `${share * 100}%` }}
+                    aria-hidden="true"
+                  />
+                </div>
+                <p className="loan-row-foot">
+                  {fmt(paid)} of {fmt(total)} settled
+                </p>
+              </>
+            )}
           </div>
         );
       })}
+
+      {/*
+        The count says how much is still behind it, in money as well as in rows — on this
+        panel the figure is the reason to open it.
+      */}
+      {rest > 0 && (
+        <button type="button" onClick={() => setDrawn(open.length)} className="zv-more">
+          <span>
+            {rest} more {rest === 1 ? "debt" : "debts"}
+          </span>
+          <span className="mono text-[11px] text-faint">
+            {fmt(open.slice(drawn).reduce((sum, l) => sum + l.outstanding, 0))} outstanding
+          </span>
+        </button>
+      )}
 
       {/*
         Closed debts stay reachable rather than vanishing. Someone marks one settled by

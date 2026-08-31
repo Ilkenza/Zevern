@@ -7,12 +7,31 @@ import { createClient } from "@/lib/supabase/server";
 import { userId } from "@/lib/supabase/current-user";
 import { todayISO } from "@/lib/format";
 import { monthKey, monthRange, UNCATEGORIZED_CATEGORY_ID } from "@/lib/money";
+import { sumEntries } from "@/lib/money/summary";
 import type { TransactionRow } from "@/lib/types";
-import { TX_SELECT } from "./core";
+import { readAll, TX_SELECT } from "./core";
 
 export type TxFilter = {
   month?: string;
+  /**
+   * An explicit span, inclusive at both ends, and either end may be left empty.
+   *
+   * Takes precedence over `month`, because a caller that asks for both has asked for a
+   * span and named the month it started in. Either end empty means unbounded that way,
+   * which is how "all time" arrives here: both ends empty and nothing to add to the
+   * query at all.
+   */
+  from?: string;
+  to?: string;
   categoryId?: string;
+  /**
+   * Several categories at once. `categoryId` still works and is the one-category case.
+   *
+   * `Uncategorised` may be among them, and it is not a category — it is the absence of
+   * one, which in a query is a different clause entirely. Mixed with real ids that makes
+   * the filter an `or`, and the `or` is the reason this cannot just be an `in`.
+   */
+  categoryIds?: readonly string[];
   accountId?: string;
   kind?: string;
   limit?: number;
@@ -22,38 +41,98 @@ export async function getTransactions(filter: TxFilter = {}): Promise<Transactio
   const supabase = await createClient();
   const uid = await userId(supabase);
   if (!uid) return [];
-  let q = supabase.from("money_transactions").select(TX_SELECT).eq("user_id", uid);
 
-  if (filter.month) {
-    const { from, to } = monthRange(filter.month);
-    q = q.gte("occurred_on", from).lte("occurred_on", to);
-  }
-  if (filter.categoryId === UNCATEGORIZED_CATEGORY_ID) {
-    q = q.is("category_id", null).eq("kind", "expense");
-  } else if (filter.categoryId) {
-    q = q.eq("category_id", filter.categoryId);
-  }
-  if (filter.accountId) q = q.eq("account_id", filter.accountId);
-  if (filter.kind) q = q.eq("kind", filter.kind);
+  const span =
+    filter.from !== undefined || filter.to !== undefined
+      ? { from: filter.from ?? "", to: filter.to ?? "" }
+      : filter.month
+        ? monthRange(filter.month)
+        : { from: "", to: "" };
 
   /*
-    Day, then time of day, then the order they were typed.
+    Built fresh for each page rather than once and reused.
 
-    The time is optional, and `nullsFirst: false` is what makes the fallback honest: an
-    entry with no time sorts after the ones that have one on the same day, because a
-    known 18:40 is later in the afternoon than "sometime that Tuesday". Reversed, every
-    untimed entry would jump to the top of its day and the list would reorder itself the
-    first time somebody filled the field in.
+    A PostgREST builder carries the request it is going to send; calling `.range()` on
+    the same object twice would walk the second page with the first page's window still
+    attached. One function, called per page, is the version that cannot do that.
   */
-  q = q
-    .order("occurred_on", { ascending: false })
-    .order("occurred_at", { ascending: false, nullsFirst: false })
-    .order("created_at", { ascending: false });
-  if (filter.limit) q = q.limit(filter.limit);
+  const build = () => {
+    let q = supabase.from("money_transactions").select(TX_SELECT).eq("user_id", uid);
+    if (span.from) q = q.gte("occurred_on", span.from);
+    if (span.to) q = q.lte("occurred_on", span.to);
+    const wanted = filter.categoryIds?.length
+      ? filter.categoryIds
+      : filter.categoryId
+        ? [filter.categoryId]
+        : [];
+    if (wanted.length > 0) {
+      const none = wanted.includes(UNCATEGORIZED_CATEGORY_ID);
+      const real = wanted.filter((id) => id !== UNCATEGORIZED_CATEGORY_ID);
+      if (none && real.length === 0) {
+        q = q.is("category_id", null).eq("kind", "expense");
+      } else if (!none) {
+        q = q.in("category_id", [...real]);
+      } else {
+        /*
+          Both at once: some named categories, plus the entries that have none.
 
-  const { data, error } = await q;
-  if (error) console.error("getTransactions:", error.message);
-  return (data ?? []) as TransactionRow[];
+          Written as one `or` rather than two queries because the two halves have to be
+          paged together — two reads merged in memory would each take their own thousand
+          rows and hand back a list with a hole in the middle of it.
+
+          `Uncategorised` keeps the `kind` clause it has in the branch above: an entry
+          with no category that is not spending is a transfer or a deposit, and those were
+          never what that option meant.
+        */
+        q = q.or(
+          `category_id.in.(${real.join(",")}),and(category_id.is.null,kind.eq.expense)`,
+        );
+      }
+    }
+    if (filter.accountId) q = q.eq("account_id", filter.accountId);
+    if (filter.kind) q = q.eq("kind", filter.kind);
+
+    /*
+      Day, then time of day, then the order they were typed.
+
+      The time is optional, and `nullsFirst: false` is what makes the fallback honest: an
+      entry with no time sorts after the ones that have one on the same day, because a
+      known 18:40 is later in the afternoon than "sometime that Tuesday". Reversed, every
+      untimed entry would jump to the top of its day and the list would reorder itself the
+      first time somebody filled the field in.
+
+      `id` last, and it is not cosmetic: `range` is an offset, and Postgres promises no
+      order for rows the other three keys cannot separate. Two entries typed in the same
+      second, on the same day, with no time — that is a real shape, and unordered it can
+      land on page one and page two both, or on neither.
+    */
+    return q
+      .order("occurred_on", { ascending: false })
+      .order("occurred_at", { ascending: false, nullsFirst: false })
+      .order("created_at", { ascending: false })
+      .order("id");
+  };
+
+  // A bounded read is already bounded: it asks for n rows and gets them.
+  if (filter.limit) {
+    const { data, error } = await build().limit(filter.limit);
+    if (error) console.error("getTransactions:", error.message);
+    return (data ?? []) as TransactionRow[];
+  }
+
+  /*
+    Every row in the span, in pages.
+
+    A month is a hundred entries and this never mattered. A span is not: `All time` on a
+    ledger that has been running two years is past PostgREST's thousand-row ceiling, and
+    that ceiling is silent — the list would simply stop partway through 2025 with no
+    error and nothing on screen to say so. The same fault that had the accounts screen
+    reporting more money than existed.
+  */
+  return (await readAll(
+    (from, to) => build().range(from, to),
+    "getTransactions",
+  )) as TransactionRow[];
 }
 
 /**
@@ -109,69 +188,54 @@ export type MonthSummary = {
   byCategory: { id: string; spent: number }[];
 };
 
-export async function getMonthSummary(month = monthKey()): Promise<MonthSummary> {
+/**
+ * The figures at the top of the money screen, over a month or over any span.
+ *
+ * `span` overrides the month's own dates and leaves `month` alone as the label, so every
+ * existing caller keeps the call it had and the screen that browses by range gets the
+ * same four figures without a second implementation of them. Two functions adding up the
+ * same ledger is two functions that will one day disagree about it.
+ */
+export async function getMonthSummary(
+  month = monthKey(),
+  span?: { from: string; to: string },
+): Promise<MonthSummary> {
   const supabase = await createClient();
   const uid = await userId(supabase);
   if (!uid) {
     return { month, expense: 0, income: 0, saved: 0, withdrawn: 0, net: 0, byCategory: [] };
   }
 
-  const { from, to } = monthRange(month);
-  const { data } = await supabase
-    .from("money_transactions")
-    .select("kind, amount_rsd, category_id")
-    .eq("user_id", uid)
-    .gte("occurred_on", from)
-    .lte("occurred_on", to);
-
-  const rows = data ?? [];
-  const spentBy = new Map<string, number>();
-  let expense = 0;
-  let income = 0;
-  let putIn = 0;
-  let withdrawn = 0;
-
-  for (const r of rows) {
-    const value = Number(r.amount_rsd) || 0;
-    if (r.kind === "expense") {
-      expense += value;
-      const categoryId = r.category_id ?? UNCATEGORIZED_CATEGORY_ID;
-      spentBy.set(categoryId, (spentBy.get(categoryId) ?? 0) + value);
-    } else if (r.kind === "income") {
-      income += value;
-    } else if (r.kind === "saving") {
-      putIn += value;
-    } else if (r.kind === "withdraw") {
-      // Money coming back out of a goal was never spent, so it is not income — it
-      // simply undoes part of what this month put aside.
-      withdrawn += value;
-    }
-  }
-
-  const saved = putIn - withdrawn;
+  const { from, to } = span ?? monthRange(month);
 
   /*
-    Net is income less what was actually spent, and nothing else.
+    Paged, for the same reason the ledger read above is.
 
-    It used to subtract what had been put aside as well, which made a month with one
-    small purchase and one big deposit read as −6.720 — a figure that looks exactly
-    like a spending spree and is nothing of the kind. Money moved into a goal has not
-    left the accounts; it is sitting on the same bank account it was on this morning,
-    with a label on it. "Free to spend" is the figure that accounts for the label, and
-    it says so on the same screen.
+    Over a month this is a hundred rows and one request. Over `All time` it is the whole
+    ledger, and a plain select would hand back PostgREST's first thousand and no error —
+    so the total at the top of the screen would be a real sum of a made-up subset. Wrong
+    quietly, and wrong low, which is the one direction that reads as plausible.
 
-    `saved` is still reported, so the card beside this one can say what was set aside
-    without this one pretending it was gone.
+    Ordered by `id` because `range` is an offset and needs a total order to page over.
   */
-  return {
-    month,
-    expense,
-    income,
-    saved,
-    withdrawn,
-    net: income - expense,
-    byCategory: [...spentBy].map(([id, spent]) => ({ id, spent })),
-  };
+  const rows = await readAll<{ kind: string; amount_rsd: number | null; category_id: string | null }>(
+    (lo, hi) => {
+      let q = supabase
+        .from("money_transactions")
+        .select("kind, amount_rsd, category_id")
+        .eq("user_id", uid);
+      if (from) q = q.gte("occurred_on", from);
+      if (to) q = q.lte("occurred_on", to);
+      return q.order("id").range(lo, hi);
+    },
+    "getMonthSummary",
+  );
+  /*
+    The sum itself lives in `lib/money/summary`, because the browser has to do it again
+    the moment a filter narrows the screen and two hand-written copies of one arithmetic
+    is how the top of a money screen starts disagreeing with the bottom.
+  */
+  return { month, ...sumEntries(rows) };
 }
 
 
@@ -210,16 +274,50 @@ export const hasIncomeOnFile = cache(async (): Promise<boolean> => {
 });
 
 /** Last 6 months of expense totals — the little trend bar on the overview. */
-export async function getExpenseTrend(months = 6): Promise<{ month: string; expense: number }[]> {
+export async function getExpenseTrend(
+  months = 6,
+  /**
+   * The month the window ends at, `YYYY-MM`. Defaults to this one.
+   *
+   * It used to be fixed to the current month, so the strip on a page showing February
+   * drew March to August — six months that did not include the month the page was about,
+   * with nothing highlighted and nothing to say. Ending at the month being read makes the
+   * bars the six months *up to here*, and walking to another month walks the window with
+   * it: the months either side of the strip are one click away in the bars themselves.
+   */
+  through?: string,
+): Promise<{ month: string; expense: number }[]> {
   const supabase = await createClient();
   const now = new Date();
-  const start = new Date(Date.UTC(now.getFullYear(), now.getMonth() - (months - 1), 1))
+  const end = /^\d{4}-\d{2}$/.test(through ?? "")
+    ? new Date(Date.UTC(Number(through!.slice(0, 4)), Number(through!.slice(5, 7)) - 1, 1))
+    : new Date(Date.UTC(now.getFullYear(), now.getMonth(), 1));
+
+  /*
+    The window reaches two months past the one being read, and stops at the month we are
+    actually in.
+
+    Ending it exactly on the month being read made the strip a one-way street: every bar
+    was in the past, so clicking one walked backwards and there was never a bar to walk
+    forward with. Two months of headroom puts the month you are on near the right of the
+    strip with somewhere to go on both sides — and the clamp keeps it honest, because a
+    bar for a month that has not happened is a bar that can only ever say nothing.
+  */
+  const current = Date.UTC(now.getFullYear(), now.getMonth(), 1);
+  const last = new Date(
+    Math.min(Date.UTC(end.getUTCFullYear(), end.getUTCMonth() + 2, 1), current),
+  );
+
+  const first = new Date(Date.UTC(last.getUTCFullYear(), last.getUTCMonth() - (months - 1), 1));
+  const start = first.toISOString().slice(0, 10);
+  // One day past the end of the last month in the window, so the read stops there too.
+  const stop = new Date(Date.UTC(last.getUTCFullYear(), last.getUTCMonth() + 1, 1))
     .toISOString()
     .slice(0, 10);
 
   const totals = new Map<string, number>();
   for (let i = months - 1; i >= 0; i--) {
-    const d = new Date(Date.UTC(now.getFullYear(), now.getMonth() - i, 1));
+    const d = new Date(Date.UTC(last.getUTCFullYear(), last.getUTCMonth() - i, 1));
     totals.set(`${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`, 0);
   }
 
@@ -232,6 +330,7 @@ export async function getExpenseTrend(months = 6): Promise<{ month: string; expe
     .select("occurred_on, amount_rsd, kind")
     .eq("user_id", uid)
     .gte("occurred_on", start)
+    .lt("occurred_on", stop)
     .eq("kind", "expense");
 
   for (const r of data ?? []) {

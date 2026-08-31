@@ -139,6 +139,7 @@ export function GoalsView({
     of amounts always invites: which of these is the big one.
   */
   const [order, setOrder] = useState<"mine" | "closest" | "soonest" | "largest">("mine");
+  const [dir, setDir] = useState<"asc" | "desc">("asc");
 
   /** Which state is being looked at on its own. Null — every open goal — is where it starts. */
   const [state, setState] = useState<GoalState | null>(null);
@@ -249,7 +250,7 @@ export function GoalsView({
     if (!a.target_date || !b.target_date) return 0;
     return a.target_date < b.target_date ? -1 : a.target_date > b.target_date ? 1 : 0;
   };
-  const ordered =
+  const chosen =
     order === "mine"
       ? kept
       : order === "soonest"
@@ -257,6 +258,16 @@ export function GoalsView({
         : order === "largest"
           ? [...kept].sort((a, b) => (Number(b.target_rsd) || 0) - (Number(a.target_rsd) || 0))
           : [...kept].sort((a, b) => share(b) - share(a));
+
+  /*
+    The list read from the other end.
+
+    Reversed rather than sorted backwards, because one of the four orders here is not a
+    sort at all: `My order` is the order stored on the rows, and there is no comparator
+    to negate. Reversing covers all four with one rule, and on the three that are sorts
+    it is the same answer.
+  */
+  const ordered = dir === "asc" ? chosen : [...chosen].reverse();
   // Only goals with an amount to reach can be short of one; the rest are just counting.
   const leftToPay = paying.reduce(
     (sum, g) => sum + Math.max((Number(g.target_rsd) || 0) - g.progress, 0),
@@ -338,11 +349,17 @@ export function GoalsView({
                 onChange: (v) => setOrder(v as typeof order),
                 label: "Order the goals",
                 options: [
-                  { value: "mine", label: "My order" },
-                  { value: "closest", label: "Closest to done" },
-                  { value: "soonest", label: "Due soonest" },
-                  { value: "largest", label: "Largest first" },
+                  { value: "mine", label: "My order", reverse: "My order, backwards" },
+                  {
+                    value: "closest",
+                    label: "Closest to done",
+                    reverse: "Furthest from done",
+                  },
+                  { value: "soonest", label: "Due soonest", reverse: "Due last" },
+                  { value: "largest", label: "Largest first", reverse: "Smallest first" },
                 ],
+                direction: dir,
+                onDirection: setDir,
               }}
               shown={ordered.length}
               total={saving.length}
@@ -427,7 +444,7 @@ export function GoalsView({
                   it is not the one you can see, so the card would move somewhere else
                   than where you aimed it.
                 */
-                reorderable={order === "mine" && !active && ordered.length > 1}
+                reorderable={order === "mine" && dir === "asc" && !active && ordered.length > 1}
                 expanded={openId === goal.id}
                 closing={closingId === goal.id}
                 onToggle={() => toggle(goal.id)}
@@ -477,7 +494,7 @@ export function GoalsView({
                     today={today}
                     first={i === 0}
                     last={i === paying.length - 1}
-                    reorderable={order === "mine" && paying.length > 1}
+                    reorderable={order === "mine" && dir === "asc" && paying.length > 1}
                     expanded={openId === goal.id}
                     closing={closingId === goal.id}
                     onToggle={() => toggle(goal.id)}
@@ -560,6 +577,8 @@ export function GoalsView({
     </div>
   );
 }
+
+
 
 
 

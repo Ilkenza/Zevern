@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Bricolage_Grotesque, Manrope, Spline_Sans_Mono } from "next/font/google";
+import { Bricolage_Grotesque, Manrope, Poppins, Spline_Sans_Mono } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
 import { siteUrl } from "@/lib/env";
@@ -21,6 +21,24 @@ const splineMono = Spline_Sans_Mono({
   variable: "--font-spline-mono",
   subsets: ["latin"],
   weight: ["400", "500", "600"],
+});
+
+/*
+  One weight, for one thing: the hollow numeral in the masthead.
+
+  A stroked glyph is only as good as its contours, and the three faces above all draw a 1
+  the same way — a stem with a slab foot laid across it as a second shape. Outlined at
+  ninety pixels the seam where the two meet is drawn too, so the numeral comes apart into
+  a stick and a bar. Poppins draws every digit as one closed contour, the 1 with no foot
+  at all, which is the only reason the mark can be hollow.
+
+  It sets nothing else in the app, and no page but the Private overview has a glyph in it,
+  so the file is fetched on that page and nowhere else.
+*/
+const poppins = Poppins({
+  variable: "--font-poppins",
+  subsets: ["latin"],
+  weight: ["600"],
 });
 
 const TITLE = "Zevern — one workspace for a freelance web designer";
@@ -80,7 +98,7 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${bricolage.variable} ${manrope.variable} ${splineMono.variable} h-full`}
+      className={`${bricolage.variable} ${manrope.variable} ${splineMono.variable} ${poppins.variable} h-full`}
     >
       <body suppressHydrationWarning className="min-h-full">
         {/*
