@@ -6,6 +6,8 @@
  * a page starts, when to stop, and what a caller owes the ordering.
  */
 
+import { ReadFailed } from "@/lib/data/must";
+
 /**
  * How many rows PostgREST will hand back before it stops, without saying that it did.
  *
@@ -47,14 +49,21 @@ export async function readAll<T>(
   const out: T[] = [];
   for (let i = 0; i < MAX_PAGES; i++) {
     const { data, error } = await page(i * PAGE, i * PAGE + PAGE - 1);
-    if (error) {
-      console.error(`${label}:`, error.message);
-      return out;
-    }
+    /*
+      A failed page used to return the rows collected so far. That is the worse of the two
+      wrong answers available: the caller adds up an arbitrary prefix of the ledger and
+      prints the sum as a fact. Half a ledger is not a smaller ledger, it is a wrong one,
+      and there is nothing on the screen to say which half is missing.
+    */
+    if (error) throw new ReadFailed(label, error.message);
     const rows = data ?? [];
     out.push(...rows);
     if (rows.length < PAGE) return out;
   }
-  console.error(`${label}: stopped at ${MAX_PAGES * PAGE} rows — the ledger is bigger than this reader expects.`);
-  return out;
+  // Sixty-four full pages means either a ledger past anything this reader was written for
+  // or a query that never narrows. Both make the total below wrong; neither is guessable.
+  throw new ReadFailed(
+    label,
+    `stopped at ${MAX_PAGES * PAGE} rows — the ledger is bigger than this reader expects.`,
+  );
 }

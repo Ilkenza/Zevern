@@ -18,6 +18,7 @@ ownsMoneyRow,
 refresh,
 today
 } from "./shared";
+import { unreadable } from "@/lib/data/must";
 
 /* ----------------------------------------------------------------- budgets */
 
@@ -107,12 +108,13 @@ export async function saveBudgetPlan(_prev: MoneyState, formData: FormData): Pro
   */
   let wasRsd: number | null = null;
   if (id) {
-    const { data: before } = await supabase
+    const { data: before, error: beforeError } = await supabase
       .from("money_budget_plans")
       .select("amount_rsd")
       .eq("id", id)
       .eq("user_id", uid)
       .maybeSingle();
+    if (beforeError) return { error: unreadable("what this budget was set to") };
     wasRsd = before ? Number(before.amount_rsd) || 0 : null;
 
     const { error } = await supabase

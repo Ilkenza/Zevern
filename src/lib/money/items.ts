@@ -6,16 +6,29 @@
  * JSON on the row, everything that reads or writes them has to agree on the shape by
  * hand. That agreement lives here and nowhere else.
  *
- * `amount` is the line's total in the entry's own currency, not a unit price. It is the
- * figure printed beside the line on a receipt, which is what somebody copying a receipt
- * has in front of them — asking for a unit price instead would make them divide.
+ * `amount` is the price of ONE, in the entry's own currency, and `qty` multiplies it.
+ *
+ * It used to be the line's total, with `qty` carried alongside as a note that multiplied
+ * nothing — defensible while every figure was copied off a printed receipt, where the
+ * line total is what is in front of you.
+ *
+ * The shopping list ended that. `money_items.price` is what one of a thing costs, and
+ * picking one off the list drops that figure straight into this box. Set the count to 2
+ * and the old rule read those 119 dinars as the total for both — so the row said `59,5
+ * each`, the entry was short by 119, and nothing on the screen was wrong-looking enough
+ * to notice. A number that arrives meaning one thing and is read meaning another is the
+ * exact shape of bug this app can least afford.
+ *
+ * Checked before changing it: of the 21 item lines on this account, the 5 with a count
+ * above one all carry `amount: 0`. No stored line has both a count and a price, so no
+ * existing figure changes meaning — the rule could be corrected rather than migrated.
  */
 
 export type TxItem = {
   name: string;
-  /** How many. Informational: it does not multiply anything, `amount` is already the line. */
+  /** How many of it. Multiplies `amount`. */
   qty: number;
-  /** The line's total, in the entry's currency. */
+  /** What ONE costs, in the entry's currency. The line comes to `qty × amount`. */
   amount: number;
 };
 
@@ -64,9 +77,14 @@ export function parseItems(raw: unknown): TxItem[] {
   return out;
 }
 
+/** What one line comes to: what one costs, times how many. */
+export function lineTotal(item: TxItem): number {
+  return Math.round(item.qty * item.amount * 100) / 100;
+}
+
 /** What the lines add up to, in the entry's currency. */
 export function itemsTotal(items: TxItem[]): number {
-  return Math.round(items.reduce((sum, i) => sum + i.amount, 0) * 100) / 100;
+  return Math.round(items.reduce((sum, i) => sum + lineTotal(i), 0) * 100) / 100;
 }
 
 /**

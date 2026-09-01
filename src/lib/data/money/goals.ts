@@ -8,6 +8,7 @@ import { userId } from "@/lib/supabase/current-user";
 import type { GoalEntry, GoalLine, MoneyGoal } from "@/lib/types";
 import { GOAL_MOVE_KINDS, goalKinds, walkGoal } from "@/lib/money/goal-progress";
 import { getAccounts, readAll } from "./core";
+import { ReadFailed } from "@/lib/data/must";
 
 /** How many movements a goal card shows before it starts saying "and N more". */
 const GOAL_HISTORY_LIMIT = 30;
@@ -29,7 +30,7 @@ export const getGoalLines = cache(async (): Promise<GoalLine[]> => {
   const supabase = await createClient();
   const uid = await userId(supabase);
   if (!uid) return [];
-  const [{ data: goals }, movements, accounts] = await Promise.all([
+  const [goalsRes, movements, accounts] = await Promise.all([
     supabase
       .from("money_goals")
       .select("*")
@@ -57,7 +58,7 @@ export const getGoalLines = cache(async (): Promise<GoalLine[]> => {
           .order("created_at", { ascending: true })
           .order("id")
           .range(from, to),
-      "getGoalLines",
+      "what your goals have collected",
     ),
     // Archived accounts still name the money that came off them, so include them.
     getAccounts(true),
@@ -86,7 +87,8 @@ export const getGoalLines = cache(async (): Promise<GoalLine[]> => {
     if (m.account_id) lastAccount.set(m.goal_id, m.account_id);
   }
 
-  return (goals ?? []).map((g: MoneyGoal) => {
+  if (goalsRes.error) throw new ReadFailed("your goals", goalsRes.error.message);
+  return (goalsRes.data ?? []).map((g: MoneyGoal) => {
     const paying = g.direction === "expense";
     const own = goalKinds(paying);
 
@@ -126,7 +128,7 @@ export async function getGoals(): Promise<MoneyGoal[]> {
   const supabase = await createClient();
   const uid = await userId(supabase);
   if (!uid) return [];
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("money_goals")
     .select("*")
     .eq("user_id", uid)
@@ -134,6 +136,7 @@ export async function getGoals(): Promise<MoneyGoal[]> {
     .is("completed_at", null)
     .order("sort")
     .order("created_at");
+  if (error) throw new ReadFailed("your goals", error.message);
   return data ?? [];
 }
 

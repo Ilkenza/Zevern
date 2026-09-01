@@ -2,10 +2,16 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Minus, Plus, Trash2 } from "lucide-react";
-import { MAX_ITEMS, itemsArePriced, itemsTotal, type TxItem } from "@/lib/money/items";
+import {
+  MAX_ITEMS,
+  itemsArePriced,
+  itemsTotal,
+  lineTotal,
+  type TxItem,
+} from "@/lib/money/items";
 import { editMoney, groupMoney, plainMoney, typedMoney } from "@/components/ui/MoneyField";
 import { formatAmount } from "@/lib/money";
-import { fold } from "@/lib/money/entry-search";
+import { ItemPicker } from "@/components/ui/ItemPicker";
 import type { MoneyItem } from "@/lib/types";
 
 /**
@@ -94,12 +100,8 @@ export function TxItems({
    * way; a receipt with eight lines on it is the case the list was made for, and it was
    * the one place the list was not offered.
    *
-   * A native `datalist` rather than the portalled menu the single-name field uses. Eight
-   * of those menus stacked in a scrolling list is eight portals fighting for the same
-   * few hundred pixels, and the row is already four controls wide. The browser's own
-   * dropdown costs no layout, filters as you type, works with the keyboard, and on a
-   * phone comes up as the keyboard's own suggestion strip — which is exactly the right
-   * shape for a line in a list.
+   * The same `ItemPicker` the single-name field uses, in its row size — see the note at
+   * the field itself for why the native `datalist` this started as had to go.
    */
   known?: MoneyItem[];
   /**
@@ -213,15 +215,6 @@ export function TxItems({
         the sum under the figures — which is one label instead of two.
       */}
       <div className="tx-items-rows">
-        {/* One list for every row, named once and pointed at by each input. */}
-        {known.length > 0 && (
-          <datalist id={LIST_ID}>
-            {known.map((item) => (
-              <option key={item.id} value={item.name} />
-            ))}
-          </datalist>
-        )}
-
         {rows.map((row) => (
           <ItemRow
             key={row.key}
@@ -281,9 +274,6 @@ export function TxItems({
   );
 }
 
-/** The id the rows' inputs point at. One list, however many lines there are. */
-const LIST_ID = "tx-known-items";
-
 function ItemRow({
   row,
   currency,
@@ -311,6 +301,23 @@ function ItemRow({
   onRemove: () => void;
 }) {
   const repeat = useRepeat(onBump);
+
+  /*
+    What a known thing brings with it.
+
+    `over` is true only when the row was chosen off the list — then the price replaces
+    whatever was in the box. A name that merely matches fills a price that is not there
+    yet and touches nothing else. And in both cases only when the price is in the
+    currency this entry is written in: a dinar price dropped into a euro receipt is a
+    number that looks right and is off by a hundred.
+  */
+  const fillRow = (item: MoneyItem, over: boolean) => {
+    if (item.price === null || Number(item.price) <= 0) return;
+    if (item.currency !== currency) return;
+    if (!over && row.amount !== 0) return;
+    const typed = typedMoney(Number(item.price));
+    onPatch({ typed, amount: Number(plainMoney(typed)) || 0 });
+  };
   const qtyRef = useRef<HTMLInputElement>(null);
   /*
     True from the moment the stepper opens until the first thing you do in it.
@@ -380,38 +387,34 @@ function ItemRow({
         room, which is the whole reason this stopped being a table.
       */}
       <div className="tx-it-top">
-        <input
-          value={row.name}
-          list={known.length > 0 ? LIST_ID : undefined}
-          onChange={(e) => {
-            const name = e.target.value;
-            /*
-              A name that has been bought before brings its price with it — but only
-              into a line that has none yet, and only when the price is in the currency
-              this entry is being written in. A dinar price dropped into a euro receipt
-              would be a number that looks right and is off by a hundred.
-            */
-            const key = fold(name.trim());
-            const same = key ? known.find((i) => fold(i.name) === key) : undefined;
-            if (
-              same &&
-              row.amount === 0 &&
-              same.currency === currency &&
-              same.price !== null &&
-              Number(same.price) > 0
-            ) {
-              const typed = typedMoney(Number(same.price));
-              onPatch({ name, typed, amount: Number(plainMoney(typed)) || 0 });
-              return;
-            }
-            onPatch({ name });
-          }}
-          onKeyDown={onKey}
+        {/*
+          The same picker the single-name field uses, in its row size.
+
+          It was a native `datalist` first, on the argument that eight portalled menus in
+          a scrolling list would fight for the same few hundred pixels. That argument was
+          wrong: the menu is only rendered while it is open, and only one row can hold
+          the caret — so there is never more than one. What the browser's own list cost
+          instead was everything the list is for. It shows names and nothing else: no
+          price, no "bought 6× · last on the 28th", no highlight on the letters you
+          typed, and it is drawn in the browser's chrome rather than the app's. A control
+          that looks borrowed is a control people stop trusting.
+        */}
+        <ItemPicker
+          compact
+          name={`item-${row.key}`}
+          label="Item"
+          items={known}
+          defaultValue={row.name}
           placeholder="Kafa 3 u 1"
-          aria-label="Item"
-          maxLength={80}
           autoFocus={autoFocus}
-          className="tx-cell"
+          inputClassName="tx-cell w-full min-w-0"
+          className="min-w-0"
+          onKeyDown={onKey}
+          onValueChange={(name) => onPatch({ name })}
+          /* Choosing off the list is a decision about this line: it brings its price. */
+          onPick={(item) => fillRow(item, true)}
+          /* Typing a known name only fills a line that has no price of its own yet. */
+          onExact={(item) => fillRow(item, false)}
         />
 
         {/*
@@ -433,7 +436,7 @@ function ItemRow({
           onKeyDown={onKey}
           inputMode="decimal"
           placeholder="0"
-          aria-label={`Line total in ${currency}`}
+          aria-label={`Price of one, in ${currency}`}
           className="tx-price mono"
         />
         <span className="tx-it-cur mono" aria-hidden>
@@ -542,9 +545,14 @@ function ItemRow({
         <span className="tx-it-kom">{row.qty === 1 ? "item" : "items"}</span>
 
         {/*
-          What one of them came to. The only arithmetic in this block that a person
-          would otherwise do in their head, and it only appears where it means
-          something: one of a thing costs what the line costs.
+          What the line comes to, once there is more than one of the thing.
+
+          It used to say the opposite — the amount divided by the count, printed as
+          `59,5 each` — because the figure in the box was read as the line's total. It is
+          the price of one now, so the arithmetic a person would otherwise do in their
+          head runs the other way: two at 119 is 238, and 238 is the number that leaves
+          the account. Shown only where it says something; at a count of one the box
+          already is the answer.
         */}
         {row.qty > 1 && row.amount > 0 && (
           <>
@@ -552,7 +560,8 @@ function ItemRow({
               ·
             </span>
             <span className="tx-it-unit mono">
-              {groupMoney(typedMoney(Math.round((row.amount / row.qty) * 100) / 100))} each
+              {groupMoney(typedMoney(lineTotal({ name: row.name, qty: row.qty, amount: row.amount })))}{" "}
+              {currency}
             </span>
           </>
         )}

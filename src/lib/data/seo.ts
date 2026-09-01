@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { userId } from "@/lib/supabase/current-user";
 import type { SeoCheckWithProject } from "@/lib/types";
+import { ReadFailed } from "./must";
 
 const WITH_PROJECT = "*, project:projects(title)";
 
@@ -8,11 +9,12 @@ export async function getChecks(): Promise<SeoCheckWithProject[]> {
   const supabase = await createClient();
   const uid = await userId(supabase);
   if (!uid) return [];
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("seo_checks")
     .select(WITH_PROJECT)
     .eq("user_id", uid)
     .order("created_at", { ascending: false });
+  if (error) throw new ReadFailed("your SEO checks", error.message);
   return (data ?? []) as unknown as SeoCheckWithProject[];
 }
 
@@ -20,12 +22,13 @@ export async function getCheck(id: string): Promise<SeoCheckWithProject | null> 
   const supabase = await createClient();
   const uid = await userId(supabase);
   if (!uid) return null;
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("seo_checks")
     .select(WITH_PROJECT)
     .eq("id", id)
     .eq("user_id", uid)
     .maybeSingle();
+  if (error) throw new ReadFailed("this SEO check", error.message);
   return (data as unknown as SeoCheckWithProject | null) ?? null;
 }
 

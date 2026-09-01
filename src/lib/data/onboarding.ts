@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { userId } from "@/lib/supabase/current-user";
+import { ReadFailed } from "./must";
 
 export type OnboardingStep = {
   key: string;
@@ -42,11 +43,12 @@ export async function getOnboarding(): Promise<Onboarding> {
     return { steps: [], done: 0, total: 0, complete: false, hidden: true };
   }
 
-  const { data: profile } = await supabase
+  const { data: profile, error } = await supabase
     .from("profiles")
     .select("business_name, onboarding_hidden")
     .eq("id", uid)
     .maybeSingle();
+  if (error) throw new ReadFailed("your profile", error.message);
 
   const [lead, client, quote, project, invoice] = await Promise.all([
     has("leads", uid),

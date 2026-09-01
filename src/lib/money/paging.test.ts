@@ -1,5 +1,6 @@
-import { describe, expect, it, vi } from "vitest";
-import { MAX_PAGES, PAGE, readAll } from "./paging";
+import { describe, expect, it } from "vitest";
+import { ReadFailed } from "@/lib/data/must";
+import { PAGE, readAll } from "./paging";
 
 /**
  * The test that would have caught it.
@@ -56,26 +57,40 @@ describe("readAll", () => {
     expect(t.calls).toHaveLength(1);
   });
 
-  it("gives back what it has when a page fails, and says so", async () => {
-    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+  /*
+    The case this file was written for, inverted.
+
+    It used to assert that a failed page returns the rows collected so far — one page of a
+    three-page ledger, handed back as if it were the ledger. Every caller then sums it and
+    prints the sum. The screen cannot tell a third of the money from all of it, so the only
+    correct behaviour is to refuse, and the label has to be a thing the person recognises
+    because it is what the error screen says out loud.
+  */
+  it("refuses to answer with part of the ledger when a page fails", async () => {
+    // One walk, one counter: the second page is the one that breaks, and the assertion is
+    // that nothing at all comes back — not the thousand rows page one had already read.
     const t = table(PAGE * 3);
     let seen = 0;
     const flaky = async (from: number, to: number) =>
       seen++ === 1 ? { data: null, error: { message: "boom" } } : t.page(from, to);
-    expect(await readAll(flaky, "getAccountBalances")).toHaveLength(PAGE);
-    expect(err).toHaveBeenCalledWith("getAccountBalances:", "boom");
-    err.mockRestore();
+
+    const thrown = await readAll(flaky, "what is on your accounts").then(
+      (rows) => ({ rows }),
+      (err: unknown) => ({ err }),
+    );
+    expect(thrown).not.toHaveProperty("rows");
+    expect((thrown as { err: unknown }).err).toBeInstanceOf(ReadFailed);
+    expect((thrown as { err: ReadFailed }).err).toMatchObject({
+      label: "what is on your accounts",
+      reason: "boom",
+    });
   });
 
   it("refuses to walk forever", async () => {
-    const err = vi.spyOn(console, "error").mockImplementation(() => {});
     const endless = async () => ({
       data: Array.from({ length: PAGE }, (_, i) => ({ id: i })),
       error: null,
     });
-    const got = await readAll(endless, "test");
-    expect(got).toHaveLength(PAGE * MAX_PAGES);
-    expect(err).toHaveBeenCalled();
-    err.mockRestore();
+    await expect(readAll(endless, "test")).rejects.toThrow(ReadFailed);
   });
 });

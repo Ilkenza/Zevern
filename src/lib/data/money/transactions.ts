@@ -10,6 +10,7 @@ import { monthKey, monthRange, UNCATEGORIZED_CATEGORY_ID } from "@/lib/money";
 import { sumEntries } from "@/lib/money/summary";
 import type { TransactionRow } from "@/lib/types";
 import { readAll, TX_SELECT } from "./core";
+import { ReadFailed } from "@/lib/data/must";
 
 export type TxFilter = {
   month?: string;
@@ -116,7 +117,7 @@ export async function getTransactions(filter: TxFilter = {}): Promise<Transactio
   // A bounded read is already bounded: it asks for n rows and gets them.
   if (filter.limit) {
     const { data, error } = await build().limit(filter.limit);
-    if (error) console.error("getTransactions:", error.message);
+    if (error) throw new ReadFailed("your entries", error.message);
     return (data ?? []) as TransactionRow[];
   }
 
@@ -131,7 +132,7 @@ export async function getTransactions(filter: TxFilter = {}): Promise<Transactio
   */
   return (await readAll(
     (from, to) => build().range(from, to),
-    "getTransactions",
+    "your entries",
   )) as TransactionRow[];
 }
 
@@ -158,7 +159,7 @@ export async function getUnpricedTransactions(limit = 25): Promise<TransactionRo
     .order("occurred_on", { ascending: true })
     .order("occurred_at", { ascending: true, nullsFirst: false })
     .limit(limit);
-  if (error) console.error("getUnpricedTransactions:", error.message);
+  if (error) throw new ReadFailed("the entries still without a price", error.message);
   return (data ?? []) as TransactionRow[];
 }
 
@@ -172,7 +173,7 @@ export async function getTransaction(id: string): Promise<TransactionRow | null>
     .eq("id", id)
     .eq("user_id", uid)
     .maybeSingle();
-  if (error) console.error("getTransaction:", error.message);
+  if (error) throw new ReadFailed("this entry", error.message);
   return (data as TransactionRow | null) ?? null;
 }
 
@@ -228,7 +229,7 @@ export async function getMonthSummary(
       if (to) q = q.lte("occurred_on", to);
       return q.order("id").range(lo, hi);
     },
-    "getMonthSummary",
+    "this month's totals",
   );
   /*
     The sum itself lives in `lib/money/summary`, because the browser has to do it again
@@ -325,13 +326,25 @@ export async function getExpenseTrend(
   // Same shape this returns when the window holds no expenses: every month at zero.
   if (!uid) return [...totals].map(([month, expense]) => ({ month, expense }));
 
-  const { data } = await supabase
-    .from("money_transactions")
-    .select("occurred_on, amount_rsd, kind")
-    .eq("user_id", uid)
-    .gte("occurred_on", start)
-    .lt("occurred_on", stop)
-    .eq("kind", "expense");
+  /*
+    Paged before it needs to be. Measured on the real database: 671 expense rows in the
+    last twelve months, against PostgREST's silent stop at 1.000 — so this one is not
+    wrong today and would become wrong without anything visibly changing, since a chart
+    built from 1.000 of 1.400 rows draws bars in exactly the same confident way.
+  */
+  const data = await readAll<{ occurred_on: string; amount_rsd: number | null; kind: string }>(
+    (lo, hi) =>
+      supabase
+        .from("money_transactions")
+        .select("occurred_on, amount_rsd, kind")
+        .eq("user_id", uid)
+        .gte("occurred_on", start)
+        .lt("occurred_on", stop)
+        .eq("kind", "expense")
+        .order("id")
+        .range(lo, hi),
+    "the spending trend",
+  );
 
   for (const r of data ?? []) {
     const key = String(r.occurred_on).slice(0, 7);
@@ -379,7 +392,7 @@ export async function getDailySpend(month: string): Promise<DaySpend[]> {
     .eq("kind", "expense")
     .gte("occurred_on", from)
     .lte("occurred_on", to);
-  if (error) console.error("getDailySpend:", error.message);
+  if (error) throw new ReadFailed("what you spent day by day", error.message);
 
   for (const r of data ?? []) {
     const i = Number(String(r.occurred_on).slice(8, 10)) - 1;

@@ -23,6 +23,7 @@ import { amountAt, type AmountChange } from "@/lib/money/budget-amounts";
 import { contributionOf } from "@/lib/money/budget-match";
 import { boostFor, type Boost } from "@/lib/money/budget-boosts";
 import type { BudgetPlanLine, MoneyBudgetBoost, MoneyBudgetPlan } from "@/lib/types";
+import { ReadFailed } from "@/lib/data/must";
 
 /** The clock a plan keeps, in the shape the date arithmetic wants. */
 export function clockOf(plan: MoneyBudgetPlan): BudgetClock {
@@ -49,19 +50,18 @@ export const getBudgetPlanLines = cache(async (on?: string): Promise<BudgetPlanL
   const uid = await userId(supabase);
   if (!uid) return [];
 
-  const { data: plans, error } = await supabase
+  const { data: plans, error: plansError } = await supabase
     .from("money_budget_plans")
     .select("*")
     .eq("user_id", uid)
     .eq("archived", false)
     .order("sort", { ascending: true })
     .order("created_at", { ascending: true });
-  if (error) console.error("getBudgetPlanLines:", error.message);
+  if (plansError) throw new ReadFailed("your budgets", plansError.message);
   if (!plans || plans.length === 0) return [];
 
   const ids = plans.map((p) => p.id);
-  const [{ data: catLinks }, { data: accLinks }, { data: boostRows }, { data: amountRows }] =
-    await Promise.all([
+  const [catRes, accRes, boostRes, amountRes] = await Promise.all([
     supabase.from("money_budget_categories").select("budget_id, category_id").in("budget_id", ids),
     supabase.from("money_budget_accounts").select("budget_id, account_id").in("budget_id", ids),
     /*
@@ -89,6 +89,21 @@ export const getBudgetPlanLines = cache(async (on?: string): Promise<BudgetPlanL
       .select("budget_id, starts_on, amount_rsd")
       .eq("user_id", uid),
   ]);
+
+  /*
+    Four reads that say what each budget is made of. Dropped errors here do not blank the
+    screen — they change what the budgets mean: no category links reads as "this budget
+    watches nothing", no amount history reads as "it has always been this figure", and
+    both produce a card that is confidently wrong rather than obviously broken.
+  */
+  if (catRes.error) throw new ReadFailed("what your budgets watch", catRes.error.message);
+  if (accRes.error) throw new ReadFailed("which accounts your budgets watch", accRes.error.message);
+  if (boostRes.error) throw new ReadFailed("the extra room one budget grants another", boostRes.error.message);
+  if (amountRes.error) throw new ReadFailed("what your budgets were set to", amountRes.error.message);
+  const catLinks = catRes.data;
+  const accLinks = accRes.data;
+  const boostRows = boostRes.data;
+  const amountRows = amountRes.data;
 
   const categoriesOf = new Map<string, Set<string>>();
   for (const l of catLinks ?? []) {
@@ -147,13 +162,33 @@ export const getBudgetPlanLines = cache(async (on?: string): Promise<BudgetPlanL
     if (w.to > to) to = w.to;
   }
 
-  const { data: rows } = await supabase
-    .from("money_transactions")
-    .select("kind, amount_rsd, category_id, account_id, budget_id, occurred_on")
-    .eq("user_id", uid)
-    .in("kind", ["expense", "income"])
-    .gte("occurred_on", from)
-    .lte("occurred_on", to);
+  /*
+    One span covering every card, and therefore as wide as the widest budget on the screen.
+    Three yearly budgets make that a full year: 878 rows today against PostgREST's stop at
+    1.000, which at the rate this ledger is filled is a few weeks of headroom. Past it,
+    every card would read "on track" off a subset of its own spending, with nothing on the
+    screen to say a subset is what it was.
+  */
+  const rows = await readAll<{
+    kind: string;
+    amount_rsd: number | null;
+    category_id: string | null;
+    account_id: string | null;
+    budget_id: string | null;
+    occurred_on: string;
+  }>(
+    (lo, hi) =>
+      supabase
+        .from("money_transactions")
+        .select("kind, amount_rsd, category_id, account_id, budget_id, occurred_on")
+        .eq("user_id", uid)
+        .in("kind", ["expense", "income"])
+        .gte("occurred_on", from)
+        .lte("occurred_on", to)
+        .order("id")
+        .range(lo, hi),
+    "what the budgets have counted",
+  );
 
   return plans.map((plan) => {
     const window = windows.get(plan.id)!;
@@ -248,13 +283,14 @@ export const getAddableBudgets = cache(async (on?: string): Promise<MoneyBudgetP
   const uid = await userId(supabase);
   if (!uid) return [];
 
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("money_budget_plans")
     .select("*")
     .eq("user_id", uid)
     .eq("archived", false)
     .eq("membership", "added")
     .order("sort", { ascending: true });
+  if (error) throw new ReadFailed("this budget", error.message);
 
   return (data ?? []).filter((plan) => {
     const w = budgetWindow(clockOf(plan), today);
@@ -322,7 +358,7 @@ export const getBudgetBoosts = cache(async (): Promise<MoneyBudgetBoost[]> => {
     .from("money_budget_boosts")
     .select("*")
     .eq("user_id", uid);
-  if (error) console.error("getBudgetBoosts:", error.message);
+  if (error) throw new ReadFailed("the extra room one budget grants another", error.message);
   return data ?? [];
 });
 
@@ -382,11 +418,12 @@ export const getBudgetHistories = cache(
     const uid = await userId(supabase);
     if (!uid) return {};
 
-    const { data: plans } = await supabase
+    const { data: plans, error: capPlansError } = await supabase
       .from("money_budget_plans")
       .select("*")
       .eq("user_id", uid)
       .eq("archived", false);
+    if (capPlansError) throw new ReadFailed("the budgets a category is capped by", capPlansError.message);
     if (!plans || plans.length === 0) return {};
 
     /*
@@ -411,8 +448,7 @@ export const getBudgetHistories = cache(
     if (windowsOf.size === 0) return {};
 
     const ids = [...windowsOf.keys()];
-    const [{ data: catLinks }, { data: accLinks }, { data: amountRows }, { data: boostRows }] =
-      await Promise.all([
+    const [catRes, accRes, amountRes, boostRes] = await Promise.all([
         supabase
           .from("money_budget_categories")
           .select("budget_id, category_id")
@@ -427,6 +463,17 @@ export const getBudgetHistories = cache(
           .select("source_budget_id, target_budget_id, amount_rsd")
           .eq("user_id", uid),
       ]);
+    if (catRes.error) throw new ReadFailed("what those budgets watch", catRes.error.message);
+    if (accRes.error)
+      throw new ReadFailed("which accounts those budgets watch", accRes.error.message);
+    if (amountRes.error)
+      throw new ReadFailed("what those budgets were set to", amountRes.error.message);
+    if (boostRes.error)
+      throw new ReadFailed("the extra room one budget grants another", boostRes.error.message);
+    const catLinks = catRes.data;
+    const accLinks = accRes.data;
+    const amountRows = amountRes.data;
+    const boostRows = boostRes.data;
 
     const catsOf = new Map<string, Set<string>>();
     for (const l of catLinks ?? []) {
@@ -471,13 +518,35 @@ export const getBudgetHistories = cache(
       if (windows[windows.length - 1].to > to) to = windows[windows.length - 1].to;
     }
 
-    const { data: rows } = await supabase
-      .from("money_transactions")
-      .select("kind, amount_rsd, category_id, account_id, budget_id, occurred_on")
-      .eq("user_id", uid)
-      .in("kind", ["expense", "income"])
-      .gte("occurred_on", from)
-      .lte("occurred_on", to);
+    /*
+      This is the one that was already wrong.
+
+      The strips walk PAST_WINDOWS windows back, and on a yearly budget that is twelve
+      years — so the span is the whole ledger: 1.675 entries, of which PostgREST was
+      handing back 1.000 and reporting no error. Two entries in five never reached the
+      arithmetic, in no defined order, and the strips drew "four of the last six over the
+      line" out of whichever thousand arrived. Wrong low, which reads as a good month.
+    */
+    const rows = await readAll<{
+      kind: string;
+      amount_rsd: number | null;
+      category_id: string | null;
+      account_id: string | null;
+      budget_id: string | null;
+      occurred_on: string;
+    }>(
+      (lo, hi) =>
+        supabase
+          .from("money_transactions")
+          .select("kind, amount_rsd, category_id, account_id, budget_id, occurred_on")
+          .eq("user_id", uid)
+          .in("kind", ["expense", "income"])
+          .gte("occurred_on", from)
+          .lte("occurred_on", to)
+          .order("id")
+          .range(lo, hi),
+      "what those budgets have counted",
+    );
 
     const out: Record<string, BudgetPast[]> = {};
     for (const [planId, windows] of windowsOf) {
@@ -582,20 +651,23 @@ export async function getBudgetEntries(
 
   // Scoped by owner as well as by id: a plan id belonging to somebody else finds nothing
   // here rather than finding their ledger.
-  const { data: plan } = await supabase
+  const { data: plan, error } = await supabase
     .from("money_budget_plans")
     .select("*")
     .eq("id", planId)
     .eq("user_id", uid)
     .maybeSingle();
+  if (error) throw new ReadFailed("the entries in this budget", error.message);
   if (!plan) return [];
 
-  const [{ data: catLinks }, { data: accLinks }] = await Promise.all([
+  const [catRes, accRes] = await Promise.all([
     supabase.from("money_budget_categories").select("category_id").eq("budget_id", plan.id),
     supabase.from("money_budget_accounts").select("account_id").eq("budget_id", plan.id),
   ]);
-  const categories = new Set((catLinks ?? []).map((l) => l.category_id));
-  const accounts = new Set((accLinks ?? []).map((l) => l.account_id));
+  if (catRes.error) throw new ReadFailed("what this budget watches", catRes.error.message);
+  if (accRes.error) throw new ReadFailed("which accounts this budget watches", accRes.error.message);
+  const categories = new Set((catRes.data ?? []).map((l) => l.category_id));
+  const accounts = new Set((accRes.data ?? []).map((l) => l.account_id));
 
   const window = span ?? budgetWindow(clockOf(plan), today);
 
@@ -622,7 +694,7 @@ export async function getBudgetEntries(
       .order("created_at", { ascending: false })
       .order("id")
       .range(lo, hi);
-  }, "getBudgetEntries");
+  }, "what this budget has counted");
 
   const out: BudgetEntry[] = [];
   for (const row of rows) {

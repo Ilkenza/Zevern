@@ -10,6 +10,7 @@ import { toRsd } from "@/lib/money";
 import type { MoneyAccount } from "@/lib/types";
 import { getAccounts, getRates, readAll } from "./core";
 import { getGoalLines, isGoalOpen } from "./goals";
+import { ReadFailed } from "@/lib/data/must";
 
 export type AccountBalance = MoneyAccount & {
   /** Everything on the account, whether it is spoken for or not. */
@@ -63,7 +64,7 @@ export const getAccountBalances = cache(async (): Promise<AccountBalance[]> => {
     Ordered by `id` because `range` is an offset and Postgres does not promise an order
     without one: unordered, page two could repeat or skip what page one already counted.
   */
-  const [accounts, rates, rows, { data: openGoals }] = await Promise.all([
+  const [accounts, rates, rows, openGoalsRes] = await Promise.all([
     getAccounts(),
     getRates(),
     readAll(
@@ -74,12 +75,18 @@ export const getAccountBalances = cache(async (): Promise<AccountBalance[]> => {
           .eq("user_id", uid)
           .order("id")
           .range(from, to),
-      "getAccountBalances",
+      "what is on your accounts",
     ),
     supabase.from("money_goals").select("id").eq("user_id", uid).is("completed_at", null),
   ]);
 
-  const open = new Set((openGoals ?? []).map((g) => g.id));
+  /*
+    Which goals are still holding money decides how much of each balance is free. A failed
+    read used to leave that set empty, which says "no goal is holding anything" — and the
+    screen then offers the whole balance as spendable.
+  */
+  if (openGoalsRes.error) throw new ReadFailed("which goals are still open", openGoalsRes.error.message);
+  const open = new Set((openGoalsRes.data ?? []).map((g) => g.id));
 
   const delta = new Map<string, number>();
   const claimed = new Map<string, number>();
@@ -146,5 +153,4 @@ export const getOnHand = cache(async (): Promise<OnHand> => {
   const reserved = goals.filter(isGoalOpen).reduce((sum, g) => sum + g.saved, 0);
   return { total, reserved, free: total - reserved };
 });
-
 

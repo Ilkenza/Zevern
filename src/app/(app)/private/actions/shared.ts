@@ -17,6 +17,7 @@ type Currency
 } from "@/lib/money";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import { ReadFailed } from "@/lib/data/must";
 
 export type MoneyState = { ok?: boolean; error?: string } | undefined;
 
@@ -218,12 +219,16 @@ export async function rememberItem({
   if (!clean) return;
 
   try {
-    const { data: known } = await supabase
+    const { data: known, error: knownError } = await supabase
       .from("money_items")
       .select("id, uses")
       .eq("user_id", uid)
       .ilike("name", clean)
       .maybeSingle();
+    // Not fatal — the entry is already saved and this only teaches the shopping list.
+    // But it must not read as "not on the list", which would insert a second copy of a
+    // name that is already there.
+    if (knownError) throw new ReadFailed("the things you have bought before", knownError.message);
 
     if (known) {
       await supabase
@@ -250,7 +255,8 @@ export async function rememberItem({
       .ilike("title", clean);
     if (exclude) before = before.neq("id", exclude);
 
-    const { count } = await before;
+    const { count, error: countError } = await before;
+    if (countError) throw new ReadFailed("how often you have bought this", countError.message);
     if ((count ?? 0) < 2) return;
 
     await supabase.from("money_items").insert({

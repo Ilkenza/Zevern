@@ -18,6 +18,7 @@ import {
   recentBookings,
 } from "./core";
 import { getBudgetPlanLines } from "./budget-plans";
+import { ReadFailed } from "@/lib/data/must";
 
 /** How many complete months the median is taken over. */
 const HISTORY_MONTHS = 6;
@@ -27,11 +28,12 @@ export async function getSpendingBasis(): Promise<SpendingBasis> {
   const supabase = await createClient();
   const uid = await userId(supabase);
   if (!uid) return "off";
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("profiles")
     .select("spending_basis")
     .eq("id", uid)
     .maybeSingle();
+  if (error) throw new ReadFailed("how spending is projected", error.message);
   const value = String(data?.spending_basis ?? "history");
   return value === "off" || value === "budgets" ? value : "history";
 }
@@ -77,19 +79,39 @@ async function everydayByMonth(
   from: string,
   to: string,
 ): Promise<{ spent: Map<string, number>; active: Set<string> }> {
-  const [{ data: rows }, { data: settled }] = await Promise.all([
-    supabase
-      .from("money_transactions")
-      .select("id, kind, recurring_id, amount_rsd, occurred_on")
-      .eq("user_id", uid)
-      .gte("occurred_on", from)
-      .lte("occurred_on", to),
+  /*
+    The window here is months, not one month — this is what the everyday-spending basis is
+    worked out from — so it crosses PostgREST's thousand-row stop on a real ledger and used
+    to do it silently. Both reads also dropped their `error`, which turned a broken
+    connection into "you spent nothing", printed in the same weight as a figure.
+  */
+  const [rows, settledRes] = await Promise.all([
+    readAll<{
+      id: string;
+      kind: string;
+      recurring_id: string | null;
+      amount_rsd: number | null;
+      occurred_on: string;
+    }>(
+      (lo, hi) =>
+        supabase
+          .from("money_transactions")
+          .select("id, kind, recurring_id, amount_rsd, occurred_on")
+          .eq("user_id", uid)
+          .gte("occurred_on", from)
+          .lte("occurred_on", to)
+          .order("id")
+          .range(lo, hi),
+      "what you have spent",
+    ),
     supabase
       .from("money_planned")
       .select("transaction_id")
       .eq("user_id", uid)
       .not("transaction_id", "is", null),
   ]);
+  if (settledRes.error) throw new ReadFailed("what you had planned", settledRes.error.message);
+  const settled = settledRes.data;
 
   const fromPlan = new Set((settled ?? []).map((p) => p.transaction_id));
   const spent = new Map<string, number>();
@@ -270,7 +292,7 @@ export const getCategoryUsage = cache(async (): Promise<Record<string, number>> 
         .not("category_id", "is", null)
         .order("id")
         .range(from, to),
-    "getCategoryUsage",
+    "how much each category is used",
   );
 
   const out: Record<string, number> = {};
@@ -280,4 +302,3 @@ export const getCategoryUsage = cache(async (): Promise<Record<string, number>> 
   }
   return out;
 });
-

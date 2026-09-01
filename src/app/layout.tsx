@@ -3,6 +3,7 @@ import { Bricolage_Grotesque, Manrope, Poppins, Spline_Sans_Mono } from "next/fo
 import Script from "next/script";
 import "./globals.css";
 import { siteUrl } from "@/lib/env";
+import { RegisterSW } from "@/components/shell/RegisterSW";
 
 const bricolage = Bricolage_Grotesque({
   variable: "--font-bricolage",
@@ -75,6 +76,16 @@ export const metadata: Metadata = {
     locale: "en_GB",
   },
   twitter: { card: "summary_large_image", title: TITLE, description: DESCRIPTION },
+  /*
+    iOS reads none of the web manifest for this. Without these it launches an installed
+    app in a Safari window with a URL bar, which is the one thing installing was for.
+  */
+  appleWebApp: {
+    capable: true,
+    title: "Zevern",
+    /* The status bar sits over the page, and the page is already dark under it. */
+    statusBarStyle: "black-translucent",
+  },
   robots: {
     index: true,
     follow: true,
@@ -87,6 +98,17 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   themeColor: "#14161b",
   colorScheme: "dark",
+  /*
+    Installed on a phone, the app owns the whole screen — including the strip behind the
+    notch and the one over the home indicator. `cover` is what hands those to the page;
+    without it the browser letterboxes the app between two bars of its own colour, which
+    on a dark app reads as a rendering fault. What the app then does with that space is
+    `env(safe-area-inset-*)`, which the panels and the bottom bar already use.
+  */
+  viewportFit: "cover",
+  /* A money form is typed into. Zoom stays available; the page just does not jump. */
+  initialScale: 1,
+  width: "device-width",
 };
 
 export default function RootLayout({
@@ -101,6 +123,8 @@ export default function RootLayout({
       className={`${bricolage.variable} ${manrope.variable} ${splineMono.variable} ${poppins.variable} h-full`}
     >
       <body suppressHydrationWarning className="min-h-full">
+        {/* Makes the home-screen icon open into the app rather than into a white page. */}
+        <RegisterSW />
         {/*
           Dev only: paint the chosen button treatment before anything renders.
 

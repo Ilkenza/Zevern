@@ -9,6 +9,7 @@ import { nextInvoiceNumber } from "@/lib/data/invoices";
 import { quoteTotal } from "@/lib/quotes/total";
 import { todayISO } from "@/lib/format";
 import type { QuoteItem } from "@/lib/types";
+import { ReadFailed } from "@/lib/data/must";
 
 export type QuoteFormState = { error?: string } | undefined;
 
@@ -91,12 +92,19 @@ export async function convertQuoteToInvoice(id: string) {
   const uid = await userId(supabase);
   if (!uid) return;
 
-  const { data: quote } = await supabase
+  const { data: quote, error: quoteError } = await supabase
     .from("quotes")
     .select("*")
     .eq("id", id)
     .eq("user_id", uid)
     .maybeSingle();
+  /*
+    A redirect is what "this quote is gone" looks like, and it used to be what a failed
+    read looked like too — bounced back to the list with nothing said, as if the quote had
+    been deleted. Throwing keeps the two apart: the error screen says it could not be read
+    and offers a retry, and no invoice is created off a row nobody managed to see.
+  */
+  if (quoteError) throw new ReadFailed("that quote", quoteError.message);
   if (!quote) redirect("/quotes");
   if (quote.invoice_id) redirect(`/invoices/${quote.invoice_id}`);
 

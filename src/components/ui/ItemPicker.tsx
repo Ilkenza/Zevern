@@ -37,6 +37,11 @@ export function ItemPicker({
   help,
   onPick,
   onExact,
+  onValueChange,
+  compact = false,
+  inputClassName,
+  autoFocus,
+  onKeyDown,
   className,
 }: {
   name: string;
@@ -57,6 +62,21 @@ export function ItemPicker({
    * overwrite something already answered. The form decides; this only reports the match.
    */
   onExact?: (item: MoneyItem) => void;
+  /** Every keystroke, for a caller that keeps its own copy of the value. */
+  onValueChange?: (value: string) => void;
+  /**
+   * The field as it appears inside a row rather than as a form question.
+   *
+   * A line on a receipt already has a heading over the column and three controls beside
+   * it; a label, a help line and a count button would be four more things in a space
+   * that is one line tall. The menu is the same one — the difference is only what the
+   * field says about itself when nothing is open.
+   */
+  compact?: boolean;
+  inputClassName?: string;
+  autoFocus?: boolean;
+  /** The row's own key handling — Enter to add a line, and so on — runs after ours. */
+  onKeyDown?: (event: React.KeyboardEvent<HTMLInputElement>) => void;
   className?: string;
 }) {
   const [value, setValue] = useState(defaultValue);
@@ -144,6 +164,7 @@ export function ItemPicker({
 
   const choose = (item: MoneyItem) => {
     setValue(item.name);
+    onValueChange?.(item.name);
     setOpen(false);
     setCursor(-1);
     onPick?.(item);
@@ -151,10 +172,12 @@ export function ItemPicker({
   };
 
   return (
-    <div className={cn("mb-3.25", className)}>
-      <label htmlFor={name} className="mb-1.5 block text-xs font-semibold text-[#C6CAD6]">
-        {label}
-      </label>
+    <div className={cn(!compact && "mb-3.25", className)}>
+      {!compact && (
+        <label htmlFor={name} className="mb-1.5 block text-xs font-semibold text-[#C6CAD6]">
+          {label}
+        </label>
+      )}
 
       {/*
         The field says it has a list, or nobody opens it.
@@ -174,6 +197,7 @@ export function ItemPicker({
         onChange={(e) => {
           const next = e.target.value;
           setValue(next);
+          onValueChange?.(next);
           setOpen(true);
           /* A new search is a new list; the mark starts off it rather than on whatever
              row happened to sit at that index a keystroke ago. */
@@ -219,11 +243,13 @@ export function ItemPicker({
             return;
           }
           if (event.key === "Enter" && open && cursor >= 0 && shown[cursor]) {
-            // Only when a row is actually marked, so Enter still submits the form the
-            // rest of the time — which is what it does everywhere else in this app.
+            // Only when a row is actually marked, so Enter still does what it does
+            // everywhere else in this app the rest of the time.
             event.preventDefault();
             choose(shown[cursor]);
+            return;
           }
+          onKeyDown?.(event);
         }}
         autoComplete="off"
         role="combobox"
@@ -231,14 +257,15 @@ export function ItemPicker({
         aria-controls={`${name}-suggestions`}
         aria-autocomplete="list"
         placeholder={placeholder}
+        autoFocus={autoFocus}
         className={cn(
-          "zv-field w-full rounded-ctrl border border-line bg-white/[0.035] px-3 py-2.5 text-[13.5px] text-ink",
-          "placeholder:text-faint focus:border-gold focus:shadow-ring focus:outline-none",
-          items.length > 0 && "item-pick-field",
+          inputClassName ??
+            "zv-field w-full rounded-ctrl border border-line bg-white/[0.035] px-3 py-2.5 text-[13.5px] text-ink placeholder:text-faint focus:border-gold focus:shadow-ring focus:outline-none",
+          items.length > 0 && !compact && "item-pick-field",
         )}
       />
 
-        {items.length > 0 && (
+        {items.length > 0 && !compact && (
           <button
             type="button"
             className="item-pick-open"
@@ -263,7 +290,7 @@ export function ItemPicker({
         )}
       </div>
 
-      {help && <p className="mt-1.25 text-[11.5px] text-muted">{help}</p>}
+      {help && !compact && <p className="mt-1.25 text-[11.5px] text-muted">{help}</p>}
 
       {open &&
         worth &&

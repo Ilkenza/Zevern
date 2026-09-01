@@ -11,6 +11,7 @@ import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { userId } from "@/lib/supabase/current-user";
 import type { MoneyItem } from "@/lib/types";
+import { ReadFailed } from "@/lib/data/must";
 
 /**
  * Everything on the list, the useful ones first.
@@ -33,9 +34,6 @@ export const getItems = cache(async (): Promise<MoneyItem[]> => {
     .order("last_used_on", { ascending: false, nullsFirst: false })
     .order("name");
 
-  if (error) {
-    console.error("getItems:", error.message);
-    return [];
-  }
+  if (error) throw new ReadFailed("the things you have bought before", error.message);
   return (data ?? []) as MoneyItem[];
 });

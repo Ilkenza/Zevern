@@ -15,6 +15,7 @@ import { todayISO } from "@/lib/format";
 import { monthRange, shiftMonth, UNCATEGORIZED_CATEGORY_ID } from "@/lib/money";
 import type { TransactionRow } from "@/lib/types";
 import { TX_SELECT } from "./core";
+import { ReadFailed } from "@/lib/data/must";
 
 /** A year, so a season can be compared with the same season. */
 const MONTHS_BACK = 12;
@@ -94,7 +95,7 @@ export const getCategoryHistory = cache(
       .order("occurred_at", { ascending: false, nullsFirst: false })
       .order("created_at", { ascending: false });
 
-    if (error) console.error("getCategoryHistory:", error.message);
+    if (error) throw new ReadFailed("this category's history", error.message);
     const rows = (data ?? []) as unknown as TransactionRow[];
     if (rows.length === 0) return null;
 

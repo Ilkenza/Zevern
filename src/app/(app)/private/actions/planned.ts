@@ -19,6 +19,7 @@ plainDate,
 refresh,
 today
 } from "./shared";
+import { unreadable } from "@/lib/data/must";
 
 /* ----------------------------------------------------------------- planned */
 
@@ -58,12 +59,13 @@ export async function savePlanned(_prev: MoneyState, formData: FormData): Promis
   if (id) {
     // Once it has happened, the entry in the ledger is what carries the money. Editing
     // the plan behind it would let the two disagree about the same event.
-    const { data: existing } = await supabase
+    const { data: existing, error: existingError } = await supabase
       .from("money_planned")
       .select("settled_at")
       .eq("id", id)
       .eq("user_id", uid)
       .maybeSingle();
+    if (existingError) return { error: unreadable("that planned item") };
     if (!existing) return { error: "That planned item is not on your profile." };
     if (existing.settled_at)
       return { error: "This one has already happened. Edit the entry in Money instead." };
@@ -97,12 +99,13 @@ export async function removePlanned(id: string): Promise<MoneyState> {
   if (!(await ownsMoneyRow(supabase, "money_planned", id, uid)))
     return { error: "That planned item is not on your profile." };
 
-  const { data: plan } = await supabase
+  const { data: plan, error: planError } = await supabase
     .from("money_planned")
     .select("settled_at")
     .eq("id", id)
     .eq("user_id", uid)
     .maybeSingle();
+  if (planError) return { error: unreadable("that planned item") };
   if (!plan) return { error: "That planned item is not on your profile." };
   if (plan.settled_at)
     return {
@@ -143,12 +146,13 @@ export async function settlePlanned(_prev: MoneyState, formData: FormData): Prom
   if (!(await ownsMoneyRow(supabase, "money_planned", id, uid)))
     return { error: "That planned item is not on your profile." };
 
-  const { data: plan } = await supabase
+  const { data: plan, error: planError } = await supabase
     .from("money_planned")
     .select("*")
     .eq("id", id)
     .eq("user_id", uid)
     .maybeSingle();
+  if (planError) return { error: unreadable("that planned item") };
   if (!plan) return { error: "That planned item is not on your profile." };
   if (plan.settled_at) return { error: "That one has already been settled." };
 
@@ -215,12 +219,13 @@ export async function movePlanned(id: string, dueOn: string): Promise<MoneyState
   if (!(await ownsMoneyRow(supabase, "money_planned", id, uid)))
     return { error: "That planned item is not on your profile." };
 
-  const { data: plan } = await supabase
+  const { data: plan, error: planError } = await supabase
     .from("money_planned")
     .select("settled_at")
     .eq("id", id)
     .eq("user_id", uid)
     .maybeSingle();
+  if (planError) return { error: unreadable("that planned item") };
   if (!plan) return { error: "That planned item is not on your profile." };
   if (plan.settled_at) return { error: "That one has already happened, so its date is settled." };
 
@@ -249,12 +254,13 @@ export async function moveRecurringNext(id: string, nextOn: string): Promise<Mon
   if (!(await ownsMoneyRow(supabase, "money_recurring", id, uid)))
     return { error: "That rule is not on your profile." };
 
-  const { data: item } = await supabase
+  const { data: item, error: itemError } = await supabase
     .from("money_recurring")
     .select("ends_on, every")
     .eq("id", id)
     .eq("user_id", uid)
     .maybeSingle();
+  if (itemError) return { error: unreadable("that repeating item") };
   if (!item) return { error: "Recurring item not found." };
   if (item.ends_on != null && date > item.ends_on)
     return { error: `That is past ${item.ends_on}, the date this one stops.` };

@@ -4636,7 +4636,12 @@ body::after {
 
 /* ---------------------------------------- The name field that is also a shopping list */
 
-.item-pick-wrap { position: relative; }
+/*
+  `position` for the arrow, and the rest so the wrapper can stand where a bare `<input>`
+  used to: inside a receipt line's grid track, which will not shrink below its content
+  unless it is told it may.
+*/
+.item-pick-wrap { position: relative; min-width: 0; width: 100%; }
 
 /* ------------------------------------------ The shopping list, as its own surface */
 
@@ -7057,6 +7062,16 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
 }
 
 /*
+  Room under a focused field for the bar that sits over it.
+
+  `scroll-padding-bottom` is the one property that makes a sticky footer and a long form
+  get along: the browser stops scrolling a focused control to the very bottom of the
+  scrollport and leaves this much clear, so the field you just tapped never ends up
+  underneath Save.
+*/
+.zv-panel-scroll { scroll-padding-bottom: 5.5rem; }
+
+/*
   The bar that finishes the form, kept where the thumb is.
 
   Sticky inside the panel's own scroll, bled out to the panel's edges so the scrim runs
@@ -7070,10 +7085,23 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
   z-index: 1;
   margin: 18px -20px -20px;
   padding: 16px 20px calc(20px + env(safe-area-inset-bottom));
+  /*
+    Solid, with the fade cut down to a hairline's worth.
+
+    It was a fade across the top third of the bar, written for text scrolling under it —
+    and under text it reads well. Under *controls* it does not: a date field passing
+    beneath comes out as a box with its top edge and half its value showing through, cut
+    across by a button. The eye does not read that as "content behind a bar", it reads it
+    as a broken field, and the Save button sitting in the middle of it reads as a third
+    input in the row.
+
+    Six pixels of fade is enough to say the content continues; everything below it is the
+    bar's own surface, opaque, so what is behind it is behind it.
+  */
   background: linear-gradient(
     180deg,
-    rgba(26, 29, 36, 0) 0%,
-    var(--color-surface) 30%,
+    rgba(26, 29, 36, 0) 0,
+    var(--color-surface) 6px,
     var(--color-surface) 100%
   );
 }
@@ -7090,7 +7118,7 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
 .zv-form-actions::before {
   content: "";
   position: absolute;
-  top: 0;
+  top: 6px;
   right: 20px;
   left: 20px;
   height: 1px;
@@ -10812,10 +10840,56 @@ a.month-bar:focus-visible .month-bar-track {
 /* The browser's own clear button is a grey X that belongs to no palette here. */
 .zv-chipsearch input::-webkit-search-cancel-button { appearance: none; }
 
+/*
+  Columns, not a ragged wrap.
+
+  Thirteen options whose names run from `na moru` to `Pravo, revizija i naknade`, laid
+  out with `flex-wrap`, come out as rows of three, then three, then two, then two — every
+  row a different rhythm, every chip starting somewhere new. There is nothing wrong with
+  any one of them and the block still reads as spilled rather than arranged, because
+  nothing lines up with anything.
+
+  A grid fixes it by taking the decision away from the content: equal tracks, so the dots
+  make a column and the names start on the same line down the page. Names too long for a
+  track are cut with an ellipsis and carry the whole thing in `title` — losing the tail of
+  one name is a smaller cost than a wall that cannot be scanned.
+*/
 .zv-chips {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(11.5rem, 100%), 1fr));
   gap: 6px;
+}
+
+/*
+  The chip itself: left-aligned, one line tall, and the same height whatever is in it.
+  `min-width: 0` because a grid item will not shrink below its content unless it is told
+  it may, which is what would push the whole panel wide again.
+*/
+.zv-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  text-align: left;
+}
+
+/*
+  The dot's space is held even on a chip that has no colour, so the names line up down
+  the column instead of stepping in and out by eight pixels.
+*/
+.zv-chip-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: transparent;
+}
+
+.zv-chip-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /*

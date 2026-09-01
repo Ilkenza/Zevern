@@ -8,6 +8,7 @@ import { saveErrorMessage } from "@/lib/supabase/errors";
 import { LEAD_STATUSES, type LeadStatus } from "@/lib/status";
 import { parseLeadsImport } from "@/lib/leads/parse-import";
 import { computeImportPlan, type ImportChange } from "@/lib/leads/diff-import";
+import { ReadFailed, unreadable } from "@/lib/data/must";
 
 export type LeadFormState = { error?: string } | undefined;
 
@@ -32,7 +33,16 @@ export async function previewLeadsImport(text: string): Promise<ImportPreview> {
   const uid = await userId(supabase);
   if (!uid) return { error: "Not signed in." };
 
-  const { data: existing } = await supabase.from("leads").select("*").eq("user_id", uid);
+  /*
+    The plan is a comparison against what is already there. A failed read makes that list
+    empty, and an empty list makes every row in the paste look new — the preview then says
+    "42 new" about leads that already exist, and the import that follows duplicates them.
+  */
+  const { data: existing, error: existingError } = await supabase
+    .from("leads")
+    .select("*")
+    .eq("user_id", uid);
+  if (existingError) return { error: unreadable("the leads you already have") };
   const plan = computeImportPlan(rows, existing ?? []);
 
   return {
@@ -167,12 +177,13 @@ export async function convertLeadToClient(id: string) {
   const uid = await userId(supabase);
   if (!uid) return;
 
-  const { data: lead } = await supabase
+  const { data: lead, error: leadError } = await supabase
     .from("leads")
     .select("*")
     .eq("id", id)
     .eq("user_id", uid)
     .maybeSingle();
+  if (leadError) throw new ReadFailed("that lead", leadError.message);
   if (!lead) redirect("/leads");
 
   if (lead.client_id) {

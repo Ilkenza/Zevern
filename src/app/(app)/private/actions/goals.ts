@@ -22,6 +22,7 @@ PENNY,
 refresh,
 today
 } from "./shared";
+import { unreadable } from "@/lib/data/must";
 
 /* ------------------------------------------------------------------- goals */
 
@@ -89,13 +90,14 @@ export async function saveGoal(_prev: MoneyState, formData: FormData): Promise<M
     // A new goal joins at the bottom of the list rather than jumping the queue. The
     // default is 0 for every goal, so without this the order would be creation order
     // again the moment anything is added.
-    const { data: last } = await supabase
+    const { data: last, error: lastError } = await supabase
       .from("money_goals")
       .select("sort")
       .eq("user_id", uid)
       .order("sort", { ascending: false })
       .limit(1)
       .maybeSingle();
+    if (lastError) return { error: unreadable("where the new goal goes in the list") };
     ({ error } = await supabase
       .from("money_goals")
       .insert({ ...payload, direction, sort: (last?.sort ?? -1) + 1 }));
@@ -169,12 +171,13 @@ export async function spendGoal(_prev: MoneyState, formData: FormData): Promise<
   if (!ownsAccount) return { error: "That account is not on your profile." };
   if (!ownsCategory) return { error: "That category is not on your profile." };
 
-  const { data: goal } = await supabase
+  const { data: goal, error: goalError } = await supabase
     .from("money_goals")
     .select("name, completed_at")
     .eq("id", goalId)
     .eq("user_id", uid)
     .maybeSingle();
+  if (goalError) return { error: unreadable("that goal") };
   if (!goal) return { error: "That goal is not on your profile." };
   if (goal.completed_at) return { error: "That goal is already closed." };
 
@@ -280,11 +283,12 @@ export async function moveBetweenGoals(_prev: MoneyState, formData: FormData): P
   if (!ownsFrom || !ownsTo) return { error: "That goal is not on your profile." };
   if (!ownsAccount) return { error: "That account is not on your profile." };
 
-  const { data: goals } = await supabase
+  const { data: goals, error: goalsError } = await supabase
     .from("money_goals")
     .select("id, name, completed_at")
     .eq("user_id", uid)
     .in("id", [fromId, toId]);
+  if (goalsError) return { error: unreadable("those goals") };
 
   const from = (goals ?? []).find((g) => g.id === fromId);
   const to = (goals ?? []).find((g) => g.id === toId);
@@ -366,12 +370,13 @@ export async function closeGoal(_prev: MoneyState, formData: FormData): Promise<
   if (!ownsGoal) return { error: "That goal is not on your profile." };
   if (!ownsAccount) return { error: "That account is not on your profile." };
 
-  const { data: goal } = await supabase
+  const { data: goal, error: goalError } = await supabase
     .from("money_goals")
     .select("name, completed_at")
     .eq("id", goalId)
     .eq("user_id", uid)
     .maybeSingle();
+  if (goalError) return { error: unreadable("that goal") };
   if (!goal) return { error: "That goal is not on your profile." };
   if (goal.completed_at) return { error: "That goal is already closed." };
 
@@ -438,12 +443,13 @@ export async function archiveGoal(id: string, archived: boolean): Promise<MoneyS
     return { error: "That goal is not on your profile." };
 
   if (archived) {
-    const { data: goal } = await supabase
+    const { data: goal, error: goalError } = await supabase
       .from("money_goals")
       .select("completed_at")
       .eq("id", id)
       .eq("user_id", uid)
       .maybeSingle();
+    if (goalError) return { error: unreadable("that goal") };
     if (!goal) return { error: "That goal is not on your profile." };
     if (!goal.completed_at)
       return { error: "Close the goal first — an open one is still holding money aside." };

@@ -18,6 +18,7 @@ import { userId } from "@/lib/supabase/current-user";
 import { toRsd } from "@/lib/money";
 import type { LoanLine } from "@/lib/types";
 import { getRates, readAll } from "./core";
+import { ReadFailed } from "@/lib/data/must";
 
 /**
  * Which movements pay a loan down, and which one opened it.
@@ -60,7 +61,7 @@ export const getLoans = cache(async (): Promise<LoanLine[]> => {
           .order("occurred_on", { ascending: false })
           .order("id")
           .range(from, to),
-      "getLoans",
+      "the payments on your debts",
     ),
     supabase
       .from("money_recurring")
@@ -69,9 +70,9 @@ export const getLoans = cache(async (): Promise<LoanLine[]> => {
       .not("loan_id", "is", null),
     getRates(),
   ]);
-  if (loanRes.error) console.error("getLoans:", loanRes.error.message);
+  if (loanRes.error) throw new ReadFailed("your debts", loanRes.error.message);
+  if (ruleRes.error) throw new ReadFailed("the instalment plans", ruleRes.error.message);
 
-  
   const ruleRows = ruleRes.data ?? [];
 
   const byLoan = new Map<string, typeof moveRows>();
@@ -148,4 +149,3 @@ export function loanTotals(loans: LoanLine[]): { owedToYou: number; youOwe: numb
   }
   return { owedToYou, youOwe };
 }
-

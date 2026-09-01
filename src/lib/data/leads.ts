@@ -2,16 +2,18 @@ import { createClient } from "@/lib/supabase/server";
 import { userId } from "@/lib/supabase/current-user";
 import { todayISO } from "@/lib/format";
 import type { Lead } from "@/lib/types";
+import { ReadFailed } from "./must";
 
 export async function getLeads(): Promise<Lead[]> {
   const supabase = await createClient();
   const uid = await userId(supabase);
   if (!uid) return [];
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("leads")
     .select("*")
     .eq("user_id", uid)
     .order("created_at", { ascending: false });
+  if (error) throw new ReadFailed("your leads", error.message);
   return data ?? [];
 }
 
@@ -19,12 +21,13 @@ export async function getLead(id: string): Promise<Lead | null> {
   const supabase = await createClient();
   const uid = await userId(supabase);
   if (!uid) return null;
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("leads")
     .select("*")
     .eq("id", id)
     .eq("user_id", uid)
     .maybeSingle();
+  if (error) throw new ReadFailed("this lead", error.message);
   return data ?? null;
 }
 
@@ -46,7 +49,7 @@ export async function getLeadsForFollowup(limit = 5): Promise<Lead[]> {
   const supabase = await createClient();
   const uid = await userId(supabase);
   if (!uid) return [];
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("leads")
     .select("*")
     .eq("user_id", uid)
@@ -54,6 +57,7 @@ export async function getLeadsForFollowup(limit = 5): Promise<Lead[]> {
     .lte("next_followup", todayISO())
     .order("next_followup", { ascending: true })
     .limit(limit);
+  if (error) throw new ReadFailed("the leads waiting on a follow-up", error.message);
   return data ?? [];
 }
 

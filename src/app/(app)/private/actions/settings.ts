@@ -10,6 +10,7 @@ num,
 refresh,
 today
 } from "./shared";
+import { unreadable } from "@/lib/data/must";
 
 /* -------------------------------------------------------- everyday spending */
 
@@ -82,11 +83,12 @@ export async function saveCustomColor(hex: string): Promise<MoneyState> {
   const uid = await userId(supabase);
   if (!uid) return { error: "Not signed in." };
 
-  const { data: profile } = await supabase
+  const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select("custom_colors")
     .eq("id", uid)
     .maybeSingle();
+  if (profileError) return { error: unreadable("the colours you have saved") };
 
   const existing = ((profile?.custom_colors ?? []) as string[]).filter((c) => c !== clean);
   const next = [clean, ...existing].slice(0, MAX_CUSTOM_COLORS);

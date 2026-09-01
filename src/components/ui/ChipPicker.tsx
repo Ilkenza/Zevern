@@ -151,13 +151,15 @@ export function ChipPicker({
             onClick={() => onChange([])}
             aria-pressed={selected.length === 0}
             className={cn(
-              "zv-press rounded-pill border px-3 py-1.5 text-[12.5px] font-semibold transition-colors",
+              "zv-press zv-chip rounded-pill border px-3 py-1.5 text-[12.5px] font-semibold transition-colors",
               selected.length === 0
                 ? "border-gold/40 bg-active-bg text-gold"
                 : "border-line text-muted hover:text-ink",
             )}
           >
-            {emptyLabel}
+            {/* Holds the dot's width so this chip's label starts on the column's line. */}
+            <span className="zv-chip-dot" aria-hidden />
+            <span className="zv-chip-label">{emptyLabel}</span>
           </button>
         )}
 
@@ -169,21 +171,21 @@ export function ChipPicker({
               type="button"
               onClick={() => toggle(chip.value)}
               aria-pressed={on}
+              /* The full name, for the ones the column has to cut. */
+              title={chip.label}
               className={cn(
-                "zv-press flex items-center gap-1.5 rounded-pill border px-3 py-1.5 text-[12.5px] font-semibold transition-colors",
+                "zv-press zv-chip flex items-center gap-1.5 rounded-pill border px-3 py-1.5 text-[12.5px] font-semibold transition-colors",
                 on
                   ? "border-gold/40 bg-active-bg text-gold"
                   : "border-line text-muted hover:text-ink",
               )}
             >
-              {chip.color && (
-                <span
-                  className="inline-block h-2 w-2 rounded-full"
-                  style={{ background: chip.color }}
-                  aria-hidden
-                />
-              )}
-              {chip.label}
+              <span
+                className="zv-chip-dot"
+                style={chip.color ? { background: chip.color } : undefined}
+                aria-hidden
+              />
+              <span className="zv-chip-label">{chip.label}</span>
             </button>
           );
         })}

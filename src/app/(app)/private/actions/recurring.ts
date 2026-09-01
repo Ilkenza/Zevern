@@ -24,6 +24,7 @@ PENNY,
 refresh,
 today
 } from "./shared";
+import { unreadable } from "@/lib/data/must";
 
 /* --------------------------------------------------------------- recurring */
 
@@ -209,12 +210,13 @@ export async function saveRecurring(_prev: MoneyState, formData: FormData): Prom
   if (!ownsGoal) return { error: "That goal is not on your profile." };
 
   if (goalId) {
-    const { data: goal } = await supabase
+    const { data: goal, error: goalError } = await supabase
       .from("money_goals")
       .select("completed_at")
       .eq("id", goalId)
       .eq("user_id", uid)
       .maybeSingle();
+    if (goalError) return { error: unreadable("that goal") };
     if (goal?.completed_at)
       return { error: "That goal is closed. Reopen it before setting money to go in." };
   }
@@ -310,12 +312,13 @@ export async function postRecurring(id: string, amountOverride?: number): Promis
   const uid = await userId(supabase);
   if (!uid) return { error: "Not signed in." };
 
-  const { data: item } = await supabase
+  const { data: item, error: itemError } = await supabase
     .from("money_recurring")
     .select("*")
     .eq("id", id)
     .eq("user_id", uid)
     .maybeSingle();
+  if (itemError) return { error: unreadable("that repeating item") };
   if (!item) return { error: "Recurring item not found." };
 
   const amount = amountOverride != null && amountOverride > 0 ? amountOverride : Number(item.amount);
@@ -344,12 +347,13 @@ export async function postRecurring(id: string, amountOverride?: number): Promis
 
     // Nothing should keep feeding a goal that has been closed. Pause it rather than
     // failing again every time the page is opened.
-    const { data: goal } = await supabase
+    const { data: goal, error: goalError } = await supabase
       .from("money_goals")
       .select("name, completed_at")
       .eq("id", item.goal_id as string)
       .eq("user_id", uid)
       .maybeSingle();
+    if (goalError) return { error: unreadable("that goal") };
     if (goal?.completed_at) {
       await supabase
         .from("money_recurring")
@@ -465,12 +469,13 @@ export async function skipRecurring(id: string): Promise<MoneyState> {
   const uid = await userId(supabase);
   if (!uid) return { error: "Not signed in." };
 
-  const { data: item } = await supabase
+  const { data: item, error: itemError } = await supabase
     .from("money_recurring")
     .select("id, next_on, every, every_count, ends_on, anchor_day")
     .eq("id", id)
     .eq("user_id", uid)
     .maybeSingle();
+  if (itemError) return { error: unreadable("that repeating item") };
   if (!item) return { error: "Recurring item not found." };
 
   const next = nextDate(item.next_on, item.every, item.anchor_day, item.every_count ?? 1);
@@ -494,7 +499,7 @@ export async function postAllDueFixed(): Promise<MoneyState> {
   if (!uid) return { error: "Not signed in." };
 
   const today = todayISO();
-  const { data: due } = await supabase
+  const { data: due, error: dueError } = await supabase
     .from("money_recurring")
     .select("id, next_on, created_at")
     .eq("user_id", uid)
@@ -502,6 +507,7 @@ export async function postAllDueFixed(): Promise<MoneyState> {
     .eq("variable", false)
     .gt("amount", 0)
     .lte("next_on", today);
+  if (dueError) return { error: unreadable("what is due") };
 
   for (const item of due ?? []) {
     // An item entered today with today's date must not book itself the moment it is saved.

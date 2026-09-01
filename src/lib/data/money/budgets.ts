@@ -19,6 +19,8 @@ import {
 import { getMonthSummary } from "./transactions";
 import { getGoalRemaining } from "./goals";
 import { getCategoryBudgetCaps } from "./budget-plans";
+import { ReadFailed } from "@/lib/data/must";
+import { readAll } from "@/lib/money/paging";
 
 /**
  * The dated charges in a month, per category: what has already booked, and what is
@@ -46,7 +48,7 @@ async function fixedByCategory(
   const paid = new Map<string, number>();
   const due = new Map<string, number>();
 
-  const { data: booked } = await supabase
+  const { data: booked, error } = await supabase
     .from("money_transactions")
     .select("category_id, amount_rsd")
     .eq("user_id", uid)
@@ -54,6 +56,7 @@ async function fixedByCategory(
     .not("recurring_id", "is", null)
     .gte("occurred_on", from)
     .lte("occurred_on", to);
+  if (error) throw new ReadFailed("this month's fixed costs", error.message);
 
   for (const row of booked ?? []) {
     if (!row.category_id) continue;
@@ -136,15 +139,24 @@ export async function getBudgetLines(month = monthKey()): Promise<BudgetLine[]> 
     */
     getCategoryBudgetCaps(month),
     getMonthSummary(month),
+    // Six months of expenses: 366 rows on this ledger today, and climbing at the rate it
+    // is being used. Paged now, while the fix is a change of shape rather than a bug
+    // report about a bar chart that quietly stopped counting one of its months.
     uid
-      ? supabase
-          .from("money_transactions")
-          .select("category_id, amount_rsd, occurred_on")
-          .eq("user_id", uid)
-          .eq("kind", "expense")
-          .gte("occurred_on", from)
-          .lte("occurred_on", to)
-      : Promise.resolve({ data: [] as { category_id: string | null; amount_rsd: number | string | null; occurred_on: string }[] }),
+      ? readAll<{ category_id: string | null; amount_rsd: number | string | null; occurred_on: string }>(
+          (lo, hi) =>
+            supabase
+              .from("money_transactions")
+              .select("category_id, amount_rsd, occurred_on")
+              .eq("user_id", uid)
+              .eq("kind", "expense")
+              .gte("occurred_on", from)
+              .lte("occurred_on", to)
+              .order("id")
+              .range(lo, hi),
+          "what each category cost in the months before",
+        )
+      : Promise.resolve([] as { category_id: string | null; amount_rsd: number | string | null; occurred_on: string }[]),
     uid
       ? fixedByCategory(supabase, uid, month)
       : Promise.resolve({ paid: new Map<string, number>(), due: new Map<string, number>() }),
@@ -154,7 +166,7 @@ export async function getBudgetLines(month = monthKey()): Promise<BudgetLine[]> 
 
   // category -> month -> total
   const byCategoryMonth = new Map<string, Map<string, number>>();
-  for (const row of history.data ?? []) {
+  for (const row of history) {
     if (!row.category_id) continue;
     const key = row.occurred_on.slice(0, 7);
     const months = byCategoryMonth.get(row.category_id) ?? new Map<string, number>();

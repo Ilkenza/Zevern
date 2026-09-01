@@ -46,11 +46,12 @@ export const getRates = cache(async (): Promise<Rates> => {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return DEFAULT_RATES;
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("profiles")
     .select("rate_eur, rate_usd")
     .eq("id", user.id)
     .maybeSingle();
+  if (error) throw new ReadFailed("your exchange rates", error.message);
   return {
     EUR: Number(data?.rate_eur ?? DEFAULT_RATES.EUR) || DEFAULT_RATES.EUR,
     USD: Number(data?.rate_usd ?? DEFAULT_RATES.USD) || DEFAULT_RATES.USD,
@@ -71,7 +72,8 @@ export const getAccounts = cache(async (includeArchived = false): Promise<MoneyA
     .order("sort")
     .order("created_at");
   if (!includeArchived) q = q.eq("archived", false);
-  const { data } = await q;
+  const { data, error } = await q;
+  if (error) throw new ReadFailed("your accounts", error.message);
   return data ?? [];
 });
 
@@ -87,7 +89,8 @@ export const getCategories = cache(async (includeArchived = false): Promise<Mone
     .order("sort")
     .order("name");
   if (!includeArchived) q = q.eq("archived", false);
-  const { data } = await q;
+  const { data, error } = await q;
+  if (error) throw new ReadFailed("your categories", error.message);
   return data ?? [];
 });
 
@@ -95,7 +98,8 @@ export async function getBudgets(): Promise<MoneyBudget[]> {
   const supabase = await createClient();
   const uid = await userId(supabase);
   if (!uid) return [];
-  const { data } = await supabase.from("money_budgets").select("*").eq("user_id", uid);
+  const { data, error } = await supabase.from("money_budgets").select("*").eq("user_id", uid);
+  if (error) throw new ReadFailed("your budgets", error.message);
   return data ?? [];
 }
 
@@ -114,7 +118,7 @@ export const getRecurring = cache(async (): Promise<RecurringRow[]> => {
   // money_recurring.goal_id has no declared relationship in the generated types, so the
   // goal is looked up separately rather than embedded — an embed the types do not know
   // about is what makes PostgREST hand back an error object instead of rows.
-  const [{ data, error }, { data: goals }] = await Promise.all([
+  const [{ data, error }, { data: goals, error: goalsError }] = await Promise.all([
     supabase
       .from("money_recurring")
       .select(
@@ -124,7 +128,8 @@ export const getRecurring = cache(async (): Promise<RecurringRow[]> => {
       .order("next_on"),
     supabase.from("money_goals").select("id, name, color").eq("user_id", uid),
   ]);
-  if (error) console.error("getRecurring:", error.message);
+  if (error) throw new ReadFailed("your repeating entries", error.message);
+  if (goalsError) throw new ReadFailed("your goals", goalsError.message);
 
   const goalBy = new Map((goals ?? []).map((g) => [g.id, { name: g.name, color: g.color }]));
   return (data ?? []).map((row) => ({
@@ -150,7 +155,7 @@ export async function getPlanned(includeSettled = false): Promise<PlannedRow[]> 
   let q = supabase.from("money_planned").select(PLANNED_SELECT).eq("user_id", uid);
   if (!includeSettled) q = q.is("settled_at", null);
   const { data, error } = await q.order("due_on").order("created_at");
-  if (error) console.error("getPlanned:", error.message);
+  if (error) throw new ReadFailed("what you have planned", error.message);
   return (data ?? []) as PlannedRow[];
 }
 
@@ -192,6 +197,7 @@ export const ESTIMATE_FROM = 6;
 // Imported as well as re-exported: a bare `export ... from` forwards the name without
 // binding it in this module, and `recentBookings` below is one of its callers.
 import { readAll } from "@/lib/money/paging";
+import { ReadFailed } from "@/lib/data/must";
 export { readAll };
 
 export type PastBookings = Map<string, Booking[]>;
@@ -211,7 +217,7 @@ export async function recentBookings(
         .order("occurred_on", { ascending: false })
         .order("id")
         .range(from, to),
-    "recentBookings",
+    "the entries booked recently",
   );
 
   const past: PastBookings = new Map();
@@ -248,5 +254,4 @@ export function estimateFor(
   }
   return { each: toRsd(Number(item.amount), item.currency, rates), estimated: false, samples: [] };
 }
-
 

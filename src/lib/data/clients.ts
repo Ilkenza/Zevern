@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { userId } from "@/lib/supabase/current-user";
 import type { Client } from "@/lib/types";
+import { ReadFailed } from "./must";
 
 /** Client rows with an embedded project count (`projects(count)`). */
 export type ClientWithCount = Client & { projects: { count: number }[] };
@@ -9,11 +10,12 @@ export async function getClientsWithCounts(): Promise<ClientWithCount[]> {
   const supabase = await createClient();
   const uid = await userId(supabase);
   if (!uid) return [];
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("clients")
     .select("*, projects(count)")
     .eq("user_id", uid)
     .order("created_at", { ascending: false });
+  if (error) throw new ReadFailed("your clients and their projects", error.message);
   return (data ?? []) as ClientWithCount[];
 }
 
@@ -21,11 +23,12 @@ export async function getClients(): Promise<Client[]> {
   const supabase = await createClient();
   const uid = await userId(supabase);
   if (!uid) return [];
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("clients")
     .select("*")
     .eq("user_id", uid)
     .order("name", { ascending: true });
+  if (error) throw new ReadFailed("your clients", error.message);
   return data ?? [];
 }
 
@@ -33,12 +36,13 @@ export async function getClient(id: string): Promise<Client | null> {
   const supabase = await createClient();
   const uid = await userId(supabase);
   if (!uid) return null;
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("clients")
     .select("*")
     .eq("id", id)
     .eq("user_id", uid)
     .maybeSingle();
+  if (error) throw new ReadFailed("this client", error.message);
   return data ?? null;
 }
 

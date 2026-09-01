@@ -186,7 +186,13 @@ export function SlideOver({
           which on a panel this tall is the difference between a form you finish and one
           you think you have finished.
         */}
-        <div className="ag-panel-body-in zv-scroll-fade flex-1 overflow-y-auto overscroll-contain p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+        {/*
+          `zv-panel-scroll` carries one rule: leave room for the sticky action bar when
+          the browser scrolls a focused field into view. Without it, tapping the last
+          field on a phone scrolls it to the bottom of the panel — which is exactly where
+          Save is sitting — and you type into a box you cannot see.
+        */}
+        <div className="ag-panel-body-in zv-scroll-fade zv-panel-scroll flex-1 overflow-y-auto overscroll-contain p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
           {children}
           {/*
             Room under the last control, as content rather than as padding.
@@ -203,4 +209,3 @@ export function SlideOver({
     document.body,
   );
 }
-

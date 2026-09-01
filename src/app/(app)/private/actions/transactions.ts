@@ -23,6 +23,7 @@ refresh,
 rememberItem,
 today
 } from "./shared";
+import { unreadable } from "@/lib/data/must";
 
 /* ------------------------------------------------------------ transactions */
 
@@ -218,12 +219,13 @@ export async function saveTransaction(_prev: MoneyState, formData: FormData): Pr
   if (goal) {
     // A closed goal has already handed its money back. Letting an entry land on one
     // would put dinars somewhere no account is reserving them.
-    const { data: goalRow } = await supabase
+    const { data: goalRow, error: goalRowError } = await supabase
       .from("money_goals")
       .select("completed_at, direction")
       .eq("id", goal)
       .eq("user_id", uid)
       .maybeSingle();
+    if (goalRowError) return { error: unreadable("that goal") };
     if (goalRow?.completed_at)
       return { error: "That goal is closed. Reopen it before moving money in or out." };
     goalPaying = goalRow?.direction === "expense";
@@ -257,12 +259,13 @@ export async function saveTransaction(_prev: MoneyState, formData: FormData): Pr
     if (account) {
       let free = account.free;
       if (id) {
-        const { data: previous } = await supabase
+        const { data: previous, error: previousError } = await supabase
           .from("money_transactions")
           .select("kind, amount_rsd, account_id")
           .eq("id", id)
           .eq("user_id", uid)
           .maybeSingle();
+        if (previousError) return { error: unreadable("what this entry was already setting aside") };
         if (previous?.kind === "saving" && previous.account_id === accountId) {
           free += Number(previous.amount_rsd) || 0;
         }
@@ -340,12 +343,13 @@ export async function saveTransaction(_prev: MoneyState, formData: FormData): Pr
   }
 
   if (budgetId) {
-    const { data: budget } = await supabase
+    const { data: budget, error: budgetError } = await supabase
       .from("money_budget_plans")
       .select("membership")
       .eq("id", budgetId)
       .eq("user_id", uid)
       .maybeSingle();
+    if (budgetError) return { error: unreadable("that budget") };
     if (!budget) return { error: "That budget is not on your profile." };
     // An 'all transactions' budget decides for itself what belongs to it. Filing an
     // entry into one by hand would store a link nothing reads, and would quietly start
@@ -435,12 +439,13 @@ export async function priceTransaction(id: string, amount: number): Promise<Mone
   const uid = await userId(supabase);
   if (!uid) return { error: "Not signed in." };
 
-  const { data: row } = await supabase
+  const { data: row, error: rowError } = await supabase
     .from("money_transactions")
     .select("id, amount")
     .eq("id", id)
     .eq("user_id", uid)
     .maybeSingle();
+  if (rowError) return { error: unreadable("that entry") };
   if (!row) return { error: "That entry is not on your profile." };
   if (row.amount !== null) return { error: "That entry already has a price. Edit it instead." };
 
@@ -468,12 +473,13 @@ export async function removeTransaction(id: string): Promise<MoneyState> {
   const uid = await userId(supabase);
   if (!uid) return { error: "Not signed in." };
 
-  const { data: row } = await supabase
+  const { data: row, error: rowError } = await supabase
     .from("money_transactions")
     .select("kind, goal_id, amount_rsd")
     .eq("id", id)
     .eq("user_id", uid)
     .maybeSingle();
+  if (rowError) return { error: unreadable("that entry") };
 
   /*
     Removing something that put money into a goal, when part of it has since been taken
@@ -484,12 +490,13 @@ export async function removeTransaction(id: string): Promise<MoneyState> {
     goal that is being saved up; one being paid off holds nothing to go short of.
   */
   if (row?.goal_id && movesToward(row.kind, false)) {
-    const { data: goalRow } = await supabase
+    const { data: goalRow, error: goalRowError } = await supabase
       .from("money_goals")
       .select("direction")
       .eq("id", row.goal_id)
       .eq("user_id", uid)
       .maybeSingle();
+    if (goalRowError) return { error: unreadable("that goal") };
 
     if (goalRow && goalRow.direction !== "expense") {
       const others = await goalBalance(supabase, uid, row.goal_id, id);
