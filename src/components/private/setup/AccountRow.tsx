@@ -270,7 +270,7 @@ function BalanceCell({
 
   if (fresh) {
     return (
-      <div className="flex items-center justify-between gap-2 min-[720px]:justify-end">
+      <div className="col-span-2 flex items-center justify-between gap-2 min-[720px]:col-span-1 min-[720px]:justify-end">
         <span className={cn(caps, "min-[720px]:hidden")}>Balance</span>
         <AmountBox defaultValue={String(account.opening_balance)} label="Starting balance" />
       </div>
@@ -278,7 +278,7 @@ function BalanceCell({
   }
 
   return (
-    <div className="setup-bal">
+    <div className="setup-bal col-span-2 min-[720px]:col-span-1">
       <span className={cn(caps, "min-[720px]:hidden")}>Balance</span>
       <div className="setup-bal-side">
         <span className={cn("setup-bal-now", account.balance < 0 && "is-short")}>
@@ -358,7 +358,7 @@ export function AccountRow({ account, arrived }: { account?: AccountBalance; arr
           required
           className={cn(
             field,
-            "w-full min-w-0 font-medium min-[420px]:col-span-2 min-[720px]:col-span-1",
+            "w-full min-w-0 font-medium col-span-2 min-[720px]:col-span-1",
           )}
         />
 
@@ -402,7 +402,7 @@ export function AccountRow({ account, arrived }: { account?: AccountBalance; arr
             onFix={() => setFixing(true)}
           />
         ) : (
-          <div className="flex items-center justify-between gap-2 min-[720px]:justify-end">
+          <div className="col-span-2 flex items-center justify-between gap-2 min-[720px]:col-span-1 min-[720px]:justify-end">
             <span className={cn(caps, "min-[720px]:hidden")}>Balance</span>
             <AmountBox defaultValue="" label="Starting balance" />
           </div>

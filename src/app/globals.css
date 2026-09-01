@@ -2271,7 +2271,39 @@ body::after {
   job is the figure. Same corner, same warmth, no geometry: light pooling under the
   bottom-right, clipped to the card it belongs to.
 */
-.overview-kpi { overflow: hidden; }
+.overview-kpi {
+  overflow: hidden;
+  /* So the figure inside can be sized against this card rather than the window. */
+  container-type: inline-size;
+}
+
+/*
+  The headline figure, sized by the card it is in.
+
+  24px is right on a desktop card of about three hundred pixels. Two cards to a row on a
+  360px phone gives each about a hundred and fifty, and `1.210.809.057 RSD` at 24px is
+  nearly three hundred — so the card clipped it and the reading came out as a number with
+  its unit sawn off. `cqi` is one percent of the card's own width, so the figure shrinks
+  exactly as much as this particular card needs and no more. The clamp keeps it from
+  going below the size at which digits stop being readable, and from growing past the
+  24px the design is set in.
+
+  Together with the ordinary space in `formatRsd`, an amount that still will not fit at
+  the smallest size wraps its unit to a second line instead of losing it.
+*/
+.kpi-value {
+  font-size: clamp(15px, 8.6cqi, 24px);
+  line-height: 1.15;
+  /*
+    Break at the space and nowhere else. `anywhere` would fit any amount into any box —
+    by cutting through the digits, and `1.210.809.0 / 57` in a money app is not a
+    wrapped figure, it is a different number. The unit going to a second line is the
+    only break allowed here.
+  */
+  overflow-wrap: normal;
+  word-break: normal;
+  hyphens: none;
+}
 
 .overview-kpi::after {
   content: "";
@@ -3964,7 +3996,11 @@ body::after {
 .setup-layout {
   display: grid;
   gap: 0.9rem;
+  /* Nothing in here may make the page wider than the screen. */
+  min-width: 0;
 }
+
+.setup-layout > * { min-width: 0; }
 
 @media (min-width: 1024px) {
   /*
@@ -5484,12 +5520,24 @@ a.past-row:hover .past-row-name { color: var(--color-gold-hi); }
   list stops looking like the same list. Fixed tracks keep a result the size it was before
   it was filtered.
 */
+/*
+  `min(14rem, 100%)` and not `14rem`, which is the whole fix.
+
+  A track floored at a fixed width cannot go below it — so on a screen narrower than the
+  floor plus its padding, the grid is wider than the thing it sits in and the second
+  column hangs off the side of the phone. `min(14rem, 100%)` says "fourteen rem, unless
+  that is more than there is", and then a narrow screen simply gets one column.
+*/
 .setup-cat-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(14rem, 100%), 1fr));
   gap: 0.5rem;
   padding: 0.85rem 1rem 1rem;
+  min-width: 0;
 }
+
+/* A grid item is `min-width: auto` by default and will not shrink below its content. */
+.setup-cat-grid > * { min-width: 0; }
 
 .setup-row-premium.setup-cat {
   overflow: hidden;
@@ -8512,12 +8560,38 @@ body > * { min-width: 0; }
   color: var(--color-ink);
 }
 
+/*
+  The two totals, allowed to wrap — which is what was pushing the whole page sideways.
+
+  `38.391.710 RSD owed to you · 282.274.680 RSD you owe` in one unwrappable inline-flex
+  is about three hundred and forty pixels. The panel around it is three hundred and
+  eighteen on a 360px phone, so the panel grew to fit its own header and took the page
+  with it: every screen carrying this block scrolled horizontally, and the Setup grid
+  next to it drew a second column that hung off the side of the phone. The visible
+  symptom was two screens away from the cause.
+
+  Measured, not guessed: at 360px the document was 510px wide before this and 360 after.
+*/
 .loans-totals {
   display: inline-flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 7px;
+  gap: 2px 7px;
+  min-width: 0;
   font-size: 11.5px;
   font-weight: 600;
+}
+
+/*
+  The separator dot has nothing to say once the two totals are on their own lines.
+
+  Matched on the attribute rather than the tag: it is an `<i aria-hidden>` today, and a
+  rule written against `span` — which is what this said first — silently matches nothing
+  and leaves a lone `·` sitting on a line of its own between the two figures.
+*/
+@media (max-width: 460px) {
+  .loans-totals { flex-direction: column; align-items: flex-start; }
+  .loans-totals > [aria-hidden] { display: none; }
 }
 
 .loans-totals i { color: var(--color-faint); font-style: normal; }
@@ -8582,8 +8656,17 @@ body > * { min-width: 0; }
   white-space: nowrap;
 }
 
+/*
+  One line, cut with an ellipsis rather than allowed to run under the figure beside it.
+  `You owe · since 2025-09-15` is longer than the track it sits in on a phone, and a
+  sentence that grows into the amount column is how two unrelated numbers end up looking
+  like one.
+*/
 .loan-row-sub {
   display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   margin-top: 2px;
   font-size: 11.5px;
   color: var(--color-muted);
@@ -8591,6 +8674,8 @@ body > * { min-width: 0; }
 
 .loan-row-amount {
   flex: none;
+  /* Right-aligned so a wrapped unit sits under the figure rather than beside the name. */
+  text-align: right;
   font-size: 15px;
   font-weight: 600;
   letter-spacing: -0.3px;

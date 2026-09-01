@@ -1,3 +1,4 @@
+import { breakable } from "@/lib/format";
 /**
  * Money module — shared vocabulary and pure helpers.
  * Base currency is RSD; EUR/USD are converted with a rate the user keeps in Settings.
@@ -38,14 +39,21 @@ export function toRsd(amount: number, currency: string, rates: Rates): number {
 }
 
 /** Dinars, no cents — the only figure that matters at a glance. */
+/*
+  The space between the figure and `RSD` is an ordinary one, and that is deliberate —
+  see `breakable` in `@/lib/format` for why an amount that cannot be broken is an amount
+  that gets clipped.
+*/
 export function formatRsd(value: number | null | undefined): string {
   const n = typeof value === "number" && Number.isFinite(value) ? value : 0;
   try {
-    return new Intl.NumberFormat("sr-RS", {
-      style: "currency",
-      currency: "RSD",
-      maximumFractionDigits: 0,
-    }).format(n);
+    return breakable(
+      new Intl.NumberFormat("sr-RS", {
+        style: "currency",
+        currency: "RSD",
+        maximumFractionDigits: 0,
+      }).format(n),
+    );
   } catch {
     return `${Math.round(n)} RSD`;
   }
@@ -63,12 +71,14 @@ export function formatRsd(value: number | null | undefined): string {
 export function formatRsdExact(value: number | null | undefined): string {
   const n = typeof value === "number" && Number.isFinite(value) ? value : 0;
   try {
-    return new Intl.NumberFormat("sr-RS", {
-      style: "currency",
-      currency: "RSD",
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 2,
-    }).format(n);
+    return breakable(
+      new Intl.NumberFormat("sr-RS", {
+        style: "currency",
+        currency: "RSD",
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 2,
+      }).format(n),
+    );
   } catch {
     return `${n} RSD`;
   }

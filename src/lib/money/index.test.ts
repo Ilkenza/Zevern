@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
+import { formatMoney } from "@/lib/format";
 import {
   anchorDayFor,
   DEFAULT_RATES,
   formatRsdShort,
+  formatRsd,
+  formatRsdExact,
   isGoalKind,
   isTxKind,
   monthKey,
@@ -302,5 +305,46 @@ describe("monthNetNote across a span", () => {
     expect(monthNetNote(-100, 0, false, "all")).toMatchObject({ setup: true });
     expect(monthNetNote(-100, 500, true, "all")?.text).toBe("More went out than came in");
     expect(monthNetNote(50, 0, true, "all")).toBeNull();
+  });
+});
+
+describe("an amount can be broken across two lines", () => {
+  /*
+    The bug this locks down was invisible on a laptop and ate the headline figures on a
+    phone: `Intl` joins the number and `RSD` with U+00A0, which makes the pair one
+    unbreakable word, so a card too narrow for it clipped the unit off instead of
+    wrapping it. Asserted on the codepoint rather than on the rendering, because that is
+    the thing that decides whether a browser may break the line.
+  */
+  it("separates the figure from RSD with an ordinary space", () => {
+    for (const printed of [formatRsd(46764923), formatRsdExact(1210809057.5)]) {
+      expect(printed).not.toContain(" ");
+      expect(printed).toContain(" ");
+      expect(printed).toMatch(/ RSD$/);
+    }
+  });
+
+  it("still prints the figure itself unchanged", () => {
+    expect(formatRsd(46764923)).toBe("46.764.923 RSD");
+  });
+});
+
+describe("every currency formatter lets the amount break", () => {
+  /*
+    The first version of this fix covered `formatRsd` and missed `formatMoney`, which is
+    what the whole freelance side prints with — so invoices and quotes kept the bug for
+    every currency but the euro. One test over both, so the next one added has to answer
+    for itself too.
+  */
+  it("uses an ordinary space in RSD, USD and EUR alike", () => {
+    for (const printed of [
+      formatRsd(46764923),
+      formatRsdExact(1210809057.5),
+      formatMoney(1234.5, "USD"),
+      formatMoney(1234.5, "RSD"),
+      formatMoney(1234.5, "EUR"),
+    ]) {
+      expect(printed).not.toContain(" ");
+    }
   });
 });

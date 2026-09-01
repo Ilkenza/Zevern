@@ -31,8 +31,23 @@ export const caps = "text-[10.5px] font-semibold uppercase tracking-wider text-f
  * Under 420px each field takes its own line; up to 720px they pair up; above
  * that an account is one line, read left to right: what it is, what is in it.
  */
+/*
+  An account row, at three widths.
+
+  It used to be one column below 420px, and a phone is 360. That put every one of the
+  five controls on a line of its own with its own label above it — name, then `Bank
+  account`, then `RSD`, then `BALANCE` and a field — five rows and a lot of air for one
+  account, eight times down the page. It was not broken; it was unreadable, which is
+  worse, because nothing about it looks like a fault to be reported.
+
+  Two columns from the start instead. The name spans them, because a name is the row's
+  subject and wants the width; type and currency sit side by side, which is how they are
+  read anyway ("bank account, in dinars"); the balance takes its own full line, because
+  it is the figure and the figure gets room. From 720px the desktop table takes over
+  unchanged.
+*/
 export const accountCols =
-  "grid grid-cols-1 gap-2 min-[420px]:grid-cols-2 min-[720px]:grid-cols-[minmax(0,1fr)_8.5rem_5.5rem_11rem_9.5rem] min-[720px]:items-center min-[720px]:gap-3";
+  "grid grid-cols-2 gap-2 min-[720px]:grid-cols-[minmax(0,1fr)_8.5rem_5.5rem_11rem_9.5rem] min-[720px]:items-center min-[720px]:gap-3";
 
 /*
   The composer's own two columns: the name, and the button that files it.

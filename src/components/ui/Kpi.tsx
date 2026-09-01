@@ -71,7 +71,12 @@ export function Kpi({
       <div className="text-[11px] font-semibold uppercase tracking-wider text-muted">
         {label}
       </div>
-      <div className="mono mt-2 text-[24px] font-semibold tracking-[-0.5px] text-ink">
+      {/*
+        The size comes from the card, not from the page — see `.kpi-value`. A figure in
+        the hundreds of millions does not fit a half-width phone card at 24px, and the
+        card clips what does not fit.
+      */}
+      <div className="mono kpi-value mt-2 font-semibold tracking-[-0.5px] text-ink">
         {value}
       </div>
 

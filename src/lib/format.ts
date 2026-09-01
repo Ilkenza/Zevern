@@ -1,21 +1,43 @@
+/**
+ * An amount you can break across two lines.
+ *
+ * `Intl.NumberFormat` with `style: "currency"` joins the figure and its unit with a
+ * NO-BREAK SPACE (U+00A0). In a sentence that is right. In a box it makes the whole
+ * amount one unbreakable word, so the box's minimum width is the width of the entire
+ * amount — and a box too narrow for it does not wrap, it *clips*. A figure loses its
+ * currency and nothing anywhere says so.
+ *
+ * Which is what happened: `46.764.923 RSD` came out of a phone-width card as
+ * `46.764.923` and a sliver of an R. Every formatter in the app that asks Intl for a
+ * currency has to come through here, or half of them keep the bug — `formatMoney`
+ * below did, on every currency but the euro, for the whole freelance side.
+ */
+export function breakable(text: string): string {
+  return text.replace(/\u00a0/g, " ");
+}
+
 export function formatCurrency(value: number | null | undefined, currency = "EUR") {
   const n = typeof value === "number" && Number.isFinite(value) ? value : 0;
-  return new Intl.NumberFormat("en-IE", {
-    style: "currency",
-    currency,
-    maximumFractionDigits: Number.isInteger(n) ? 0 : 2,
-  }).format(n);
+  return breakable(
+    new Intl.NumberFormat("en-IE", {
+      style: "currency",
+      currency,
+      maximumFractionDigits: Number.isInteger(n) ? 0 : 2,
+    }).format(n),
+  );
 }
 
 export function formatMoney(amount: number | null | undefined, currency = "EUR") {
   const n = typeof amount === "number" && Number.isFinite(amount) ? amount : 0;
   const locale = currency === "USD" ? "en-US" : currency === "RSD" ? "sr-RS" : "en-IE";
   try {
-    return new Intl.NumberFormat(locale, {
-      style: "currency",
-      currency,
-      maximumFractionDigits: Number.isInteger(n) ? 0 : 2,
-    }).format(n);
+    return breakable(
+      new Intl.NumberFormat(locale, {
+        style: "currency",
+        currency,
+        maximumFractionDigits: Number.isInteger(n) ? 0 : 2,
+      }).format(n),
+    );
   } catch {
     return `${n} ${currency}`;
   }
