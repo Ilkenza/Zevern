@@ -12,7 +12,7 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Trash2 } from "lucide-react";
+import { Loader2, Plus, Trash2 } from "lucide-react";
 import type { MoneyState } from "@/app/(app)/private/actions";
 import { cn } from "@/lib/utils";
 
@@ -282,12 +282,23 @@ export function RowDelete({
               setArmed(false);
               throw error;
             }
-            router.refresh();
+            /*
+              Re-entered, because everything after an `await` has left the transition.
+              Fired loose, the refresh was untracked: `pending` went false the instant the
+              server answered, so the button stopped spinning while the row it deleted was
+              still on screen. Inside it, the spinner runs until the list is actually
+              without that row.
+            */
+            startTransition(() => router.refresh());
           });
         }}
         className="zv-row-delete-confirm"
       >
-        {pending ? "…" : "Delete?"}
+        {pending ? (
+          <Loader2 className="h-3.25 w-3.25 animate-spin" aria-hidden="true" />
+        ) : (
+          "Delete?"
+        )}
       </button>
     );
   }

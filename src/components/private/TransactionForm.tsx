@@ -415,7 +415,7 @@ export function TransactionForm({
             placeholder="Shop, bill, ticket…"
             help={
               known.length > 0
-                ? "Start typing — anything bought before comes up with its last price."
+                ? "Press the arrow for what you have bought before, with its last price."
                 : undefined
             }
             onPick={(item) => apply(fillFromPick(item))}

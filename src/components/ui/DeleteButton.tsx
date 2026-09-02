@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
+import { useRouter } from "next/navigation";
 import { Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { buttonClasses, type ButtonVariant } from "./Button";
@@ -32,6 +33,7 @@ export function DeleteButton({
 }) {
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
+  const router = useRouter();
 
   useEffect(() => {
     if (!open) return;
@@ -42,10 +44,25 @@ export function DeleteButton({
     return () => window.removeEventListener("keydown", onKey);
   }, [open, pending]);
 
+  /*
+    The dialog's job ends the moment you confirm.
+
+    Two versions of this were wrong in opposite directions. It first closed as soon as the
+    server action resolved and left the row on screen for another second while the fresh
+    list came back — a delete that looked like it had not happened. Holding the dialog open
+    until the refresh landed fixed the row and broke the dialog: the confirmation sat there
+    after the decision had been made.
+
+    Neither is fixable by timing, because the two are on different clocks. So the question
+    the dialog exists to ask — are you sure — is answered and gone, and the row takes
+    responsibility for looking deleted from the same instant (see MoneyView's `Row`).
+    A failure puts both back and says why.
+  */
   const confirm = () => {
+    setOpen(false);
     startTransition(async () => {
       await action();
-      setOpen(false);
+      startTransition(() => router.refresh());
     });
   };
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatDisplayShort, type Display } from "./display";
+import { formatDisplay, formatDisplayExact, formatDisplayShort, type Display } from "./display";
 
 /*
   The compact form is the one that goes over a bar, and a bar chart is read by comparing
@@ -52,5 +52,18 @@ describe("formatDisplayShort", () => {
     // keeps the decimal comma the notation is written with.
     expect(formatDisplayShort(1_234_000, rsd)).toBe("1,2M");
     expect(formatDisplayShort(340, rsd)).toBe("340");
+  });
+});
+
+describe("formatDisplayExact keeps one rule about decimals", () => {
+  const rsd: Display = { currency: "RSD", rates: { EUR: 117, USD: 101 } };
+
+  it("drops the tenth of a dinar on a figure in the millions", () => {
+    // The bug: Overview's headline printed 5.434.768,3 one line above 5.434.768.
+    expect(formatDisplayExact(5_434_768.3, rsd)).toBe(formatDisplay(5_434_768.3, rsd));
+  });
+
+  it("keeps them under a thousand, where they are the point of this function", () => {
+    expect(formatDisplayExact(120.45, rsd)).toContain("120,45");
   });
 });

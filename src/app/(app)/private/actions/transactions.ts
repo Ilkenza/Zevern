@@ -391,25 +391,50 @@ export async function saveTransaction(_prev: MoneyState, formData: FormData): Pr
   }
 
   /*
-    The shopping list learns from what was just filed.
+    The shopping list learns from what was just filed — and from the right half of it.
 
-    Only on spending, and only from the entry's own name — a transfer has no product in
-    it, and a receipt's line items are already a list of their own. Awaited rather than
-    fired and forgotten, so the picker is up to date on the very next screen; it fails
+    It used to learn the entry's title and the entry's amount, whatever shape the entry
+    was. On a receipt those are the two things that are *not* a product: the title is a
+    shop (`Maxi`, `pijaca`) and the amount is the whole basket. So the list filled up with
+    shop names priced at a weekly shop, and picking one put a basket total into a line
+    meant to hold the price of one thing. Meanwhile the actual products on the receipt —
+    named, priced one by one, by hand — taught it nothing at all.
+
+    So: a receipt teaches its lines, and everything else teaches its title. Awaited rather
+    than fired and forgotten, so the picker is up to date on the very next screen; it fails
     silently on purpose, because the entry is written and a convenience behind it must
     never turn a saved entry into an error message.
   */
-  if (kind === "expense" && title) {
-    await rememberItem({
-      supabase,
-      uid,
-      name: title,
-      price: amount,
-      currency,
-      categoryId: category,
-      on: occurredOn,
-      exclude: id || null,
-    });
+  if (kind === "expense") {
+    if (items.length > 0) {
+      for (const line of items) {
+        const name = line.name.trim();
+        if (!name) continue;
+        await rememberItem({
+          supabase,
+          uid,
+          name,
+          // What one costs, which is what the line holds and what the picker fills in.
+          price: line.amount > 0 ? line.amount : null,
+          currency,
+          categoryId: category,
+          on: occurredOn,
+          exclude: id || null,
+          fromLine: true,
+        });
+      }
+    } else if (title) {
+      await rememberItem({
+        supabase,
+        uid,
+        name: title,
+        price: amount,
+        currency,
+        categoryId: category,
+        on: occurredOn,
+        exclude: id || null,
+      });
+    }
   }
 
   refresh();

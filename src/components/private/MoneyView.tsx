@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowDown, ChevronLeft, ChevronRight, CornerUpLeft, Plus, Wallet, Pencil } from "lucide-react";
+import { ArrowDown, ChevronLeft, ChevronRight, CornerUpLeft, Loader2, Pencil, Plus, Wallet } from "lucide-react";
 import { SlideOver } from "@/components/ui/SlideOver";
 import { loadCategoryHistory } from "@/app/(app)/private/actions";
 import type { CategoryHistory } from "@/lib/data/money";
@@ -223,8 +223,22 @@ function Row({
   dated?: boolean;
 }) {
   const { fmt } = useMoney();
-  const router = useRouter();
   const [error, setError] = useState<string | null>(null);
+  /*
+    On its way out, and saying so.
+
+    Three arrangements were tried. Closing the dialog when the action resolved left the row
+    on screen afterwards; holding the dialog open until the refresh landed left the
+    confirmation up after the decision; hiding the row on the spot made both instant and
+    told a small lie — the entry was still in the database for another second, and if the
+    delete failed the row reappeared out of nowhere.
+
+    So the row neither stays nor vanishes: it goes quiet and spins where its buttons were,
+    from the moment you confirm until the moment it is actually gone. The dialog closes at
+    once, because its question has been answered, and nothing on screen claims anything
+    that is not true yet.
+  */
+  const [removing, setRemoving] = useState(false);
   /*
     The name the entry was given leads; what it belongs to moves to the line underneath.
 
@@ -267,8 +281,15 @@ function Row({
     : tx.title
       ? (tx.category?.name ?? null)
       : null;
+
   return (
-    <div className="money-row group border-b border-line-soft last:border-b-0">
+    <div
+      className={cn(
+        "money-row group border-b border-line-soft last:border-b-0",
+        removing && "is-removing",
+      )}
+      aria-busy={removing || undefined}
+    >
       <div className="flex items-center gap-3 px-4 py-2.5">
         <span
           className="money-row-spine h-7 w-1 shrink-0 rounded-pill"
@@ -343,6 +364,20 @@ function Row({
           )}
         </div>
         <div className="flex shrink-0 items-center gap-0.5">
+          {/*
+            While it is going, the two controls are replaced rather than disabled.
+
+            A greyed-out bin still reads as a button you may press again, and pressing it
+            twice is a second delete of a row that is already halfway out. One spinner in
+            their place says the only true thing: this is in progress, and there is nothing
+            to do about it but wait.
+          */}
+          {removing ? (
+            <span className="money-row-going" role="status" aria-label="Deleting this entry">
+              <Loader2 className="h-3.75 w-3.75 animate-spin" aria-hidden="true" />
+            </span>
+          ) : (
+            <>
           <Link
             href={`${base}&edit=${tx.id}`}
             aria-label="Edit entry"
@@ -356,11 +391,17 @@ function Row({
             label="Delete entry"
             confirmText="Delete this entry? Balances and the totals above are recalculated without it."
             action={async () => {
+              setRemoving(true);
               const result = await removeTransaction(tx.id);
-              if (result?.error) setError(result.error);
-              else router.refresh();
+              // On success the row leaves with the next list; only a refusal puts it back.
+              if (result?.error) {
+                setRemoving(false);
+                setError(result.error);
+              }
             }}
           />
+            </>
+          )}
         </div>
       </div>
       {openItems && items.length > 0 && (

@@ -39,11 +39,27 @@ export function formatDisplay(rsd: number, display: Display): string {
   return formatAmount(rounded, display.currency);
 }
 
-/** The same, with the decimals kept — for a figure somebody is meant to act on. */
+/**
+ * The same, with the decimals kept where they say something — for a figure somebody is
+ * meant to act on.
+ *
+ * It kept them at every size, and that broke the rule stated one function above: over a
+ * thousand the decimals are noise. On Overview it showed: the headline read an overspend
+ * of `5.434.768,3 RSD` while the row two inches below it printed the same figure as
+ * `5.434.768 RSD`, and the two amounts in the headline's own sentence were rounded. One
+ * figure, three formats, on the most-read line of the app.
+ *
+ * So the threshold is the same one everywhere now. Under a thousand this still differs
+ * from `formatDisplay` — that is the whole point of it — and above a thousand there was
+ * never a difference to draw.
+ */
 export function formatDisplayExact(rsd: number, display: Display): string {
-  if (display.currency === "RSD") return formatRsdExact(rsd);
+  if (display.currency === "RSD") {
+    return Math.abs(rsd) >= 1000 ? formatRsd(Math.round(rsd)) : formatRsdExact(rsd);
+  }
   const converted = fromRsd(rsd, display);
-  return formatAmount(Math.round(converted * 100) / 100, display.currency);
+  const rounded = Math.abs(converted) >= 1000 ? Math.round(converted) : Math.round(converted * 100) / 100;
+  return formatAmount(rounded, display.currency);
 }
 
 /**
@@ -106,4 +122,3 @@ export function makeMoney(display: Display): Money {
     display,
   };
 }
-

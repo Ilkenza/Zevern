@@ -159,9 +159,10 @@ function PriceRow({ need, tx }: { need: Need; tx: { id: string; currency: string
           disabled={pending}
           onClick={() =>
             startTransition(async () => {
+              // The refresh belongs to DeleteButton's transition, not to a call after
+              // the await — see the note there.
               const result = await removeTransaction(tx.id);
               if (result?.error) setError(result.error);
-              else router.refresh();
             })
           }
           className={buttonClasses("ghost", "px-2 py-1.5 text-[12px]")}

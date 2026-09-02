@@ -2,7 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { fold } from "@/lib/money/entry-search";
 import type { MoneyItem } from "@/lib/types";
@@ -139,15 +139,22 @@ export function ItemPicker({
     return () => cancelAnimationFrame(again);
   }, [open, shown.length]);
 
+  /** Shut it. Nothing reopens it on its own any more, so this is the whole story. */
+  const shut = () => {
+    setOpen(false);
+    setCursor(-1);
+  };
+
   useEffect(() => {
     if (!open) return;
     const away = (event: PointerEvent) => {
       const target = event.target as Node;
       if (wrap.current?.contains(target) || menu.current?.contains(target)) return;
       setOpen(false);
+      setCursor(-1);
     };
     const key = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpen(false);
+      if (event.key === "Escape") shut();
     };
     const move = () => place();
     document.addEventListener("pointerdown", away);
@@ -165,8 +172,7 @@ export function ItemPicker({
   const choose = (item: MoneyItem) => {
     setValue(item.name);
     onValueChange?.(item.name);
-    setOpen(false);
-    setCursor(-1);
+    shut();
     onPick?.(item);
     field.current?.focus();
   };
@@ -180,13 +186,15 @@ export function ItemPicker({
       )}
 
       {/*
-        The field says it has a list, or nobody opens it.
+        The count and the chevron are the door, and the only one.
 
-        It was an ordinary text input with a menu that appeared on focus, and that is
-        indistinguishable from an ordinary text input — you cannot see an affordance
-        that only exists once you have already committed to typing. So the one question
-        it can answer at rest is printed on it: how many things it knows. A number and
-        an arrow, and it reads as something to open.
+        The menu used to open on focus as well, and on a phone that is wrong: tapping the
+        field to type is not asking for a list, and the list it produced covered the rest
+        of the form. Now the field says at rest how many things it knows, and pressing
+        that number is what opens them.
+
+        Typing still brings the list up — the help line under the field promises exactly
+        that, and a promise printed on a control has to hold.
       */}
       <div ref={wrap} className="item-pick-wrap">
         <input
@@ -198,9 +206,18 @@ export function ItemPicker({
           const next = e.target.value;
           setValue(next);
           onValueChange?.(next);
-          setOpen(true);
-          /* A new search is a new list; the mark starts off it rather than on whatever
-             row happened to sit at that index a keystroke ago. */
+          /*
+            Typing does not open the list either.
+
+            Between them, focus and typing meant the list appeared for anybody writing a
+            name — including every name that was never going to be on it — and on a phone
+            it covered the form while you were still filling it in. The arrow is now the
+            only door, and it stays shut until it is pressed.
+
+            Still filtered while open, so opening it after three letters shows the three
+            letters' worth of list. A new search is a new list; the mark starts off it
+            rather than on whatever row sat at that index a keystroke ago.
+          */
           setCursor(-1);
           /*
             Typing the whole name is the same statement as picking it off the list, and
@@ -213,17 +230,27 @@ export function ItemPicker({
           const same = items.find((i) => fold(i.name) === key);
           if (same) onExact(same);
         }}
-        onFocus={() => {
-          setOpen(true);
-          setCursor(-1);
-        }}
         /*
           The list is reachable from the keys the hands are already on. Down opens it if
           it is shut, so the arrow is the one gesture that always means "show me".
         */
         onKeyDown={(event) => {
           if (event.key === "Escape") {
-            setOpen(false);
+            /*
+              The first Escape belongs to the list, the second to the panel.
+
+              Both listen on `document`, and the menu's own handler used to let the press
+              carry on bubbling — so dismissing the suggestions also shut the slide-over
+              and threw away everything typed into it. Stopping it here only while there
+              is a list to close leaves the plain Escape doing what it does everywhere
+              else in the app.
+            */
+            if (open) {
+              event.stopPropagation();
+              shut();
+              return;
+            }
+            onKeyDown?.(event);
             return;
           }
           if (event.key === "ArrowDown" || event.key === "ArrowUp") {
@@ -261,14 +288,14 @@ export function ItemPicker({
         className={cn(
           inputClassName ??
             "zv-field w-full rounded-ctrl border border-line bg-white/[0.035] px-3 py-2.5 text-[13.5px] text-ink placeholder:text-faint focus:border-gold focus:shadow-ring focus:outline-none",
-          items.length > 0 && !compact && "item-pick-field",
+          items.length > 0 && (compact ? "item-pick-field-compact" : "item-pick-field"),
         )}
       />
 
-        {items.length > 0 && !compact && (
+        {items.length > 0 && (
           <button
             type="button"
-            className="item-pick-open"
+            className={cn("item-pick-open", compact && "is-compact")}
             aria-label={`${items.length} ${items.length === 1 ? "thing" : "things"} bought before`}
             title="Things you have bought before"
             /*
@@ -279,12 +306,22 @@ export function ItemPicker({
             */
             onPointerDown={(event) => {
               event.preventDefault();
-              setOpen((was) => !was);
-              setCursor(-1);
+              if (open) {
+                shut();
+              } else {
+                setOpen(true);
+                setCursor(-1);
+              }
               field.current?.focus();
             }}
           >
-            <span className="mono item-pick-count">{items.length}</span>
+            {/*
+              The count is the argument for pressing it, and a receipt row has no width to
+              print one — the name, the price, the currency and the bin are already on that
+              line. So the row gets the chevron alone, and the number moves to the label a
+              screen reader hears.
+            */}
+            {!compact && <span className="mono item-pick-count">{items.length}</span>}
             <ChevronDown className={cn("h-3.5 w-3.5", open && "rotate-180")} strokeWidth={2.25} />
           </button>
         )}
@@ -313,6 +350,25 @@ export function ItemPicker({
             <div className="item-menu-head">
               <span className="item-menu-title">Bought before</span>
               <span className="mono item-menu-count">{items.length}</span>
+              {/*
+                The way out, for the hands that have no Escape key.
+
+                On a phone the menu covers the whole form: there is no field left beside
+                it to press, the keyboard has no Escape, and the arrow that opens it is
+                behind the menu's own top edge. So the list could be opened and not shut —
+                which is what "it stands there and I cannot get out of it" was.
+              */}
+              <button
+                type="button"
+                className="item-menu-close"
+                aria-label="Close the list"
+                onPointerDown={(event) => {
+                  event.preventDefault();
+                  shut();
+                }}
+              >
+                <X aria-hidden="true" />
+              </button>
             </div>
 
             <div className="item-menu-list">

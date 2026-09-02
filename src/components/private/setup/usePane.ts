@@ -1,6 +1,6 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 
 /**
  * Which section of Setup is on screen, taken from the address.
@@ -18,8 +18,50 @@ import { useSyncExternalStore } from "react";
  */
 export function usePane(ids: string[]): string {
   const hash = useSyncExternalStore(subscribe, read, readOnServer);
-  return ids.includes(hash) ? hash : (ids[0] ?? "");
+
+  /*
+    Put the address back when something takes it away.
+
+    This is what actually happens on a delete: the action calls `revalidatePath`, Next
+    applies it by updating the router's URL — and the router's URL has no fragment in it,
+    so `#setup-expenses` is dropped on the way through. The rail then had nothing to read
+    and fell to the first pane, which is Accounts.
+
+    Keeping the pane in memory (below) fixes the screen; this fixes the address, so a
+    reload or a shared link still lands where you were. `replaceState` on purpose: no
+    history entry for something nobody navigated to, and no `hashchange`, so this cannot
+    feed itself.
+  */
+  useEffect(() => {
+    if (hash || !ids.includes(last)) return;
+    try {
+      window.history.replaceState(null, "", `#${last}`);
+    } catch {
+      /* A browser that refuses is no worse off than before: the pane below still holds. */
+    }
+  }, [hash, ids]);
+
+  if (ids.includes(hash)) return hash;
+  /*
+    An empty address is not a request for the first pane.
+
+    Deleting two categories put the rail back on Accounts, which is what happens whenever
+    the hash is momentarily gone: this fell straight through to `ids[0]`. The last pane
+    that was actually asked for is a better answer than the first one in the list — it is
+    the only one anybody chose — so a blank reading keeps you where you were, and only a
+    real address for a real pane moves you.
+  */
+  if (!hash && ids.includes(last)) return last;
+  return ids[0] ?? "";
 }
+
+/**
+ * The last pane anybody asked for, remembered across a re-render that loses the address.
+ *
+ * Module scope on purpose: it must outlive the component, and on the server it is per
+ * request, so nothing leaks between people.
+ */
+let last = "";
 
 function subscribe(onChange: () => void) {
   window.addEventListener("hashchange", onChange);
@@ -27,7 +69,9 @@ function subscribe(onChange: () => void) {
 }
 
 function read() {
-  return window.location.hash.slice(1);
+  const hash = window.location.hash.slice(1);
+  if (hash) last = hash;
+  return hash;
 }
 
 /* No address to read on the server, so the first pane is rendered and the hash — if there

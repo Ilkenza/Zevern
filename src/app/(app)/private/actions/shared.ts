@@ -203,6 +203,7 @@ export async function rememberItem({
   categoryId,
   on,
   exclude,
+  fromLine = false,
 }: {
   supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>;
   uid: string;
@@ -212,6 +213,16 @@ export async function rememberItem({
   currency: string;
   categoryId: string | null;
   on: string;
+  /**
+   * The name came off a line of a receipt rather than from the entry's own title.
+   *
+   * It changes what counts as evidence. A title earns a place on the list by turning up
+   * twice — once is a one-off, and a list of one-offs is a list nobody reads. A line is
+   * different: writing `Aqua viva plavi sok` onto a receipt is already the statement that
+   * it is a thing you buy, and the price beside it is the price of one rather than the
+   * basket. So a line skips the two-uses gate and is taken at its word.
+   */
+  fromLine?: boolean;
   /** The entry being edited, which must not count as its own earlier use. */
   exclude: string | null;
 }): Promise<void> {
@@ -255,16 +266,18 @@ export async function rememberItem({
       .ilike("title", clean);
     if (exclude) before = before.neq("id", exclude);
 
-    const { count, error: countError } = await before;
-    if (countError) throw new ReadFailed("how often you have bought this", countError.message);
-    if ((count ?? 0) < 2) return;
+    if (!fromLine) {
+      const { count, error: countError } = await before;
+      if (countError) throw new ReadFailed("how often you have bought this", countError.message);
+      if ((count ?? 0) < 2) return;
+    }
 
     await supabase.from("money_items").insert({
       name: clean,
       price: price !== null && price > 0 ? price : null,
       currency,
       category_id: categoryId,
-      uses: count ?? 2,
+      uses: fromLine ? 1 : 2,
       last_used_on: on,
     });
   } catch (error) {

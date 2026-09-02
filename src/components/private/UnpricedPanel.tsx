@@ -79,9 +79,10 @@ function UnpricedRow({ tx }: { tx: TransactionRow }) {
           type="button"
           onClick={() =>
             startTransition(async () => {
+              // The refresh belongs to DeleteButton's transition, not to a call after
+              // the await — see the note there.
               const result = await removeTransaction(tx.id);
               if (result?.error) setError(result.error);
-              else router.refresh();
             })
           }
           disabled={pending}

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { ChevronDown, ChevronUp, History } from "lucide-react";
 import { removeTransaction } from "@/app/(app)/private/actions";
 import { DeleteButton } from "@/components/ui/DeleteButton";
@@ -16,7 +15,6 @@ import type { GoalEntry, GoalLine } from "@/lib/types";
  */
 function EntryRow({ entry, goalName }: { entry: GoalEntry; goalName: string }) {
   const { fmt } = useMoney();
-  const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const out = entry.kind === "withdraw";
 
@@ -41,7 +39,6 @@ function EntryRow({ entry, goalName }: { entry: GoalEntry; goalName: string }) {
           action={async () => {
             const result = await removeTransaction(entry.id);
             if (result?.error) setError(result.error);
-            else router.refresh();
           }}
         />
       </div>

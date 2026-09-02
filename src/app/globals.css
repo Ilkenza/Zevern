@@ -4675,7 +4675,7 @@ body::after {
 
 .item-menu-head {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
   padding: 0.6rem 0.8rem 0.5rem;
@@ -4694,6 +4694,44 @@ body::after {
   font-size: 11px;
   color: var(--color-faint);
   font-variant-numeric: tabular-nums;
+  margin-left: auto;
+}
+
+/*
+  The close control, sized for a thumb rather than for a pointer.
+
+  44px is the floor for anything meant to be hit on a phone, and this is the one control
+  in the menu that exists only for phones — the keyboard has Escape and the desktop has
+  the whole form to press instead. The negative margin keeps the header the height it
+  was, so the target grows without the panel growing with it.
+*/
+.item-menu-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  margin: -0.75rem -0.55rem -0.75rem 0;
+  flex-shrink: 0;
+  border-radius: var(--radius-ctrl);
+  color: var(--color-muted);
+  transition: color 160ms ease, background-color 160ms ease;
+}
+
+.item-menu-close svg {
+  width: 15px;
+  height: 15px;
+}
+
+.item-menu-close:hover {
+  color: var(--color-ink);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.item-menu-close:focus-visible {
+  outline: none;
+  color: var(--color-ink);
+  box-shadow: var(--shadow-ring);
 }
 
 .item-menu-list {
@@ -4784,6 +4822,17 @@ body::after {
   font-size: 10.5px;
 }
 
+/*
+  The keyboard hint is for keyboards.
+
+  On a touch screen there is no up arrow, no down arrow and no Enter to name — the line
+  is two rows of vertical space spent telling a thumb about keys it does not have, on the
+  screen where vertical space is scarcest.
+*/
+@media (pointer: coarse) {
+  .item-menu-foot { display: none; }
+}
+
 .item-menu-foot kbd {
   display: inline-grid;
   place-items: center;
@@ -4825,6 +4874,48 @@ body::after {
 }
 
 .item-pick-open:hover { color: var(--color-gold-hi); background: rgba(255, 255, 255, 0.05); }
+
+/*
+  The same door on a receipt row.
+
+  It was not drawn there at all, on the reasoning that a row is too narrow for a count and
+  an arrow. That was true about the count and wrong about the door: with the menu no longer
+  opening on focus, a row without this button is a row whose list cannot be opened by hand.
+  So the chevron stays and the number goes.
+*/
+.item-pick-open.is-compact {
+  right: 0.2rem;
+  padding: 0.3rem 0.25rem;
+}
+
+/* Room for it, so a long name runs under the arrow rather than into it. */
+.item-pick-field-compact { padding-right: 1.6rem; }
+
+/*
+  A row on its way out of the ledger.
+
+  Quiet rather than gone: the figures stay readable while the round trip finishes, so
+  nothing on screen claims the entry has been deleted before it has. Pointer events go
+  with it — the row is no longer a thing to click, only a thing to watch.
+*/
+.money-row.is-removing {
+  opacity: 0.45;
+  pointer-events: none;
+  transition: opacity 200ms ease;
+}
+
+.money-row-going {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  color: var(--color-gold);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .money-row-going svg { animation: none; }
+}
 .item-pick-open svg { transition: rotate 180ms ease; }
 .item-pick-open .rotate-180 { rotate: 180deg; }
 
@@ -11982,7 +12073,9 @@ input[type="date"]:focus::-webkit-calendar-picker-indicator {
   align-items: center;
   justify-content: center;
   padding: 0;
-  width: 32px;
+  /* 32px around a 15px glyph left eight and a half pixels a side, which is less than the
+     control's own padding — the cap read as pinched against its seam. */
+  width: 38px;
   align-self: stretch;
   color: var(--color-muted);
   transition:
@@ -12045,6 +12138,15 @@ input[type="date"]:focus::-webkit-calendar-picker-indicator {
   /* Colour only: a bar whose selects draw their own chevron as a background image — the
      pill controls on the category panel do — must keep the image and lose the fill. */
   background-color: transparent;
+  /*
+    Room between the select's own chevron and the seam.
+
+    The control's padding is 10px all round, and a native select draws its chevron inside
+    that — so against the hairline the two arrows ended up about six pixels apart and read
+    as one crowded cluster rather than as a field and a button. The seam needs to be the
+    widest gap in the control, not the narrowest.
+  */
+  padding-right: 0.875rem;
 }
 
 .zv-toolbar-order > select:focus {
