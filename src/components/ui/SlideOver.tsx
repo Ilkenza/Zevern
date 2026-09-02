@@ -192,17 +192,21 @@ export function SlideOver({
           field on a phone scrolls it to the bottom of the panel — which is exactly where
           Save is sitting — and you type into a box you cannot see.
         */}
-        <div className="ag-panel-body-in zv-scroll-fade zv-panel-scroll flex-1 overflow-y-auto overscroll-contain p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
-          {children}
-          {/*
-            Room under the last control, as content rather than as padding.
+        {/*
+          No bottom padding, and no spacer after the children.
 
-            Chrome does not count a scroll container's bottom padding as scrollable, so
-            the panel's own `pb-` is invisible the moment the content is taller than the
-            panel — which is exactly when it is needed. A spacer is content, so it always
-            scrolls into view, and the Save button stops sitting on the bottom edge.
-          */}
-          <div aria-hidden className="h-6" />
+          Both were room under the last control, and both put that room *below* the form —
+          which is below the sticky action bar's containing block, so the bar could never
+          reach it. The result was a Save button parked a centimetre off the bottom edge
+          with the next field showing underneath, reading as a button floating in the
+          middle of the form rather than as the end of it.
+
+          The room the last control needs is now the bar's own padding, which travels with
+          it. Forms without a bar carry their own; `zv-panel-scroll` still reserves the
+          bar's height when the browser scrolls a focused field into view.
+        */}
+        <div className="ag-panel-body-in zv-scroll-fade zv-panel-scroll flex-1 overflow-y-auto overscroll-contain p-5 pb-0">
+          {children}
         </div>
       </div>
     </div>,
