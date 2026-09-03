@@ -104,8 +104,9 @@ export function foundationOf({
       todo: "A category says income can be recorded. This is recording it — the pay, and the day it lands.",
     },
     /*
-      The shopping list. Optional, and it fills itself — a name earns a place the second
-      time it is used — so it is here to be corrected rather than to be built.
+      The shopping list. Optional, and built by hand — a name goes on it when it is marked
+      on an entry, never on its own. It filled itself once and the result was twenty-three
+      names nobody had chosen, which is why the mark exists.
     */
     {
       key: "things",
@@ -114,7 +115,7 @@ export function foundationOf({
       done: things > 0,
       count: things,
       required: false,
-      todo: "Nothing on the list yet — it fills itself as you file the same name twice.",
+      todo: "Nothing on the list yet — mark a name on an entry to keep it, or add one here.",
     },
     {
       key: "rates",

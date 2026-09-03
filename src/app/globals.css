@@ -12271,3 +12271,80 @@ input[type="date"]:focus::-webkit-calendar-picker-indicator {
 
 
 
+
+/* ============================================================================
+   One hover, everywhere: the goal card's sweep instead of a pool of gold
+
+   These five cards answered a hover by turning a radial glow on at full strength —
+   14 to 17 percent gold, from nothing, in one step. On a small card that reads as
+   light; on a card the width of the screen it reads as a lamp switching on behind
+   it, which is what "previše jak" was describing. It was also the app hovering in
+   two languages: the goal cards had already settled on a band of light that crosses
+   the surface once, slowly, and comes back out with the pointer.
+
+   So the pool stops being the hover state and becomes what it always should have
+   been — the faint warmth already on the card — and the sweep becomes the answer.
+   The band, its angle, its 950ms and its colour are copied from `.goal-card-premium`
+   rather than re-invented, because the whole point is that there is now one of these
+   in the app and not six.
+   ============================================================================ */
+
+.money-summary-panel::before,
+.onhand-account::before,
+.overview-kpi::before,
+.forecast-outlook::before,
+.debt-total::before {
+  content: "";
+  /* `.overview-kpi::before` was a 46px gold top rule, switched off further up this
+     file when it started reading as a doubled line under the page head. The element
+     is free, so the sweep takes it rather than adding a third layer to the card. */
+  display: block;
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    118deg,
+    transparent 22%,
+    var(--card-sheen, rgba(255, 255, 255, 0.04)) 48%,
+    transparent 74%
+  );
+  transform: translateX(-112%);
+  /* On the resting state, so the band travels both ways — in with the pointer and
+     back out with it. Declared under `:hover` it would snap back invisibly. */
+  transition: transform 950ms var(--ease-premium);
+  pointer-events: none;
+}
+
+.money-summary-panel:hover::before,
+.onhand-account:hover::before,
+.overview-kpi:hover::before,
+.forecast-outlook:hover::before,
+.debt-total:hover::before {
+  transform: translateX(112%);
+}
+
+/*
+  The pool stays, at the strength the goal cards use for the same job — atmosphere
+  rather than an event. Seven percent against the fourteen-to-seventeen it was: still
+  visible as the corner warming, no longer a shape sitting on the card.
+*/
+.money-summary-panel:hover::after,
+.onhand-account:hover::after,
+.overview-kpi:hover::after,
+.forecast-outlook:hover::after,
+.debt-total:hover::after {
+  background: radial-gradient(circle, rgba(217, 164, 65, 0.07), transparent 62%);
+  opacity: 1;
+}
+
+/* Everything above is decoration. Anyone who has asked for less of it gets the card. */
+@media (prefers-reduced-motion: reduce) {
+  .money-summary-panel::before,
+  .onhand-account::before,
+  .overview-kpi::before,
+  .forecast-outlook::before,
+  .debt-total::before {
+    display: none;
+  }
+}
