@@ -901,7 +901,19 @@ body::after {
   background: linear-gradient(
     90deg,
     transparent,
-    var(--card-sheen, rgba(255, 255, 255, 0.22)) 50%,
+    /*
+      Four percent, which is what `.goal-card-premium::before` uses — and this is
+      the same band, so it should be the same light.
+
+      It was 22%, chosen when this was read as a slanted line rather than as the goal
+      card's sheen moved onto other cards. The two do not composite the same way: the
+      goal card's sits *under* the content at normal blend, where 4% white over the
+      surface adds about ten levels; this one sits over the content at `plus-lighter`,
+      where the alpha is added outright — so 22% was putting fifty-six levels on the
+      card, five and a half times the thing it was copying. On `All goals together`,
+      which is as wide as the screen, that is not a band of light, it is a wash.
+    */
+    var(--card-sheen, rgba(255, 255, 255, 0.04)) 50%,
     transparent
   );
   transform: translateX(-340px) skewX(-14deg);
@@ -12275,77 +12287,27 @@ input[type="date"]:focus::-webkit-calendar-picker-indicator {
 
 
 /* ============================================================================
-   One hover, everywhere: exactly what a goal card does
+   The pool stops lighting
 
    Five cards answered a hover by switching a radial glow on at full strength — 14 to
-   17 percent gold, from nothing, in one step, on top of a surface that lifted a shade
-   and a shadow that deepened. Four things changing at once, where the card next door
-   on the Goals screen changes two.
+   17 percent gold, from nothing, in one step, on top of a surface that lifted and a
+   shadow that deepened. Four things at once, where a goal card changes two.
 
-   The goal card is the one that is right, so this is not a new hover — it is that one,
-   named here for the cards that were doing something else. Nothing is re-invented and
-   no number is chosen: the band, its angle, its 4%, its 950ms and the return pass are
-   `.goal-card-premium::before`; the border and the shadow are `.money-card-premium:hover`'s,
-   set on each of the five rules directly rather than piled on top of them. If the goal card's hover ever changes, these should be changed with it,
-   which is easier to notice with the two written the same way.
+   There was already a band of light on these cards — `use-card-sheen` puts one on
+   every card in its list — so the hover did not need another one. It needed the pool
+   to stop being an event. On a card the width of the screen a glow arriving from
+   nothing is a lamp switching on behind it; on a goal card the warm corner lives in
+   the card's own background and simply sits there, hover or no hover.
 
-   The gold pool does not light at all. That is the part people read as "too much" —
-   on a card the width of the screen a glow coming on from nothing is a lamp switching
-   on behind it. On a goal card the warm corner is in the card's own background and
-   simply sits there, hover or no hover.
+   The border and the shadow are `.money-card-premium:hover`'s, set on each of the five
+   rules directly rather than piled on top of them, so the same gesture no longer lands
+   differently on the Overview than it does on Goals.
    ============================================================================ */
 
-.money-summary-panel::before,
-.onhand-account::before,
-.overview-kpi::before,
-.forecast-outlook::before,
-.debt-total::before {
-  content: "";
-  /* `.overview-kpi::before` was a 46px gold top rule, switched off further up this
-     file when it started reading as a doubled line under the page head. The element
-     is free, so the band takes it rather than adding a third layer to the card. */
-  display: block;
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  border-radius: inherit;
-  background: linear-gradient(
-    118deg,
-    transparent 22%,
-    var(--card-sheen, rgba(255, 255, 255, 0.04)) 48%,
-    transparent 74%
-  );
-  transform: translateX(-112%);
-  /* On the resting state, so the light travels both ways — in with the pointer and
-     back out with it, the same as on a goal card. */
-  transition: transform 950ms var(--ease-premium);
-  pointer-events: none;
-}
-
-.money-summary-panel:hover::before,
-.onhand-account:hover::before,
-.overview-kpi:hover::before,
-.forecast-outlook:hover::before,
-.debt-total:hover::before {
-  transform: translateX(112%);
-}
-
-/* The pool never lights. See the note above — this is the "previše jak". */
 .money-summary-panel:hover::after,
 .onhand-account:hover::after,
 .overview-kpi:hover::after,
 .forecast-outlook:hover::after,
 .debt-total:hover::after {
   opacity: 0;
-}
-
-/* All of this is decoration. Anyone who has asked for less of it gets the card. */
-@media (prefers-reduced-motion: reduce) {
-  .money-summary-panel::before,
-  .onhand-account::before,
-  .overview-kpi::before,
-  .forecast-outlook::before,
-  .debt-total::before {
-    display: none;
-  }
 }
