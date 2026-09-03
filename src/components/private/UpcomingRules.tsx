@@ -9,7 +9,7 @@ import { ListBar } from "@/components/ui/ListBar";
 import { buttonClasses } from "@/components/ui/Button";
 import { type Rates } from "@/lib/money";
 import { useMoney } from "@/lib/money/currency";
-import type { RecurringTotals } from "@/lib/data/money";
+import type { RecurringTotals, SpendingProjection } from "@/lib/data/money";
 import type { RecurringRow } from "@/lib/types";
 import { isRunning } from "./upcoming";
 import { PanelMeta, caps } from "./upcoming/ui";
@@ -33,10 +33,21 @@ export function UpcomingRules({
   items,
   totals,
   rates,
+  spending,
 }: {
   items: RecurringRow[];
   totals: RecurringTotals;
   rates: Rates;
+  /**
+   * Everyday spending, which is not a rule and is most of the month.
+   *
+   * It has no date, no account and nothing to edit, so it cannot be a row in the list
+   * below — a row implies a thing you can open, and there is nothing behind this one but
+   * an average. It belongs in the figures, though: this screen answers "what does a month
+   * of mine cost", and the answer was the bills alone. On this account that left the
+   * largest line out and called the remainder a monthly total.
+   */
+  spending: SpendingProjection;
 }) {
   const { fmt } = useMoney();
   // Read the same way Setup and Goals read today — UTC on both sides, so nothing disagrees.
@@ -53,6 +64,14 @@ export function UpcomingRules({
   const [every, setEvery] = useState("");
   const [sort, setSort] = useState<SortKey>("due");
   const [dir, setDir] = useState<"asc" | "desc">("asc");
+
+  /*
+    Zero when the projection is switched off or has no data behind it yet — and zero is
+    the right answer then, not a guess. Everything below is written to disappear rather
+    than to print a nought.
+  */
+  const everyday = spending.basis !== "off" && spending.ready ? spending.monthly : 0;
+  const wholeMonth = totals.expense + everyday;
 
   const running = items.filter(isRunning);
   const stopped = items.filter((i) => !isRunning(i));
@@ -158,7 +177,7 @@ export function UpcomingRules({
   return (
     <>
       {/* The two figures and the sentence that separates them are one block. */}
-      {items.length > 0 && (
+      {(items.length > 0 || everyday > 0) && (
         <div className="space-y-2.5">
           <div className="grid gap-3 min-[560px]:grid-cols-2 lg:grid-cols-3">
             <Kpi
@@ -166,6 +185,26 @@ export function UpcomingRules({
               value={fmt(totals.expense)}
               hint="A run rate — a yearly bill spread over twelve, a weekly one multiplied up. Running rules only."
             />
+            {/*
+              The line this screen was quietly leaving out.
+
+              Everyday spending is projected rather than filed, so it has no rule and no
+              row — but it is most of what a month costs, and a register that answers
+              "per month" without it is answering a narrower question than the one being
+              asked. Marked as a projection in its own label, so it is never mistaken for
+              something with a date behind it.
+            */}
+            {everyday > 0 && (
+              <Kpi
+                label="Everyday spending"
+                value={fmt(everyday)}
+                hint={
+                  spending.basis === "budgets"
+                    ? `Projected from your budget limits across ${spending.categories.length} ${spending.categories.length === 1 ? "category" : "categories"}. Not a rule — an estimate, set on the Timeline.`
+                    : `Projected from what ordinary living has cost over ${spending.months.length} ${spending.months.length === 1 ? "month" : "months"}. Not a rule — an estimate, set on the Timeline.`
+                }
+              />
+            )}
             <Kpi
               label="Falls due within a year"
               value={fmt(totals.yearExpense)}
@@ -190,6 +229,20 @@ export function UpcomingRules({
               />
             )}
           </div>
+
+          {/*
+            Said once, in full, because the two numbers above are each true and neither is
+            the answer on its own — and the sum is the figure anybody actually came here
+            for.
+          */}
+          {everyday > 0 && items.length > 0 && (
+            <p className="text-[11.5px] leading-relaxed text-muted">
+              Together that is <b className="text-ink">{fmt(wholeMonth)}</b> a month before
+              anything unusual — {fmt(totals.expense)} that repeats on a date, and{" "}
+              {fmt(everyday)} that simply happens. The second one is an estimate and moves
+              with your own history; the first is what you have told the app.
+            </p>
+          )}
 
           <p className="text-[11.5px] leading-relaxed text-muted">
             The two figures answer different questions. The monthly one is a pace, so one number
@@ -281,5 +334,4 @@ export function UpcomingRules({
     </>
   );
 }
-
 

@@ -10,6 +10,7 @@ import {
   getRates,
   getRecurring,
   getRecurringTotals,
+  getSpendingProjection,
 } from "@/lib/data/money";
 import { UpcomingView } from "@/components/private/UpcomingView";
 import type { PlanPanel, UpcomingPanel } from "@/components/private/upcoming";
@@ -53,9 +54,16 @@ export default async function UpcomingPage({
   const dueCount = due.length + plannedDue.length;
 
   if (view === "rules") {
-    const [totals, rates, accounts, categories, goals, loans] = await Promise.all([
+    const [totals, rates, spending, accounts, categories, goals, loans] = await Promise.all([
       getRecurringTotals(),
       getRates(),
+      /*
+        The register answers "what does a month of mine cost", and it was answering it
+        with the rules alone — leaving out the largest line of the lot. Everyday spending
+        is not a rule and cannot be listed as one (no date, no account, nothing to edit),
+        but a figure that leaves it out is not the answer to the question being asked.
+      */
+      getSpendingProjection(),
       wantsForm ? getAccounts() : [],
       wantsForm ? getCategories() : [],
       // Only the goals still open can be fed — a closed one has already let go.
@@ -80,6 +88,7 @@ export default async function UpcomingPage({
         items={items}
         totals={totals}
         rates={rates}
+        spending={spending}
         accounts={accounts}
         categories={categories}
         goals={goals}

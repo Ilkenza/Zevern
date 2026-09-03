@@ -7,7 +7,7 @@ import { SlideOver } from "@/components/ui/SlideOver";
 import { buttonClasses } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
 import type { Rates } from "@/lib/money";
-import type { Forecast, RecurringTotals } from "@/lib/data/money";
+import type { Forecast, RecurringTotals, SpendingProjection } from "@/lib/data/money";
 import type { LoanLine,
   MoneyAccount,
   MoneyCategory,
@@ -111,6 +111,8 @@ type UpcomingViewProps = {
       items: RecurringRow[];
       totals: RecurringTotals;
       rates: Rates;
+      /** Everyday spending, so the register's monthly figure is the whole month. */
+      spending: SpendingProjection;
       accounts: MoneyAccount[];
       categories: MoneyCategory[];
       goals: MoneyGoal[];
@@ -204,7 +206,14 @@ export function UpcomingView(props: UpcomingViewProps) {
           planned={timeline.planned}
         />
       ) : (
-        rules && <UpcomingRules items={rules.items} totals={rules.totals} rates={rules.rates} />
+        rules && (
+          <UpcomingRules
+            items={rules.items}
+            totals={rules.totals}
+            rates={rules.rates}
+            spending={rules.spending}
+          />
+        )
       )}
 
       {rules && (
