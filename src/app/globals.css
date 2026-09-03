@@ -935,8 +935,8 @@ body::after {
 }
 
 .money-summary-panel:hover {
-  border-color: rgba(217, 164, 65, 0.3);
-  box-shadow: 0 26px 66px rgba(0, 0, 0, 0.24);
+  border-color: rgba(217, 164, 65, 0.24);
+  box-shadow: 0 20px 46px rgba(0, 0, 0, 0.26);
 }
 
 .money-summary-panel:hover::after { opacity: 1; }
@@ -1297,9 +1297,10 @@ body::after {
   pointer-events: none;
 }
 
+/* The surface used to lift as well. A goal card does not lift; it lights. */
 .onhand-account:hover {
-  border-color: rgba(217, 164, 65, 0.26);
-  background: rgba(255, 255, 255, 0.035);
+  border-color: rgba(217, 164, 65, 0.24);
+  box-shadow: 0 20px 46px rgba(0, 0, 0, 0.26);
 }
 
 .onhand-account:hover::after { opacity: 1; }
@@ -2365,12 +2366,13 @@ body::after {
   now and none of them is geometry: the surface lifts a shade, a gold ring appears
   around the whole edge, the shadow deepens, and the pool of light in the corner warms.
 */
+/*
+  Four things used to change here at once — ring, surface, shadow and pool. A goal
+  card changes two, and a goal card is the one that reads right.
+*/
 .overview-kpi:hover {
-  border-color: rgba(217, 164, 65, 0.2);
-  background:
-    linear-gradient(145deg, rgba(255, 255, 255, 0.045), transparent 54%),
-    var(--color-surface-2);
-  box-shadow: 0 26px 60px rgba(0, 0, 0, 0.34);
+  border-color: rgba(217, 164, 65, 0.24);
+  box-shadow: 0 20px 46px rgba(0, 0, 0, 0.26);
 }
 /*
   The pool warms rather than growing — nothing on this card changes size. It stays in
@@ -2407,8 +2409,8 @@ body::after {
 }
 
 .forecast-outlook:hover {
-  border-color: color-mix(in srgb, var(--color-gold) 24%, var(--color-line));
-  box-shadow: 0 22px 52px rgba(0, 0, 0, 0.26);
+  border-color: rgba(217, 164, 65, 0.24);
+  box-shadow: 0 20px 46px rgba(0, 0, 0, 0.26);
 }
 
 .forecast-outlook:hover::after { opacity: 1; }
@@ -5039,7 +5041,7 @@ a.past-row:hover .past-row-name { color: var(--color-gold-hi); }
 }
 
 .debt-total:hover {
-  border-color: color-mix(in srgb, var(--color-gold) 24%, var(--color-line));
+  border-color: rgba(217, 164, 65, 0.24);
   box-shadow: 0 20px 46px rgba(0, 0, 0, 0.26);
 }
 
@@ -12273,26 +12275,24 @@ input[type="date"]:focus::-webkit-calendar-picker-indicator {
 
 
 /* ============================================================================
-   One hover, everywhere: a thin band of light, not a pool and not a slab
+   One hover, everywhere: exactly what a goal card does
 
-   Two things were wrong before this.
+   Five cards answered a hover by switching a radial glow on at full strength — 14 to
+   17 percent gold, from nothing, in one step, on top of a surface that lifted a shade
+   and a shadow that deepened. Four things changing at once, where the card next door
+   on the Goals screen changes two.
 
-   The pool: five cards answered a hover by switching a radial glow on at full
-   strength — 14 to 17 percent gold, from nothing, in one step. On a small card that
-   reads as light; on a card the width of the screen it reads as a lamp coming on
-   behind it.
+   The goal card is the one that is right, so this is not a new hover — it is that one,
+   named here for the cards that were doing something else. Nothing is re-invented and
+   no number is chosen: the band, its angle, its 4%, its 950ms and the return pass are
+   `.goal-card-premium::before`; the border and the shadow are `.money-card-premium:hover`'s,
+   set on each of the five rules directly rather than piled on top of them. If the goal card's hover ever changes, these should be changed with it,
+   which is easier to notice with the two written the same way.
 
-   Then the first attempt at fixing it: the goal card's sweep, copied across. That
-   band is sized in percentages of the card — lit from 22% to 74% of its width — which
-   is a band on a card in a three-up grid and a slab on `.forecast-outlook`, which is
-   four times wider. Same rule, same numbers, twice the card, and the light stops
-   reading as a highlight and starts reading as a shape. That is the "debeo".
-
-   So the band is sized in pixels here, not percent: 260px of light travelling the
-   card, whatever the card is. It looks the same on a KPI tile as on the forecast
-   band, which is the whole point of there being one of these in the app. `background-
-   position` carries it rather than `transform`, so the width can stay absolute while
-   the travel stays proportional.
+   The gold pool does not light at all. That is the part people read as "too much" —
+   on a card the width of the screen a glow coming on from nothing is a lamp switching
+   on behind it. On a goal card the warm corner is in the card's own background and
+   simply sits there, hover or no hover.
    ============================================================================ */
 
 .money-summary-panel::before,
@@ -12309,20 +12309,16 @@ input[type="date"]:focus::-webkit-calendar-picker-indicator {
   inset: 0;
   z-index: 0;
   border-radius: inherit;
-  background-image: linear-gradient(
-    100deg,
-    transparent,
-    var(--card-sheen, rgba(255, 255, 255, 0.05)) 50%,
-    transparent
+  background: linear-gradient(
+    118deg,
+    transparent 22%,
+    var(--card-sheen, rgba(255, 255, 255, 0.04)) 48%,
+    transparent 74%
   );
-  /* The band, in pixels. This is the line that keeps a wide card from getting a wide
-     highlight — every card gets the same 260px of light moving across it. */
-  background-size: 260px 100%;
-  background-repeat: no-repeat;
-  background-position: -260px 0;
+  transform: translateX(-112%);
   /* On the resting state, so the light travels both ways — in with the pointer and
-     back out with it. Declared under `:hover` it would snap back invisibly. */
-  transition: background-position 950ms var(--ease-premium);
+     back out with it, the same as on a goal card. */
+  transition: transform 950ms var(--ease-premium);
   pointer-events: none;
 }
 
@@ -12331,26 +12327,19 @@ input[type="date"]:focus::-webkit-calendar-picker-indicator {
 .overview-kpi:hover::before,
 .forecast-outlook:hover::before,
 .debt-total:hover::before {
-  background-position: calc(100% + 260px) 0;
+  transform: translateX(112%);
 }
 
-/*
-  The pool stops being the hover state.
-
-  It stays as what it always should have been — the corner of the card being faintly
-  warm — at a strength close to where it rests, so nothing switches on. The band is
-  the hover; the border and the shadow do the rest.
-*/
+/* The pool never lights. See the note above — this is the "previše jak". */
 .money-summary-panel:hover::after,
 .onhand-account:hover::after,
 .overview-kpi:hover::after,
 .forecast-outlook:hover::after,
 .debt-total:hover::after {
-  background: radial-gradient(circle, rgba(217, 164, 65, 0.05), transparent 64%);
-  opacity: 1;
+  opacity: 0;
 }
 
-/* All of the above is decoration. Anyone who has asked for less of it gets the card. */
+/* All of this is decoration. Anyone who has asked for less of it gets the card. */
 @media (prefers-reduced-motion: reduce) {
   .money-summary-panel::before,
   .onhand-account::before,
