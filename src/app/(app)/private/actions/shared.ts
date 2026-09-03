@@ -180,15 +180,18 @@ export async function goalBalance(
 }
 
 /**
- * Remember a name the *second* time it is used, and never the first.
+ * Put one name on the shopping list, or bring what is already there up to date.
  *
- * Saving every expense title would fill the list with the things this table exists to
- * avoid — every one-off, every typo, every `fdsfds` — and a picker full of noise is a
- * picker nobody opens. The second use is the difference between a thing somebody buys and
- * a thing that happened once, and it is a difference the app can see without asking.
+ * It used to decide this by itself: a title earned a place the second time it was typed,
+ * and every line of a receipt earned one outright. The reasoning was sound and the result
+ * was not — twenty-three names arrived on the list in a handful of shops, none of them
+ * chosen, and a list you did not choose is one you stop opening. Nobody wants `bureg`
+ * filed forever because they bought one twice.
  *
- * On a name already on the list this bumps what it costs and when it was last bought, so
- * the suggestion stays current without anybody maintaining it.
+ * So the decision moved to the person, and this runs only when they made it. Which also
+ * makes it honest about a name already on the list: refreshing its price and its date is
+ * the list doing the job it was put there for, not the app filing something behind your
+ * back.
  *
  * Deliberately silent. It runs after an entry is saved, and an entry that saved correctly
  * must not report an error because a convenience behind it did not — the ledger is the
@@ -202,8 +205,6 @@ export async function rememberItem({
   currency,
   categoryId,
   on,
-  exclude,
-  fromLine = false,
 }: {
   supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>;
   uid: string;
@@ -213,18 +214,6 @@ export async function rememberItem({
   currency: string;
   categoryId: string | null;
   on: string;
-  /**
-   * The name came off a line of a receipt rather than from the entry's own title.
-   *
-   * It changes what counts as evidence. A title earns a place on the list by turning up
-   * twice — once is a one-off, and a list of one-offs is a list nobody reads. A line is
-   * different: writing `Aqua viva plavi sok` onto a receipt is already the statement that
-   * it is a thing you buy, and the price beside it is the price of one rather than the
-   * basket. So a line skips the two-uses gate and is taken at its word.
-   */
-  fromLine?: boolean;
-  /** The entry being edited, which must not count as its own earlier use. */
-  exclude: string | null;
 }): Promise<void> {
   const clean = name.trim().slice(0, 80);
   if (!clean) return;
@@ -257,27 +246,12 @@ export async function rememberItem({
       return;
     }
 
-    // Not on the list yet. It earns a place only if this name has been used before.
-    let before = supabase
-      .from("money_transactions")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", uid)
-      .eq("kind", "expense")
-      .ilike("title", clean);
-    if (exclude) before = before.neq("id", exclude);
-
-    if (!fromLine) {
-      const { count, error: countError } = await before;
-      if (countError) throw new ReadFailed("how often you have bought this", countError.message);
-      if ((count ?? 0) < 2) return;
-    }
-
     await supabase.from("money_items").insert({
       name: clean,
       price: price !== null && price > 0 ? price : null,
       currency,
       category_id: categoryId,
-      uses: fromLine ? 1 : 2,
+      uses: 1,
       last_used_on: on,
     });
   } catch (error) {

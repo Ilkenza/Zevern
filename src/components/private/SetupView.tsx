@@ -429,7 +429,7 @@ export function SetupView({
               id="setup-things"
               icon={ShoppingBasket}
               title="Things you buy"
-              lede="So an expense can be picked off a list instead of typed out again. It fills itself — a name lands here the second time you use it."
+              lede="So an expense can be picked off a list instead of typed out again. Nothing lands here on its own: mark a name on an entry to keep it, or add one below."
               className="overflow-visible"
               meta={
                 items.length > 0 ? (
@@ -443,7 +443,7 @@ export function SetupView({
                 <EmptyState
                   icon={ShoppingBasket}
                   title="Nothing on the list yet"
-                  description="File the same name on two expenses and it turns up here on its own, with what it cost. Or add one now."
+                  description="Mark a name on an entry — the bookmark beside a line, or the box under a single purchase — and it turns up here with what it cost. Or add one now."
                 />
               ) : (
                 <div className="setup-item-list">

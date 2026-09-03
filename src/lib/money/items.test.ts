@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { itemsArePriced, itemsTotal, lineTotal, parseItems } from "./items";
+import { itemsArePriced, itemsTotal, lineTotal, parseItems, parseKeep } from "./items";
 
 
 describe("how many of a thing", () => {
@@ -53,5 +53,65 @@ describe("what comes back out of the database", () => {
     expect(
       itemsArePriced([{ name: "A", qty: 1, amount: 10 }, { name: "B", qty: 2, amount: 0 }]),
     ).toBe(false);
+  });
+});
+
+
+describe("which names go on the shopping list", () => {
+  const bag = ["Kafa 3 u 1", "Aqua viva plavi sok", "Hleb"];
+
+  it("keeps only what was marked", () => {
+    expect(parseKeep('["Hleb"]', bag)).toEqual(["Hleb"]);
+  });
+
+  it("keeps nothing when nothing was marked", () => {
+    expect(parseKeep("[]", bag)).toEqual([]);
+    expect(parseKeep("", bag)).toEqual([]);
+    expect(parseKeep(null, bag)).toEqual([]);
+  });
+
+  /*
+    The whole reason this takes an allow-list. `keep_items` is a form field, so it is
+    whatever the browser was told to send — and a name that is not on this entry must not
+    be able to write a row onto somebody's list.
+  */
+  it("refuses a name this entry does not hold", () => {
+    expect(parseKeep('["Hleb","Rolex"]', bag)).toEqual(["Hleb"]);
+    expect(parseKeep('["Rolex"]', bag)).toEqual([]);
+    expect(parseKeep('["Hleb"]', [])).toEqual([]);
+  });
+
+  /* `money_items` is unique on the name whatever its case; two spellings are one answer. */
+  it("matches a name whatever its case, and answers in the entry's spelling", () => {
+    expect(parseKeep('["kAfA 3 U 1"]', bag)).toEqual(["Kafa 3 u 1"]);
+  });
+
+  it("never returns the same thing twice", () => {
+    expect(parseKeep('["Hleb","hleb","HLEB"]', bag)).toEqual(["Hleb"]);
+  });
+
+  it("ignores whitespace on either side", () => {
+    expect(parseKeep('["  Hleb  "]', ["  Hleb  "])).toEqual(["Hleb"]);
+  });
+
+  it("survives anything that is not a list of names", () => {
+    expect(parseKeep("not json", bag)).toEqual([]);
+    expect(parseKeep('{"name":"Hleb"}', bag)).toEqual([]);
+    expect(parseKeep([1, null, { name: "Hleb" }], bag)).toEqual([]);
+    expect(parseKeep(undefined, bag)).toEqual([]);
+  });
+
+  it("takes an array as given, not only a JSON string", () => {
+    expect(parseKeep(["Hleb"], bag)).toEqual(["Hleb"]);
+  });
+
+  it("stops at the ceiling a receipt has", () => {
+    const many = Array.from({ length: 80 }, (_, i) => `Thing ${i}`);
+    expect(parseKeep(many, many)).toHaveLength(60);
+  });
+
+  /* An empty name is not a decision; it must never reach the insert. */
+  it("drops empty names on both sides", () => {
+    expect(parseKeep('["","   "]', ["", "   ", "Hleb"])).toEqual([]);
   });
 });

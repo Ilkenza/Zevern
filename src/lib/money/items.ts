@@ -97,3 +97,52 @@ export function itemsTotal(items: TxItem[]): number {
 export function itemsArePriced(items: TxItem[]): boolean {
   return items.length > 0 && items.every((i) => i.amount > 0);
 }
+
+/**
+ * Which of these names the person asked to keep on their shopping list.
+ *
+ * The list used to fill itself — a receipt taught every line on it, a title taught
+ * itself the second time it was used. It worked, and it was wrong: within a few shops
+ * the list held twenty-three names nobody had chosen, and a list nobody chose is one
+ * nobody trusts. So the entry no longer teaches anything on its own. It carries the
+ * names that were marked, and marking is the whole of the decision.
+ *
+ * `allowed` is not a convenience. This arrives as a form field, and a form field is
+ * whatever the browser was told to send — so a name that is not on this entry cannot be
+ * allowed to write a row on this account. Matching is case-insensitive because the list
+ * itself is: `money_items` is unique on the name regardless of case, and `Kafa` and
+ * `kafa` must not be two decisions.
+ */
+export function parseKeep(raw: unknown, allowed: readonly string[]): string[] {
+  let data: unknown = raw;
+  if (typeof raw === "string") {
+    const text = raw.trim();
+    if (!text) return [];
+    try {
+      data = JSON.parse(text);
+    } catch {
+      return [];
+    }
+  }
+  if (!Array.isArray(data)) return [];
+
+  // Keyed by the folded name so the answer keeps the spelling this entry used.
+  const permitted = new Map<string, string>();
+  for (const name of allowed) {
+    const clean = name.trim().slice(0, MAX_NAME);
+    if (clean) permitted.set(clean.toLowerCase(), clean);
+  }
+
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const entry of data) {
+    if (typeof entry !== "string") continue;
+    const key = entry.trim().slice(0, MAX_NAME).toLowerCase();
+    const name = permitted.get(key);
+    if (!name || seen.has(key)) continue;
+    seen.add(key);
+    out.push(name);
+    if (out.length >= MAX_ITEMS) break;
+  }
+  return out;
+}

@@ -7491,6 +7491,62 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
   box-shadow: inset 0 0 0 1px var(--color-danger);
 }
 
+/*
+  The mark that puts a line on the list of things you buy.
+
+  Same size and weight as the way out beside it, because they are the same kind of thing:
+  a small decision about this row, said once, at the edge. Gold when it is on — the app's
+  one colour for "this is yours and it is on" — and faint when it is not, so a receipt of
+  eight lines with two marked reads at a glance instead of asking to be inspected.
+*/
+.tx-it-keep {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  margin-left: auto;
+  border-radius: 6px;
+  color: var(--color-faint);
+  cursor: pointer;
+  transition: color 160ms ease, background-color 160ms ease;
+}
+
+.tx-it-keep.is-on { color: var(--color-gold); }
+
+.tx-it-keep:hover { color: var(--color-gold-hi); background: rgba(217, 164, 65, 0.12); }
+
+.tx-it-keep:focus-visible {
+  outline: none;
+  color: var(--color-gold-hi);
+  box-shadow: inset 0 0 0 1px var(--color-gold);
+}
+
+/* The mark already claimed the free space; the bin follows it rather than the far edge. */
+.tx-it-keep + .tx-it-del { margin-left: 0; }
+
+/*
+  The same decision on a one-thing purchase, where there is no row to hang an icon on.
+
+  Spelled out in words instead. A receipt has eight of these and needs them small; an
+  entry has one, and one is worth a sentence — it is also the only place the rule is ever
+  explained, so it says what it will do rather than naming a feature.
+*/
+.tx-keep-title {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-top: 10px;
+  color: var(--color-muted);
+  font-size: 12px;
+  line-height: 1.45;
+  cursor: pointer;
+  transition: color 160ms ease;
+}
+
+.tx-keep-title:hover { color: var(--color-ink); }
+
+.tx-keep-title input { flex: none; cursor: pointer; }
+
 .tx-items-add {
   display: inline-flex;
   align-items: center;

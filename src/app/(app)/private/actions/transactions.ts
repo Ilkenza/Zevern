@@ -6,7 +6,7 @@ getMoney,getRates
 } from "@/lib/data/money";
 import { isLoanKind, isTxKind, NEW_LOAN, rateFor } from "@/lib/money";
 import { GOAL_MOVE_KINDS, goalKinds, movesToward } from "@/lib/money/goal-progress";
-import { itemsArePriced,itemsTotal,parseItems } from "@/lib/money/items";
+import { itemsArePriced,itemsTotal,parseItems,parseKeep } from "@/lib/money/items";
 import { userId } from "@/lib/supabase/current-user";
 import { saveErrorMessage } from "@/lib/supabase/errors";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
@@ -60,6 +60,15 @@ export async function saveTransaction(_prev: MoneyState, formData: FormData): Pr
     is kept as the record of what was bought.
   */
   const items = parseItems(formData.get("items"));
+  /*
+    Only names this entry actually holds. `keep_items` is a form field, and a form field
+    is whatever the browser was told to send — without this, a crafted post could write
+    any row it liked onto this account's list.
+  */
+  const keep = parseKeep(formData.get("keep_items"), [
+    ...items.map((i) => i.name),
+    String(formData.get("title") ?? ""),
+  ]);
   const rawAmount = String(formData.get("amount") ?? "").trim();
   /*
     A typed figure wins; an empty one is filled in by the list.
@@ -391,48 +400,39 @@ export async function saveTransaction(_prev: MoneyState, formData: FormData): Pr
   }
 
   /*
-    The shopping list learns from what was just filed — and from the right half of it.
+    The shopping list takes only what was marked for it.
 
-    It used to learn the entry's title and the entry's amount, whatever shape the entry
-    was. On a receipt those are the two things that are *not* a product: the title is a
-    shop (`Maxi`, `pijaca`) and the amount is the whole basket. So the list filled up with
-    shop names priced at a weekly shop, and picking one put a basket total into a line
-    meant to hold the price of one thing. Meanwhile the actual products on the receipt —
-    named, priced one by one, by hand — taught it nothing at all.
+    Two earlier rules both filed things nobody asked for. The first learned the entry's
+    title and the entry's amount whatever the entry was — so on a receipt it saved the
+    shop (`Maxi`) at the price of a weekly shop, and picking that later put a basket total
+    into a box meant for the price of one thing. The second learned every line of every
+    receipt instead, which fixed the arithmetic and made a new mess: twenty-three names on
+    the list inside a few shops, not one of them chosen.
 
-    So: a receipt teaches its lines, and everything else teaches its title. Awaited rather
-    than fired and forgotten, so the picker is up to date on the very next screen; it fails
-    silently on purpose, because the entry is written and a convenience behind it must
-    never turn a saved entry into an error message.
+    A list is only worth opening if the person owns what is in it, so the entry now carries
+    the names that were marked and nothing else. Awaited rather than fired and forgotten,
+    so the picker is up to date on the very next screen; it fails silently on purpose,
+    because the entry is written and a convenience behind it must never turn a saved entry
+    into an error message.
   */
-  if (kind === "expense") {
-    if (items.length > 0) {
-      for (const line of items) {
-        const name = line.name.trim();
-        if (!name) continue;
-        await rememberItem({
-          supabase,
-          uid,
-          name,
-          // What one costs, which is what the line holds and what the picker fills in.
-          price: line.amount > 0 ? line.amount : null,
-          currency,
-          categoryId: category,
-          on: occurredOn,
-          exclude: id || null,
-          fromLine: true,
-        });
-      }
-    } else if (title) {
+  if (kind === "expense" && keep.length > 0) {
+    for (const name of keep) {
+      /*
+        A marked line brings the price of ONE of it, which is what the box holds and what
+        the picker will fill in next time. A marked title has no line, so the entry's own
+        amount is the price — which is right for the entry the title case describes: one
+        thing bought once.
+      */
+      const line = items.find((i) => i.name.trim().toLowerCase() === name.toLowerCase());
+      const price = line ? line.amount : (amount ?? 0);
       await rememberItem({
         supabase,
         uid,
-        name: title,
-        price: amount,
+        name,
+        price: price > 0 ? price : null,
         currency,
         categoryId: category,
         on: occurredOn,
-        exclude: id || null,
       });
     }
   }

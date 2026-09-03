@@ -130,6 +130,16 @@ export function TransactionForm({
     other kind is a movement rather than a thing bought.
   */
   const shopping = kind === "expense" && !many;
+  /*
+    The name as it stands, only so the mark under it can answer for the right one.
+
+    A one-thing purchase has no line to mark, so the entry's own name is what the shopping
+    list would learn — and the same rule applies as on a receipt line: nothing goes on the
+    list unless somebody says so, and `null` means nobody has said yet, so the name answers
+    for itself.
+  */
+  const [title, setTitle] = useState(tx?.title ?? "");
+  const [keepTitle, setKeepTitle] = useState<boolean | null>(null);
   const [itemsSum, setItemsSum] = useState(() => itemsTotal(initialItems));
   const [itemCount, setItemCount] = useState(initialItems.length);
   /* Only a list where every line carries a figure can stand in for the amount. */
@@ -145,6 +155,12 @@ export function TransactionForm({
   const [loanChoice, setLoanChoice] = useState<string>(tx?.loan_id ?? "");
 
   const { accounts, categories, goals, loans, rates, budgets = [], items: known = [] } = data;
+
+  /* Folded: `money_items` holds one row per name whatever its case, so this must too. */
+  const titleKey = title.trim().toLowerCase();
+  const titleOnList =
+    titleKey !== "" && known.some((i) => i.name.trim().toLowerCase() === titleKey);
+  const keepingTitle = keepTitle ?? titleOnList;
 
   /*
     The row offers five, plus whatever this entry already is.
@@ -407,12 +423,14 @@ export function TransactionForm({
             product in it, and offering a shopping list on one would be the form answering
             a question nobody asked.
           */
+          <>
           <ItemPicker
             name="title"
             label={TITLE_LABEL[kind] ?? "Name"}
             items={known}
             defaultValue={tx?.title ?? ""}
             placeholder="Shop, bill, ticket…"
+            onValueChange={setTitle}
             help={
               known.length > 0
                 ? "Press the arrow for what you have bought before, with its last price."
@@ -435,6 +453,42 @@ export function TransactionForm({
             */
             onExact={(item) => apply(fillFromTyping(item, { categoryId, amount }))}
           />
+          {/*
+            Whether this name is worth keeping — asked, not assumed.
+
+            The list used to answer this itself: a name earned a place the second time it
+            was typed, and every line of a receipt earned one outright, so within a few
+            shops it held twenty-three names nobody had chosen. A list you did not choose
+            is one you stop opening, so the choice is here, spelled out, and off by default.
+
+            Only once there is a name to keep. An empty box asking whether to remember
+            nothing is furniture.
+          */}
+          {title.trim() !== "" && (
+            <label className="tx-keep-title">
+              <input
+                type="checkbox"
+                checked={keepingTitle}
+                onChange={(e) => setKeepTitle(e.target.checked)}
+                className="h-4 w-4 accent-gold"
+              />
+              <span>
+                {titleOnList
+                  ? `Keep “${title.trim()}” on your list, with this price`
+                  : `Add “${title.trim()}” to the things you buy`}
+              </span>
+            </label>
+          )}
+          {/*
+            One name, sent the same way a receipt sends its marked lines — so the server
+            reads one field and does not have to know which shape of form it came from.
+          */}
+          <input
+            type="hidden"
+            name="keep_items"
+            value={JSON.stringify(keepingTitle && title.trim() ? [title.trim()] : [])}
+          />
+          </>
         ) : (
           <Field
             label={many ? "Where from? (optional)" : (TITLE_LABEL[kind] ?? "Name")}

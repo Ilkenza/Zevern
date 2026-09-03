@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Minus, Plus, Trash2 } from "lucide-react";
+import { Bookmark, BookmarkCheck, Minus, Plus, Trash2 } from "lucide-react";
 import {
   MAX_ITEMS,
   itemsArePriced,
@@ -41,10 +41,23 @@ const clampQty = (n: number) => Math.min(MAX_QTY, Math.max(1, Math.round(n) || 1
  * and the price as typed as well as parsed — "12," is a real state on the way to
  * "12,50", and a number cannot hold it.
  */
-type Row = TxItem & { key: number; typed: string };
+type Row = TxItem & {
+  key: number;
+  typed: string;
+  /**
+   * Whether this line goes on the shopping list — `null` until somebody says.
+   *
+   * Left undecided it follows the name: a thing already on the list stays on it and gets
+   * its price brought up to date, and a thing that is not is not added. That is the answer
+   * that surprises nobody, and typing a different name changes it without any state having
+   * to be reset. The moment the mark is pressed the answer is a person's rather than a
+   * rule's, and it stops moving.
+   */
+  keep: boolean | null;
+};
 
 let nextKey = 0;
-const blank = (): Row => ({ key: ++nextKey, name: "", qty: 1, amount: 0, typed: "" });
+const blank = (): Row => ({ key: ++nextKey, name: "", qty: 1, amount: 0, typed: "", keep: null });
 
 /**
  * Hold the button down and it keeps going, faster after the first second.
@@ -116,7 +129,7 @@ export function TxItems({
 }) {
   const [rows, setRows] = useState<Row[]>(() =>
     initial.length > 0
-      ? initial.map((i) => ({ ...i, key: ++nextKey, typed: typedMoney(i.amount) }))
+      ? initial.map((i) => ({ ...i, key: ++nextKey, typed: typedMoney(i.amount), keep: null }))
       : [],
   );
 
@@ -143,6 +156,19 @@ export function TxItems({
   useEffect(() => {
     latest.current = rows;
   }, [rows]);
+
+  /*
+    Is this name already one of the things you buy?
+
+    Folded, because `money_items` is unique on the name regardless of case — `Kafa` and
+    `kafa` are one row there and must be one answer here.
+  */
+  const onList = (name: string) => {
+    const key = name.trim().toLowerCase();
+    return key !== "" && known.some((i) => i.name.trim().toLowerCase() === key);
+  };
+  /** The mark if it was set, and otherwise whatever the name already says. */
+  const keeping = (row: Row) => row.keep ?? onList(row.name);
 
   const filled = rows.filter((r) => r.name.trim() !== "");
   const total = itemsTotal(filled);
@@ -174,13 +200,25 @@ export function TxItems({
   };
 
   const hidden = (
-    <input
-      type="hidden"
-      name="items"
-      value={JSON.stringify(
-        filled.map((r) => ({ name: r.name.trim(), qty: r.qty, amount: r.amount })),
-      )}
-    />
+    <>
+      <input
+        type="hidden"
+        name="items"
+        value={JSON.stringify(
+          filled.map((r) => ({ name: r.name.trim(), qty: r.qty, amount: r.amount })),
+        )}
+      />
+      {/*
+        The lines that were marked for the shopping list, by name, because that is what the
+        list is keyed on. Sent even when empty: on an edit an absent field and an emptied
+        one would otherwise mean the same thing to the server, and they do not.
+      */}
+      <input
+        type="hidden"
+        name="keep_items"
+        value={JSON.stringify(filled.filter((r) => keeping(r)).map((r) => r.name.trim()))}
+      />
+    </>
   );
 
   /*
@@ -225,6 +263,8 @@ export function TxItems({
             onOpen={() => setOpenKey(row.key)}
             onClose={() => setOpenKey((k) => (k === row.key ? null : k))}
             autoFocus={row.key === focusKey}
+            keep={keeping(row)}
+            onKeep={() => patch(row.key, { keep: !keeping(row) })}
             onEnter={addRow}
             onPatch={(part) => patch(row.key, part)}
             onBump={(delta) => bump(row.key, delta)}
@@ -279,6 +319,8 @@ function ItemRow({
   currency,
   known,
   autoFocus,
+  keep,
+  onKeep,
   open,
   onOpen,
   onClose,
@@ -292,6 +334,9 @@ function ItemRow({
   known: MoneyItem[];
   /** This line was just added by the person, so the cursor belongs in it. */
   autoFocus: boolean;
+  /** This line is going on the shopping list when the entry is saved. */
+  keep: boolean;
+  onKeep: () => void;
   open: boolean;
   onOpen: () => void;
   onClose: () => void;
@@ -564,6 +609,37 @@ function ItemRow({
               {currency}
             </span>
           </>
+        )}
+
+        {/*
+          Whether this one is worth keeping — a decision only this person can make.
+
+          The list used to make it for them: every line of every receipt went on it, and
+          twenty-three names arrived that nobody had chosen. So the mark is the decision
+          now, and it starts pressed for a thing already on the list, because that is what
+          being on the list means.
+
+          Only on a named line. A mark beside an empty row is a question about nothing.
+        */}
+        {row.name.trim() !== "" && (
+          <button
+            type="button"
+            onClick={onKeep}
+            aria-pressed={keep}
+            aria-label={
+              keep
+                ? `Keep ${row.name.trim()} on your list`
+                : `Do not keep ${row.name.trim()} on your list`
+            }
+            title={keep ? "On your list of things you buy" : "Keep on your list"}
+            className={keep ? "tx-it-keep is-on" : "tx-it-keep"}
+          >
+            {keep ? (
+              <BookmarkCheck className="h-3.5 w-3.5" />
+            ) : (
+              <Bookmark className="h-3.5 w-3.5" />
+            )}
+          </button>
         )}
 
         <button
