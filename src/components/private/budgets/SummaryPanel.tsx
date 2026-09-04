@@ -107,8 +107,14 @@ export function SummaryPanel({
           <b>{remedy.category}</b>{" "}
           {remedy.room > 0 ? (
             <>
-              is {fmt(remedy.gap)} of it. {fmt(remedy.perWeek)} a week for the rest of{" "}
-              {monthName} keeps it inside.
+              is {fmt(remedy.gap)} of it.{" "}
+              {/* Purchases, not weeks, where the money leaves in lumps — see `remedyFor`. */}
+              {remedy.buys !== null
+                ? `${remedy.buys === 1 ? "One" : remedy.buys} more ${
+                    remedy.buys === 1 ? "buy" : "buys"
+                  } of ${fmt(remedy.typicalBuy)}`
+                : `${fmt(remedy.perWeek)} a week`}{" "}
+              for the rest of {monthName} keeps it inside.
             </>
           ) : (
             <>is {fmt(remedy.gap)} of it, and its limit is already spent.</>

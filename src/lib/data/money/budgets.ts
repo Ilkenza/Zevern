@@ -163,6 +163,7 @@ export async function getBudgetLines(month = monthKey()): Promise<BudgetLine[]> 
   ]);
 
   const spentBy = new Map(summary.byCategory.map((c) => [c.id, c.spent]));
+  const countBy = new Map(summary.byCategory.map((c) => [c.id, c.entries]));
 
   // category -> month -> total
   const byCategoryMonth = new Map<string, Map<string, number>>();
@@ -192,6 +193,7 @@ export async function getBudgetLines(month = monthKey()): Promise<BudgetLine[]> 
         typical,
         fixedPaid: Math.round(fixed.paid.get(category.id) ?? 0),
         fixedDue: Math.round(fixed.due.get(category.id) ?? 0),
+        entries: countBy.get(category.id) ?? 0,
       };
     });
 }

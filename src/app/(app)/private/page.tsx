@@ -1188,8 +1188,23 @@ export default async function PrivateOverviewPage({
           {remedy.room > 0 ? (
             <>
               <b>{remedy.category}</b> is {fmtShort(remedy.gap)} past its pace —{" "}
-              <Link href="/private/budgets">{fmtShort(remedy.perWeek)} a week</Link> for
-              the rest of the month keeps it inside.
+              {/*
+                A week is the wrong unit on a category that is bought in lumps. See
+                `remedyFor`: where the money leaves a few times a month rather than
+                every day, the room that is left is said in purchases, because that is
+                the decision actually in front of the person.
+              */}
+              {remedy.buys !== null ? (
+                <Link href="/private/budgets">
+                  {remedy.buys === 1
+                    ? "one more"
+                    : `${remedy.buys} more`}{" "}
+                  {remedy.buys === 1 ? "buy" : "buys"} of {fmtShort(remedy.typicalBuy)}
+                </Link>
+              ) : (
+                <Link href="/private/budgets">{fmtShort(remedy.perWeek)} a week</Link>
+              )}{" "}
+              for the rest of the month keeps it inside.
             </>
           ) : (
             <>

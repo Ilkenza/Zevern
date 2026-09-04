@@ -50,10 +50,16 @@ describe("sumEntries", () => {
     expect(totals.saved).toBe(60_000);
   });
 
-  it("counts an entry with no price yet as nothing", () => {
+  it("counts an entry with no price yet as nothing — but still as a purchase", () => {
     const totals = sumEntries([e("expense", null, "food"), e("expense", 250, "food")]);
     expect(totals.expense).toBe(250);
-    expect(totals.byCategory).toEqual([{ id: "food", spent: 250 }]);
+    /*
+      Two purchases, one of which has no price on it yet. The count is what tells a
+      category of weekly shops from a category of daily coffees, and a shop you have not
+      priced is still a shop — leaving it out would make the category read as lumpier
+      than it is, which is the direction that silences a real warning.
+    */
+    expect(totals.byCategory).toEqual([{ id: "food", spent: 250, entries: 2 }]);
   });
 
   it("reads a price that arrives as a string", () => {

@@ -153,6 +153,14 @@ export type BudgetLine = {
    */
   fixedPaid: number;
   fixedDue: number;
+  /**
+   * How many purchases this category has in the period being viewed.
+   *
+   * The one thing that separates a category whose month can honestly be read off the
+   * calendar from one whose month is two shopping trips. Both can be 30% spent on the
+   * 4th; only one of them is spending fast.
+   */
+  entries: number;
 };
 
 /** One movement between an account and a goal — the goal's own history. */

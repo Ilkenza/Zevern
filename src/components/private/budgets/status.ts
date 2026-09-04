@@ -162,7 +162,45 @@ export type Remedy = {
   limit: number;
   /** Holding to this much a week keeps it inside. Zero when there is no room left. */
   perWeek: number;
+  /**
+   * How many more purchases of this category's usual size fit in what is left — set
+   * only where a week is the wrong unit, and `null` where it is the right one.
+   *
+   * A weekly rate assumes the money leaves in a stream. On a category that is two shops
+   * a month it leaves in lumps, and "1,4k a week" is advice about a stream that does
+   * not exist: there is no week in which spending 1,4k on Shopping is a thing you do.
+   * "Two more shops like your usual" is the same arithmetic in a unit the person
+   * actually acts in.
+   */
+  buys: number | null;
+  /** What a purchase in this category has cost on average this period. */
+  typicalBuy: number;
 };
+
+/**
+ * How much of the period must have passed before pace is worth reporting.
+ *
+ * On the 4th of a 30-day month the calendar expects a category to be an eighth spent,
+ * so one ordinary purchase clears the bar and the screen announces an overspend. That
+ * is not a warning, it is arithmetic about a small number, and a screen that cries wolf
+ * on the 4th of every month is one nobody reads on the 25th.
+ */
+const ENOUGH_MONTH = 0.25;
+
+/**
+ * How many purchases a category needs before its pace means anything.
+ *
+ * With one you cannot tell "bought the monthly thing" from "spending fast", and the app
+ * has no business guessing which. Three is the smallest number that can show a habit
+ * rather than an event.
+ */
+const ENOUGH_PURCHASES = 3;
+
+/**
+ * Below this many purchases a month, the money leaves in lumps rather than in a stream,
+ * and a weekly rate stops describing anything the person does.
+ */
+const LUMPY_BELOW = 8;
 
 /**
  * The screen already says the month is heading over. This says what to do about it.
@@ -182,23 +220,45 @@ export type Remedy = {
  */
 export function remedyFor(lines: BudgetLine[], pace: number, daysLeft: number): Remedy | null {
   if (daysLeft <= 0) return null;
+  /*
+    Too early in the month to have an opinion.
+
+    This was the whole of a real complaint: a Shopping budget of 8.000 with one purchase
+    of 2.649 on the 2nd produced "Shopping is 1,6k past its pace — 1,4k a week keeps it
+    inside" on the 4th. Every figure in that sentence was correct and the sentence was
+    worthless: two thirds of the limit were still there, and the only evidence of a
+    habit was a single unnamed buy.
+  */
+  if (pace < ENOUGH_MONTH) return null;
 
   let worst: { line: BudgetLine; gap: number } | null = null;
   for (const line of lines) {
     if (line.limit <= 0) continue;
+    /* One purchase is an event; a pace is a habit, and you cannot see one in a sample
+       of one. Bills are exempt: a dated charge is known, not extrapolated. */
+    if (line.entries < ENOUGH_PURCHASES && (line.fixedPaid ?? 0) <= 0) continue;
     const gap = judged(line) - expectedBy(line, pace);
     if (gap <= 0) continue;
     if (!worst || gap > worst.gap) worst = { line, gap };
   }
   if (!worst) return null;
 
-  const room = Math.max(worst.line.limit - judged(worst.line), 0);
+  const line = worst.line;
+  const room = Math.max(line.limit - judged(line), 0);
+  /* Purchases so far, carried forward at the same rate, to say what a whole month of
+     this category looks like — the question is its shape, not its size. */
+  const perMonth = pace > 0 ? line.entries / pace : line.entries;
+  const typicalBuy = line.entries > 0 ? judged(line) / line.entries : 0;
+  const lumpy = perMonth < LUMPY_BELOW && typicalBuy > 0;
+
   return {
-    category: worst.line.category.name,
+    category: line.category.name,
     gap: Math.round(worst.gap),
     room: Math.round(room),
-    limit: worst.line.limit,
+    limit: line.limit,
     perWeek: Math.round((room / daysLeft) * 7),
+    buys: lumpy ? Math.floor(room / typicalBuy) : null,
+    typicalBuy: Math.round(typicalBuy),
   };
 }
 

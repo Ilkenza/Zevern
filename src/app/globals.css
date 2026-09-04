@@ -12329,3 +12329,29 @@ input[type="date"]:focus::-webkit-calendar-picker-indicator {
   font-size: 12px;
   line-height: 1.45;
 }
+
+/*
+  Two coherent rows, or one — never a row with a single control orphaned under it.
+
+  `.zv-toolbar` wraps, the search grows, and the order group is pushed right by an auto
+  margin. Put those three together in a panel about six hundred pixels wide and the bar
+  breaks in the one place that reads as a mistake: the search and the order share the
+  first line, and a lone date filter drops underneath them. Nothing about that grouping
+  is meaningful — it is wherever the arithmetic happened to run out.
+
+  A container query rather than a viewport one, because the same bar sits in a full-width
+  page and in a narrow panel on the same screen: what decides how it should break is how
+  much room *it* has, not how wide the window is.
+
+  Under the threshold the search takes a line of its own and every control that narrows
+  the list sits together on the next one, which is a grouping somebody could have chosen.
+*/
+.zv-toolbar {
+  container-type: inline-size;
+}
+
+@container (max-width: 620px) {
+  .zv-toolbar-find {
+    flex-basis: 100%;
+  }
+}

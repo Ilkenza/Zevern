@@ -30,11 +30,19 @@ export type EntryTotals = {
   /** The gross of what came back out, so "put aside" can explain a small figure. */
   withdrawn: number;
   net: number;
-  byCategory: { id: string; spent: number }[];
+  /**
+   * Per category: what it cost, and how many purchases that was.
+   *
+   * The count is not decoration. A sum on its own cannot tell one weekly shop from
+   * thirty coffees, and every judgement about pace depends on knowing which of the two
+   * it is looking at — see `remedyFor`.
+   */
+  byCategory: { id: string; spent: number; entries: number }[];
 };
 
 export function sumEntries(entries: Iterable<SummableEntry>): EntryTotals {
   const spentBy = new Map<string, number>();
+  const countBy = new Map<string, number>();
   let expense = 0;
   let income = 0;
   let putIn = 0;
@@ -48,6 +56,8 @@ export function sumEntries(entries: Iterable<SummableEntry>): EntryTotals {
       expense += value;
       const id = entry.category_id ?? UNCATEGORIZED_CATEGORY_ID;
       spentBy.set(id, (spentBy.get(id) ?? 0) + value);
+      /* Counted whatever it cost — an entry with no price yet is still a purchase. */
+      countBy.set(id, (countBy.get(id) ?? 0) + 1);
     } else if (entry.kind === "income") {
       income += value;
     } else if (entry.kind === "saving") {
@@ -74,6 +84,10 @@ export function sumEntries(entries: Iterable<SummableEntry>): EntryTotals {
     saved: putIn - withdrawn,
     withdrawn,
     net: income - expense,
-    byCategory: [...spentBy].map(([id, spent]) => ({ id, spent })),
+    byCategory: [...spentBy].map(([id, spent]) => ({
+      id,
+      spent,
+      entries: countBy.get(id) ?? 0,
+    })),
   };
 }

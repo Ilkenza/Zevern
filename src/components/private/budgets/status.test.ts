@@ -6,7 +6,7 @@ function line(
   limit: number,
   spent: number,
   typical = 0,
-  fixed: { paid?: number; due?: number; name?: string } = {},
+  fixed: { paid?: number; due?: number; name?: string; entries?: number } = {},
 ): BudgetLine {
   return {
     category: {
@@ -25,6 +25,8 @@ function line(
     typical,
     fixedPaid: fixed.paid ?? 0,
     fixedDue: fixed.due ?? 0,
+    /* Enough purchases to be judged, unless a test is about not having them. */
+    entries: fixed.entries ?? 10,
   } as BudgetLine;
 }
 
@@ -255,5 +257,59 @@ describe("what a budget is judged on", () => {
     expect(plain.counted).toBeUndefined();
     expect(statusOf(plain, 0.9)).toBe("over");
     expect(totalsOf([plain], 0.9, true).spent).toBe(14737);
+  });
+});
+
+
+describe("what a remedy refuses to say", () => {
+  /*
+    The complaint this was written for, to the dinar.
+
+    Shopping: limit 8.000, one purchase of 2.649 on the 2nd of a 30-day month. The old
+    code answered "1,6k past its pace — 1,4k a week keeps it inside" on the 4th. Every
+    figure was right and the sentence was worthless: two thirds of the limit untouched,
+    and one unnamed buy as the entire evidence of a habit.
+  */
+  const EARLY = 4 / 30;
+  const shopping = line(8000, 2649, 0, { name: "Shopping", entries: 1 });
+
+  it("says nothing on the 4th of the month", () => {
+    expect(remedyFor([shopping], EARLY, 26)).toBeNull();
+  });
+
+  it("still says nothing later in the month on the strength of one purchase", () => {
+    expect(remedyFor([shopping], 0.6, 12)).toBeNull();
+  });
+
+  it("speaks once there are enough purchases and enough month", () => {
+    const real = line(8000, 6000, 0, { name: "Shopping", entries: 4 });
+    const remedy = remedyFor([real], 0.5, 15);
+    expect(remedy?.category).toBe("Shopping");
+    expect(remedy?.room).toBe(2000);
+  });
+
+  /* A dated charge is known in advance, not extrapolated, so it needs no sample. */
+  it("still names a category whose month is one bill", () => {
+    // 20.000 of bill already booked, 10.000 of the limit left to accrue: by half the
+    // month 25.000 is expected and 28.000 has gone. One entry, and it is still judged.
+    const rent = line(30000, 28000, 0, { name: "Rent", paid: 20000, entries: 1 });
+    expect(remedyFor([rent], 0.5, 15)?.category).toBe("Rent");
+  });
+});
+
+describe("weeks or purchases", () => {
+  it("counts in purchases where the money leaves in lumps", () => {
+    // Three buys by half the month is six a month — a category you shop, not one you
+    // spend from daily. 6.000 gone of 8.000, so 2.000 is left and a buy costs 2.000.
+    const remedy = remedyFor([line(8000, 6000, 0, { entries: 3 })], 0.5, 15);
+    expect(remedy?.typicalBuy).toBe(2000);
+    expect(remedy?.buys).toBe(1);
+  });
+
+  it("counts in weeks where the money leaves in a stream", () => {
+    // Thirty by half the month is sixty a month: a rate is the honest unit.
+    const remedy = remedyFor([line(8000, 6000, 0, { entries: 30 })], 0.5, 15);
+    expect(remedy?.buys).toBeNull();
+    expect(remedy?.perWeek).toBeGreaterThan(0);
   });
 });

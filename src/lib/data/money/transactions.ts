@@ -186,7 +186,7 @@ export type MonthSummary = {
   /** The gross of what came back out, so "put aside" can explain a small figure. */
   withdrawn: number;
   net: number;
-  byCategory: { id: string; spent: number }[];
+  byCategory: { id: string; spent: number; entries: number }[];
 };
 
 /**
