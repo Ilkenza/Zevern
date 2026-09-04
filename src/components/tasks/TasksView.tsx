@@ -13,8 +13,7 @@ import {
   ArrowLeft,
   CalendarDays,
   Check,
-  SkipForward,
-} from "lucide-react";
+  SkipForward, ChevronDown } from "lucide-react";
 import { SlideOver } from "@/components/ui/SlideOver";
 import { TaskMonth } from "./TaskMonth";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -262,6 +261,75 @@ function Chip({ band, on, onPick }: { band: Band; on: boolean; onPick: () => voi
   );
 }
 
+/**
+ * One band, as a section in a list rather than as the whole screen.
+ *
+ * The screen used to show a rail of days and one band under it: to see Thursday you
+ * clicked Thursday, and the ninety-three tasks on this account were reachable only seven
+ * at a time. Every list app people actually live in — Todoist, Asana, ClickUp — stacks
+ * its sections instead and lets the scroll do the work, because the question "what is
+ * coming" is answered by seeing the shape of the week, not by visiting it.
+ *
+ * Collapsible, with the count in the header, so a long band can be folded out of the way
+ * without leaving the page. Open by default where there is something in it: a section
+ * that hides its contents until you ask is a rail again, one indent further in.
+ */
+function TaskSection({
+  band,
+  today,
+  basePath,
+  workspace,
+  open: isOpen,
+  onToggle,
+}: {
+  band: Band;
+  today: string;
+  basePath: string;
+  workspace: TaskWorkspace;
+  open: boolean;
+  onToggle: () => void;
+}) {
+  const dated = band.tone === "day" || band.tone === "today";
+  return (
+    <section className={cn("task-sec", `is-${band.tone}`, isOpen && "is-open")}>
+      <header className="task-sec-head">
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-expanded={isOpen}
+          className="task-sec-toggle"
+        >
+          <ChevronDown className="h-3.5 w-3.5 task-sec-caret" aria-hidden />
+          <span className="task-sec-title">{band.title}</span>
+          <span className="task-sec-count mono">{band.tasks.length}</span>
+        </button>
+      </header>
+
+      {isOpen && (
+        <div className="task-sec-body">
+          {band.tasks.map((t) => (
+            <TaskRow
+              key={t.id}
+              task={t}
+              basePath={basePath}
+              workspace={workspace}
+              hideDate={dated}
+              note={band.tone === "late" && dayOf(t) ? lateBy(dayOf(t) as string, today) : undefined}
+            />
+          ))}
+          {band.tasks.length === 0 && <p className="task-sec-empty">{band.empty}</p>}
+          <QuickAdd
+            workspace={workspace}
+            dueOn={band.dueOn}
+            placeholder={band.placeholder}
+            hint={band.hint}
+          />
+        </div>
+      )}
+    </section>
+  );
+}
+
 /* ---------------------------------------------------------------------- view */
 
 export function TasksView({
@@ -444,7 +512,14 @@ export function TasksView({
     that can show an empty Thursday three weeks out without reading every row between here
     and there. Nothing below the switch knows which one chose the day.
   */
-  const [asMonth, setAsMonth] = useState(false);
+  /*
+    Which shape the list is read in. `list` leads because it is the one that answers the
+    question this screen exists for without a click: everything, in order, in one scroll.
+  */
+  const [mode, setMode] = useState<"list" | "days" | "month">("list");
+  const asMonth = mode === "month";
+  /* Sections a person has folded shut. Absent means open — see `TaskSection`. */
+  const [shut, setShut] = useState<Record<string, boolean>>({});
   const [month, setMonth] = useState(() => today.slice(0, 7));
   const [reviewing, setReviewing] = useState(false);
   const [reviewIndex, setReviewIndex] = useState(0);
@@ -641,20 +716,28 @@ export function TasksView({
           <div className="zv-seg task-views" role="group" aria-label="How to look at them">
             <button
               type="button"
-              onClick={() => setAsMonth(false)}
-              aria-pressed={!asMonth}
-              className={cn(!asMonth && "is-on")}
+              onClick={() => setMode("list")}
+              aria-pressed={mode === "list"}
+              className={cn(mode === "list" && "is-on")}
             >
-              <CalendarRange className="h-3.5 w-3.5" aria-hidden /> Days
+              <ListChecks className="h-3.5 w-3.5" aria-hidden /> List
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode("days")}
+              aria-pressed={mode === "days"}
+              className={cn(mode === "days" && "is-on")}
+            >
+              <CalendarRange className="h-3.5 w-3.5" aria-hidden /> One day
             </button>
             <button
               type="button"
               onClick={() => {
-                setAsMonth(true);
+                setMode("month");
                 setMonth((activeKey.length === 10 ? activeKey : today).slice(0, 7));
               }}
-              aria-pressed={asMonth}
-              className={cn(asMonth && "is-on")}
+              aria-pressed={mode === "month"}
+              className={cn(mode === "month" && "is-on")}
             >
               <CalendarDays className="h-3.5 w-3.5" aria-hidden /> Month
             </button>
@@ -673,7 +756,7 @@ export function TasksView({
                 leaveReview();
               }}
             />
-          ) : (
+          ) : mode === "days" ? (
             <nav className="task-rail" aria-label="Pick a day">
               {bands.map((b) => (
                 <Chip
@@ -687,9 +770,34 @@ export function TasksView({
                 />
               ))}
             </nav>
+          ) : null}
+
+          {/*
+            Everything, in order, in one scroll — the reading this screen was missing.
+
+            Empty days are left out rather than printed as seven identical "nothing due"
+            lines; today stays whatever it holds, because a day that is empty is worth
+            knowing about when it is this one.
+          */}
+          {mode === "list" && (
+            <div className="task-list">
+              {bands
+                .filter((b) => b.tasks.length > 0 || b.key === today)
+                .map((b) => (
+                  <TaskSection
+                    key={b.key}
+                    band={b}
+                    today={today}
+                    basePath={basePath}
+                    workspace={workspace}
+                    open={!shut[b.key]}
+                    onToggle={() => setShut((was) => ({ ...was, [b.key]: !was[b.key] }))}
+                  />
+                ))}
+            </div>
           )}
 
-          {band && (
+          {mode === "days" && band && (
             <section className="task-panel">
               <header className="task-panel-head">
                 <span className="task-panel-title">
