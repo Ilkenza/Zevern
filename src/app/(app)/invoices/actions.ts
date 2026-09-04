@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 import { ownsRow, userId } from "@/lib/supabase/current-user";
-import { saveErrorMessage } from "@/lib/supabase/errors";
+import { saveErrorMessage, deleteErrorMessage } from "@/lib/supabase/errors";
 import { INVOICE_STATUSES, type InvoiceStatus } from "@/lib/status";
 import { quoteTotal } from "@/lib/quotes/total";
 import type { QuoteItem } from "@/lib/types";
@@ -89,10 +89,10 @@ export async function saveInvoice(
 export async function deleteInvoice(id: string) {
   const supabase = await createSupabaseServerClient();
   const uid = await userId(supabase);
-  if (!uid) return;
+  if (!uid) return { error: "Not signed in." };
 
   const { error } = await supabase.from("invoices").delete().eq("id", id).eq("user_id", uid);
-  if (error) console.error("deleteInvoice:", error.message);
+  if (error) return { error: deleteErrorMessage(error, "this invoice") };
   revalidatePath("/invoices");
   revalidatePath("/");
   redirect("/invoices");

@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 import { userId } from "@/lib/supabase/current-user";
-import { saveErrorMessage } from "@/lib/supabase/errors";
+import { saveErrorMessage, deleteErrorMessage } from "@/lib/supabase/errors";
 
 export type ClientFormState = { error?: string } | undefined;
 
@@ -59,10 +59,10 @@ export async function saveClient(
 export async function deleteClient(id: string) {
   const supabase = await createSupabaseServerClient();
   const uid = await userId(supabase);
-  if (!uid) return;
+  if (!uid) return { error: "Not signed in." };
 
   const { error } = await supabase.from("clients").delete().eq("id", id).eq("user_id", uid);
-  if (error) console.error("deleteClient:", error.message);
+  if (error) return { error: deleteErrorMessage(error, "this client") };
   revalidatePath("/clients");
   revalidatePath("/projects");
   revalidatePath("/");

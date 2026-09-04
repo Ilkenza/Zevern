@@ -12,7 +12,7 @@ nextDate,
 rateFor
 } from "@/lib/money";
 import { userId } from "@/lib/supabase/current-user";
-import { saveErrorMessage } from "@/lib/supabase/errors";
+import { saveErrorMessage, deleteErrorMessage } from "@/lib/supabase/errors";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import {
@@ -256,14 +256,14 @@ export async function saveRecurring(_prev: MoneyState, formData: FormData): Prom
 export async function deleteRecurring(id: string) {
   const supabase = await createSupabaseServerClient();
   const uid = await userId(supabase);
-  if (!uid) return;
+  if (!uid) return { error: "Not signed in." };
 
   const { error } = await supabase
     .from("money_recurring")
     .delete()
     .eq("id", id)
     .eq("user_id", uid);
-  if (error) console.error("deleteRecurring:", error.message);
+  if (error) return { error: deleteErrorMessage(error, "this rule") };
   refresh();
   redirect("/private/recurring");
 }

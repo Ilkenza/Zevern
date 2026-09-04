@@ -7,7 +7,7 @@ import {
 rateFor
 } from "@/lib/money";
 import { userId } from "@/lib/supabase/current-user";
-import { saveErrorMessage } from "@/lib/supabase/errors";
+import { saveErrorMessage, deleteErrorMessage } from "@/lib/supabase/errors";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import {
@@ -111,14 +111,14 @@ export async function saveGoal(_prev: MoneyState, formData: FormData): Promise<M
 export async function deleteGoal(id: string) {
   const supabase = await createSupabaseServerClient();
   const uid = await userId(supabase);
-  if (!uid) return;
+  if (!uid) return { error: "Not signed in." };
 
   const { error } = await supabase
     .from("money_goals")
     .delete()
     .eq("id", id)
     .eq("user_id", uid);
-  if (error) console.error("deleteGoal:", error.message);
+  if (error) return { error: deleteErrorMessage(error, "this goal") };
   refresh();
   redirect("/private/goals");
 }

@@ -10,7 +10,7 @@ rateFor,
 type Currency
 } from "@/lib/money";
 import { userId } from "@/lib/supabase/current-user";
-import { saveErrorMessage } from "@/lib/supabase/errors";
+import { saveErrorMessage, deleteErrorMessage } from "@/lib/supabase/errors";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 import {
 currencyOf,
@@ -226,13 +226,13 @@ export async function setAccountOnOverview(id: string, visible: boolean): Promis
 export async function deleteAccount(id: string) {
   const supabase = await createSupabaseServerClient();
   const uid = await userId(supabase);
-  if (!uid) return;
+  if (!uid) return { error: "Not signed in." };
 
   const { error } = await supabase
     .from("money_accounts")
     .delete()
     .eq("id", id)
     .eq("user_id", uid);
-  if (error) console.error("deleteAccount:", error.message);
+  if (error) return { error: deleteErrorMessage(error, "this account") };
   refresh();
 }

@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 import { userId } from "@/lib/supabase/current-user";
-import { saveErrorMessage } from "@/lib/supabase/errors";
+import { saveErrorMessage, deleteErrorMessage } from "@/lib/supabase/errors";
 
 export type ServiceItemState = { error?: string } | undefined;
 
@@ -61,14 +61,14 @@ export async function saveServiceItem(
 export async function deleteServiceItem(id: string) {
   const supabase = await createSupabaseServerClient();
   const uid = await userId(supabase);
-  if (!uid) return;
+  if (!uid) return { error: "Not signed in." };
 
   const { error } = await supabase
     .from("service_items")
     .delete()
     .eq("id", id)
     .eq("user_id", uid);
-  if (error) console.error("deleteServiceItem:", error.message);
+  if (error) return { error: deleteErrorMessage(error, "this item") };
   revalidatePath("/quotes/catalog");
   redirect("/quotes/catalog");
 }

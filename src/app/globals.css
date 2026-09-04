@@ -12311,3 +12311,21 @@ input[type="date"]:focus::-webkit-calendar-picker-indicator {
 .debt-total:hover::after {
   opacity: 0;
 }
+
+/*
+  What a refused delete says, next to the control that asked for it.
+
+  Deletes used to fail into the server log, so this had nowhere to render and did not
+  exist. It is deliberately not a toast: the message belongs to the row or the panel that
+  refused, and a toast would have floated away from the one thing that explains it.
+*/
+.zv-delete-failed {
+  margin-top: 8px;
+  border-radius: var(--radius-ctrl);
+  border: 1px solid rgba(222, 107, 94, 0.4);
+  background: var(--color-danger-bg, rgba(222, 107, 94, 0.1));
+  padding: 7px 10px;
+  color: var(--color-danger);
+  font-size: 12px;
+  line-height: 1.45;
+}

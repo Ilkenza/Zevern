@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 import { userId } from "@/lib/supabase/current-user";
-import { saveErrorMessage } from "@/lib/supabase/errors";
+import { saveErrorMessage, deleteErrorMessage } from "@/lib/supabase/errors";
 import { getCategories } from "@/lib/data/tools";
 
 export type ToolFormState = { error?: string } | undefined;
@@ -51,10 +51,10 @@ export async function saveTool(_prev: ToolFormState, formData: FormData): Promis
 export async function deleteTool(id: string) {
   const supabase = await createSupabaseServerClient();
   const uid = await userId(supabase);
-  if (!uid) return;
+  if (!uid) return { error: "Not signed in." };
 
   const { error } = await supabase.from("tools").delete().eq("id", id).eq("user_id", uid);
-  if (error) console.error("deleteTool:", error.message);
+  if (error) return { error: deleteErrorMessage(error, "this tool") };
   revalidatePath("/toolbox");
   redirect("/toolbox");
 }
@@ -90,14 +90,14 @@ export async function renameCategory(
 export async function deleteCategory(name: string) {
   const supabase = await createSupabaseServerClient();
   const uid = await userId(supabase);
-  if (!uid) return;
+  if (!uid) return { error: "Not signed in." };
 
   const { error } = await supabase
     .from("tools")
     .update({ category: null })
     .eq("category", name)
     .eq("user_id", uid);
-  if (error) console.error("deleteCategory:", error.message);
+  if (error) return { error: deleteErrorMessage(error, "this category") };
   revalidatePath("/toolbox");
   redirect("/toolbox");
 }

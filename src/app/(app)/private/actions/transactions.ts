@@ -486,9 +486,17 @@ export async function priceTransaction(id: string, amount: number): Promise<Mone
 }
 
 
-export async function deleteTransaction(id: string) {
+/**
+ * The entry form's delete. Same removal as the row's, plus the trip back to the ledger.
+ *
+ * The refusal used to be logged and the redirect taken anyway, so a delete the database
+ * turned down looked exactly like one it accepted — you landed on the ledger with the
+ * entry still in it. `removeTransaction` already says what went wrong; this now passes
+ * that on and stays where it is.
+ */
+export async function deleteTransaction(id: string): Promise<MoneyState> {
   const result = await removeTransaction(id);
-  if (result?.error) console.error("deleteTransaction:", result.error);
+  if (result?.error) return result;
   redirect("/private/money");
 }
 

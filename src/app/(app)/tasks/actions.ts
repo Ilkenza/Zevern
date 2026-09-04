@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 import { ownsRow, userId } from "@/lib/supabase/current-user";
-import { saveErrorMessage } from "@/lib/supabase/errors";
+import { saveErrorMessage, deleteErrorMessage } from "@/lib/supabase/errors";
 import { TASK_PRIORITIES, type TaskPriority } from "@/lib/status";
 
 export type TaskFormState = { error?: string } | undefined;
@@ -67,9 +67,11 @@ export async function saveTask(
  * medium and the date comes from the column you typed into, so there is one field to
  * fill and nothing to decide.
  */
-export async function quickAddTask(formData: FormData): Promise<void> {
+export async function quickAddTask(
+  formData: FormData,
+): Promise<{ error?: string } | void> {
   const title = String(formData.get("title") ?? "").trim();
-  if (!title) return;
+  if (!title) return { error: "Give the task a name." };
 
   const workspace =
     String(formData.get("workspace") ?? "work") === "personal" ? "personal" : "work";
@@ -77,7 +79,7 @@ export async function quickAddTask(formData: FormData): Promise<void> {
 
   const supabase = await createSupabaseServerClient();
   const uid = await userId(supabase);
-  if (!uid) return;
+  if (!uid) return { error: "Not signed in." };
 
   const { error } = await supabase.from("tasks").insert({
     project_id: null,
@@ -86,7 +88,7 @@ export async function quickAddTask(formData: FormData): Promise<void> {
     due_at: dueAt,
     workspace,
   });
-  if (error) console.error("quickAddTask:", error.message);
+  if (error) return { error: saveErrorMessage(error) };
 
   revalidatePath(listPath(workspace));
   revalidatePath("/");
@@ -95,27 +97,33 @@ export async function quickAddTask(formData: FormData): Promise<void> {
 export async function deleteTask(id: string, workspace = "work") {
   const supabase = await createSupabaseServerClient();
   const uid = await userId(supabase);
-  if (!uid) return;
+  if (!uid) return { error: "Not signed in." };
 
   const { error } = await supabase.from("tasks").delete().eq("id", id).eq("user_id", uid);
-  if (error) console.error("deleteTask:", error.message);
+  if (error) return { error: deleteErrorMessage(error, "this task") };
   revalidatePath(listPath(workspace));
   revalidatePath("/");
   redirect(listPath(workspace));
 }
 
-/** Toggle done/todo without navigating — the client refreshes after this resolves. */
+/**
+ * Toggle done/todo without navigating — the client refreshes after this resolves.
+ *
+ * A refusal used to go to the server log while the checkbox stayed where you put it and
+ * the page revalidated around it, so a tick that never saved was indistinguishable from
+ * one that did until the next reload put it back.
+ */
 export async function toggleTask(id: string, done: boolean) {
   const supabase = await createSupabaseServerClient();
   const uid = await userId(supabase);
-  if (!uid) return;
+  if (!uid) return { error: "Not signed in." };
 
   const { error } = await supabase
     .from("tasks")
     .update({ status: done ? "done" : "todo" })
     .eq("id", id)
     .eq("user_id", uid);
-  if (error) console.error("toggleTask:", error.message);
+  if (error) return { error: saveErrorMessage(error) };
   revalidatePath("/tasks");
   revalidatePath("/private/tasks");
   revalidatePath("/private");
@@ -127,19 +135,20 @@ export async function rescheduleTask(
   id: string,
   dueOn: string | null,
   workspace = "work",
-): Promise<void> {
-  if (dueOn !== null && !/^\d{4}-\d{2}-\d{2}$/.test(dueOn)) return;
+): Promise<{ error?: string } | void> {
+  if (dueOn !== null && !/^\d{4}-\d{2}-\d{2}$/.test(dueOn))
+    return { error: "That is not a date this app can read." };
 
   const supabase = await createSupabaseServerClient();
   const uid = await userId(supabase);
-  if (!uid) return;
+  if (!uid) return { error: "Not signed in." };
 
   const { error } = await supabase
     .from("tasks")
     .update({ due_at: dueOn ? `${dueOn}T00:00` : null })
     .eq("id", id)
     .eq("user_id", uid);
-  if (error) console.error("rescheduleTask:", error.message);
+  if (error) return { error: saveErrorMessage(error) };
 
   revalidatePath(listPath(workspace));
   revalidatePath("/private");

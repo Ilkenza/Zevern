@@ -5,6 +5,8 @@ type Overrides = {
   unique?: string;
   foreignKey?: string;
   check?: string;
+  /** The last-resort sentence, for callers that are not saving. */
+  fallback?: string;
 };
 
 /**
@@ -52,6 +54,25 @@ export function saveErrorMessage(error: PostgrestError, overrides: Overrides = {
       return "That figure is too large to store — the most an amount holds is 999.999.999.999,99.";
     default:
       console.error("save:", error.message);
-      return "Could not save that. Try again.";
+      return overrides.fallback ?? "Could not save that. Try again.";
   }
+}
+
+/**
+ * The same translation, for a delete rather than a save.
+ *
+ * Every delete in this app used to log its error and carry on — revalidate the list,
+ * redirect to it, and let the person watch the row they just deleted come back. That is
+ * the worst shape a failure can take: the screen says it worked, the database says it
+ * did not, and the only way to find out is to notice the row again later.
+ *
+ * A foreign key is the common one and deserves its own sentence: nothing is broken, the
+ * thing is simply still in use, and "try again" is the one instruction guaranteed not to
+ * help.
+ */
+export function deleteErrorMessage(error: PostgrestError, what = "that"): string {
+  return saveErrorMessage(error, {
+    foreignKey: `Could not delete ${what} — something else still points at it. Remove that first.`,
+    fallback: `Could not delete ${what}. Nothing was removed — try again.`,
+  });
 }

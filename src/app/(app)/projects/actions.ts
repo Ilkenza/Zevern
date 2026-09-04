@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 import { ownsRow, userId } from "@/lib/supabase/current-user";
-import { saveErrorMessage } from "@/lib/supabase/errors";
+import { saveErrorMessage, deleteErrorMessage } from "@/lib/supabase/errors";
 import { PROJECT_STATUSES, type ProjectStatus } from "@/lib/status";
 
 export type ProjectFormState = { error?: string } | undefined;
@@ -66,10 +66,10 @@ export async function saveProject(
 export async function deleteProject(id: string) {
   const supabase = await createSupabaseServerClient();
   const uid = await userId(supabase);
-  if (!uid) return;
+  if (!uid) return { error: "Not signed in." };
 
   const { error } = await supabase.from("projects").delete().eq("id", id).eq("user_id", uid);
-  if (error) console.error("deleteProject:", error.message);
+  if (error) return { error: deleteErrorMessage(error, "this project") };
   revalidatePath("/projects");
   revalidatePath("/");
   redirect("/projects");

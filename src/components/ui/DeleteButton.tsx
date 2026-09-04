@@ -15,7 +15,14 @@ export function DeleteButton({
   variant = "danger",
   className,
 }: {
-  action: () => void | Promise<void>;
+  /**
+   * What the confirmation actually does.
+   *
+   * A delete that returns `{ error }` failed and nothing was removed — say so and leave
+   * the screen alone. Returning nothing still means it worked, which is what every
+   * caller that has not been converted yet does.
+   */
+  action: () => void | Promise<{ error?: string } | void>;
   label?: string;
   confirmText?: string;
   /** Row variant: just the bin icon, no button chrome. The confirm modal stays the same. */
@@ -33,6 +40,7 @@ export function DeleteButton({
 }) {
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
+  const [failed, setFailed] = useState<string | null>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -59,9 +67,23 @@ export function DeleteButton({
     A failure puts both back and says why.
   */
   const confirm = () => {
+    setFailed(null);
     setOpen(false);
     startTransition(async () => {
-      await action();
+      /*
+        A refused delete must not look like one that worked.
+
+        These actions logged the database's complaint and carried on — revalidate,
+        redirect, and the row you deleted turns up again on the next screen with nothing
+        anywhere saying why. So the answer is read: on a failure the list is left exactly
+        as it was and the reason goes on screen, and only a delete that actually happened
+        gets the refresh.
+      */
+      const result = await action();
+      if (result && "error" in result && result.error) {
+        setFailed(result.error);
+        return;
+      }
       startTransition(() => router.refresh());
     });
   };
@@ -134,6 +156,17 @@ export function DeleteButton({
           <Trash2 className="h-4 w-4" />
           {label}
         </button>
+      )}
+
+      {/*
+        Beside the button that was pressed, not in the dialog — the dialog is gone by the
+        time the answer arrives, and a second one opening on its own would read as the app
+        asking again rather than as it refusing.
+      */}
+      {failed && (
+        <p role="alert" className="zv-delete-failed">
+          {failed}
+        </p>
       )}
 
       {/*
