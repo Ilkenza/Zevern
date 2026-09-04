@@ -44,6 +44,7 @@ export function HistoryPanel({
   entries,
   past,
   today,
+  scope,
   onSpan,
 }: {
   line: BudgetPlanLine;
@@ -53,6 +54,15 @@ export function HistoryPanel({
   onSpan: (span?: { from: string; to: string }) => void;
   past: BudgetPast[];
   today: string;
+  /**
+   * What this budget watches, when the name does not say it.
+   *
+   * The panel is where the question gets asked out loud — you open it because a row in
+   * here surprised you. A sweeping budget named after one category listed entries from
+   * every other one and gave no reason anywhere on the screen; this is the reason,
+   * printed above the list rather than left to be deduced from it.
+   */
+  scope: string | null;
 }) {
   const { fmt } = useMoney();
   const reading = readPlan(line, today, fmt);
@@ -309,7 +319,21 @@ export function HistoryPanel({
           </i>
         </p>
         <Meter line={line} fill={fill} pace={reading.pace} today={today} />
-        <p className="zv-sheet-note">{reading.note}</p>
+        <p className="zv-sheet-note">
+          {reading.note}
+          {scope && (
+            <i className="zv-sheet-scope">
+              {/*
+                `watches added only` is not a sentence. A hand-kept budget holds what you
+                put in it, and that is the honest reading of the same fact the card puts
+                in a pill.
+              */}
+              {line.plan.membership === "added"
+                ? "only what you file into it"
+                : `watches ${scope}`}
+            </i>
+          )}
+        </p>
       </div>
 
       {entries === null ? (

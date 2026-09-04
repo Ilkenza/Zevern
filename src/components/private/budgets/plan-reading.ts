@@ -171,3 +171,73 @@ export function windowLabel(window: BudgetWindow): string {
     : `${shortDate(window.from)} – ${shortDate(window.to)}`;
 }
 
+
+/**
+ * What a budget actually watches, in the words the person chose for it.
+ *
+ * A budget's name is a label somebody typed and nothing more, and the app has been
+ * letting that label pass for a rule. A monthly budget named `Groceries` with no
+ * categories attached watches *every* category — so it counted Shopping, its history
+ * listed Shopping, and the overview offered to put a limit on Groceries in the same
+ * breath. Three symptoms, one cause: the only place the scope was written down was the
+ * edit form, and nothing you can read from the outside said which of the two a card was.
+ *
+ * So the card says it. `every category` is the one that has to be said and the one that
+ * was never sayable from the name — a budget that names its categories is already
+ * self-explanatory the moment you see them, and a single category with the same name as
+ * the budget is the label repeated, so both of those stay quiet.
+ */
+export function scopeOf(
+  line: BudgetPlanLine,
+  nameOf: (id: string) => string | undefined,
+): string | null {
+  // A hand-kept budget holds what you put in it. The card already says `added only`,
+  // and no list of categories would describe it.
+  if (line.plan.membership === "added") return "added only";
+
+  /*
+    The count comes from the links, the words from whichever of them still resolve.
+
+    Those are two different numbers, and reading only the second one gets the answer
+    exactly backwards in the one case it matters: `getCategories` leaves archived
+    categories out, so a budget watching a single archived category resolves to no names
+    at all — and "no names" read as "watches everything", which is the false sentence
+    this function exists to stop, printed by the function that stops it.
+  */
+  const total = line.categoryIds.length;
+  if (total === 0) return "every category";
+
+  const named = line.categoryIds
+    .map(nameOf)
+    .filter((name): name is string => Boolean(name));
+
+  // Restricted, and nothing left to name it by. The count is still true.
+  if (named.length === 0) return total === 1 ? "1 category" : `${total} categories`;
+
+  // The label repeated is not information. One category named the same as the budget
+  // over it says nothing the title did not.
+  if (total === 1) {
+    return named[0].trim().toLowerCase() === line.plan.name.trim().toLowerCase()
+      ? null
+      : named[0];
+  }
+
+  const shown = named.slice(0, 2);
+  const rest = total - shown.length;
+  return rest > 0 ? `${shown.join(" · ")} +${rest}` : shown.join(" · ");
+}
+
+/**
+ * Whether this budget is a live ceiling over `categoryId` right now.
+ *
+ * The question anything offering to "set a limit" has to ask first. An expense budget
+ * sweeping every category is a ceiling on all of them, which is precisely the case the
+ * overview panel used to miss.
+ */
+export function capsCategory(line: BudgetPlanLine, categoryId: string): boolean {
+  if (line.plan.kind !== "expense") return false; // a savings target is not a ceiling
+  if (line.plan.membership !== "all") return false; // hand-kept counts nothing by itself
+  if (line.limitRsd <= 0) return false; // a budget with no amount caps nothing
+  if (line.window.ended) return false; // a holiday that is over stopped watching
+  return line.categoryIds.length === 0 || line.categoryIds.includes(categoryId);
+}

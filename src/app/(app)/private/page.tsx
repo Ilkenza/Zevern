@@ -38,7 +38,7 @@ import { remedyFor } from "@/components/private/budgets/status";
 import { NeedsList } from "@/components/private/overview/NeedsList";
 import { BudgetsStrip } from "@/components/private/overview/BudgetsStrip";
 import { daysUntil, readNeeds, whenPhrase } from "@/components/private/overview/needs-you";
-import { readPlan } from "@/components/private/budgets/plan-reading";
+import { capsCategory, readPlan } from "@/components/private/budgets/plan-reading";
 import {
   monthKey,
   monthLabel,
@@ -505,13 +505,31 @@ export default async function PrivateOverviewPage({
     money is real.
   */
   const SUGGEST_SHARE = 0.1;
-  // From the rows on screen, and only the real categories among them — `Uncategorized`
-  // is not a thing you can put a limit on.
-  const suggestion = spentCats
+  /*
+    And only for a category nothing is already capping.
+
+    `l.limit` is the category's own monthly figure and that is all this used to read, so
+    a category whose every dinar was already being counted against a named budget was
+    still announced as having no limit. The screen said `Groceries 7,7k / 20k` in the
+    Budgets card and `Groceries has no limit` in the panel below it, both true of
+    different objects and both printed under the same word — which is not a wording
+    problem, it is the page contradicting itself in the reader's own vocabulary.
+
+    A budget sweeping every category is a ceiling over every category, `Groceries`
+    included, so the sentence was simply false. `capsCategory` is the same rule the
+    Budgets screen counts by, asked from the other side.
+  */
+  /*
+    Only where the budgets are in hand. A closed month does not fetch them — every screen
+    that reads a budget reads the window today falls in, which is not this month's — and a
+    page that cannot see the ceilings has no business declaring one missing.
+  */
+  const suggestion = (live ? spentCats : [])
     .filter(
       (l) =>
         shownIds.has(l.category.id) &&
         l.limit === 0 &&
+        !plans.some((plan) => capsCategory(plan, l.category.id)) &&
         summary.expense > 0 &&
         l.spent / summary.expense >= SUGGEST_SHARE,
     )

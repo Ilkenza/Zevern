@@ -24,7 +24,8 @@ import { BudgetPlanForm } from "./budgets/BudgetPlanForm";
 import { STATE_LABEL,STATE_ORDER,type BudgetState } from "./budgets/card-bits";
 import { HistoryPanel } from "./budgets/HistoryPanel";
 import {
-readPlan
+readPlan,
+scopeOf
 } from "./budgets/plan-reading";
 
 export function BudgetPlansView({
@@ -326,6 +327,18 @@ export function BudgetPlansView({
   */
   const flat = lines.filter(keep).sort(order);
 
+  /*
+    Category names by id, worked out once for the whole screen.
+
+    Every card and the panel behind it ask the same question — "what is this budget
+    over" — and the answer is a lookup into a list this component already has. Doing it
+    per card would be the same map rebuilt for each of a dozen cards on every render.
+  */
+  const categoryName = useMemo(() => {
+    const byId = new Map(categories.map((c) => [c.id, c.name]));
+    return (id: string) => byId.get(id);
+  }, [categories]);
+
   const grid = (rows: BudgetPlanLine[]) => (
     <div className="grid gap-2.5 md:grid-cols-2">
       {rows.map((line) => (
@@ -334,6 +347,7 @@ export function BudgetPlansView({
           line={line}
           past={histories[line.plan.id] ?? []}
           today={today}
+          scope={scopeOf(line, categoryName)}
           onEdit={() => setPanel({ mode: "edit", line })}
           onHistory={() => openEntries(line)}
           onPrime={() => primeEntries(line.plan.id)}
@@ -455,6 +469,7 @@ export function BudgetPlansView({
             entries={entries}
             past={histories[shown.line.plan.id] ?? []}
             today={today}
+            scope={scopeOf(shown.line, categoryName)}
             onSpan={(span) => readEntries(shown.line.plan.id, span)}
           />
         )}
@@ -509,4 +524,3 @@ export function BudgetPlansView({
     </div>
   );
 }
-

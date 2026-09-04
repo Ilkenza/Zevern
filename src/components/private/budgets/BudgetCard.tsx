@@ -45,6 +45,7 @@ export function BudgetCard({
   line,
   past,
   today,
+  scope,
   onEdit,
   onHistory,
   onPrime,
@@ -52,6 +53,12 @@ export function BudgetCard({
   line: BudgetPlanLine;
   past: BudgetPast[];
   today: string;
+  /**
+   * What it watches, when that is not obvious from the name. `scopeOf` decides; the
+   * card only prints it, because the panel behind the card has to print the same
+   * sentence and two components working it out separately is two chances to disagree.
+   */
+  scope: string | null;
   onEdit: () => void;
   onHistory: () => void;
   /** Fired on pointer-down, so the read is under way before the click lands. */
@@ -74,7 +81,14 @@ export function BudgetCard({
             what their budgets are called — the figure is what the card is for.
           */}
           <b>{line.plan.name}</b>
-          {line.plan.membership === "added" && <em>added only</em>}
+          {/*
+            What the budget is over. This used to say `added only` and otherwise nothing
+            at all — so a budget named after one category while quietly counting every
+            category looked, on this card, exactly like a limit on that category. The
+            figure beside it was the sum of the whole month, and nothing on screen
+            admitted it.
+          */}
+          {scope && <em>{scope}</em>}
         </span>
         {/*
           How often it comes back, and nothing about dates: the bar underneath is made of

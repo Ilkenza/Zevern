@@ -11506,6 +11506,14 @@ input[type="date"]:focus::-webkit-calendar-picker-indicator {
   font-size: 11.5px;
 }
 
+/* What the budget is over, beside where it stands — quieter than the verdict it follows,
+   because it is the standing fact and the verdict is the news. */
+.zv-sheet-scope {
+  color: var(--color-faint);
+  font-style: normal;
+}
+.zv-sheet-scope::before { content: " · "; }
+
 .zv-sheet.is-bad .bud-fill {
   background: linear-gradient(
     180deg,
