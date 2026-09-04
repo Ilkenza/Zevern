@@ -1,5 +1,6 @@
 import { Download, FileJson, Table2 } from "lucide-react";
 import { buttonClasses } from "@/components/ui/Button";
+import { RestorePanel } from "./RestorePanel";
 
 /**
  * The way out.
@@ -26,13 +27,12 @@ const SHEETS: { table: string; label: string }[] = [
 export function ExportPanel() {
   return (
     <div className="p-4">
-      <p className="text-[13px] leading-relaxed text-muted">
-        Everything on this account, on your own disk. The JSON is the complete copy —
-        every table, nothing reshaped. The spreadsheets are one table each, for the
-        times you only want to open the numbers somewhere else.
-      </p>
-
-      <div className="mt-4 flex flex-wrap items-center gap-2">
+      {/*
+        The paragraph that used to open this said what the panel's own header says and
+        what the two controls under it say, in longer words. Three statements of one
+        fact is how a screen teaches you to skip it.
+      */}
+      <div className="flex flex-wrap items-center gap-2">
         <a
           href="/api/export?format=json"
           download
@@ -66,12 +66,18 @@ export function ExportPanel() {
         </div>
       </div>
 
-      <p className="mt-4 text-[11.5px] leading-relaxed text-faint">
-        A spreadsheet opens with semicolons and a byte-order mark so Excel on a Serbian
-        locale reads the columns rather than dropping the lot into column A. If one
-        table cannot be read, nothing downloads — half a copy handed over as though it
-        were all of it is the one outcome worth failing for.
-      </p>
+      {/*
+        What is left of a four-line footnote. The BOM and the semicolons are how the
+        file is built, not something anyone has to know; that a CSV will simply open in
+        Excel here is the part that answers a question somebody actually has.
+      */}
+      <p className="mt-3 text-[11.5px] text-faint">Opens straight in Excel on a Serbian locale.</p>
+
+      {/*
+        The way back in, under the way out, because they are one subject. A backup you
+        cannot restore is a file — this is the half that was missing.
+      */}
+      <RestorePanel />
     </div>
   );
 }

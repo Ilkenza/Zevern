@@ -89,7 +89,31 @@ const SCOPES: Partial<Record<ExportTable, Scope>> = {
   profiles: { owner: "id", order: ["id"] },
   money_budget_categories: { owner: "budget_id", order: ["budget_id", "category_id"] },
   money_budget_accounts: { owner: "budget_id", order: ["budget_id", "account_id"] },
+  /*
+    A day's counters, keyed by `(user_id, day)` — no `id` column at all.
+
+    Without this line the default scope ordered it by `id`, PostgREST answered that no
+    such column exists, and the rule two hundred lines down did exactly what it promises:
+    one table that cannot be read fails the whole export. So `Download everything`
+    returned `Could not read ext_usage. Nothing was exported.` and had done since the day
+    this table joined the list — the button on the screen produced no file at all, ever,
+    and the failure was a 500 nobody was looking at.
+
+    The lesson is in the shape of the bug rather than the typo: three tables needed a
+    scope, three were written down, and the fourth was added to `EXPORT_TABLES` months
+    later by someone reading a list of table names. The test beside this one now checks
+    the pair rather than the list.
+  */
+  ext_usage: { owner: "user_id", order: ["day"] },
 };
+
+/**
+ * How one table is read — the single place that answers it, so a test can hold the
+ * answer up against the schema instead of against a copy of itself.
+ */
+export function scopeFor(table: string): Scope {
+  return SCOPES[table as ExportTable] ?? DEFAULT_SCOPE;
+}
 
 /**
  * How many rows PostgREST hands back before it stops, without saying that it did.
@@ -113,7 +137,7 @@ export async function collectExport(): Promise<ExportResult> {
   const counts: Record<string, number> = {};
 
   for (const table of EXPORT_TABLES) {
-    const scope = SCOPES[table] ?? DEFAULT_SCOPE;
+    const scope = scopeFor(table);
 
     /*
       The budgets have to be in hand before the two tables that hang off them can be

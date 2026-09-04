@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { EXPORT_TABLES, exportStem, toCsv } from "./collect";
+import { EXPORT_TABLES, exportStem, scopeFor, toCsv } from "./collect";
 
 describe("toCsv", () => {
   it("writes a header from the union of every key, not just the first row", () => {
@@ -110,5 +110,42 @@ describe("every table that exists is exported", () => {
 describe("exportStem", () => {
   it("names the file after the day it was taken", () => {
     expect(exportStem("2026-08-25")).toBe("zevern-export-2026-08-25");
+  });
+});
+
+describe("every exported table can actually be read", () => {
+  /**
+   * The four tables in this database that are not `(id, user_id)`, and how the export
+   * has to reach each one.
+   *
+   * This exists because `Download everything` was broken and nobody knew. `ext_usage`
+   * is keyed by `(user_id, day)` and has no `id` column, so the default scope ordered
+   * it by a column that does not exist; PostgREST said so, and the export's own rule —
+   * one unreadable table fails the whole file — did the rest. The button produced no
+   * file at all, and had not since that table joined the list.
+   *
+   * A list of table names is easy to add to and a list of exceptions is easy to forget,
+   * so this pins the exceptions rather than the list. Adding a table with an unusual
+   * key now fails here instead of at the download.
+   */
+  const ODD: Record<string, { owner: string; order: string[] }> = {
+    profiles: { owner: "id", order: ["id"] },
+    ext_usage: { owner: "user_id", order: ["day"] },
+    money_budget_categories: { owner: "budget_id", order: ["budget_id", "category_id"] },
+    money_budget_accounts: { owner: "budget_id", order: ["budget_id", "account_id"] },
+  };
+
+  it("gives a scope to every table that is not keyed by id", () => {
+    for (const [table, want] of Object.entries(ODD)) {
+      expect(EXPORT_TABLES, `${table} is no longer exported`).toContain(table);
+      expect(scopeFor(table), `${table} needs its own scope`).toEqual(want);
+    }
+  });
+
+  it("orders every other table by the id it has", () => {
+    for (const table of EXPORT_TABLES) {
+      if (ODD[table]) continue;
+      expect(scopeFor(table), table).toEqual({ owner: "user_id", order: ["id"] });
+    }
   });
 });

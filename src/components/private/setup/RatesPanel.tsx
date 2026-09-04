@@ -89,11 +89,9 @@ function DefaultCurrency() {
           );
         })}
       </div>
-      <p className="mt-2 text-[11.5px] leading-relaxed text-muted">
-        Every figure in the private workspace is shown in this currency, and every new
-        entry, rule, plan and goal opens on it. Dinars stay the unit underneath — each
-        entry keeps the rate it was written at — so choosing another one changes what
-        you read, never what is recorded.
+      {/* Four lines said one thing: it changes the display, not the records. */}
+      <p className="mt-2 text-[11.5px] text-muted">
+        Changes what you read. Dinars stay the unit underneath, so nothing recorded moves.
       </p>
     </div>
   );
@@ -156,11 +154,13 @@ export function RatesPanel({ eur, usd, updatedOn }: { eur: number; usd: number; 
           {fetchError && <span className="text-[12px] text-danger">{fetchError}</span>}
         </div>
 
-        <p className="mt-3.5 border-t border-line-soft pt-3 text-[12.5px] leading-relaxed text-muted">
-          Everything is totalled in dinars underneath. These are the rates used to write an
-          entry made in euros or dollars, and to show your figures back in the currency
-          above. Each entry keeps the rate it was written at, so past months never move
-          when you update these.
+        {/*
+          The old four lines and the four above it were the same paragraph twice, on one
+          screen. This is the half the other one does not say: an old entry keeps the rate
+          it was written at, so editing these never moves a month that is already closed.
+        */}
+        <p className="mt-3.5 border-t border-line-soft pt-3 text-[12.5px] text-muted">
+          Used for new entries only — past months keep the rate they were written at.
         </p>
       </form>
     </div>
