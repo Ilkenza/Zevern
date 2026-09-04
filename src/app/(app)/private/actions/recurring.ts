@@ -9,8 +9,7 @@ import {
 anchorDayFor,
 CURRENCIES,
 nextDate,
-rateFor
-} from "@/lib/money";
+rateFor, formatRsd } from "@/lib/money";
 import { userId } from "@/lib/supabase/current-user";
 import { saveErrorMessage, deleteErrorMessage } from "@/lib/supabase/errors";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
@@ -450,7 +449,28 @@ export async function postRecurring(id: string, amountOverride?: number): Promis
         .delete()
         .eq("id", booked.id)
         .eq("user_id", uid);
-      if (undoErr) console.error("postRecurring rollback:", undoErr.message);
+      /*
+        The one failure on this path that must never be quiet.
+
+        If the entry was written and taking it back fails, the ledger is holding a
+        duplicate of a booking that happened on another request — and the code below
+        used to answer `{ ok: true }`, so the screen said the rule was posted while the
+        account quietly counted the money twice. Every balance on every screen is wrong
+        from that moment, and nothing says so.
+
+        Nothing here can fix it: the delete is the fix, and it is what failed. So it is
+        reported, in full, with the date and the figure, because the person is the only
+        one who can now go and remove it.
+      */
+      if (undoErr) {
+        console.error("postRecurring rollback:", undoErr.message);
+        return {
+          error:
+            `This rule was already posted by another request, and the duplicate entry ` +
+            `this one made could not be taken back out. Delete the ${formatRsd(Number(item.amount_rsd) || 0)} ` +
+            `entry dated ${item.next_on} on the ledger — until you do, every balance counts it twice.`,
+        };
+      }
     }
     if (bumpErr) return { error: saveErrorMessage(bumpErr) };
     // Not an error the person needs to see: the booking they wanted did happen, just
