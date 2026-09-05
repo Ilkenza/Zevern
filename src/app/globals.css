@@ -3640,22 +3640,33 @@ body::after {
    with the backlog, and "what does Thursday look like" is a click, not a scroll.
    ========================================================================== */
 
+/*
+  Every day on screen, wrapping when they do not fit across.
+
+  This was one flex row that scrolled sideways with its scrollbar hidden. At the width
+  this page actually gets — the sidebar takes two hundred pixels off a laptop — ten days
+  need 1052px and have 720, so four of them were simply not there: Thursday, Friday, `No
+  date`, and `Later`, which was holding twenty-seven tasks. Nothing on screen said they
+  existed, and the tenth tile was sliced off mid-chip by the edge, which is what a broken
+  layout looks like rather than a scrollable one.
+
+  A hidden scrollbar is only right where the overflow announces itself some other way.
+  Here nothing did. So the row wraps, and `auto-fit` keeps every tile the same width
+  whichever row it lands in — six and four on a laptop, all ten across on a wide window,
+  with no breakpoint deciding which.
+*/
 .task-rail {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
   gap: 8px;
   margin-bottom: 14px;
-  padding-bottom: 4px;
-  overflow-x: auto;
-  scrollbar-width: none;
   animation: money-head-in 620ms var(--ease-premium) 120ms both;
 }
 
-.task-rail::-webkit-scrollbar { display: none; }
-
 .task-chip {
   display: grid;
-  flex: 1 1 0;
-  min-width: 98px;
+  /* The rail is a grid now and sizes these. A flex basis and a floor here would be two
+     more numbers to keep in step with it. */
   align-items: center;
   gap: 0 10px;
   padding: 9px 12px;
@@ -7077,8 +7088,24 @@ a.breakdown-row-on:hover { background: rgba(217, 164, 65, 0.2); }
   that difference is the hierarchy. Filled gold is the kind, which decides the whole
   form; a tint is the shape of it, which decides one field.
 */
+/*
+  Equal segments, each wide enough for its own label.
+
+  This was a flex row with `flex: 1` on the segments, which is `flex-basis: 0` — every
+  segment starts from nothing and they share out whatever the row happens to be. On the
+  Tasks switch that made all three the width of `List`, and `One day` wrapped: the icon
+  on one line, `One` under it, `day` under that, in a control forty-one pixels tall
+  standing beside two that were twenty-six. It read as a broken button rather than as a
+  missing width.
+
+  A grid instead. `1fr` here is `minmax(auto, 1fr)`, and that `auto` floor is min-content
+  — so the columns stay equal *and* none is ever narrower than the longest label in it.
+  Nothing to keep in step by hand when a label is renamed.
+*/
 .zv-seg {
-  display: flex;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
   gap: 4px;
   margin-bottom: 13px;
   padding: 4px;
@@ -7099,15 +7126,25 @@ a.breakdown-row-on:hover { background: rgba(217, 164, 65, 0.2); }
   the most expensive place to have a second answer.
 */
 .zv-seg > :is(a, button) {
-  flex: 1;
+  /*
+    The icon beside the label rather than in the text flow with it. As a bare inline SVG
+    it was a word the line could break after, which is half of why the wrap above looked
+    the way it did.
+  */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   padding: 6px 10px;
   border-radius: 6px;
   color: var(--color-muted);
   font-size: 12.5px;
   font-weight: 600;
   text-align: center;
+  white-space: nowrap;
   transition: color 180ms ease, background-color 180ms ease;
 }
+.zv-seg > :is(a, button) > svg { flex: none; }
 
 .zv-seg > :is(a, button):hover:not(.is-on) {
   background: rgba(255, 255, 255, 0.04);
