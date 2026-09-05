@@ -3657,10 +3657,34 @@ body::after {
 */
 .task-rail {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
   margin-bottom: 14px;
   animation: money-head-in 620ms var(--ease-premium) 120ms both;
+}
+
+/*
+  Counted columns, not `auto-fit`.
+
+  `auto-fit` packs as many as will fit and leaves whatever is over on a line of its own:
+  at the width this page actually gets that was nine tiles across and `No date` alone
+  underneath, which looks like a mistake rather than a second row. The count of tiles is
+  not fixed either — seven days, plus `Late`, `Later` and `No date` only when they hold
+  something — so eight, nine or ten have to land well.
+
+  Five divides all three into rows of five, four or three: never a lone tile. Ten only
+  once every tile still clears 112px, which is 1445px of window; below that a single row
+  would be won by cramming `Tomorrow` into a hundred pixels, and that is not a row worth
+  having.
+*/
+@media (min-width: 560px) {
+  .task-rail { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (min-width: 760px) {
+  .task-rail { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+}
+@media (min-width: 1445px) {
+  .task-rail { grid-template-columns: repeat(10, minmax(0, 1fr)); }
 }
 
 .task-chip {
