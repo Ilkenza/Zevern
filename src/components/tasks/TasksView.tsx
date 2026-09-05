@@ -292,6 +292,16 @@ function Chip({ band, on, onPick }: { band: Band; on: boolean; onPick: () => voi
  */
 const PREVIEW = 6;
 
+/**
+ * How many more rows a press adds.
+ *
+ * `Show all 62` was one press back to a section two thousand pixels tall — the cap
+ * undone in a single gesture, with no way to ask for a bit more. Ten at a time keeps the
+ * choice with the reader: a glance costs nothing, a second look costs ten rows, and the
+ * end of a band arrives when it arrives.
+ */
+const STEP = 10;
+
 function TaskSection({
   band,
   today,
@@ -313,9 +323,10 @@ function TaskSection({
     reading right now — it does not want to survive collapsing the section, and a second
     map in the parent would be a second thing to keep in step with the first.
   */
-  const [full, setFull] = useState(false);
-  const shown = full ? band.tasks : band.tasks.slice(0, PREVIEW);
+  const [extra, setExtra] = useState(0);
+  const shown = band.tasks.slice(0, PREVIEW + extra);
   const rest = band.tasks.length - shown.length;
+  const next = Math.min(STEP, rest);
 
   return (
     <section className={cn("task-sec", `is-${band.tone}`, isOpen && "is-open")}>
@@ -353,9 +364,19 @@ function TaskSection({
             fifty-four, and on this screen that is the difference between a glance and a
             scroll. Once open it says `Show fewer` and gives the count back.
           */}
-          {(rest > 0 || full) && band.tasks.length > PREVIEW && (
-            <button type="button" onClick={() => setFull((was) => !was)} className="task-sec-more">
-              {full ? `Show fewer` : `Show all ${band.tasks.length}`}
+          {rest > 0 && (
+            <button
+              type="button"
+              onClick={() => setExtra((was) => was + STEP)}
+              className="task-sec-more"
+            >
+              Show {next} more
+              <span className="task-sec-more-rest">{rest} left</span>
+            </button>
+          )}
+          {rest === 0 && extra > 0 && (
+            <button type="button" onClick={() => setExtra(0)} className="task-sec-more">
+              Show fewer
             </button>
           )}
 
@@ -595,8 +616,17 @@ export function TasksView({
   const rankedTasks = [...(band?.tasks ?? [])].sort(
     (a, b) => (RANK[a.priority] ?? 1) - (RANK[b.priority] ?? 1),
   );
-  const focusTasks = rankedTasks.slice(0, FOCUS_LIMIT);
-  const remainingTasks = rankedTasks.slice(FOCUS_LIMIT);
+  /*
+    How many extra rows the open day is showing, and which day asked for them.
+
+    Keyed by the band rather than reset by an effect: picking another day makes the key
+    stop matching and the count falls back to nought on its own. React Compiler will not
+    take a `setState` in an effect, and this needs no effect to begin with.
+  */
+  const [dayExtra, setDayExtra] = useState<{ key: string; n: number }>({ key: "", n: 0 });
+  const shownOnDay = FOCUS_LIMIT + (dayExtra.key === activeKey ? dayExtra.n : 0);
+  const focusTasks = rankedTasks.slice(0, shownOnDay);
+  const remainingTasks = rankedTasks.slice(shownOnDay);
   const reviewPool = reviewAll ? rankedTasks : remainingTasks;
   const safeReviewIndex = reviewPool.length ? Math.min(reviewIndex, reviewPool.length - 1) : 0;
   const reviewTask = reviewPool[safeReviewIndex] ?? null;
@@ -1029,6 +1059,27 @@ export function TasksView({
                       }
                     />
                   ))}
+                  {/*
+                    Ten more, or decide the rest. Two doors on the same pile, because
+                    reading on and triaging are different moods and the panel used to
+                    offer only the second.
+                  */}
+                  {remainingTasks.length > 0 && (
+                    <button
+                      type="button"
+                      className="task-sec-more"
+                      onClick={() =>
+                        setDayExtra((was) => ({
+                          key: activeKey,
+                          n: (was.key === activeKey ? was.n : 0) + STEP,
+                        }))
+                      }
+                    >
+                      Show {Math.min(STEP, remainingTasks.length)} more
+                      <span className="task-sec-more-rest">{remainingTasks.length} left</span>
+                    </button>
+                  )}
+
                   {remainingTasks.length > 0 && (
                     <div className="task-review-cta">
                       <div>
