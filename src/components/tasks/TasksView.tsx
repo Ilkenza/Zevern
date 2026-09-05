@@ -247,19 +247,35 @@ type Band = {
   hint: string;
 };
 
+/**
+ * One band, as a tab.
+ *
+ * It was a tile: two lines, a border, a fill, ninety pixels of height, and ten of them
+ * across the top of the screen. That cost a third of the page for an answer that is
+ * mostly nought — six of the seven days this week hold nothing — and the row of them
+ * could not be made to sit right at every width, because a row holding a variable number
+ * of tiles will one day hold the wrong number. Three attempts, three shapes, the same
+ * fault each time.
+ *
+ * A tab has no box to run out of room in. Ten of them are one line of text, the day and
+ * its count, and the whole picker is forty-six pixels instead of two hundred. The
+ * underline says which one you are on; the date is dropped because the panel below
+ * prints the full title anyway, and `Mon` inside this week needs no year.
+ *
+ * A day holding nothing is dimmed rather than hidden — it is still somewhere to put
+ * something, and an empty Wednesday you cannot click is a Wednesday you cannot plan.
+ */
 function Chip({ band, on, onPick }: { band: Band; on: boolean; onPick: () => void }) {
+  const empty = band.tasks.length === 0;
   return (
     <button
       type="button"
       onClick={onPick}
       aria-pressed={on}
-      className={cn("task-chip", `task-chip-${band.tone}`, on && "task-chip-on")}
+      className={cn("task-tab", `task-tab-${band.tone}`, on && "is-on", empty && "is-zero")}
     >
-      <span className="task-chip-lead">{band.lead}</span>
-      {band.sub && <span className="task-chip-sub">{band.sub}</span>}
-      <span className={cn("mono task-chip-count", band.tasks.length === 0 && "is-zero")}>
-        {band.tasks.length}
-      </span>
+      {band.lead}
+      <span className="mono task-tab-count">{band.tasks.length}</span>
     </button>
   );
 }
@@ -888,7 +904,7 @@ export function TasksView({
               }}
             />
           ) : mode === "days" ? (
-            <nav className="task-rail" aria-label="Pick a day">
+            <nav className="task-tabs" aria-label="Pick a day">
               {bands.map((b) => (
                 <Chip
                   key={b.key}

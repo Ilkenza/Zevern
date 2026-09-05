@@ -3655,138 +3655,67 @@ body::after {
   whichever row it lands in — six and four on a laptop, all ten across on a wide window,
   with no breakpoint deciding which.
 */
-.task-rail {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
+/*
+  The days as tabs, not as tiles.
+
+  Three shapes were tried before this one and each broke the same way: a row holding a
+  variable number of boxes will one day hold the wrong number. `auto-fit` stranded the
+  tenth; counted columns stranded the ninth; nothing divides eight, nine *and* ten, and
+  the count varies because `Late`, `Later` and `No date` only exist when they hold
+  something.
+
+  A tab has no box to run out of room in. It is a word and a number, so ten of them are
+  one line rather than two rows of cards, and the picker went from about two hundred
+  pixels of the screen to forty-six. It also stops the page being mostly a report of
+  noughts: six of this week's seven days hold nothing, and a dimmed word says that as
+  well as an empty tile did, in a twentieth of the space.
+
+  Wrapping is still allowed and is unremarkable when it happens — a tab that falls to a
+  second line sits at its start, which is what a second line of tabs looks like
+  everywhere. That is the difference between wrapping words and wrapping cards.
+*/
+.task-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
   margin-bottom: 14px;
+  border-bottom: 1px solid var(--color-line);
   animation: money-head-in 620ms var(--ease-premium) 120ms both;
 }
 
-/*
-  Counted columns, not `auto-fit`.
-
-  `auto-fit` packs as many as will fit and leaves whatever is over on a line of its own:
-  at the width this page actually gets that was nine tiles across and `No date` alone
-  underneath, which looks like a mistake rather than a second row. The count of tiles is
-  not fixed either — seven days, plus `Late`, `Later` and `No date` only when they hold
-  something — so eight, nine or ten have to land well.
-
-  Five divides all three into rows of five, four or three: never a lone tile. Ten only
-  once every tile still clears 112px, which is 1445px of window; below that a single row
-  would be won by cramming `Tomorrow` into a hundred pixels, and that is not a row worth
-  having.
-*/
-@media (min-width: 560px) {
-  .task-rail { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-}
-@media (min-width: 760px) {
-  .task-rail { grid-template-columns: repeat(5, minmax(0, 1fr)); }
-}
-@media (min-width: 1445px) {
-  .task-rail { grid-template-columns: repeat(10, minmax(0, 1fr)); }
-}
-
-.task-chip {
-  display: grid;
-  /* The rail is a grid now and sizes these. A flex basis and a floor here would be two
-     more numbers to keep in step with it. */
-  align-items: center;
-  gap: 0 10px;
-  padding: 9px 12px;
-  border: 1px solid var(--color-line);
-  border-radius: 13px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.032), rgba(255, 255, 255, 0.008)),
-    rgba(12, 14, 18, 0.4);
-  /*
-    `minmax(0, 1fr)`, not `1fr`. A grid track defaults to a floor of its own content, so
-    a long label — "beyond the week" — pushed the track wider than the tile and shoved
-    the count out through the border, where it sat beside the chip looking like it
-    belonged to the next one. With a floor of zero the text gives way instead.
-  */
-  grid-template-columns: minmax(0, 1fr) auto;
-  grid-template-rows: auto auto;
-  overflow: hidden;
-  cursor: pointer;
-  text-align: left;
-  transition:
-    border-color 220ms ease,
-    background 220ms ease,
-    box-shadow 300ms ease,
-    transform 260ms var(--ease-premium);
-}
-
-.task-chip:hover {
-  border-color: rgba(255, 255, 255, 0.1);
-  background: rgba(255, 255, 255, 0.045);
-}
-
-.task-chip-lead {
-  grid-area: 1 / 1;
-  overflow: hidden;
-  color: var(--color-ink);
+.task-tab {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 9px 13px;
+  border-bottom: 2px solid transparent;
+  color: var(--color-muted);
   font-size: 12.5px;
-  font-weight: 700;
-  letter-spacing: -0.2px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.task-chip-sub {
-  grid-area: 2 / 1;
-  overflow: hidden;
-  color: var(--color-faint);
-  font-size: 10.5px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.task-chip-count {
-  grid-area: 1 / 2 / span 2 / auto;
-  color: var(--color-gold-hi);
-  font-size: 17px;
   font-weight: 600;
-  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 180ms ease, border-color 180ms ease;
+}
+.task-tab-count {
+  font-size: 11.5px;
+  font-weight: 800;
+  color: var(--color-gold);
+  transition: color 180ms ease;
 }
 
-/* Nothing due is not a number worth reading — it is the absence of one. */
-.task-chip-count.is-zero { color: var(--color-faint); font-weight: 500; opacity: 0.55; }
+/* A day with nothing on it is still somewhere to put something — dimmed, never gone. */
+.task-tab.is-zero { color: var(--color-faint); }
+.task-tab.is-zero .task-tab-count { color: #41485a; }
 
-/* The day you are in is marked even when you are looking at another one. */
-.task-chip-today .task-chip-lead { color: var(--color-gold-hi); }
-
-.task-chip-late,
-.task-chip-parked { flex: 0 0 auto; min-width: 116px; }
-
-.task-chip-late {
-  border-color: rgba(222, 107, 94, 0.32);
-  background: linear-gradient(180deg, rgba(222, 107, 94, 0.12), rgba(222, 107, 94, 0.04));
+.task-tab:hover { color: var(--color-ink); }
+.task-tab.is-on {
+  color: var(--color-ink);
+  border-bottom-color: var(--color-gold);
 }
 
-.task-chip-late .task-chip-lead,
-.task-chip-late .task-chip-count { color: var(--color-danger); }
-
-.task-chip-on {
-  border-color: rgba(217, 164, 65, 0.38);
-  background:
-    linear-gradient(135deg, rgba(217, 164, 65, 0.2), rgba(217, 164, 65, 0.075)),
-    rgba(217, 164, 65, 0.05);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 232, 178, 0.1),
-    0 10px 24px rgba(217, 164, 65, 0.1);
-}
-
-.task-chip-on .task-chip-lead { color: var(--color-gold-hi); }
-.task-chip-on .task-chip-sub { color: var(--color-muted); }
-
-.task-chip-late.task-chip-on {
-  border-color: rgba(222, 107, 94, 0.5);
-  background:
-    linear-gradient(135deg, rgba(222, 107, 94, 0.24), rgba(222, 107, 94, 0.08)),
-    rgba(222, 107, 94, 0.05);
-  box-shadow: 0 10px 24px rgba(222, 107, 94, 0.12);
-}
+/* Late is the one band that is not a plan but a debt, and it keeps the app's word for that. */
+.task-tab-late .task-tab-count { color: var(--color-danger); }
+.task-tab-late.is-on { border-bottom-color: var(--color-danger); }
 
 /* ------------------------------------------------------------- The one panel */
 
@@ -4004,7 +3933,6 @@ body::after {
 }
 
 @media (max-width: 720px) {
-  .task-chip { flex: 0 0 auto; min-width: 92px; }
   .task-review-cta { align-items: flex-start; }
   .task-review-card { padding: 22px 14px 16px; }
   .task-review-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -4020,9 +3948,9 @@ body::after {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .task-rail,
+  .task-tabs,
   .task-panel { animation: none !important; opacity: 1; transform: none; }
-  .task-chip { transition: none; }
+  .task-tab { transition: none; }
 }
 
 /* ======================================================================= Setup
