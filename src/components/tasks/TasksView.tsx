@@ -40,6 +40,9 @@ export type TaskWorkspace = "work" | "personal";
 /** The main panel is a focus list, not the whole backlog. */
 const FOCUS_LIMIT = 10;
 
+/** High first. One table, because two places sort by priority and they must agree. */
+const RANK: Record<string, number> = { high: 0, med: 1, low: 2 };
+
 /** `iso` moved by whole days, kept as a wall-clock date string. */
 function addDays(iso: string, days: number): string {
   const d = new Date(`${iso}T00:00:00Z`);
@@ -445,7 +448,20 @@ export function TasksView({
         const d = dayOf(t);
         return d !== null && d < today;
       })
-      .sort((a, b) => (dayOf(a) ?? "").localeCompare(dayOf(b) ?? ""));
+      /*
+        Worst first, then oldest.
+
+        It was oldest first, which is the right order for a queue you will finish and the
+        wrong one for a band of sixty-two you will not. Now that a section shows six rows
+        before offering the rest, those six are the argument for the whole band — and the
+        six oldest are whatever happened to slip first, not what matters. The `2 weeks
+        late` note on each row still carries the age.
+      */
+      .sort(
+        (a, b) =>
+          (RANK[a.priority] ?? 1) - (RANK[b.priority] ?? 1) ||
+          (dayOf(a) ?? "").localeCompare(dayOf(b) ?? ""),
+      );
 
     if (late.length > 0) {
       list.push({
@@ -560,6 +576,15 @@ export function TasksView({
   const [shut, setShut] = useState<Record<string, boolean>>({});
   const [month, setMonth] = useState(() => today.slice(0, 7));
   const [reviewing, setReviewing] = useState(false);
+  /*
+    Whether this review is over the whole band or only what the focus list left behind.
+
+    Two different intents on one flow. The panel's own `Review remaining 52` means the
+    ones the focus list did not show; the bar at the top of the page means all sixty-two,
+    because that is the number on the bar and a review that quietly starts at the
+    eleventh would be counting something else.
+  */
+  const [reviewAll, setReviewAll] = useState(false);
   const [reviewIndex, setReviewIndex] = useState(0);
   const [reviewed, setReviewed] = useState(0);
   const [reviewTotal, setReviewTotal] = useState(0);
@@ -567,16 +592,14 @@ export function TasksView({
   const fallback = bands.some((b) => b.key === "late") ? "late" : today;
   const activeKey = picked && bands.some((b) => b.key === picked) ? picked : fallback;
   const band = bands.find((b) => b.key === activeKey) ?? bands[0];
-  const priorityRank: Record<string, number> = { high: 0, med: 1, low: 2 };
   const rankedTasks = [...(band?.tasks ?? [])].sort(
-    (a, b) => (priorityRank[a.priority] ?? 1) - (priorityRank[b.priority] ?? 1),
+    (a, b) => (RANK[a.priority] ?? 1) - (RANK[b.priority] ?? 1),
   );
   const focusTasks = rankedTasks.slice(0, FOCUS_LIMIT);
   const remainingTasks = rankedTasks.slice(FOCUS_LIMIT);
-  const safeReviewIndex = remainingTasks.length
-    ? Math.min(reviewIndex, remainingTasks.length - 1)
-    : 0;
-  const reviewTask = remainingTasks[safeReviewIndex] ?? null;
+  const reviewPool = reviewAll ? rankedTasks : remainingTasks;
+  const safeReviewIndex = reviewPool.length ? Math.min(reviewIndex, reviewPool.length - 1) : 0;
+  const reviewTask = reviewPool[safeReviewIndex] ?? null;
   const reviewComplete = reviewing && (reviewed >= reviewTotal || reviewTask === null);
 
   /*
@@ -611,6 +634,7 @@ export function TasksView({
 
   const leaveReview = () => {
     setReviewing(false);
+    setReviewAll(false);
     setReviewIndex(0);
     setReviewed(0);
     setReviewTotal(0);
@@ -618,9 +642,29 @@ export function TasksView({
 
   const beginReview = () => {
     setReviewing(true);
+    setReviewAll(false);
     setReviewIndex(0);
     setReviewed(0);
     setReviewTotal(remainingTasks.length);
+  };
+
+  /*
+    The one thing that makes sixty-two into sixty-one.
+
+    This flow already existed and was unreachable: it lived at the bottom of the `One
+    day` panel, under a focus list, in a mode he was not in. So the screen offered every
+    way of *looking* at a backlog and no way of *deciding* it, and no arrangement of rows
+    — not a board, not a calendar — takes a task off that list. One decision at a time
+    does.
+  */
+  const startTriage = () => {
+    setMode("days");
+    setPicked("late");
+    setReviewing(true);
+    setReviewAll(true);
+    setReviewIndex(0);
+    setReviewed(0);
+    setReviewTotal(lateCount);
   };
 
   const reviewMove = (dueOn: string | null) => {
@@ -726,6 +770,25 @@ export function TasksView({
             Only once the list is long enough that finding a task by eye has stopped
             being possible; below that the rail already shows you everything.
           */}
+          {/*
+            Above the search and the switch, because it is not another way of looking.
+
+            With sixty-two past their date the first thing on this screen was sixty-two
+            rows, and every control over them was a way of arranging the same sixty-two.
+            The bar says the number and offers the only action that changes it.
+          */}
+          {lateCount > 0 && !reviewing && (
+            <div className="task-triage">
+              <div>
+                <strong>{plural(lateCount, "task is", "tasks are")} past their date</strong>
+                <span>One at a time: do it, move it, or drop it.</span>
+              </div>
+              <button type="button" onClick={startTriage}>
+                Go through them
+              </button>
+            </div>
+          )}
+
           {tasks.length >= 12 && (
             <ListBar
               query={q}
@@ -884,9 +947,9 @@ export function TasksView({
                       </span>
                       <strong>Review complete</strong>
                       <p>
-                        {remainingTasks.length > 0
-                          ? `${remainingTasks.length} skipped ${
-                              remainingTasks.length === 1 ? "task is" : "tasks are"
+                        {reviewPool.length > 0
+                          ? `${reviewPool.length} skipped ${
+                              reviewPool.length === 1 ? "task is" : "tasks are"
                             } still here.`
                           : "Every remaining task now has a clear place."}
                       </p>
