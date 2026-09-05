@@ -3674,14 +3674,54 @@ body::after {
   second line sits at its start, which is what a second line of tabs looks like
   everywhere. That is the difference between wrapping words and wrapping cards.
 */
-.task-tabs {
+/*
+  The strip, its two arrows, and the rule underneath all three.
+
+  Twenty-eight days fit across no window, so the row scrolls sideways — which is where
+  this screen began, and it was wrong then for one reason: the scrollbar was hidden, so
+  four bands sat off the edge with nothing on screen admitting they were there. The
+  arrows are that admission. A control you can press says `there is more this way' in a
+  way a tile sliced by the edge never did.
+
+  The rule sits on the bar rather than on the strip so it runs the full width, under the
+  arrows too, instead of stopping where the scrolling part does.
+*/
+.task-tabbar {
   display: flex;
-  flex-wrap: wrap;
+  align-items: stretch;
   gap: 2px;
   margin-bottom: 14px;
   border-bottom: 1px solid var(--color-line);
   animation: money-head-in 620ms var(--ease-premium) 120ms both;
 }
+
+.task-tabnav {
+  display: flex;
+  flex: none;
+  align-items: center;
+  padding: 0 4px;
+  color: var(--color-faint);
+  cursor: pointer;
+  transition: color 180ms ease;
+}
+.task-tabnav:hover { color: var(--color-gold-hi); }
+
+.task-tabs {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-wrap: nowrap;
+  gap: 2px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  /*
+    Faded at both ends, so the row looks cut off on purpose rather than by the window.
+    The arrows say there is more; this says which way, at a glance, without reading them.
+  */
+  mask-image: linear-gradient(90deg, transparent, #000 14px, #000 calc(100% - 14px), transparent);
+  scroll-behavior: smooth;
+}
+.task-tabs::-webkit-scrollbar { display: none; }
 
 .task-tab {
   display: inline-flex;
@@ -3948,9 +3988,11 @@ body::after {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .task-tabs,
+  .task-tabbar,
   .task-panel { animation: none !important; opacity: 1; transform: none; }
   .task-tab { transition: none; }
+  /* A strip that jumps is better than one that slides past somebody who asked it not to. */
+  .task-tabs { scroll-behavior: auto; }
 }
 
 /* ======================================================================= Setup

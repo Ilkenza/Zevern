@@ -1,9 +1,11 @@
 "use client";
 
-import { useMemo, useRef, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
+  ChevronLeft,
+  ChevronRight,
   Plus,
   ListChecks,
   Pencil,
@@ -318,6 +320,16 @@ const PREVIEW = 6;
  */
 const STEP = 10;
 
+/**
+ * How many days the strip carries, today included.
+ *
+ * Seven, while the days were tiles that had to fit across the page. Now they scroll, so
+ * the limit is no longer the width — it is how far ahead it is worth being able to point
+ * at, and four weeks is a month's planning without the strip becoming a calendar. Past
+ * it, `Later` still gathers everything.
+ */
+const DAYS_AHEAD = 28;
+
 function TaskSection({
   band,
   today,
@@ -476,8 +488,27 @@ export function TasksView({
   */
   const [picked, setPicked] = useState<string | null>(null);
 
+  /*
+    The strip, and the two ways it moves.
+
+    `nudge` is the arrows. The effect is the other half: picking `Later` from the far end,
+    or landing on a day the calendar chose, has to bring that tab into view — a strip that
+    scrolls but never scrolls itself leaves you looking at a row that does not contain the
+    thing you just chose.
+
+    `block: "nearest"` because `scrollIntoView` will otherwise scroll the *page* to centre
+    the tab vertically, throwing the tasks under it off screen to fix the strip above it.
+  */
+  const strip = useRef<HTMLElement>(null);
+
+  const nudge = (dir: 1 | -1) => {
+    const el = strip.current;
+    if (!el) return;
+    el.scrollBy({ left: dir * el.clientWidth * 0.8, behavior: "smooth" });
+  };
+
   const bands = useMemo<Band[]>(() => {
-    const horizon = addDays(today, 6);
+    const horizon = addDays(today, DAYS_AHEAD - 1);
     const list: Band[] = [];
 
     const late = open
@@ -515,10 +546,16 @@ export function TasksView({
       });
     }
 
-    for (let i = 0; i < 7; i += 1) {
+    for (let i = 0; i < DAYS_AHEAD; i += 1) {
       const iso = addDays(today, i);
       const p = parts(iso);
-      const lead = i === 0 ? "Today" : i === 1 ? "Tomorrow" : p.weekday;
+      /*
+        `Mon` is a name for one week and an ambiguity for four — the strip now holds four
+        Mondays. Past the first week the day number joins it, which is the shortest thing
+        that tells them apart.
+      */
+      const lead =
+        i === 0 ? "Today" : i === 1 ? "Tomorrow" : i < 7 ? p.weekday : `${p.weekday} ${p.day}`;
       list.push({
         key: iso,
         lead,
@@ -543,14 +580,14 @@ export function TasksView({
       list.push({
         key: "later",
         lead: "Later",
-        sub: "after this week",
+        sub: `beyond ${DAYS_AHEAD} days`,
         tone: "parked",
         tasks: later.sort((a, b) => (dayOf(a) ?? "").localeCompare(dayOf(b) ?? "")),
-        dueOn: addDays(today, 7),
-        title: "Beyond this week",
+        dueOn: addDays(today, DAYS_AHEAD),
+        title: `Beyond the next ${DAYS_AHEAD} days`,
         empty: "Nothing parked further out.",
         placeholder: "Something for later?",
-        hint: "lands next week",
+        hint: `lands in ${DAYS_AHEAD} days`,
       });
     }
 
@@ -628,6 +665,21 @@ export function TasksView({
   const [reviewPending, startReviewTransition] = useTransition();
   const fallback = bands.some((b) => b.key === "late") ? "late" : today;
   const activeKey = picked && bands.some((b) => b.key === picked) ? picked : fallback;
+
+  /*
+    Bring the chosen tab into view.
+
+    A strip that scrolls but never scrolls itself leaves you looking at a row that does
+    not contain the thing you just chose — picking `Later` from the far end, or landing on
+    a day the calendar picked, would move the panel below while the strip above stayed
+    where it was. `block: "nearest"` because the default would scroll the *page* to centre
+    the tab vertically, pushing the tasks off screen to tidy the strip above them.
+  */
+  useEffect(() => {
+    strip.current
+      ?.querySelector<HTMLElement>(".task-tab.is-on")
+      ?.scrollIntoView({ block: "nearest", inline: "center", behavior: "smooth" });
+  }, [activeKey]);
   const band = bands.find((b) => b.key === activeKey) ?? bands[0];
   const rankedTasks = [...(band?.tasks ?? [])].sort(
     (a, b) => (RANK[a.priority] ?? 1) - (RANK[b.priority] ?? 1),
@@ -904,19 +956,51 @@ export function TasksView({
               }}
             />
           ) : mode === "days" ? (
-            <nav className="task-tabs" aria-label="Pick a day">
-              {bands.map((b) => (
-                <Chip
-                  key={b.key}
-                  band={b}
-                  on={b.key === activeKey}
-                  onPick={() => {
-                    setPicked(b.key);
-                    leaveReview();
-                  }}
-                />
-              ))}
-            </nav>
+            /*
+              A strip you can push, with something to push it by.
+
+              Twenty-eight days do not fit across any window, so the row scrolls. That was
+              exactly the arrangement this screen started with and it was wrong then for
+              one reason: the scrollbar was hidden, so four bands were off the edge with
+              nothing on screen saying they existed. Arrows say it. A control that can be
+              pressed is the overflow admitting to itself, which a cut-off tile never did.
+
+              They scroll by four fifths of the strip rather than a whole one, so the tab
+              you were reading stays on screen to tell you where you landed.
+            */
+            <div className="task-tabbar">
+              <button
+                type="button"
+                className="task-tabnav"
+                aria-label="Earlier days"
+                onClick={() => nudge(-1)}
+              >
+                <ChevronLeft className="h-4 w-4" aria-hidden />
+              </button>
+
+              <nav ref={strip} className="task-tabs" aria-label="Pick a day">
+                {bands.map((b) => (
+                  <Chip
+                    key={b.key}
+                    band={b}
+                    on={b.key === activeKey}
+                    onPick={() => {
+                      setPicked(b.key);
+                      leaveReview();
+                    }}
+                  />
+                ))}
+              </nav>
+
+              <button
+                type="button"
+                className="task-tabnav"
+                aria-label="Later days"
+                onClick={() => nudge(1)}
+              >
+                <ChevronRight className="h-4 w-4" aria-hidden />
+              </button>
+            </div>
           ) : null}
 
           {/*
