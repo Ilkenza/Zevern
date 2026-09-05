@@ -12523,6 +12523,27 @@ input[type="date"]:focus::-webkit-calendar-picker-indicator {
 }
 
 /*
+  The rest of a long band. A full-width row rather than a link at the end of the list,
+  because it is the thing the eye lands on after six rows and it has to be pressable
+  without being aimed at.
+*/
+.task-sec-more {
+  display: block;
+  width: 100%;
+  padding: 9px 16px;
+  border-bottom: 1px solid var(--color-line-soft);
+  color: var(--color-muted);
+  font-size: 12.5px;
+  font-weight: 600;
+  text-align: left;
+  transition: color 180ms ease, background-color 180ms ease;
+}
+.task-sec-more:hover {
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--color-gold-hi);
+}
+
+/*
   Which section is which, said at the edge rather than in colour on the words.
 
   A red heading and a gold heading in the same column turn a list into a traffic light;

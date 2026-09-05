@@ -274,6 +274,21 @@ function Chip({ band, on, onPick }: { band: Band; on: boolean; onPick: () => voi
  * without leaving the page. Open by default where there is something in it: a section
  * that hides its contents until you ask is a rail again, one indent further in.
  */
+/**
+ * How many rows a section shows before it offers the rest.
+ *
+ * Sixty-two tasks are past their date, and the list printed all sixty-two: at forty-one
+ * pixels a row that is two and a half thousand pixels of one section, so `Today` — the
+ * band anybody opens this screen for — began four screens below the fold. The stacked
+ * sections were supposed to make the week readable in one scroll and instead made the
+ * first band swallow it.
+ *
+ * Six is enough to see what a day is made of and short enough that the next heading is
+ * still on screen, which is the whole point of the sections. Nothing is hidden: the
+ * count sits in the header, and the rest is one press away.
+ */
+const PREVIEW = 6;
+
 function TaskSection({
   band,
   today,
@@ -290,6 +305,15 @@ function TaskSection({
   onToggle: () => void;
 }) {
   const dated = band.tone === "day" || band.tone === "today";
+  /*
+    Local, not lifted like `shut`. Which band you expanded is about the row you are
+    reading right now — it does not want to survive collapsing the section, and a second
+    map in the parent would be a second thing to keep in step with the first.
+  */
+  const [full, setFull] = useState(false);
+  const shown = full ? band.tasks : band.tasks.slice(0, PREVIEW);
+  const rest = band.tasks.length - shown.length;
+
   return (
     <section className={cn("task-sec", `is-${band.tone}`, isOpen && "is-open")}>
       <header className="task-sec-head">
@@ -307,7 +331,7 @@ function TaskSection({
 
       {isOpen && (
         <div className="task-sec-body">
-          {band.tasks.map((t) => (
+          {shown.map((t) => (
             <TaskRow
               key={t.id}
               task={t}
@@ -318,6 +342,20 @@ function TaskSection({
             />
           ))}
           {band.tasks.length === 0 && <p className="task-sec-empty">{band.empty}</p>}
+
+          {/*
+            The rest of the band, named by how many rather than by a word.
+
+            `Show more` would not say whether pressing it costs you three rows or
+            fifty-four, and on this screen that is the difference between a glance and a
+            scroll. Once open it says `Show fewer` and gives the count back.
+          */}
+          {(rest > 0 || full) && band.tasks.length > PREVIEW && (
+            <button type="button" onClick={() => setFull((was) => !was)} className="task-sec-more">
+              {full ? `Show fewer` : `Show all ${band.tasks.length}`}
+            </button>
+          )}
+
           <QuickAdd
             workspace={workspace}
             dueOn={band.dueOn}
