@@ -4871,7 +4871,22 @@ body::after {
 }
 
 /* Room for the arrow, so a long name does not run underneath it. */
-.item-pick-field { padding-right: 3.4rem; }
+/*
+  Room for the chevron, reserved so the name never runs under it.
+
+  Anchored to the wrap rather than written as a bare class, and that is the whole fix.
+  A bare `.item-pick-field-compact` is one class, and so is `.tx-cell` — the receipt
+  row's own input style, which sets `padding: 0` and sits two thousand lines further
+  down this file. Equal specificity, later wins: the shorthand wiped the reservation
+  out, the chevron kept its place over the text, and a long item name ended with its
+  ellipsis printed underneath the arrow. `Twix` had room and looked fine; `Aqua viva
+  energy drink` did not, which is why it looked like a text bug rather than a padding
+  one.
+
+  Two classes beats one whatever the order, and naming the wrap rather than `.tx-cell`
+  keeps the picker from having to know about the rows that use it.
+*/
+.item-pick-wrap > .item-pick-field { padding-right: 3.4rem; }
 
 .item-pick-open {
   position: absolute;
@@ -4903,7 +4918,13 @@ body::after {
 }
 
 /* Room for it, so a long name runs under the arrow rather than into it. */
-.item-pick-field-compact { padding-right: 1.6rem; }
+/*
+  1.6rem was the arrow's own width with nothing to spare, so even where the padding did
+  apply a full-width name finished hard against it. The button is ~22px inset 0.2rem;
+  this leaves a few pixels of air, which is the difference between a name that ends and
+  a name that collides.
+*/
+.item-pick-wrap > .item-pick-field-compact { padding-right: 1.85rem; }
 
 /*
   A row on its way out of the ledger.
