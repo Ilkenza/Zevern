@@ -62,16 +62,36 @@ const TITLE_LABEL: Record<string, string> = {
   loan_in: "Who is it from?",
 };
 
+/**
+ * And what a good answer looks like.
+ *
+ * The label asks the question, the hint shows the shape of the reply — which on a loan
+ * is a person. `Shop, bill, ticket…` sat under "Who is it for?" on the lending form:
+ * the purchase form's wording left standing on a screen with no shop in it, telling
+ * somebody about to write down money lent to a friend that the app wanted a receipt.
+ *
+ * Kinds left out fall through to the purchase hint, which is what they showed before.
+ */
+const TITLE_HINT: Record<string, string> = {
+  expense: "Shop, bill, ticket…",
+  income: "Client, invoice, gift…",
+  loan_out: "Marko, Ana, the neighbour…",
+  loan_in: "Marko, Ana, the bank…",
+};
+
 export function TransactionForm({
   tx,
   data,
   defaultKind = "expense",
+  presetLoanId,
   returnTo,
   onSaved,
 }: {
   tx?: TransactionRow;
   data: TxFormData;
   defaultKind?: string;
+  /** A debt chosen before the form opened — a debt row links straight in to pay it. */
+  presetLoanId?: string;
   returnTo?: "quick";
   onSaved?: () => void;
 }) {
@@ -152,7 +172,30 @@ export function TransactionForm({
     The first movement is the debt: its name, its date and — for anything but a credit —
     its total are all already being typed.
   */
-  const [loanChoice, setLoanChoice] = useState<string>(tx?.loan_id ?? "");
+  /*
+    Which debt this entry pays.
+
+    `presetLoanId` is how a debt row opens this form already pointing at itself: paying a
+    rate is the thing you do to a debt every month, and making you find it again in a
+    list on the way is the kind of small friction that ends with the payment written down
+    as an ordinary expense belonging to nothing.
+  */
+  const [loanChoice, setLoanChoice] = useState<string>(tx?.loan_id ?? presetLoanId ?? "");
+  /*
+    And what the new debt is called, which on a loan out is the name already typed.
+
+    "Who is it for?" and "Who is it?" are one question asked twice — the form knew the
+    answer at the top of the screen and asked for it again at the bottom, which is how
+    `Zoran` above and `Zoan` below end up as two different people, one of them on the
+    debts screen forever.
+
+    `null` is nobody has typed here yet, so the field follows the name above. The first
+    keystroke pins it — including one that empties it, because a field somebody cleared
+    on purpose refilling itself is the same rudeness in the other direction. On a
+    borrowing the two are genuinely different questions (`Raiffeisen` is not `Car
+    credit`), so there it starts empty and the hint stays readable.
+  */
+  const [loanName, setLoanName] = useState<string | null>(null);
 
   const { accounts, categories, goals, loans, rates, budgets = [], items: known = [] } = data;
 
@@ -252,7 +295,14 @@ export function TransactionForm({
       value: l.id,
       label: `${l.name} — ${l.direction === "lent" ? "owed to you" : "you owe"}`,
     }));
-  if (isLoanKind(kind)) loanOptions.push({ value: NEW_LOAN, label: "＋ A new debt" });
+  /*
+    On `loan_out` this always makes a debt running *towards* you — see the insert in
+    `saveTransaction`, which reads the kind and writes `lent`. So the option says so.
+    "＋ A new debt" was true about the row it creates and wrong about whose it is, and
+    it is the only line on the screen offering to file money you have just handed over.
+  */
+  if (isLoanKind(kind))
+    loanOptions.push({ value: NEW_LOAN, label: kind === "loan_out" ? "＋ Somebody new" : "＋ A new debt" });
   if (tx?.goal_id && !goalPool.some((g) => g.id === tx.goal_id)) {
     goalOptions.unshift({ value: tx.goal_id, label: `${tx.goal?.name ?? "Goal"} (closed)` });
   }
@@ -351,7 +401,7 @@ export function TransactionForm({
           </div>
         )}
 
-        <div className="grid grid-cols-[1fr_110px] gap-2">
+        <div className="grid grid-cols-[minmax(0,1fr)_110px] gap-2">
           {/*
             The field is yours; the list only offers.
 
@@ -493,15 +543,19 @@ export function TransactionForm({
           <Field
             label={many ? "Where from? (optional)" : (TITLE_LABEL[kind] ?? "Name")}
             name="title"
-            defaultValue={tx?.title ?? ""}
+            /*
+              Held as it is typed, the same as the purchase field and the amount hold it.
+
+              It was the one field on this form left uncontrolled, and the only reason
+              that never showed is that nothing read it: React empties a form once its
+              action has run — refusals included — so a save the server turned back used
+              to blank this box and leave every other field standing. Now the debt's name
+              follows it, which is also the end of asking for the same name twice.
+            */
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
             maxLength={80}
-            placeholder={
-              many
-                ? "Maxi, pijaca, apoteka…"
-                : kind === "income"
-                  ? "Client, invoice, gift…"
-                  : "Shop, bill, ticket…"
-            }
+            placeholder={many ? "Maxi, pijaca, apoteka…" : (TITLE_HINT[kind] ?? "Shop, bill, ticket…")}
             required={!many}
           />
         )}
@@ -665,18 +719,38 @@ export function TransactionForm({
         */}
         {(isLoanKind(kind) || (kind === "expense" && loanOptions.length > 0)) && (
           <Select
-            label={kind === "expense" ? "Pays off" : "Which debt"}
+            /*
+              "Which debt" asked the wrong man a fair question.
+
+              Lend somebody 2.000 and the entry is not one of *your* debts — it is money
+              that comes back — so the honest reading of "Which debt" there is "none of
+              them", which is the one answer the form will not take. The word is right on
+              `loan_in`, where what lands on the account is borrowed, and on the
+              instalment, which pays a debt down. It is the direction that has to be said
+              out loud on `loan_out`, not the noun that has to go.
+
+              And the placeholder now names the way out. The ＋ row was always in the
+              list; nothing on the closed picker said so, which is how a required field
+              that looks empty turns into a refusal nobody can act on.
+            */
+            label={kind === "expense" ? "Pays off" : kind === "loan_out" ? "Who is it with" : "Which debt"}
             name="loan_id"
             value={loanChoice}
             onChange={(e) => setLoanChoice(e.target.value)}
-            placeholder={kind === "expense" ? "Nothing — an ordinary expense" : "Pick a debt"}
+            placeholder={
+              kind === "expense"
+                ? "Nothing — an ordinary expense"
+                : kind === "loan_out"
+                  ? "Pick who, or add somebody new"
+                  : "Pick one, or add a new one"
+            }
             options={loanOptions}
             help={
               kind === "expense"
                 ? "Set this on an instalment and the debt falls by itself."
                 : kind === "loan_out"
-                  ? "The money leaves the account, but it is not spending."
-                  : "The money lands on the account, but it is not income."
+                  ? "The money leaves the account, but it is not spending — it comes back. Somebody new? Pick ＋ Somebody new and name them below."
+                  : "The money lands on the account, but it is not income. Nothing on the list yet? Pick ＋ A new debt and name it below."
             }
           />
         )}
@@ -684,9 +758,16 @@ export function TransactionForm({
         {isLoanKind(kind) && loanChoice === NEW_LOAN && (
           <>
             <Field
-              label="What is the debt called?"
+              /*
+                Same word, same reason: on a loan out the row being made is somebody who
+                owes you, and asking that person's name what the *debt* is called is the
+                confusion above repeated one field lower.
+              */
+              label={kind === "loan_out" ? "Who is it?" : "What is the debt called?"}
               name="loan_name"
               maxLength={80}
+              value={loanName ?? (kind === "loan_out" ? title : "")}
+              onChange={(e) => setLoanName(e.target.value)}
               placeholder={kind === "loan_out" ? "Marko" : "Car credit"}
               required
             />
@@ -713,7 +794,7 @@ export function TransactionForm({
           can tell three coffees on the same afternoon apart — and, a year from now, the
           answer to when the money actually goes.
         */}
-        <div className="grid grid-cols-[1fr_130px] gap-2">
+        <div className="grid grid-cols-[minmax(0,1fr)_130px] gap-2">
           <Field
             label="Date"
             name="occurred_on"

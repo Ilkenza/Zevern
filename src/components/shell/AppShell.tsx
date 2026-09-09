@@ -36,8 +36,24 @@ export function AppShell({
   /* The band of light that crosses a card on hover — see `use-card-sheen`. */
   useCardSheen();
 
+  /*
+    `minmax(0, 1fr)` rather than `1fr`, and a good deal of the app hangs on the difference.
+
+    A `1fr` track is `minmax(auto, 1fr)`: its floor is its content's min-content width, so
+    it grows past the window rather than letting anything inside it shrink. Every
+    `overflow: auto` further in is then a promise the layout will not keep — the day strip
+    on Tasks reached its edge and carried on, taking the column with it, and whatever
+    happened to sit last came off the right-hand side.
+
+    It is invisible from inside: the *document* does not scroll, so a check for page
+    overflow reports nothing wrong while a control sits off the screen. The measurement
+    that finds it asks whether an element's right edge is inside the window.
+
+    `minmax(0, 1fr)` gives the track no floor, and a child that says it will handle its
+    own overflow is then actually allowed to.
+  */
   return (
-    <div className="min-h-screen bg-base lg:grid lg:grid-cols-[260px_1fr]">
+    <div className="min-h-screen bg-base lg:grid lg:grid-cols-[260px_minmax(0,1fr)]">
       {/* Desktop sidebar */}
       <div className="hidden lg:block" style={{ viewTransitionName: "zv-sidebar" }}>
         <Sidebar user={user} counts={counts} hidden={hidden} />

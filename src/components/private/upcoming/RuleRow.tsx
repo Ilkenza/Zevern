@@ -109,6 +109,8 @@ export function RuleRow({ item, rates, today }: { item: RecurringRow; rates: Rat
               </span>
               {item.variable && <Badge status="info">Variable</Badge>}
               {r.toGoal && <Badge status="info">Into a goal</Badge>}
+              {/* A rule is never both — see `saveRecurring`, where a goal clears the debt. */}
+              {item.loan && <Badge status="active">Pays a debt</Badge>}
               {r.countdown && <Badge status={r.countdown.status}>{r.countdown.label}</Badge>}
               {!item.active && !r.settled && <Badge status="draft">Paused</Badge>}
             </div>
@@ -120,6 +122,11 @@ export function RuleRow({ item, rates, today }: { item: RecurringRow; rates: Rat
             <Dot />
             {item.goal ? (
               <span className="min-w-0 truncate text-held">{item.goal.name}</span>
+            ) : item.loan ? (
+              <span className="min-w-0 truncate">
+                <span className="text-gold-hi">{item.loan.name}</span>
+                {item.category && <span> · {item.category.name}</span>}
+              </span>
             ) : (
               <span className="min-w-0 truncate">{item.category?.name ?? "No category"}</span>
             )}

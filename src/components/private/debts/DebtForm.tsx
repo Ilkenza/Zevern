@@ -5,7 +5,10 @@ import { saveLoan, type MoneyState } from "@/app/(app)/private/actions";
 import { Button } from "@/components/ui/Button";
 import { Field } from "@/components/ui/Field";
 import { MoneyField } from "@/components/ui/MoneyField";
+import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/Textarea";
+import { CURRENCY_OPTIONS } from "@/lib/money";
+import { useDefaultCurrency } from "@/lib/money/currency";
 import { cn } from "@/lib/utils";
 import type { LoanLine } from "@/lib/types";
 
@@ -34,6 +37,7 @@ export function DebtForm({ debt, onDone }: { debt?: LoanLine; onDone?: () => voi
   );
   const [lent, setLent] = useState((debt?.direction ?? "lent") === "lent");
   const locked = Boolean(debt);
+  const fallback = useDefaultCurrency();
 
   return (
     <div className="flex h-full flex-col">
@@ -88,18 +92,39 @@ export function DebtForm({ debt, onDone }: { debt?: LoanLine; onDone?: () => voi
           help="Whose debt it is, or what it paid for."
         />
 
-        <MoneyField
-          name="total"
-          label="Total to settle"
-          defaultValue={debt?.total_rsd ?? ""}
-          placeholder="0"
-          required
-          help={
-            lent
-              ? "What you expect to get back in the end."
-              : "What will be repaid in the end — including interest, if there is any. For a credit that is more than the amount that arrived, and the difference is the interest."
-          }
-        />
+        {/*
+          The total, in the currency it was agreed in.
+
+          Every debt used to be a dinar debt, because the row had nowhere else to put a
+          figure — which is wrong for exactly the debts that matter most here. A bank
+          credit in Belgrade is written in euros and repaid in dinars at the day’s rate,
+          and money borrowed from someone abroad is however many of whatever he handed
+          over.
+
+          The dinar figure is still what every other screen counts, so `saveLoan` converts
+          once at the rate of the day and keeps the rate on the row. The card then says
+          both: what was agreed, and what that came to.
+        */}
+        <div className="grid grid-cols-[minmax(0,1fr)_110px] gap-x-2">
+          <MoneyField
+            name="total"
+            label="Total to settle"
+            defaultValue={debt?.total_amount ?? debt?.total_rsd ?? ""}
+            placeholder="0"
+            required
+            help={
+              lent
+                ? "What you expect to get back in the end."
+                : "What will be repaid in the end — including interest, if there is any. For a credit that is more than the amount that arrived, and the difference is the interest."
+            }
+          />
+          <Select
+            label="Currency"
+            name="currency"
+            defaultValue={debt?.currency ?? fallback}
+            options={CURRENCY_OPTIONS}
+          />
+        </div>
 
         <Field
           label="Since"

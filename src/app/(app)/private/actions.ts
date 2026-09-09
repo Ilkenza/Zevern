@@ -21,6 +21,7 @@ export * from "./actions/goals";
 export * from "./actions/items";
 export * from "./actions/recurring";
 export * from "./actions/planned";
+export * from "./actions/stock";
 export * from "./actions/settings";
 export * from "./actions/reads";
 

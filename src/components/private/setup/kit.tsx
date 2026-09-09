@@ -132,6 +132,38 @@ export function useArrived(ids: string[]): ReadonlySet<string> {
 }
 
 /**
+ * What a composer is holding, emptied only when a row was actually made.
+ *
+ * React clears a `<form action>` as soon as its action lands — every time, refused or
+ * not. So a name the app had just turned down went out of the box together with the
+ * complaint about it, and trying again meant typing the whole thing a second time. The
+ * fields are driven from here instead, and here empties on the one thing that means the
+ * row exists: `ok` coming back.
+ *
+ * Reset while rendering rather than from an effect, the same way `useSavedPulse` below
+ * counts saves — an effect that sets state runs a beat late, so the box would paint the
+ * old text once before clearing it.
+ */
+export function useComposer<T extends object>(
+  state: MoneyState,
+  empty: T,
+): [T, (patch: Partial<T>) => void] {
+  const [held, setHeld] = useState<{ seen: MoneyState; values: T }>({
+    seen: state,
+    values: empty,
+  });
+
+  if (held.seen !== state) {
+    setHeld({ seen: state, values: state?.ok ? empty : held.values });
+  }
+
+  const put = (patch: Partial<T>) =>
+    setHeld((h) => ({ seen: h.seen, values: { ...h.values, ...patch } }));
+
+  return [held.values, put];
+}
+
+/**
  * Counts the saves a row has reported. The count is the key on the confirmation,
  * so saving the same row twice replays it instead of leaving a finished
  * animation on screen. A new result from the action is a new object, which is
@@ -169,8 +201,33 @@ export function useSavedPulse(state: MoneyState): number {
  * decision, and a half-typed new category must never save itself because the phone
  * rang.
  */
-export function useRowCommit(enabled: boolean) {
+export function useRowCommit(enabled: boolean, submit?: (data: FormData) => void) {
   const [dirty, setDirty] = useState(false);
+
+  /*
+    Sent to the action by hand, rather than by submitting the form element.
+
+    React resets a `<form action={...}>` once its action succeeds, and a reset does not
+    put a select back to the value it is showing — it puts it back to the option carrying
+    the `selected` attribute, and a React-rendered `<option>` carries none. So the reset
+    lands on the *first* option, which on this row is `Not food or drink'. React sees no
+    state change and therefore does not re-render, so nothing corrects the box: the
+    database has `Food', the row has `Food' in its head, and the screen says otherwise
+    until the page is reloaded.
+
+    That is the whole of "sačuva se food i drink ali moram da refrešam", measured: the
+    box read `food' at 300ms and `other' at 1,200 — the moment the action came back —
+    while the server payload for that same row already said `food'.
+
+    Dispatching the action directly is the same call by another road, and React has no
+    form submission to tidy up afterwards.
+  */
+  const send = (form: HTMLFormElement | null) => {
+    if (!form) return;
+    if (submit) submit(new FormData(form));
+    else form.requestSubmit();
+    setDirty(false);
+  };
 
   const onInput = () => {
     if (enabled) setDirty(true);
@@ -180,11 +237,56 @@ export function useRowCommit(enabled: boolean) {
     if (!enabled || !dirty) return;
     const next = event.relatedTarget as Node | null;
     if (next && event.currentTarget.contains(next)) return;
-    event.currentTarget.requestSubmit();
-    setDirty(false);
+    send(event.currentTarget);
   };
 
-  return { dirty, onInput, onBlur };
+  /*
+    A dropdown saves the moment it is answered, rather than waiting to be left.
+
+    Typing is unfinished until you stop — that is what `onBlur` above is for, and it is
+    right for a name or a price. Picking from a list is not: the answer is complete at the
+    click, there is nothing more to add to it, and waiting for focus to leave makes the
+    save depend on where the person happens to click next.
+
+    Which is how `Food' would not stick. Focus stays on a select after you choose, so
+    nothing was submitted; and on a native menu the browser's own focus handling around
+    the popup can spend the blur before the choice is even made — the form then commits
+    the old value and marks itself clean, and the choice that follows has nothing left to
+    trigger it. Reported as "neće da se sačuva kao food ili drink", and true of the
+    currency and the category too; they had simply been luckier.
+  */
+  const onPick = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    if (!enabled) return;
+    // The DOM already holds the new value, so the FormData this builds is the answer —
+    // no need to wait a render for React state to catch up.
+    send(event.currentTarget.form);
+  };
+
+  return { dirty, onInput, onBlur, onPick };
+}
+
+/**
+ * A dropdown's value: what was just picked, or failing that what the row says.
+ *
+ * Neither half works alone, and both were tried.
+ *
+ * Uncontrolled — `defaultValue` — looks right and is not: React re-applies the default on
+ * every *update* of a select, not only on mount. So the row saves, something re-renders
+ * before the fresh server props have landed, and the control snaps back to the old answer.
+ * Reported as "sačuva se food i drink ali moram da refrešam": the database had it, the
+ * screen did not, and only a reload could tell you which was true.
+ *
+ * Controlled off state seeded once from props has the opposite fault: the seed is taken at
+ * mount and never looked at again, so a remount after a save shows whatever the props held
+ * at that instant — the control disagreeing with the row it stands for, in the other
+ * direction.
+ *
+ * So: the pick wins while there is one, and the row is the answer the rest of the time. A
+ * remount clears the pick and falls back to the row, which by then is the saved value.
+ */
+export function usePicked(stored: string) {
+  const [picked, setPicked] = useState<string | null>(null);
+  return [picked ?? stored, setPicked] as const;
 }
 
 /** The receipt for a save: a tint over the row, held long enough to read, then gone. */
@@ -338,3 +440,5 @@ export function RowError({ message }: { message?: string }) {
   return <p className="mt-2 text-[11px] text-danger">{message}</p>;
 }
 
+
+/* cache-name probe: harmless comment */

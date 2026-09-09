@@ -48,6 +48,8 @@ export function PayOff({
   const [chosen, setChosen] = useState(goal.lastAccountId ?? only?.id ?? accounts[0]?.id ?? "");
   const refunding = mode === "refund";
   // Nothing has been paid, so there is nothing to hand back and no choice to offer.
+  // A goal standing for a debt can refund like any other now that `income` may name the
+  // debt it came back off — see `weighLoanMove`.
   const canRefund = goal.progress > 0;
 
   const target = Math.max(Number(goal.target_rsd) || 0, 0);
@@ -76,7 +78,20 @@ export function PayOff({
       className="goal-move-panel border-t border-line-soft bg-white/[0.02] py-4 pr-4 pl-5"
     >
       <input type="hidden" name="kind" value={refunding ? "income" : "expense"} />
-      <input type="hidden" name="goal_id" value={goal.id} />
+      {/*
+        Where the payment is filed, and never in two places.
+
+        A goal linked to a debt reads its progress off that debt, so an entry naming the
+        goal would leave the card unmoved and the money unaccounted for — the payment
+        would be in the ledger, belonging to nothing the card counts. So it names the
+        debt instead, which is also what the Debts screen and the instalment plan read.
+        One link on the entry, one figure on both screens.
+      */}
+      {goal.loan_id ? (
+        <input type="hidden" name="loan_id" value={goal.loan_id} />
+      ) : (
+        <input type="hidden" name="goal_id" value={goal.id} />
+      )}
       <input type="hidden" name="currency" value={code} />
       <input type="hidden" name="return_to" value="stay" />
       {/*

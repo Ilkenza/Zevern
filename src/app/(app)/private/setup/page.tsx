@@ -6,6 +6,7 @@ import {
   getItems,
   getRates,
   getRecurring,
+  getStock,
   hasIncomeOnFile,
 } from "@/lib/data/money";
 import { getProfile } from "@/lib/data/profile";
@@ -29,7 +30,7 @@ async function currentOrigin(): Promise<string> {
 }
 
 export default async function PrivateSetupPage() {
-  const [accounts, categories, rates, profile, rules, incomeOnFile, origin, usage, items] =
+  const [accounts, categories, rates, profile, rules, incomeOnFile, origin, usage, items, stock] =
     await Promise.all([
       getAccountBalances(),
       getCategories(),
@@ -40,6 +41,7 @@ export default async function PrivateSetupPage() {
       currentOrigin(),
       getCategoryUsage(),
       getItems(),
+      getStock(),
     ]);
 
   /*
@@ -49,12 +51,38 @@ export default async function PrivateSetupPage() {
   */
   const earning = rules.filter((r) => r.kind === "income" && r.active && r.goal_id == null);
 
+  /*
+    What today's rate actually multiplies.
+
+    Not everything with a currency on it. A goal and a debt are converted once, when they
+    are written down, and keep the rate they were converted at — so a euro goal is
+    unaffected by what the euro does tomorrow. An entry already booked keeps its own rate
+    too. What is left is the things converted afresh every time they are read or posted:
+    an account's balance, a standing rule's amount, and the price suggested for a thing on
+    the shopping list.
+
+    Counted rather than answered yes or no, so the panel can say what it is for instead of
+    only appearing. `Six standing rules in EUR and USD' is a reason; a pair of boxes with a
+    warning under them is a chore.
+  */
+  const converted = [
+    ...accounts.filter((a) => a.currency !== "RSD").map((a) => a.currency),
+    ...rules.filter((r) => r.currency !== "RSD").map((r) => r.currency),
+    ...items.filter((i) => i.currency !== "RSD").map((i) => i.currency),
+  ];
+  const rateUse = {
+    count: converted.length,
+    currencies: [...new Set(converted)].sort(),
+  };
+
   return (
     <SetupView
       accounts={accounts}
       categories={categories}
       usage={usage}
       items={items}
+      rateUse={rateUse}
+      stock={stock}
       rates={rates}
       ratesUpdatedOn={profile?.rates_updated_on ?? null}
       calendarToken={profile?.calendar_token ?? null}

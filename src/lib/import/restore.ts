@@ -62,6 +62,10 @@ export const RESTORE_ORDER = [
   "money_budget_categories",
   "money_budget_accounts",
   "money_budget_boosts",
+  // A lot points at the thing it is and at the shop trip that brought it, so both have
+  // to be back first; a movement points at its lot.
+  "money_stock",
+  "money_stock_moves",
 ] as const;
 
 export type RestoreTable = (typeof RESTORE_ORDER)[number];

@@ -20,7 +20,7 @@ describe("foundationOf", () => {
     expect(f.done).toBe(0);
     expect(f.ready).toBe(false);
     // Seven sections in the index, four of them required.
-    expect(f.steps).toHaveLength(7);
+    expect(f.steps).toHaveLength(8);
   });
 
   it("is ready once the accounts, both kinds of category and the income exist", () => {
@@ -66,9 +66,15 @@ describe("foundationOf", () => {
       The shopping list joined them, and it is optional for a stronger reason than the
       other two: it fills itself. Nothing about the app is worse for it being empty, so
       a page that told you to go and build one would be inventing a chore.
+
+      What is in the house is optional for the same reason and one further one: it cannot
+      be filled at all until something on the list above has been marked as food or drink,
+      so requiring it would be a step that is impossible until another optional one is
+      done.
     */
     expect(f.steps.filter((s) => !s.required).map((s) => s.key)).toEqual([
       "things",
+      "house",
       "rates",
       "calendar",
     ]);

@@ -15,7 +15,6 @@ import { DEFAULT_RATES, toRsd, type Rates } from "@/lib/money";
 import type { Booking } from "@/lib/money/occurrences";
 import type {
   MoneyAccount,
-  MoneyBudget,
   MoneyCategory,
   PlannedRow,
   RecurringRow,
@@ -94,15 +93,6 @@ export const getCategories = cache(async (includeArchived = false): Promise<Mone
   return data ?? [];
 });
 
-export async function getBudgets(): Promise<MoneyBudget[]> {
-  const supabase = await createClient();
-  const uid = await userId(supabase);
-  if (!uid) return [];
-  const { data, error } = await supabase.from("money_budgets").select("*").eq("user_id", uid);
-  if (error) throw new ReadFailed("your budgets", error.message);
-  return data ?? [];
-}
-
 /*
   Cached for the length of one request.
 
@@ -118,7 +108,11 @@ export const getRecurring = cache(async (): Promise<RecurringRow[]> => {
   // money_recurring.goal_id has no declared relationship in the generated types, so the
   // goal is looked up separately rather than embedded — an embed the types do not know
   // about is what makes PostgREST hand back an error object instead of rows.
-  const [{ data, error }, { data: goals, error: goalsError }] = await Promise.all([
+  const [
+    { data, error },
+    { data: goals, error: goalsError },
+    { data: loans, error: loansError },
+  ] = await Promise.all([
     supabase
       .from("money_recurring")
       .select(
@@ -127,14 +121,21 @@ export const getRecurring = cache(async (): Promise<RecurringRow[]> => {
       .eq("user_id", uid)
       .order("next_on"),
     supabase.from("money_goals").select("id, name, color").eq("user_id", uid),
+    // Looked up rather than embedded, for the same reason the goals are: neither foreign
+    // key has a declared PostgREST relationship, and asking for one it does not know
+    // about is what makes it hand back an error object instead of rows.
+    supabase.from("money_loans").select("id, name").eq("user_id", uid),
   ]);
   if (error) throw new ReadFailed("your repeating entries", error.message);
   if (goalsError) throw new ReadFailed("your goals", goalsError.message);
+  if (loansError) throw new ReadFailed("your debts", loansError.message);
 
   const goalBy = new Map((goals ?? []).map((g) => [g.id, { name: g.name, color: g.color }]));
+  const loanBy = new Map((loans ?? []).map((l) => [l.id, { name: l.name }]));
   return (data ?? []).map((row) => ({
     ...row,
     goal: row.goal_id ? (goalBy.get(row.goal_id) ?? null) : null,
+    loan: row.loan_id ? (loanBy.get(row.loan_id) ?? null) : null,
   })) as RecurringRow[];
 });
 

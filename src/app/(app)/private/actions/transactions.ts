@@ -21,6 +21,7 @@ ownsMoneyRow,
 PENNY,
 refresh,
 rememberItem,
+stockUp,
 today
 } from "./shared";
 import { unreadable } from "@/lib/data/must";
@@ -172,8 +173,22 @@ export async function saveTransaction(_prev: MoneyState, formData: FormData): Pr
           ? "Pick the account this money leaves."
           : "Pick the account this money lands on.",
     };
+  /*
+    Naming the control, because the way out of this refusal sits inside a shut dropdown.
+
+    "…or name a new one" was true and unreachable: the new-debt field only exists once
+    the picker has been opened and its ＋ row chosen, so somebody writing down money they
+    lent a friend read an instruction pointing at a field that was not on the screen —
+    and the field it *was* pointing at asked which of their debts this was, when the
+    answer was none of them. An error nobody can act on is worse than no error.
+  */
   if (isLoanKind(kind) && !loanId && !loanName)
-    return { error: "Pick which debt this belongs to, or name a new one." };
+    return {
+      error:
+        kind === "loan_out"
+          ? "Open “Who is it with” and pick the person, or choose ＋ Somebody new to add them."
+          : "Open “Which debt” and pick one, or choose ＋ A new debt to name it.",
+    };
 
   // Errors quote figures, and a figure quoted in a currency the person does not read
   // in is a figure they have to convert before they can act on it.
@@ -203,10 +218,16 @@ export async function saveTransaction(_prev: MoneyState, formData: FormData): Pr
 
     A rate is an ordinary expense — it costs the month like any other — but it also has
     to pay the debt down, and the only way it can is by saying which debt it belongs
-    to. So `loan_id` survives on the two loan kinds and on `expense`, and is dropped
-    from everything else.
+    to. So `loan_id` survives on the two loan kinds and on `expense`.
+
+    And on `income`, which is the same argument pointing the other way: money the bank
+    hands back off an instalment is income like any other, and it has to take the debt
+    back up by the same amount. Without it the refund landed on the account and the debt
+    went on saying it had been paid — see `weighLoanMove`, which is what decides that a
+    given kind pays a debt down, takes a payment back, or is the entry that opened it.
   */
-  const loan = isLoanKind(kind) || kind === "expense" ? loanId : null;
+  const loan =
+    isLoanKind(kind) || kind === "expense" || kind === "income" ? loanId : null;
 
   const [ownsAccount, ownsToAccount, ownsCategory, ownsGoal, ownsLoan] = await Promise.all([
     ownsMoneyRow(supabase, "money_accounts", accountId, uid),
@@ -333,15 +354,25 @@ export async function saveTransaction(_prev: MoneyState, formData: FormData): Pr
     is the exception — 550.000 arrives and 600.000 is repaid — so the field is offered
     and ignored when left empty. That keeps a tenner lent to a friend a one-field
     answer while still letting a credit be described properly.
+
+    It is typed in the entry's currency, and that used to be lost: the figure went
+    straight into `total_rsd`, so €5.000 lent to somebody became a debt of five thousand
+    dinars while the entry took 586.000 off the account. The debt now carries the same
+    three columns an entry does — what was said, in what, at what rate — and the dinar
+    total is worked out from them, at the rate this very entry is being booked at.
   */
   let loanRef = loan;
   if (isLoanKind(kind) && !loanRef && loanName) {
+    const agreed = loanTotal > 0 ? loanTotal : (amount ?? 0);
     const { data: created, error } = await supabase
       .from("money_loans")
       .insert({
         name: loanName,
         direction: kind === "loan_out" ? "lent" : "borrowed",
-        total_rsd: loanTotal > 0 ? loanTotal : amountRsd,
+        total_amount: agreed,
+        currency,
+        rate,
+        total_rsd: loanTotal > 0 ? Math.round(loanTotal * rate * 100) / 100 : amountRsd,
         opened_on: occurredOn,
       })
       .select("id")
@@ -387,6 +418,7 @@ export async function saveTransaction(_prev: MoneyState, formData: FormData): Pr
     items: items.length > 0 ? items : null,
   };
 
+  let written: string | null = id || null;
   if (id) {
     const { error } = await supabase
       .from("money_transactions")
@@ -395,8 +427,15 @@ export async function saveTransaction(_prev: MoneyState, formData: FormData): Pr
       .eq("user_id", uid);
     if (error) return { error: saveErrorMessage(error) };
   } else {
-    const { error } = await supabase.from("money_transactions").insert(payload);
+    // The id comes back so the food this entry bought can point at the shop trip it came
+    // from — see `stockUp` below.
+    const { data: made, error } = await supabase
+      .from("money_transactions")
+      .insert(payload)
+      .select("id")
+      .maybeSingle();
     if (error) return { error: saveErrorMessage(error) };
+    written = made?.id ?? null;
   }
 
   /*
@@ -435,6 +474,18 @@ export async function saveTransaction(_prev: MoneyState, formData: FormData): Pr
         on: occurredOn,
       });
     }
+  }
+
+  /*
+    And the food goes in the house.
+
+    After the shopping list rather than before it, so a thing being learned for the first
+    time is on the list by the time this looks — though a brand new name is `other` until
+    somebody says otherwise in Setup, so nothing is followed on the day it is first typed.
+    Only on a new entry: see `stockUp`.
+  */
+  if (kind === "expense" && !id && items.length > 0) {
+    await stockUp({ supabase, uid, items, transactionId: written, on: occurredOn });
   }
 
   refresh();

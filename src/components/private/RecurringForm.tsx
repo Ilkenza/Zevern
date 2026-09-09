@@ -14,7 +14,7 @@ import { CURRENCY_OPTIONS, anchorDayFor, nextDate } from "@/lib/money";
 import { cn } from "@/lib/utils";
 import type { LoanLine, MoneyAccount, MoneyCategory, MoneyGoal, MoneyRecurring } from "@/lib/types";
 import { todayISO } from "@/lib/format";
-import { useDefaultCurrency } from "@/lib/money/currency";
+import { useDefaultCurrency, useMoney } from "@/lib/money/currency";
 
 /** A quiet rule with a word on it — the panel's only structure, and it costs one line. */
 function Divider({ children }: { children: React.ReactNode }) {
@@ -53,12 +53,15 @@ function shortDate(iso: string): string {
 
 export function RecurringForm({
   item,
+  presetLoanId,
   accounts,
   categories,
   goals,
   loans,
 }: {
   item?: MoneyRecurring;
+  /** A debt chosen before the form opened — the Debts screen links straight in. */
+  presetLoanId?: string;
   accounts: MoneyAccount[];
   categories: MoneyCategory[];
   goals: MoneyGoal[];
@@ -66,16 +69,32 @@ export function RecurringForm({
   loans: LoanLine[];
 }) {
   const fallback = useDefaultCurrency();
+  const { fmt } = useMoney();
   const [state, formAction, pending] = useActionState<MoneyState, FormData>(
     saveRecurring,
     undefined,
   );
   const [variable, setVariable] = useState(item?.variable ?? false);
   const [goalId, setGoalId] = useState(item?.goal_id ?? "");
+  /*
+    The debt, the payment and the number of payments — three figures that are one figure.
+
+    They were an uncontrolled `Select` and two uncontrolled `Field`s, which is fine for
+    three unrelated answers and wrong for these: a debt of 123.105,92 over four payments
+    is 30.776,48 and there is nothing to decide about it. Holding all three here is what
+    lets the form do that division instead of the person.
+  */
+  const [loanId, setLoanId] = useState(item?.loan_id ?? presetLoanId ?? "");
+  const [amount, setAmount] = useState(item?.amount != null ? String(item.amount) : "");
+  const [count, setCount] = useState(
+    item?.installments_total ? String(item.installments_total) : "",
+  );
   const [mode, setMode] = useState<string>(item?.goal_id ? "goal" : (item?.kind ?? "expense"));
   const [every, setEvery] = useState<PeriodUnit>((item?.every as PeriodUnit) ?? "month");
   const [everyCount, setEveryCount] = useState(item?.every_count ?? 1);
-  const [endsWhen, setEndsWhen] = useState(item?.ends_when ?? "never");
+  const [endsWhen, setEndsWhen] = useState(
+    item?.ends_when ?? (presetLoanId ? "installments" : "never"),
+  );
   const [nextOn, setNextOn] = useState(item?.next_on ?? todayISO());
   const [accountIds, setAccountIds] = useState<string[]>(
     item?.account_id ? [item.account_id] : accounts[0] ? [accounts[0].id] : [],
@@ -95,6 +114,28 @@ export function RecurringForm({
   const loanOptions = loans
     .filter((l) => l.settled_on == null && l.direction === "borrowed")
     .map((l) => ({ value: l.id, label: l.name }));
+
+  /*
+    What is still owed on the debt this rule pays, and what that comes to per payment.
+
+    A debt is any size and comes from anywhere — 5.000 from a friend, 100, a bank's
+    123.105,92 — so nothing here assumes a credit. It is one division, offered rather
+    than imposed: the figure is shown beside the count with a button that fills the
+    amount in, because a rule that quietly overwrote what you typed would be worse than
+    a rule that made you type it.
+
+    `outstanding` rather than the total, so a debt already half paid divides what is
+    left. The last payment lands a rounding cent either side of zero, and an overpaid
+    debt reads as settled — never as owed back.
+  */
+  const debt = loanId ? (loans.find((l) => l.id === loanId) ?? null) : null;
+  const owed = debt?.outstanding ?? 0;
+  const payments = Math.trunc(Number(count));
+  const perPayment =
+    debt && owed > 0 && payments > 0 ? Math.round((owed / payments) * 100) / 100 : null;
+  const typed = Number(amount);
+  const paymentsFor =
+    debt && owed > 0 && typed > 0 ? Math.ceil(Math.round((owed / typed) * 100) / 100) : null;
 
   /*
     The next three dates, walked with the same function that will actually book them.
@@ -186,10 +227,15 @@ export function RecurringForm({
           <Select
             label="Pays off"
             name="loan_id"
-            defaultValue={item?.loan_id ?? ""}
+            value={loanId}
+            onChange={(e) => setLoanId(e.target.value)}
             placeholder="Nothing — an ordinary bill"
             options={loanOptions}
-            help="Set this and every booking pays the debt down by itself."
+            help={
+              debt
+                ? `${fmt(owed)} still owed. Every booking takes that down by itself.`
+                : "Set this and every booking pays the debt down by itself."
+            }
           />
         )}
 
@@ -234,13 +280,19 @@ export function RecurringForm({
           </button>
         )}
 
-        <div className="grid grid-cols-[1fr_110px] gap-2">
+        <div className="grid grid-cols-[minmax(0,1fr)_110px] gap-2">
           {(!variable || toGoal) && (
             <MoneyField
               label="Amount"
               name="amount"
-              defaultValue={item?.amount ?? ""}
+              value={amount}
+              onValueChange={setAmount}
               placeholder="0"
+              help={
+                debt && paymentsFor != null && endsWhen !== "installments"
+                  ? `About ${paymentsFor} ${paymentsFor === 1 ? "payment" : "payments"} to clear ${debt.name}.`
+                  : undefined
+              }
             />
           )}
           <Select
@@ -345,20 +397,48 @@ export function RecurringForm({
             )}
 
             {endsWhen === "installments" && (
-              <Field
-                label="How many payments"
-                name="installments_total"
-                inputMode="numeric"
-                defaultValue={item?.installments_total ? String(item.installments_total) : ""}
-                placeholder="12"
-                required
-                className="mt-2.5 mb-0"
-                help={
-                  item && (item.installments_done ?? 0) > 0
-                    ? `Booked so far: ${item.installments_done}${item.installments_total ? ` of ${item.installments_total}` : ""}.`
-                    : undefined
-                }
-              />
+              <>
+                <Field
+                  label="How many payments"
+                  name="installments_total"
+                  inputMode="numeric"
+                  value={count}
+                  onChange={(e) => setCount(e.target.value)}
+                  placeholder="12"
+                  required
+                  className="mt-2.5 mb-0"
+                  help={
+                    item && (item.installments_done ?? 0) > 0
+                      ? `Booked so far: ${item.installments_done}${item.installments_total ? ` of ${item.installments_total}` : ""}.`
+                      : undefined
+                  }
+                />
+
+                {/*
+                  The division, offered rather than done.
+
+                  Say a debt and a number of payments and there is nothing left to decide
+                  about the amount — but it is still the amount *you* are agreeing to pay,
+                  so it goes in when you press the button and not a keystroke before. The
+                  figure appears as you type the count, which is the part worth seeing:
+                  four payments or five is a decision, and this is what each one costs.
+                */}
+                {debt && perPayment != null && (
+                  <div className="rule-split">
+                    <span>
+                      {fmt(owed)} over {payments} {payments === 1 ? "payment" : "payments"} is{" "}
+                      <b>{fmt(perPayment)}</b> each
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setAmount(String(perPayment))}
+                      disabled={Number(amount) === perPayment}
+                    >
+                      {Number(amount) === perPayment ? "In" : "Use it"}
+                    </button>
+                  </div>
+                )}
+              </>
             )}
 
             {endsWhen === "goal" && (

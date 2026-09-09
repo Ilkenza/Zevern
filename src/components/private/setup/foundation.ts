@@ -22,6 +22,7 @@ export type StepKey =
   | "income"
   | "earning"
   | "things"
+  | "house"
   | "rates"
   | "calendar";
 
@@ -55,6 +56,7 @@ export function foundationOf({
   ratesUpdatedOn,
   calendarToken,
   things = 0,
+  house = 0,
 }: {
   accounts: number;
   expense: number;
@@ -65,6 +67,8 @@ export function foundationOf({
   calendarToken: string | null;
   /** How many things are on the shopping list. */
   things?: number;
+  /** How many lots are in the house and not finished. */
+  house?: number;
 }): Foundation {
   const steps: Step[] = [
     {
@@ -116,6 +120,22 @@ export function foundationOf({
       count: things,
       required: false,
       todo: "Nothing on the list yet — mark a name on an entry to keep it, or add one here.",
+    },
+    /*
+      What is actually in the house.
+
+      Optional, and it only has anything in it once something on the list above has been
+      marked as food or drink — which is the whole switch. It sits directly under the
+      shopping list because that is where the two questions it needs are answered.
+    */
+    {
+      key: "house",
+      id: "setup-house",
+      label: "In the house",
+      done: house > 0,
+      count: house,
+      required: false,
+      todo: "Mark something above as food or drink, and what you buy of it turns up here.",
     },
     {
       key: "rates",

@@ -224,6 +224,7 @@ export function UpcomingView(props: UpcomingViewProps) {
         >
           <RecurringForm
             item={panel?.mode === "edit" ? panel.item : undefined}
+            presetLoanId={panel?.mode === "new" ? panel.loanId : undefined}
             accounts={rules.accounts}
             categories={rules.categories}
             goals={rules.goals}

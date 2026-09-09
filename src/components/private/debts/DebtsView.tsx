@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Check, HandCoins, Pencil, Plus, RotateCcw } from "lucide-react";
+import { CalendarClock, Check, HandCoins, Pencil, Plus, RotateCcw } from "lucide-react";
 import { deleteLoan, settleLoan } from "@/app/(app)/private/actions";
 import { buttonClasses } from "@/components/ui/Button";
 import { DeleteButton } from "@/components/ui/DeleteButton";
@@ -11,6 +11,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { ListBar } from "@/components/ui/ListBar";
 import { Panel } from "@/components/ui/Panel";
 import { SlideOver } from "@/components/ui/SlideOver";
+import { DebtHistory } from "./DebtHistory";
 import { useMoney } from "@/lib/money/currency";
 import { fold } from "@/lib/money/entry-search";
 import { cn } from "@/lib/utils";
@@ -50,7 +51,14 @@ export function DebtsView({ debts, panel }: { debts: LoanLine[]; panel: DebtsPan
   const [status, setStatus] = useState("open");
   const [sort, setSort] = useState("size");
   const [way, setWay] = useState<"asc" | "desc">("asc");
-  const [openHistory, setOpenHistory] = useState<string | null>(null);
+  /*
+    Which history is open is no longer this list's business.
+
+    It was held here so only one debt could be unfolded at a time — a rule worth having
+    when the fold was a bare stripe with no way to close it but opening another. The fold
+    is `DebtHistory` now and holds its own, the same way the goals' does, so two debts can
+    be compared side by side instead of taking turns.
+  */
 
   const close = () => router.push("/private/debts");
 
@@ -226,7 +234,6 @@ export function DebtsView({ debts, panel }: { debts: LoanLine[]; panel: DebtsPan
               const total = Number(debt.total_rsd) || 0;
               const share = total > 0 ? Math.min(debt.settled / total, 1) : 0;
               const done = debt.settled_on != null;
-              const showing = openHistory === debt.id;
 
               return (
                 <div key={debt.id} className={cn("debt-row", done && "is-done")}>
@@ -260,6 +267,22 @@ export function DebtsView({ debts, panel }: { debts: LoanLine[]; panel: DebtsPan
                     </span>
 
                     <span className="debt-row-do">
+                      {/*
+                        Paying is what happens to a debt; closing is what happens to it
+                        once. So the payment leads, and `Close it' keeps its place beside
+                        the Reopen that undoes it — which is the reason closing lives on
+                        this screen and not on the summary panel.
+                      */}
+                      {!done && (
+                        <Link
+                          href={`/private/money?new=${lent ? "income" : "expense"}&loan=${debt.id}`}
+                          aria-label={`Add a payment against ${debt.name}`}
+                          title="Add payment"
+                          className="zv-rowctrl zv-rowctrl-sm"
+                        >
+                          <Plus className="h-3.25 w-3.25" />
+                        </Link>
+                      )}
                       <Link
                         href={`/private/debts?edit=${debt.id}`}
                         aria-label={`Edit ${debt.name}`}
@@ -272,6 +295,11 @@ export function DebtsView({ debts, panel }: { debts: LoanLine[]; panel: DebtsPan
                         type="button"
                         onClick={() => settle(debt.id, !done)}
                         disabled={pending}
+                        title={
+                          !done && debt.outstanding > 0
+                            ? `${fmt(debt.outstanding)} still ${lent ? "to collect" : "owed"} — closes it anyway`
+                            : undefined
+                        }
                         className={buttonClasses(
                           "secondary",
                           "shrink-0 px-2.5 py-1 text-[11.5px] disabled:opacity-50",
@@ -284,7 +312,8 @@ export function DebtsView({ debts, panel }: { debts: LoanLine[]; panel: DebtsPan
                         ) : (
                           <>
                             <Check className="h-3.5 w-3.5" aria-hidden />
-                            {lent ? "Collected" : "Settled"}
+                            {/* Same wording rule as the overview panel — see LoansPanel. */}
+                            {debt.outstanding > 0 ? "Close it" : lent ? "Collected" : "Settled"}
                           </>
                         )}
                       </button>
@@ -316,38 +345,88 @@ export function DebtsView({ debts, panel }: { debts: LoanLine[]; panel: DebtsPan
                         ? `${fmt(debt.settled)} of ${fmt(total)} settled`
                         : `Nothing paid against ${fmtShort(total)} yet`}
                     </span>
-                    {debt.movements.length > 0 && (
-                      <button
-                        type="button"
-                        onClick={() => setOpenHistory(showing ? null : debt.id)}
-                        aria-expanded={showing}
-                        className="debt-row-more"
+
+                    {/*
+                      The way from the debt to the thing that pays it.
+
+                      This screen printed `30.776,48 × 3 left' and offered no way to reach
+                      the rule behind it, and no way to make one — so a debt written down
+                      here and a repayment written down in Upcoming were two separate acts
+                      that nothing joined. A debt owed to a friend still needs neither:
+                      the link is an offer, and 5.000 that gets paid back whenever is a
+                      perfectly good debt with no schedule at all.
+                    */}
+                    {!done && !lent && (
+                      <Link
+                        href={
+                          debt.ruleId
+                            ? `/private/upcoming?edit=${debt.ruleId}`
+                            : `/private/upcoming?new=1&loan=${debt.id}`
+                        }
+                        className="debt-row-plan"
                       >
-                        {showing
-                          ? "Hide the movements"
-                          : `${debt.movements.length} ${debt.movements.length === 1 ? "movement" : "movements"}`}
-                      </button>
+                        <CalendarClock className="h-3.25 w-3.25" aria-hidden />
+                        {debt.ruleId ? "Change repayment" : "Set up repayment"}
+                      </Link>
                     )}
                   </div>
 
                   {debt.note && <p className="debt-row-note">{debt.note}</p>}
 
-                  {showing && (
-                    <div className="debt-moves">
-                      {debt.movements.map((m) => (
-                        <div key={m.id} className="debt-move">
-                          <span className="mono debt-move-on">{m.on}</span>
-                          <span className="min-w-0 flex-1 truncate">{m.title ?? "—"}</span>
-                          <span className="mono">{fmt(m.amount)}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                  {/*
+                    The history the goals have had all along.
+
+                    What stood here was three columns — a date, a title, a figure — with
+                    no sign on the amount, no account, and no way to take a mistyped
+                    payment back out. A debt is worked out from its entries every time it
+                    is read, so those entries are the answer to every question the figure
+                    raises, and the screen could not answer one of them. `DebtHistory` is
+                    the goals' fold in a debt's words, and it is the same component the
+                    card on the Goals screen uses.
+                  */}
+                  <DebtHistory debt={debt} />
                 </div>
               );
             })}
           </div>
         )}
+
+        {/*
+          The closed debts, right here, the way the overview's panel shows them.
+
+          This screen ended with nothing: the only sign that a settled debt existed at all
+          was `1 of 2' in the corner and an option inside a select nobody had opened. Two
+          screens showing the same debts, and one of them quietly knew about a row the
+          other did not mention — so this is the overview's own fold, in the same shape and
+          the same words, because two places answering the same question should not answer
+          it two ways.
+
+          Only while the filter is hiding them. Switch it to `Settled' and they are already
+          on the screen as full rows; the fold underneath would be the same debts a second
+          time, which is how a list stops being trusted.
+        */}
+        {status === "open" && closed.length > 0 && (
+          <details className="loans-closed">
+            <summary>{closed.length} settled</summary>
+            {closed.map((debt) => (
+              <div key={debt.id} className="loan-closed-row">
+                <span className="min-w-0 flex-1 truncate">{debt.name}</span>
+                <span className="mono text-faint">{debt.settled_on}</span>
+                <button
+                  type="button"
+                  onClick={() => settle(debt.id, false)}
+                  disabled={pending}
+                  aria-label={`Reopen ${debt.name}`}
+                  title="Put it back on the list"
+                  className="zv-rowctrl zv-rowctrl-sm"
+                >
+                  <RotateCcw className="h-3.25 w-3.25" />
+                </button>
+              </div>
+            ))}
+          </details>
+        )}
+
       </Panel>
 
       <SlideOver

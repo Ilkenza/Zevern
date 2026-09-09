@@ -15,6 +15,9 @@
 
 # next.js
 /.next/
+# A build cache moved out of the way to force a rebuild — 700MB of Turbopack
+# sst files, two of them over GitHub's 100MB limit. Never committable, never wanted.
+/.next-*/
 /out/
 
 # production
@@ -41,6 +44,26 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# what the desktop app drops into the repo folder while we work — screenshots,
+# .tgz transfers, one-off demo pages. None of it is source.
+/Claude outputs/
+
+# archives, wherever they land. This is the shape of the thing that breaks a push:
+# one 100MB+ file and GitHub refuses the whole repository.
+*.tgz
+*.tar.gz
+*.zip
+
+# tool caches that appear only on the machine that ran the tool
+.eslintcache
+.stylelintcache
+/supabase/.temp/
+/supabase/.branches/
+.netlify/
+
+# os junk
+Thumbs.db
 
 # Scratch that the remote bridge cannot delete
 _to_delete/

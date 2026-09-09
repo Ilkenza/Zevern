@@ -2,6 +2,7 @@
 
 import {
 getGoalRemaining,
+getLoanRemaining,
 getRates
 } from "@/lib/data/money";
 import { todayISO } from "@/lib/format";
@@ -24,6 +25,19 @@ refresh,
 today
 } from "./shared";
 import { unreadable } from "@/lib/data/must";
+import { amountToBook, planEnd } from "@/lib/money/posting";
+
+/**
+ * The two ways a booking can come to nothing, in words.
+ *
+ * `amountToBook` answers with a name rather than a sentence, so the arithmetic can be
+ * tested without a test asserting on copy — this is where the name becomes the thing the
+ * person reads.
+ */
+const NOTHING_TO_BOOK = {
+  settled: "That debt is already paid off, so there is nothing to book against it.",
+  "no-amount": "This one needs an amount before it can be booked.",
+} as const;
 
 /* --------------------------------------------------------------- recurring */
 
@@ -44,6 +58,7 @@ export async function saveLoan(_prev: MoneyState, formData: FormData): Promise<M
   const name = String(formData.get("name") ?? "").trim().slice(0, 80);
   const direction = String(formData.get("direction") ?? "lent");
   const total = num(formData.get("total"));
+  const currency = currencyOf(formData.get("currency"));
   const openedOn = String(formData.get("opened_on") ?? "").trim() || today();
   const note = String(formData.get("note") ?? "").trim().slice(0, 200) || null;
 
@@ -55,7 +70,48 @@ export async function saveLoan(_prev: MoneyState, formData: FormData): Promise<M
   const uid = await userId(supabase);
   if (!uid) return { error: "Not signed in." };
 
-  const payload = { name, direction, total_rsd: total, opened_on: openedOn, note };
+  /*
+    Converted once, at the rate of the day it was agreed, and the rate kept beside it.
+
+    A credit agreed at €5.000 is a fact about euros, and it is repaid in dinars — so both
+    figures have to be on the row: the one that was agreed, and the one every other screen
+    counts in. The same arrangement a goal has, deliberately, because a debt and a goal
+    are read side by side on the same page and two ways of saying "in another currency"
+    would be one too many.
+
+    Not followed afterwards. A dinar total that moved with the exchange rate would change
+    what is left to pay, and how many instalments are left, on a morning when nothing
+    happened — and the last instalment would never quite clear it.
+
+    Which is also why an edit keeps the rate it was written down at. Fixing a typo in the
+    name of a euro credit would otherwise re-convert it at today's rate and quietly move
+    what you owe, for no reason a person could ever see. The rate is only asked for again
+    when the currency itself changes, because then there is nothing to keep.
+  */
+  let rate = currency === "RSD" ? 1 : rateFor(currency, await getRates());
+  if (id) {
+    const { data: before, error: beforeError } = await supabase
+      .from("money_loans")
+      .select("currency, rate")
+      .eq("id", id)
+      .eq("user_id", uid)
+      .maybeSingle();
+    if (beforeError) return { error: unreadable("that debt") };
+    const kept = Number(before?.rate);
+    if (before?.currency === currency && kept > 0) rate = kept;
+  }
+  const totalRsd = Math.round(total * rate * 100) / 100;
+
+  const payload = {
+    name,
+    direction,
+    total_amount: total,
+    currency,
+    rate,
+    total_rsd: totalRsd,
+    opened_on: openedOn,
+    note,
+  };
 
   if (id) {
     const { error } = await supabase
@@ -320,8 +376,21 @@ export async function postRecurring(id: string, amountOverride?: number): Promis
   if (itemError) return { error: unreadable("that repeating item") };
   if (!item) return { error: "Recurring item not found." };
 
-  const amount = amountOverride != null && amountOverride > 0 ? amountOverride : Number(item.amount);
-  if (!(amount > 0)) return { error: "This one needs an amount before it can be booked." };
+  const asked = amountOverride != null && amountOverride > 0 ? amountOverride : Number(item.amount);
+  if (!(asked > 0)) return { error: "This one needs an amount before it can be booked." };
+
+  /*
+    What is owed, read once — before the entry is written, and reused below to decide
+    whether the debt is finished. `getLoanRemaining` is cached for the request, so asking
+    it again after the insert would hand back the figure from before it: the same number,
+    quietly meaning something else.
+
+    The trim itself, and why the last instalment needs one, is in `amountToBook`.
+  */
+  const owedBefore = item.loan_id ? ((await getLoanRemaining()).get(item.loan_id) ?? 0) : null;
+  const plan = amountToBook(asked, owedBefore);
+  if (plan.book == null) return { error: NOTHING_TO_BOOK[plan.refusal] };
+  const amount = plan.book;
 
   // The item is ours, but its links only became ours after the check in saveRecurring
   // existed — an item saved before that can still point somewhere else. Copying those
@@ -408,10 +477,20 @@ export async function postRecurring(id: string, amountOverride?: number): Promis
     item.ends_when === "goal" && item.goal_id != null
       ? ((await getGoalRemaining()).get(item.goal_id) ?? 0) <= PENNY
       : false;
-  const finished =
-    (item.installments_total != null && done >= item.installments_total) ||
-    (item.ends_on != null && next > item.ends_on) ||
-    goalFull;
+  /*
+    And the rest of the answer — the count, the end date, the debt — in `planEnd`, which
+    is where the order between them is written down and tested. `owed` is the figure from
+    before the insert on purpose; see the read above.
+  */
+  const { loanCleared, finished } = planEnd({
+    owed: owedBefore,
+    booked: amount,
+    done,
+    installmentsTotal: item.installments_total,
+    endsOn: item.ends_on,
+    next,
+    goalFull,
+  });
 
   /*
     The date this booked is part of the condition, not just part of the payload.
@@ -477,6 +556,33 @@ export async function postRecurring(id: string, amountOverride?: number): Promis
     // on the other request.
     refresh();
     return { ok: true };
+  }
+
+  /*
+    The last instalment closes the debt.
+
+    Without this the chain stopped one step short: the rate booked, the debt fell to
+    nothing, the rule switched itself off — and the debt sat in the open list at a
+    hundred per cent, waiting for somebody to press `Settled' on a thing that was
+    already paid. A list that asks to be told what it can see is a list that stops being
+    read, and the button beside it means something quite different — see `settleLoan`,
+    where closing a debt with a balance left is deliberately allowed because someone
+    forgave the rest.
+
+    After the bump, so a losing race never closes a debt on the strength of an entry it
+    is about to take back out. Guarded on `settled_on is null` so the date is the day it
+    was actually cleared rather than the day of the last read, and failure is quiet on
+    purpose: the money is booked and the debt already reads as nought owed, so the worst
+    of it is a row that needs closing by hand.
+  */
+  if (loanCleared && item.loan_id) {
+    const { error: closeErr } = await supabase
+      .from("money_loans")
+      .update({ settled_on: today() })
+      .eq("id", item.loan_id)
+      .eq("user_id", uid)
+      .is("settled_on", null);
+    if (closeErr) console.error("postRecurring close loan:", closeErr.message);
   }
 
   refresh();

@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { userId } from "@/lib/supabase/current-user";
 import { todayISO } from "@/lib/format";
 import { monthKey, monthRange, shiftMonth } from "@/lib/money";
-import { goalCapFor, median, occurrencesFor } from "@/lib/money/occurrences";
+import { capFor, median, occurrencesFor } from "@/lib/money/occurrences";
 import type { BudgetLine } from "@/lib/types";
 import {
   estimateFor,
@@ -18,6 +18,7 @@ import {
 } from "./core";
 import { getMonthSummary } from "./transactions";
 import { getGoalRemaining } from "./goals";
+import { getLoanRemaining } from "./loans";
 import { getCategoryBudgetCaps } from "./budget-plans";
 import { ReadFailed } from "@/lib/data/must";
 import { readAll } from "@/lib/money/paging";
@@ -79,7 +80,7 @@ async function fixedByCategory(
     exactly the amount most likely to break it.
   */
   const floor = from > today ? from : null;
-  const goalRoom = await getGoalRemaining();
+  const [goalRoom, loanRoom] = await Promise.all([getGoalRemaining(), getLoanRemaining()]);
 
   for (const rule of rules) {
     // A goal rule reserves money rather than spending it, and a rule with no category
@@ -94,7 +95,7 @@ async function fixedByCategory(
       estimate.estimated,
       to,
       estimate.samples,
-      goalCapFor(rule, goalRoom),
+      capFor(rule, goalRoom, loanRoom),
     )) {
       if (floor && occ.on < floor) continue;
       due.set(rule.category_id, (due.get(rule.category_id) ?? 0) + occ.amount);

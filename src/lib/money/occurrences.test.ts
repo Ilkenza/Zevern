@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 import type { RecurringRow } from "@/lib/types";
-import { PER_MONTH, feedsGoal, median, nextDay, occurrencesFor } from "./occurrences";
+import {
+  PER_MONTH,
+  capFor,
+  feedsGoal,
+  loanCapFor,
+  median,
+  nextDay,
+  occurrencesFor,
+} from "./occurrences";
 
 /**
  * A rule with everything filled in, so each test can say only what it is about.
@@ -25,10 +33,12 @@ function rule(overrides: Partial<RecurringRow> = {}): RecurringRow {
     installments_total: null,
     installments_done: 0,
     goal_id: null,
+    loan_id: null,
     created_at: "2025-01-01T00:00:00Z",
     category: null,
     account: null,
     goal: null,
+    loan: null,
     ...overrides,
   } as RecurringRow;
 }
@@ -284,5 +294,137 @@ describe("cadence and the goal cap", () => {
   it("leaves every other rule uncapped", () => {
     const out = occurrencesFor(rule(), 5000, false, "2026-12-31");
     expect(out.every((o) => o.amount === 5000)).toBe(true);
+  });
+});
+
+/*
+  A debt is finished when it is paid, not when a counter runs out.
+
+  These are the real figures: a credit of 123.105,92 written down as four payments of
+  30.776,48, which divides exactly — until a month when more than the rate goes out. From
+  that moment the counter and the ledger disagree, and every one of these says the ledger
+  wins. They are asserted rather than described because "you cannot overpay a debt" is a
+  promise, and a promise nothing checks is a comment.
+*/
+describe("a debt caps the plan that pays it", () => {
+  const CREDIT = 123105.92;
+  const RATE = 30776.48;
+  const loan = "loan-1";
+
+  it("caps any rule that names a debt, whatever its end condition says", () => {
+    const room = new Map([[loan, 50000]]);
+    expect(loanCapFor(rule({ loan_id: loan }), room)).toBe(50000);
+    expect(loanCapFor(rule({ loan_id: loan, ends_when: "never" }), room)).toBe(50000);
+    expect(loanCapFor(rule({ loan_id: loan, ends_when: "installments" }), room)).toBe(50000);
+  });
+
+  it("leaves a rule that pays no debt alone", () => {
+    expect(loanCapFor(rule(), new Map([[loan, 50000]]))).toBeUndefined();
+  });
+
+  it("caps at nothing when the debt has gone", () => {
+    // Safer of the two wrong answers: a rule pointing at a debt that is not there books
+    // nothing, rather than booking forever against something nobody can check.
+    expect(loanCapFor(rule({ loan_id: "gone" }), new Map())).toBe(0);
+  });
+
+  it("takes whichever cap the rule actually has", () => {
+    const goals = new Map([["goal-1", 9000]]);
+    const loans = new Map([[loan, 50000]]);
+    expect(capFor(rule({ ends_when: "goal", goal_id: "goal-1" }), goals, loans)).toBe(9000);
+    expect(capFor(rule({ loan_id: loan }), goals, loans)).toBe(50000);
+    expect(capFor(rule(), goals, loans)).toBeUndefined();
+  });
+
+  it("projects four payments while the plan is being kept", () => {
+    const out = occurrencesFor(
+      rule({ loan_id: loan, installments_total: 4, installments_done: 0 }),
+      RATE,
+      false,
+      "2027-12-31",
+      [],
+      CREDIT,
+    );
+    expect(out).toHaveLength(4);
+    expect(out.reduce((sum, o) => sum + o.amount, 0)).toBeCloseTo(CREDIT, 2);
+  });
+
+  it("shortens the plan the month more than the rate goes out", () => {
+    /*
+      90.000 paid against a 30.776,48 rate leaves 33.105,92. The counter still says three
+      payments — 92.329,44, which is 59.223,52 more than is owed. The ledger says two: a
+      full one and a short one.
+    */
+    const out = occurrencesFor(
+      rule({ loan_id: loan, installments_total: 4, installments_done: 1 }),
+      RATE,
+      false,
+      "2027-12-31",
+      [],
+      CREDIT - 90000,
+    );
+    expect(out).toHaveLength(2);
+    expect(out.map((o) => Math.round(o.amount * 100) / 100)).toEqual([RATE, 2329.44]);
+    expect(out.reduce((sum, o) => sum + o.amount, 0)).toBeCloseTo(33105.92, 2);
+  });
+
+  it("never promises more than is owed, at any payment size", () => {
+    // The property behind every case above, checked across the range rather than at the
+    // one figure that happened to come up.
+    for (const paid of [0, 1, 5000, 30776.48, 35000, 90000, 123105.91]) {
+      const out = occurrencesFor(
+        rule({ loan_id: loan, installments_total: 4 }),
+        RATE,
+        false,
+        "2030-12-31",
+        [],
+        CREDIT - paid,
+      );
+      const promised = out.reduce((sum, o) => sum + o.amount, 0);
+      expect(promised, `after paying ${paid}`).toBeCloseTo(CREDIT - paid, 2);
+    }
+  });
+
+  it("still honours the counter on a rule with no debt behind it", () => {
+    /*
+      The other half of the rule above, and the reason it is written as `cap != null'
+      rather than as `always'. A four-month credit written down as a plain rule with no
+      debt attached still counts four times — nothing here loosens that.
+    */
+    const out = occurrencesFor(
+      rule({ installments_total: 4, installments_done: 1 }),
+      RATE,
+      false,
+      "2030-12-31",
+    );
+    expect(out).toHaveLength(3);
+  });
+
+  it("promises nothing once the debt is paid", () => {
+    expect(
+      occurrencesFor(rule({ loan_id: loan, installments_total: 4 }), RATE, false, "2030-12-31", [], 0),
+    ).toEqual([]);
+  });
+
+  it("lengthens the plan when less than the rate went out", () => {
+    /*
+      The same rule read the other way, and nothing about it is special-cased: the walk
+      is over what is owed, so a short month simply takes another step to cover.
+
+      Pay 10.000 by hand instead of the 30.776,48 rate and 113.105,92 is left — three
+      full payments and a fourth of 20.776,48. The counter, one booking in, says three.
+      This is the case where believing the counter leaves a debt open with the plan that
+      was paying it already switched off.
+    */
+    const out = occurrencesFor(
+      rule({ loan_id: loan, installments_total: 4, installments_done: 1 }),
+      RATE,
+      false,
+      "2030-12-31",
+      [],
+      CREDIT - 10000,
+    );
+    expect(out).toHaveLength(4);
+    expect(out.reduce((sum, o) => sum + o.amount, 0)).toBeCloseTo(113105.92, 2);
   });
 });

@@ -1114,26 +1114,6 @@ body::after {
 }
 
 /* --------------------------------------------------------- Money: what you have */
-.onhand-band {
-  position: relative;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: stretch;
-  justify-content: space-between;
-  gap: 24px;
-  overflow: hidden;
-  padding: 18px 20px;
-  border: 1px solid rgba(217, 164, 65, 0.17);
-  border-radius: var(--radius-card);
-  background:
-    radial-gradient(circle at 88% 0%, rgba(217, 164, 65, 0.1), transparent 42%),
-    linear-gradient(145deg, rgba(255, 255, 255, 0.025), transparent 46%),
-    var(--color-surface);
-  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.18);
-  animation: money-card-in 640ms var(--ease-premium) 60ms both;
-}
-
-.onhand-empty { align-items: center; }
 
 /*
   The accounts, on the money screen, as a strip rather than a column.
@@ -1185,62 +1165,6 @@ body::after {
   color: var(--color-faint);
   font-style: normal;
   letter-spacing: 0.12em;
-}
-
-.onhand-figure { min-width: 240px; flex: 1 1 300px; }
-
-.onhand-value {
-  margin-top: 6px;
-  font-size: 34px;
-  font-weight: 700;
-  letter-spacing: -1.2px;
-  line-height: 1.1;
-  animation: money-head-in 720ms var(--ease-premium) 180ms both;
-}
-
-.onhand-caption {
-  margin-top: 3px;
-  color: var(--color-muted);
-  font-size: 12.5px;
-}
-
-.onhand-track {
-  display: flex;
-  gap: 2px;
-  height: 6px;
-  max-width: 420px;
-  margin-top: 14px;
-  border-radius: var(--radius-pill);
-  background: rgba(255, 255, 255, 0.05);
-  overflow: hidden;
-}
-
-.onhand-seg { display: block; height: 100%; border-radius: var(--radius-pill); }
-.onhand-free { background: var(--color-gold); }
-/*
-  Reserved money is not a different kind of money, it is the same money with a label on
-  it — so it takes a dimmed version of the same gold rather than a blue borrowed from a
-  status palette this app does not otherwise use. Free leads, reserved recedes.
-*/
-.onhand-reserved { background: var(--color-held); }
-
-.onhand-legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px 16px;
-  margin-top: 10px;
-  color: var(--color-muted);
-  font-size: 11.5px;
-  font-weight: 600;
-}
-
-.onhand-legend > span { display: inline-flex; align-items: center; gap: 6px; }
-.onhand-total { color: var(--color-faint); }
-
-.onhand-key {
-  width: 8px;
-  height: 8px;
-  border-radius: 3px;
 }
 
 .onhand-accounts {
@@ -1319,8 +1243,7 @@ body::after {
 
 /* The figure and the name sit above the light rather than under it. */
 .onhand-account-name,
-.onhand-account-value,
-.onhand-account-note { position: relative; z-index: 1; }
+.onhand-account-value { position: relative; z-index: 1; }
 
 @media (prefers-reduced-motion: reduce) {
   .onhand-account::after { transition: none; }
@@ -1344,12 +1267,6 @@ body::after {
   font-weight: 600;
 }
 
-.onhand-account-note {
-  flex-basis: 100%;
-  color: var(--color-faint);
-  font-size: 10.5px;
-}
-
 .onhand-manage {
   display: inline-flex;
   align-items: center;
@@ -1364,19 +1281,6 @@ body::after {
 .onhand-manage:hover { color: var(--color-gold-hi); }
 
 /* ------------------------------------------------------------ Money: the ledger */
-.money-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  transition:
-    color 200ms ease,
-    border-color 200ms ease,
-    background-color 200ms ease,
-    transform 260ms var(--ease-premium);
-}
-
-.money-chip:hover { border-color: rgba(217, 164, 65, 0.3); }
-.money-chip-on { box-shadow: 0 0 0 1px rgba(217, 164, 65, 0.14); }
 
 /* A raised bar rather than a tint, so a day reads as a section and not a stripe. */
 .money-day-head { background: var(--color-surface-2); }
@@ -1415,15 +1319,11 @@ body::after {
 }
 
 @media (max-width: 760px) {
-  .onhand-band { flex-direction: column; gap: 16px; }
   .onhand-accounts { min-width: 0; }
-  .onhand-value { font-size: 28px; }
   .money-month-nav { flex-wrap: wrap; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .onhand-band,
-  .onhand-value,
   .onhand-account,
   .money-ledger .money-row {
     animation: none !important;
@@ -1431,7 +1331,6 @@ body::after {
     transform: none;
   }
 
-  .money-chip,
   .money-row-spine,
   .money-month-arrow,
   .money-month-back,
@@ -1455,69 +1354,6 @@ body::after {
   justify-content: space-between;
   gap: 1.25rem;
   margin-bottom: 1.5rem;
-}
-
-.budget-head-nav { margin-top: 0; }
-
-.budget-layout {
-  display: grid;
-  gap: 1rem;
-}
-
-@media (min-width: 1024px) {
-  .budget-layout {
-    grid-template-columns: minmax(0, 20.5rem) minmax(0, 1fr);
-    align-items: start;
-    gap: 1.25rem;
-  }
-}
-
-/* ------------------------------------------------------- Budgets: the summary */
-
-.budget-summary {
-  position: relative;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 1.5rem 1.25rem 1.25rem;
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius-card);
-  background: var(--color-surface);
-  animation: money-card-in 620ms var(--ease-premium) 60ms both;
-}
-
-/* The warm wash behind the ring — depth without a shadow, which reads cheap on dark. */
-.budget-summary::before {
-  content: "";
-  position: absolute;
-  top: -30%;
-  left: 50%;
-  width: 22rem;
-  height: 22rem;
-  transform: translateX(-50%);
-  border-radius: 50%;
-  background: radial-gradient(
-    circle,
-    color-mix(in srgb, var(--color-gold) 10%, transparent),
-    transparent 62%
-  );
-  pointer-events: none;
-}
-
-.budget-summary > * { position: relative; }
-
-@media (min-width: 1024px) {
-  .budget-summary {
-    position: sticky;
-    /* Clear of the topbar, which is sticky at the same time. */
-    top: 5.25rem;
-  }
-}
-
-.budget-summary-head {
-  align-self: flex-start;
-  margin-bottom: 0.75rem;
 }
 
 /* ---------------------------------------------------------- Budgets: the ring */
@@ -1581,469 +1417,11 @@ body::after {
   color: var(--color-faint);
 }
 
-.budget-pace-note {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  margin-top: 0.9rem;
-  font-size: 11.5px;
-  color: var(--color-muted);
-}
-
-.budget-pace-note i {
-  width: 2px;
-  height: 11px;
-  border-radius: 1px;
-  background: var(--color-ink);
-  opacity: 0.75;
-}
-
-.budget-verdict {
-  margin-top: 0.85rem;
-  text-align: center;
-  font-size: 13px;
-  line-height: 1.5;
-  color: var(--color-ink);
-  text-wrap: balance;
-}
-
-/*
-  The move, under the verdict.
-
-  Quieter than the sentence above it on purpose: the verdict is the finding and this is
-  the footnote that acts on it. Same relationship the suggestion chip has to a row —
-  dashed, tinted, clearly an offer rather than a statement of fact.
-
-  A flat tint is fine here in a way it is not on a segmented control: this is a panel
-  on a surface, not a key in a groove, so there is no raised object for the gold to
-  muddy. It is held at 8% all the same — an alarm this thing is not.
-*/
-.budget-remedy {
-  width: 100%;
-  margin-top: 0.7rem;
-  padding: 0.55rem 0.75rem;
-  border: 1px solid color-mix(in srgb, var(--color-gold) 20%, transparent);
-  border-radius: var(--radius-ctrl);
-  background: rgba(217, 164, 65, 0.08);
-  text-align: center;
-  font-size: 12px;
-  line-height: 1.5;
-  color: var(--color-muted);
-  text-wrap: balance;
-}
-
-.budget-remedy b {
-  color: var(--color-gold-hi);
-  font-weight: 700;
-}
-
-/* ------------------------------------------------------- Budgets: the figures */
-
-.budget-figures {
-  width: 100%;
-  margin-top: 1.15rem;
-  padding-top: 0.35rem;
-  border-top: 1px solid var(--color-line-soft);
-}
-
-.budget-figure-row {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 0.5rem 0;
-  border-bottom: 1px solid var(--color-line-soft);
-}
-
-.budget-figure-row:last-child { border-bottom: 0; }
-
-.budget-figure-label {
-  display: flex;
-  flex-direction: column;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--color-muted);
-}
-
-.budget-figure-label small {
-  font-size: 10.5px;
-  font-weight: 500;
-  color: var(--color-faint);
-}
-
-.budget-figure-value {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--color-ink);
-  white-space: nowrap;
-}
-
-.budget-figure-value.is-danger { color: var(--color-danger); }
-.budget-figure-value.is-ok { color: var(--color-ok); }
-.budget-figure-value.is-gold { color: var(--color-gold-hi); }
-
-/* Spending without limits is a valid choice, so this is context rather than a warning. */
-.budget-untracked {
-  width: 100%;
-  margin-top: 1rem;
-  padding: 0.7rem 0.8rem;
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius-ctrl);
-  background: rgba(255, 255, 255, 0.025);
-  font-size: 11.5px;
-  line-height: 1.5;
-  color: var(--color-muted);
-}
-
-.budget-untracked-amount {
-  display: block;
-  margin-bottom: 0.15rem;
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--color-ink);
-}
-
-.budget-entries-link {
-  margin-top: 1rem;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--color-gold-hi);
-  transition: color 200ms ease;
-}
-
-.budget-entries-link:hover { color: var(--color-gold); }
-
-/* --------------------------------------------------------- Budgets: the list */
-
-.budget-list {
-  min-width: 0;
-  animation: money-card-in 620ms var(--ease-premium) 140ms both;
-}
-
-.budget-list-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 0 0.25rem 0.7rem;
-}
-
-.budget-list-title {
-  font-family: var(--font-display);
-  font-size: 15px;
-  font-weight: 800;
-  letter-spacing: -0.3px;
-  color: var(--color-ink);
-}
-
-.budget-list-meta {
-  font-size: 11.5px;
-  font-weight: 600;
-  color: var(--color-faint);
-  white-space: nowrap;
-}
-
-/*
-  Columns, so the bar stays a length the eye can judge.
-
-  One card per row was right when the screen was 880px wide and the list sat under the
-  summary. It is not right beside a 20.5rem summary at 1200px: the card becomes an
-  850px band and the bar inside it a 700px hairline. A bar that long is worse at its
-  one job, not better — proportion is read by holding both ends at once, and at 700px
-  the eye cannot. The pace tick at 84% ends up 590px from the start, which is a
-  measurement rather than a glance.
-
-  `auto-fill` rather than a breakpoint: the number of columns follows the space the
-  list actually has, which is the column width minus a summary whose size is set in
-  rem and a sidebar that may yet change.
-*/
-.budget-cards {
-  display: grid;
-  gap: 0.6rem;
-  grid-template-columns: repeat(auto-fill, minmax(23rem, 1fr));
-}
-
-/* ---------------------------------------------------------- Budgets: one card */
-
-/*
-  A card rather than a row.
-
-  Everything used to sit on one line, so the bar — the only part that answers the
-  question at a glance — was the narrowest thing on it and the first to vanish on a
-  phone. Two lines instead: identity and money on top, the bar owning the full width
-  underneath.
-*/
-.budget-card {
-  position: relative;
-  overflow: hidden;
-  /*
-    The card answers to its own width, not the window's.
-
-    The rules that stack the money block used to live in `@media (max-width: 640px)`,
-    which was correct while the list was one column: card width and viewport width rose
-    and fell together. The two-column layout at 1024px broke that. On a 1024px viewport
-    the sidebar takes 260px and the padding 64px, so the list column is about 352px —
-    a card narrow enough to need stacking, in a window far too wide to trigger it. The
-    result was the state the comment further down this file describes as fixed: `of`
-    adrift in the middle of the card with a gap on either side.
-
-    A container query asks the only question that was ever meant: how much room does
-    this card have. It is then correct at every window size and at any column count.
-  */
-  container: budget-card / inline-size;
-  padding: 0.85rem 1rem 0.85rem 1.15rem;
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius-card);
-  background: var(--color-surface);
-  animation: money-card-in 560ms var(--ease-premium) both;
-  transition:
-    border-color 240ms ease,
-    background-color 240ms ease,
-    transform 260ms var(--ease-premium);
-}
-
-.budget-card:hover {
-  border-color: color-mix(in srgb, var(--cat-tone) 34%, var(--color-line));
-  background: color-mix(in srgb, var(--cat-tone) 4%, var(--color-surface));
-}
-
-/* The category's colour, down the whole edge. */
-.budget-card-rail {
-  position: absolute;
-  inset-block: 0;
-  left: 0;
-  width: 3px;
-  background: var(--cat-tone);
-  opacity: 0.75;
-  transition: opacity 240ms ease;
-}
-
-.budget-card:hover .budget-card-rail { opacity: 1; }
-
-/* Over budget is the one state worth colouring the whole card for. */
-.budget-card.budget-is-over {
-  border-color: color-mix(in srgb, var(--color-danger) 32%, var(--color-line));
-  background: color-mix(in srgb, var(--color-danger) 5%, var(--color-surface));
-}
-
-.budget-card-top {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem 0.75rem;
-}
-
-.budget-card-id {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  min-width: 0;
-}
-
-.budget-card-dot {
-  flex: none;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--cat-tone);
-  transition: transform 280ms var(--ease-premium), filter 280ms ease;
-}
-
-.budget-card:hover .budget-card-dot {
-  filter: brightness(1.25);
-}
-
-.budget-card-name {
-  min-width: 0;
-  font-size: 13.5px;
-  font-weight: 700;
-  color: var(--color-ink);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.budget-card-status {
-  flex: none;
-  padding: 0.15rem 0.5rem;
-  border-radius: var(--radius-pill);
-  font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  white-space: nowrap;
-  color: var(--status-tone);
-  background: color-mix(in srgb, var(--status-tone) 14%, transparent);
-}
-
-.budget-card-money {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  margin-left: auto;
-}
-
-/*
-  On one line the figures sit at the right end together. Wrapped onto their own line
-  they were spread edge to edge by `space-between`, which put "of" adrift in the middle
-  of the card with a gap on either side. The amount and the word belong to each other;
-  only the field goes to the far side.
-*/
-@container budget-card (max-width: 30rem) {
-  .budget-card-money { width: 100%; margin-left: 0; }
-  .budget-card-field { margin-left: auto; }
-  .budget-card-input { width: 5rem; }
-}
-
-.budget-card-spent {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--color-ink);
-  white-space: nowrap;
-}
-
-.budget-card-of { font-size: 11.5px; color: var(--color-faint); }
-
-/*
-  The limit is a field, not a figure that opens one. This screen is a form, and being
-  able to type straight into it is worth more than a tidier row.
-*/
-.budget-card-field {
-  display: inline-flex;
-  align-items: stretch;
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius-ctrl);
-  background: rgba(255, 255, 255, 0.035);
-  transition: border-color 200ms ease, box-shadow 200ms ease, background-color 200ms ease;
-}
-
-.budget-card-field:hover { background: rgba(255, 255, 255, 0.06); }
-
-.budget-card-field:focus-within {
-  border-color: var(--color-gold);
-  box-shadow: var(--shadow-ring);
-}
-
-.budget-card-input {
-  width: 5.5rem;
-  padding: 0.3rem 0.5rem;
-  background: transparent;
-  border: 0;
-  outline: none;
-  text-align: right;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--color-ink);
-}
-
-.budget-card-input::placeholder {
-  font-family: var(--font-ui);
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--color-faint);
-}
-
-.budget-card-unit {
-  display: flex;
-  align-items: center;
-  padding: 0 0.45rem;
-  border-left: 1px solid var(--color-line-soft);
-  font-family: var(--font-mono);
-  font-size: 10.5px;
-  font-weight: 600;
-  color: var(--color-faint);
-}
-
-.budget-card-bottom {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  margin-top: 0.7rem;
-}
-
-/* On the narrowest cards the bar keeps the full row and its verdict moves below it.
-   Squeezing both onto one line is what made "0 RSD left" escape through the edge. */
-@container budget-card (max-width: 23rem) {
-  .budget-card-money { gap: 0.3rem; }
-  .budget-card-input { width: 4.25rem; }
-  .budget-card-bottom {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    gap: 0.5rem;
-  }
-  .budget-card-left { justify-self: end; }
-}
-
 /* ----------------------------------------------------------- Budgets: the bar */
-
-.budget-bar {
-  position: relative;
-  flex: 1;
-  min-width: 0;
-  height: 7px;
-  border-radius: var(--radius-pill);
-  background: rgba(255, 255, 255, 0.055);
-  overflow: visible;
-}
-
-.budget-bar-fill {
-  display: block;
-  height: 100%;
-  border-radius: var(--radius-pill);
-  background: var(--status-tone);
-  transform-origin: left;
-  animation: budget-bar-in 900ms var(--ease-premium) 260ms both;
-}
 
 @keyframes budget-bar-in {
   from { transform: scaleX(0); }
   to { transform: scaleX(1); }
-}
-
-.budget-card-left {
-  flex: none;
-  font-size: 11.5px;
-  font-weight: 600;
-  color: var(--color-muted);
-  white-space: nowrap;
-}
-
-.budget-card-left.is-over { color: var(--color-danger); }
-.budget-card-left.is-reached { color: var(--color-gold-hi); }
-
-.budget-card-nolimit {
-  font-size: 11.5px;
-  line-height: 1.45;
-  color: var(--color-faint);
-}
-
-/* ---------------------------------------------------- Budgets: the suggestion */
-
-.budget-suggest {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  margin-top: 0.65rem;
-  padding: 0.25rem 0.6rem;
-  border: 1px dashed color-mix(in srgb, var(--color-gold) 32%, transparent);
-  border-radius: var(--radius-pill);
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--color-muted);
-  transition: border-color 200ms ease, background-color 200ms ease, color 200ms ease;
-}
-
-.budget-suggest:hover {
-  border-style: solid;
-  border-color: var(--color-gold);
-  background: var(--color-active-bg);
-  color: var(--color-ink);
-}
-
-.budget-suggest-cta {
-  color: var(--color-gold-hi);
-  text-decoration: underline;
-  text-underline-offset: 2px;
 }
 
 /* ---------------------------------------------------------- Budgets: the rest */
@@ -2064,71 +1442,15 @@ body::after {
 
 .budget-note.is-ok { color: var(--color-ok); }
 
-.budget-savebar {
-  position: sticky;
-  bottom: 1rem;
-  z-index: 20;
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  margin-top: 1rem;
-  padding: 0.7rem 0.85rem;
-  border: 1px solid color-mix(in srgb, var(--color-gold) 30%, var(--color-line));
-  border-radius: var(--radius-card);
-  background: color-mix(in srgb, var(--color-surface) 88%, transparent);
-  backdrop-filter: blur(8px);
-  box-shadow: 0 18px 40px -18px rgba(0, 0, 0, 0.85);
-  animation: budget-savebar-in 420ms var(--ease-premium) both;
-}
-
-@media (min-width: 1024px) {
-  /* It belongs to the list, not to the summary beside it. */
-  .budget-savebar { grid-column: 2; }
-}
-
-@keyframes budget-savebar-in {
-  from { opacity: 0; transform: translateY(16px) scale(0.98); }
-  to { opacity: 1; transform: none; }
-}
-
-.budget-savebar-text {
-  flex: 1;
-  color: var(--color-ink);
-  font-size: 12.5px;
-  font-weight: 600;
-}
-
-.budget-savebar-undo {
-  color: var(--color-muted);
-  font-size: 12px;
-  font-weight: 600;
-  transition: color 200ms ease;
-}
-
-.budget-savebar-undo:hover { color: var(--color-ink); }
-
 @media (max-width: 640px) {
   .money-page-head { min-height: 0; padding: 16px 16px; }
   .money-premium::before { right: -150px; opacity: 0.7; }
-  /*
-    On one line the figures sit at the right end together. Wrapped onto their own
-    line they were spread edge to edge by `space-between`, which put "of" adrift in
-    the middle of the card with a gap on either side. The amount and the word belong
-    to each other; only the field goes to the far side.
-  */
-  .budget-summary { padding: 1.25rem 1rem 1rem; }
-  .budget-cards { grid-template-columns: minmax(0, 1fr); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .budget-summary,
-  .budget-list,
-  .budget-card,
   .budget-ring-arc,
   .budget-ring-tick,
-  .budget-ring-centre,
-  .budget-bar-fill,
-  .budget-savebar {
+  .budget-ring-centre {
     animation: none !important;
     opacity: 1;
     transform: none;
@@ -2136,15 +1458,6 @@ body::after {
 
   /* The arc still has to end up at its figure — it simply arrives there drawn. */
   .budget-ring-arc { stroke-dashoffset: var(--ring-gap); }
-  .budget-bar-fill { transform: scaleX(1); }
-
-  .budget-card,
-  .budget-card-rail,
-  .budget-card-dot,
-  .budget-card-field,
-  .budget-suggest,
-  .budget-entries-link,
-  .budget-savebar-undo { transition: none; }
 }
 
 /* Overview — executive dashboard treatment. */
@@ -2594,11 +1907,6 @@ body::after {
 .attention-chip:hover {
   background: rgba(255, 255, 255, 0.055);
 }
-
-.attention-critical { border-color: rgba(222, 107, 94, 0.3); color: var(--color-danger); }
-.attention-critical:hover { border-color: rgba(222, 107, 94, 0.5); }
-.attention-warning { border-color: rgba(230, 180, 87, 0.28); color: var(--color-active); }
-.attention-warning:hover { border-color: rgba(230, 180, 87, 0.48); }
 .attention-detail { color: var(--color-ink); opacity: 0.7; }
 
 /* Always rendered, so hovering never reflows the chip — the arrow just wakes up. */
@@ -2621,9 +1929,6 @@ body::after {
 }
 
 .kpi-delta-label { color: var(--color-faint); font-weight: 600; }
-.kpi-delta-good { color: var(--color-ok); }
-.kpi-delta-bad { color: var(--color-danger); }
-.kpi-delta-flat { color: var(--color-muted); }
 .kpi-delta-none { color: var(--color-faint); font-weight: 600; }
 
 /* Sparkline — one series, so no legend and no axis; the tile above is the label. */
@@ -2700,140 +2005,6 @@ body::after {
   .attention-chip,
   .attention-arrow { transition: none; }
 }
-
-/* One compact rail no matter how many categories exist. */
-.money-chip-rail {
-  --money-chip-fade: 58px;
-  display: grid;
-  grid-template-columns: 30px minmax(0, 1fr) 30px;
-  align-items: center;
-  gap: 7px;
-  animation: money-head-in 560ms var(--ease-premium) 200ms both;
-}
-
-.money-chips {
-  display: flex;
-  min-width: 0;
-  gap: 0.375rem;
-  overflow-x: auto;
-  overscroll-behavior-inline: contain;
-  scroll-snap-type: inline proximity;
-  scrollbar-width: none;
-}
-
-.money-chips::-webkit-scrollbar { display: none; }
-.money-chips .money-chip { scroll-snap-align: start; }
-
-/* Fade only the chips. The page texture remains untouched, so no dark block appears. */
-.money-chip-rail.has-start-fade .money-chips {
-  -webkit-mask-image: linear-gradient(
-    to right,
-    transparent 0,
-    rgba(0, 0, 0, 0.28) 12px,
-    rgba(0, 0, 0, 0.72) 34px,
-    #000 var(--money-chip-fade)
-  );
-  mask-image: linear-gradient(
-    to right,
-    transparent 0,
-    rgba(0, 0, 0, 0.28) 12px,
-    rgba(0, 0, 0, 0.72) 34px,
-    #000 var(--money-chip-fade)
-  );
-}
-
-.money-chip-rail.has-end-fade .money-chips {
-  -webkit-mask-image: linear-gradient(
-    to left,
-    transparent 0,
-    rgba(0, 0, 0, 0.28) 12px,
-    rgba(0, 0, 0, 0.72) 34px,
-    #000 var(--money-chip-fade)
-  );
-  mask-image: linear-gradient(
-    to left,
-    transparent 0,
-    rgba(0, 0, 0, 0.28) 12px,
-    rgba(0, 0, 0, 0.72) 34px,
-    #000 var(--money-chip-fade)
-  );
-}
-
-.money-chip-rail.has-start-fade.has-end-fade .money-chips {
-  -webkit-mask-image: linear-gradient(
-    to right,
-    transparent 0,
-    rgba(0, 0, 0, 0.28) 12px,
-    rgba(0, 0, 0, 0.72) 34px,
-    #000 var(--money-chip-fade),
-    #000 calc(100% - var(--money-chip-fade)),
-    rgba(0, 0, 0, 0.72) calc(100% - 34px),
-    rgba(0, 0, 0, 0.28) calc(100% - 12px),
-    transparent 100%
-  );
-  mask-image: linear-gradient(
-    to right,
-    transparent 0,
-    rgba(0, 0, 0, 0.28) 12px,
-    rgba(0, 0, 0, 0.72) 34px,
-    #000 var(--money-chip-fade),
-    #000 calc(100% - var(--money-chip-fade)),
-    rgba(0, 0, 0, 0.72) calc(100% - 34px),
-    rgba(0, 0, 0, 0.28) calc(100% - 12px),
-    transparent 100%
-  );
-}
-
-.money-chip-arrow {
-  display: grid;
-  place-items: center;
-  width: 30px;
-  height: 30px;
-  border: 1px solid var(--color-line);
-  border-radius: 999px;
-  background: linear-gradient(145deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.018));
-  color: var(--color-muted);
-  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.16);
-  transition:
-    color 180ms ease,
-    border-color 180ms ease,
-    background-color 180ms ease,
-    transform 220ms var(--ease-premium),
-    opacity 180ms ease;
-}
-
-.money-chip-arrow svg { width: 14px; height: 14px; stroke-width: 2; }
-
-.money-chip-arrow:not(:disabled):hover {
-  border-color: rgba(217, 164, 65, 0.38);
-  background: var(--color-active-bg);
-  color: var(--color-gold-hi);
-  transform: translateY(-1px);
-}
-
-.money-chip-arrow:disabled { cursor: default; opacity: 0.24; }
-.money-chip-rail.is-idle .money-chip-arrow { visibility: hidden; }
-
-@media (max-width: 480px) {
-  .money-chip-rail {
-    --money-chip-fade: 48px;
-    grid-template-columns: 28px minmax(0, 1fr) 28px;
-    gap: 5px;
-  }
-  .money-chip-arrow { width: 28px; height: 28px; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .money-chip-rail { animation: none; }
-  .money-chip-arrow { transition: none; }
-}
-
-.budget-panel-premium .budget-rows { position: relative; }
-
-.budget-row.budget-is-over::before,
-.budget-row.budget-is-ahead::before { transform: scaleY(1); }
-.budget-row.budget-is-over::before { background: var(--color-danger); }
-.budget-row.budget-is-ahead::before { background: var(--color-active); }
 
 /* ======================================================= Upcoming: the curve
    Ninety days of free money, drawn as steps. Money does not glide — it sits
@@ -2994,16 +2165,6 @@ body::after {
   margin-bottom: 16px;
 }
 
-.forecast-outlook-eyebrow {
-  display: block;
-  margin-bottom: 2px;
-  color: var(--color-faint);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-
 .forecast-outlook-runway-value {
   display: flex;
   align-items: baseline;
@@ -3028,30 +2189,6 @@ body::after {
   color: var(--color-muted);
   font-size: 11px;
 }
-
-.forecast-outlook-ending {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 2px;
-  text-align: right;
-}
-
-.forecast-outlook-ending > span,
-.forecast-outlook-ending small {
-  color: var(--color-muted);
-  font-size: 10.5px;
-}
-
-.forecast-outlook-ending strong {
-  color: var(--color-ink);
-  font-size: clamp(20px, 2.4vw, 28px);
-  line-height: 1.15;
-  letter-spacing: -0.025em;
-}
-
-.forecast-outlook-ending strong.is-risk { color: var(--color-danger); }
-.forecast-outlook-ending small span { color: var(--color-faint); }
 
 .forecast-runway-track {
   position: relative;
@@ -3100,72 +2237,6 @@ body::after {
   to { transform: scaleX(1); }
 }
 
-.forecast-checkpoints {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 1px;
-  margin-top: 11px;
-}
-
-.forecast-checkpoint {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  gap: 2px;
-  opacity: 0;
-  animation: money-head-in 480ms var(--ease-premium) both;
-}
-
-.forecast-checkpoint:not(:first-child) { text-align: center; }
-.forecast-checkpoint:last-child { align-items: flex-end; text-align: right; }
-
-.forecast-checkpoint span {
-  color: var(--color-faint);
-  font-size: 9.5px;
-  font-weight: 650;
-  text-transform: uppercase;
-}
-
-.forecast-checkpoint strong {
-  overflow: hidden;
-  color: var(--color-muted);
-  font-size: 11px;
-  font-weight: 600;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.forecast-checkpoint strong.is-risk { color: var(--color-danger); }
-
-.forecast-flow {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  margin-top: 18px;
-  padding-top: 14px;
-  border-top: 1px solid var(--color-line-soft);
-}
-
-.forecast-flow > div {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  gap: 3px;
-  padding: 0 14px;
-  border-left: 1px solid var(--color-line-soft);
-}
-
-.forecast-flow > div:first-child { padding-left: 0; border-left: 0; }
-.forecast-flow > div:last-child { padding-right: 0; }
-
-.forecast-flow span { color: var(--color-faint); font-size: 10px; }
-.forecast-flow strong {
-  overflow: hidden;
-  color: var(--color-muted);
-  font-size: 11.5px;
-  text-overflow: ellipsis;
-}
-.forecast-flow strong.is-positive { color: var(--color-positive); }
-
 .forecast-balance-change {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
@@ -3197,13 +2268,10 @@ body::after {
 
 @media (max-width: 620px) {
   .forecast-outlook { padding: 15px; }
-  .forecast-flow { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 0; }
-  .forecast-flow > div:nth-child(3) { padding-left: 0; border-left: 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .forecast-outlook,
-  .forecast-checkpoint,
   .forecast-runway-safe { animation: none !important; opacity: 1; transform: none; }
 }
 
@@ -3411,39 +2479,6 @@ body::after {
 
 .task-summary-late { color: var(--color-danger); }
 
-/* ------------------------------------------------------------- Today panel */
-.task-focus {
-  position: relative;
-  overflow: hidden;
-  margin-bottom: 18px;
-  border: 1px solid rgba(217, 164, 65, 0.18);
-  border-radius: var(--radius-card);
-  background:
-    radial-gradient(circle at 92% -10%, rgba(217, 164, 65, 0.12), transparent 44%),
-    linear-gradient(150deg, rgba(255, 255, 255, 0.025), transparent 46%),
-    var(--color-surface);
-  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.2);
-  animation: money-card-in 640ms var(--ease-premium) 70ms both;
-}
-
-.task-focus-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 13px 16px 11px;
-  border-bottom: 1px solid var(--color-line-soft);
-}
-
-.task-focus-count { color: var(--color-faint); font-size: 11px; font-weight: 600; }
-.task-focus-body { padding: 4px 0; }
-
-.task-focus-empty {
-  padding: 16px;
-  color: var(--color-muted);
-  font-size: 12.5px;
-}
-
 /* ------------------------------------------------------------- Quick add */
 .task-quickadd {
   display: flex;
@@ -3512,11 +2547,6 @@ body::after {
 .task-row:last-child { border-bottom: 0; }
 .task-row:hover { background: rgba(255, 255, 255, 0.03); }
 
-.task-focus-body > .task-row:nth-child(1) { animation-delay: 170ms; }
-.task-focus-body > .task-row:nth-child(2) { animation-delay: 215ms; }
-.task-focus-body > .task-row:nth-child(3) { animation-delay: 260ms; }
-.task-focus-body > .task-row:nth-child(n + 4) { animation-delay: 305ms; }
-
 .task-row-title {
   overflow: hidden;
   color: var(--color-ink);
@@ -3538,7 +2568,6 @@ body::after {
   transition: color 200ms ease;
 }
 .task-card-project:hover { color: var(--color-gold-hi); }
-.task-card-date { color: var(--color-faint); font-size: 10.5px; }
 
 .task-prio {
   display: inline-flex;
@@ -3608,21 +2637,14 @@ body::after {
 .task-done[open] .task-done-summary i { transform: rotate(-135deg) translate(-1px, -1px); }
 .task-done-body { border-top: 1px solid var(--color-line-soft); }
 
-@media (max-width: 1000px) {
-}
-
 @media (prefers-reduced-motion: reduce) {
   .task-summary,
-  .task-focus,
-  .task-row,
-  .task-group,
-  .task-line {
+  .task-row {
     animation: none !important;
     opacity: 1;
     transform: none;
   }
 
-  .task-line,
   .task-row,
   .task-edit,
   .task-quickadd,
@@ -3689,22 +2711,94 @@ body::after {
 .task-tabbar {
   display: flex;
   align-items: stretch;
-  gap: 2px;
+  gap: 6px;
   margin-bottom: 14px;
   border-bottom: 1px solid var(--color-line);
   animation: money-head-in 620ms var(--ease-premium) 120ms both;
 }
 
+/*
+  The arrows, as controls rather than as glyphs — and as the app's own arrows.
+
+  They were two bare chevrons with four pixels of padding either side, which is a drawing
+  of an arrow: nothing about them said they could be pressed, and nothing said when they
+  could not.
+
+  What they are now is not invented here. `.money-chip-arrow`, further up this file,
+  already describes the scroll arrow this app uses — a circle, a hairline, a lift on
+  hover, a quarter of its opacity when it has nowhere to go — and the fade below takes its
+  three-stop curve from the same rail. That rail is not on any screen at the moment, so
+  this is where the description finally gets used; the point stands either way, which is
+  that two kinds of scroll arrow in one app is a thing you notice without being able to
+  say why.
+*/
 .task-tabnav {
+  display: grid;
+  flex: none;
+  align-self: center;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--color-line);
+  border-radius: 999px;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.018));
+  color: var(--color-muted);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.16);
+  cursor: pointer;
+  transition:
+    color 180ms ease,
+    border-color 180ms ease,
+    background-color 180ms ease,
+    transform 220ms var(--ease-premium),
+    opacity 180ms ease;
+}
+.task-tabnav svg { width: 14px; height: 14px; stroke-width: 2; }
+.task-tabnav:hover {
+  border-color: rgba(217, 164, 65, 0.38);
+  background: var(--color-active-bg);
+  color: var(--color-gold-hi);
+  transform: translateY(-1px);
+}
+/*
+  Resting is the default, and `data-more' wakes the arrow that has somewhere to go.
+
+  Written this way round rather than dimming the dead one, because the strip starts at its
+  own left edge every time: the honest first frame is a left arrow already at rest, and a
+  right arrow that lights up when the measurement confirms there is a right to go to. The
+  other way round, the page opened with a bright left arrow that faded out in front of
+  you — a control dying on arrival.
+*/
+.task-tabnav { cursor: default; opacity: 0.24; pointer-events: none; }
+.task-tabbar[data-more~="left"] .task-tabnav-prev,
+.task-tabbar[data-more~="right"] .task-tabnav-next {
+  cursor: pointer;
+  opacity: 1;
+  pointer-events: auto;
+}
+/* A row with nothing off either edge needs neither arrow, and says so by not drawing
+   them — the space is kept, so the tabs do not jump when one is needed again. */
+.task-tabbar[data-more=""] .task-tabnav { visibility: hidden; }
+
+/*
+  The bands that are not days, standing outside the scroll.
+
+  `Someday` and `Later` were the last two tabs of thirty-one, which meant the tasks you
+  had deliberately not dated were four weeks of scrolling away — behind every day you
+  had. They are not days. The hairline is the same one that separates them inside the
+  row, kept so the group still reads as a group when it steps out of it.
+
+  `flex: none` so the days give up the width, never these: a day you cannot see is one
+  arrow press away, and a band you cannot see is a month of them.
+*/
+.task-tabs-held {
   display: flex;
   flex: none;
-  align-items: center;
-  padding: 0 4px;
-  color: var(--color-faint);
-  cursor: pointer;
-  transition: color 180ms ease;
+  align-items: stretch;
+  gap: 2px;
+  margin-left: 3px;
+  padding-left: 9px;
+  border-left: 1px solid var(--color-line);
 }
-.task-tabnav:hover { color: var(--color-gold-hi); }
 
 .task-tabs {
   display: flex;
@@ -3715,47 +2809,176 @@ body::after {
   overflow-x: auto;
   scrollbar-width: none;
   /*
-    Faded at both ends, so the row looks cut off on purpose rather than by the window.
-    The arrows say there is more; this says which way, at a glance, without reading them.
+    Faded where the row carries on, square where it stops.
+
+    It faded at both ends always, which laid a wash over `Late' and `Today' — the two
+    tabs worth reading first — to hint at an overflow that, at that end, was not there.
+    The two variables are set off the scroll position, so the fade is now the truth
+    rather than a decoration, and the arrows and the fade always say the same thing.
   */
-  mask-image: linear-gradient(90deg, transparent, #000 14px, #000 calc(100% - 14px), transparent);
+  --tab-fade-l: #000 0, #000 0;
+  --tab-fade-r: #000 100%, #000 100%;
+  mask-image: linear-gradient(
+    to right,
+    var(--tab-fade-l),
+    #000 58px,
+    #000 calc(100% - 58px),
+    var(--tab-fade-r)
+  );
   scroll-behavior: smooth;
+}
+/*
+  The three-stop curve `.money-chip-rail` fades with, at its own numbers, so that anything
+  in this app dissolving at the edge of a scrolling row dissolves the same way. A straight
+  ramp leaves a legible ghost of a word right at the edge; this one is gone by then.
+*/
+.task-tabbar[data-more~="left"] .task-tabs {
+  --tab-fade-l: transparent 0, rgba(0, 0, 0, 0.28) 12px, rgba(0, 0, 0, 0.72) 34px;
+}
+.task-tabbar[data-more~="right"] .task-tabs {
+  --tab-fade-r: rgba(0, 0, 0, 0.72) calc(100% - 34px), rgba(0, 0, 0, 0.28) calc(100% - 12px),
+    transparent 100%;
 }
 .task-tabs::-webkit-scrollbar { display: none; }
 
 .task-tab {
+  position: relative;
   display: inline-flex;
-  align-items: baseline;
+  align-items: center;
   gap: 6px;
-  padding: 9px 13px;
-  border-bottom: 2px solid transparent;
+  padding: 8px 12px 9px;
+  border-radius: var(--radius-ctrl) var(--radius-ctrl) 0 0;
   color: var(--color-muted);
   font-size: 12.5px;
   font-weight: 600;
   white-space: nowrap;
   cursor: pointer;
-  transition: color 180ms ease, border-color 180ms ease;
+  transition: color 180ms ease, background-color 180ms ease;
 }
+
+/*
+  The mark under the chosen day is drawn, not bordered.
+
+  A `border-bottom` runs the whole width of the tab, padding included, and cannot be
+  rounded on its own; this one is inset from both sides and capped, so it reads as a mark
+  under the word rather than as the bottom edge of a box that is not there.
+*/
+.task-tab::after {
+  content: "";
+  position: absolute;
+  right: 9px;
+  bottom: 0;
+  left: 9px;
+  height: 2px;
+  border-radius: 2px 2px 0 0;
+  background: transparent;
+  transition: background-color 200ms ease;
+}
+
+.task-tab:hover { background: rgba(255, 255, 255, 0.035); color: var(--color-ink); }
+.task-tab.is-on {
+  color: var(--color-ink);
+  background: linear-gradient(180deg, rgba(217, 164, 65, 0.1), rgba(217, 164, 65, 0.015));
+}
+.task-tab.is-on::after { background: var(--color-gold); }
+
+/*
+  The count as a chip, and no chip at all where there is nothing to count.
+
+  A bare figure beside a word is another word, and on a strip of twenty-eight days
+  nineteen of those words are `0'. In a chip it is a quantity — read without being read —
+  and the empty days now print nothing, which takes the noughts off the row and leaves
+  the eye landing straight on the days that hold something.
+*/
 .task-tab-count {
-  font-size: 11.5px;
-  font-weight: 800;
+  display: inline-flex;
+  min-width: 18px;
+  height: 16px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: rgba(217, 164, 65, 0.13);
   color: var(--color-gold);
-  transition: color 180ms ease;
+  font-size: 10.5px;
+  font-weight: 800;
+  line-height: 1;
+  transition: background-color 180ms ease, color 180ms ease;
+}
+.task-tab.is-on .task-tab-count {
+  background: rgba(217, 164, 65, 0.22);
+  color: var(--color-gold-hi);
 }
 
 /* A day with nothing on it is still somewhere to put something — dimmed, never gone. */
-.task-tab.is-zero { color: var(--color-faint); }
-.task-tab.is-zero .task-tab-count { color: #41485a; }
+.task-tab.is-zero { color: var(--color-faint); font-weight: 500; }
+.task-tab.is-zero:hover { color: var(--color-muted); }
 
-.task-tab:hover { color: var(--color-ink); }
-.task-tab.is-on {
-  color: var(--color-ink);
-  border-bottom-color: var(--color-gold);
-}
+/* Today keeps its colour wherever the row has been pushed to, so it can be found again. */
+.task-tab-today { color: var(--color-gold); }
+.task-tab-today.is-zero { color: rgba(217, 164, 65, 0.55); font-weight: 600; }
 
 /* Late is the one band that is not a plan but a debt, and it keeps the app's word for that. */
-.task-tab-late .task-tab-count { color: var(--color-danger); }
-.task-tab-late.is-on { border-bottom-color: var(--color-danger); }
+.task-tab-late { color: var(--color-danger); }
+.task-tab-late .task-tab-count {
+  background: rgba(222, 107, 94, 0.14);
+  color: var(--color-danger);
+}
+.task-tab-late.is-on::after { background: var(--color-danger); }
+.task-tab-late.is-on .task-tab-count {
+  background: rgba(222, 107, 94, 0.22);
+  color: var(--color-danger);
+}
+
+/*
+  Three kinds of thing in one row: what is owed, what is planned, what is parked. A
+  hairline where the kind changes says so without spending a word on it, and a tab either
+  side of the join gets the room to be told apart.
+*/
+.task-tab-late + .task-tab,
+.task-tab-day + .task-tab-parked { margin-left: 9px; }
+.task-tab-late + .task-tab::before,
+.task-tab-day + .task-tab-parked::before {
+  content: "";
+  position: absolute;
+  top: 8px;
+  bottom: 9px;
+  left: -6px;
+  width: 1px;
+  background: var(--color-line);
+}
+
+/*
+  On a phone the row is the width of two words, so every pixel of padding is a day you
+  cannot see. Nothing is dropped and nothing shrinks below reading size — the tabs simply
+  sit closer, which buys most of a third day on a 390px screen.
+*/
+@media (max-width: 520px) {
+  .task-tabbar { gap: 4px; }
+  .task-tab { gap: 5px; padding: 8px 9px 9px; }
+  .task-tab::after { right: 6px; left: 6px; }
+  .task-tab-late + .task-tab,
+  .task-tab-day + .task-tab-parked { margin-left: 7px; }
+  .task-tab-late + .task-tab::before,
+  .task-tab-day + .task-tab-parked::before { left: -5px; }
+  .task-tabnav { width: 24px; height: 24px; }
+  .task-tabs {
+    mask-image: linear-gradient(
+      to right,
+      var(--tab-fade-l),
+      #000 40px,
+      #000 calc(100% - 40px),
+      var(--tab-fade-r)
+    );
+  }
+  .task-tabbar[data-more~="left"] .task-tabs {
+    --tab-fade-l: transparent 0, rgba(0, 0, 0, 0.28) 9px, rgba(0, 0, 0, 0.72) 24px;
+  }
+  .task-tabbar[data-more~="right"] .task-tabs {
+    --tab-fade-r: rgba(0, 0, 0, 0.72) calc(100% - 24px), rgba(0, 0, 0, 0.28) calc(100% - 9px),
+      transparent 100%;
+  }
+}
 
 /* ------------------------------------------------------------- The one panel */
 
@@ -3990,7 +3213,10 @@ body::after {
 @media (prefers-reduced-motion: reduce) {
   .task-tabbar,
   .task-panel { animation: none !important; opacity: 1; transform: none; }
-  .task-tab { transition: none; }
+  .task-tab,
+  .task-tab::after,
+  .task-tab-count,
+  .task-tabnav { transition: none; }
   /* A strip that jumps is better than one that slides past somebody who asked it not to. */
   .task-tabs { scroll-behavior: auto; }
 }
@@ -4173,231 +3399,6 @@ body::after {
 }
 
 .setup-earning-note b { color: var(--color-muted); font-weight: 600; }
-
-/* --------------------------------------------------------- Setup: foundation */
-
-.setup-foundation {
-  position: relative;
-  overflow: hidden;
-  padding: 1.15rem 1.1rem 1rem;
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius-card);
-  background: var(--color-surface);
-  animation: money-card-in 620ms var(--ease-premium) 60ms both;
-}
-
-.setup-foundation::before {
-  content: "";
-  position: absolute;
-  top: -40%;
-  right: -20%;
-  width: 16rem;
-  height: 16rem;
-  border-radius: 50%;
-  background: radial-gradient(
-    circle,
-    color-mix(in srgb, var(--color-gold) 11%, transparent),
-    transparent 62%
-  );
-  pointer-events: none;
-}
-
-.setup-foundation > * { position: relative; }
-
-@media (min-width: 1024px) {
-  /* Clear of the topbar, which is sticky at the same time. */
-  .setup-foundation { position: sticky; top: 5.25rem; }
-}
-
-.setup-foundation-head { min-width: 0; }
-
-.setup-foundation-figure {
-  margin-top: 0.5rem;
-  font-family: var(--font-display);
-  font-size: 25px;
-  font-weight: 800;
-  letter-spacing: -0.9px;
-  color: var(--color-ink);
-}
-
-.setup-foundation-figure b {
-  font-family: var(--font-mono);
-  font-weight: 700;
-  color: var(--color-gold);
-}
-
-.setup-foundation-note {
-  margin-top: 0.2rem;
-  font-size: 12px;
-  line-height: 1.45;
-  color: var(--color-muted);
-}
-
-/* One segment per required step. Discrete, because these are done or they are not. */
-.setup-progress {
-  display: flex;
-  gap: 4px;
-  margin-top: 0.9rem;
-}
-
-.setup-progress-seg {
-  flex: 1;
-  height: 4px;
-  border-radius: var(--radius-pill);
-  background: rgba(255, 255, 255, 0.07);
-  transform-origin: left;
-  transition: background-color 320ms var(--ease-premium);
-}
-
-.setup-progress-seg.is-done {
-  background: var(--color-gold);
-  animation: setup-seg-in 520ms var(--ease-premium) both;
-}
-
-.setup-progress-seg.is-done:nth-child(1) { animation-delay: 260ms; }
-.setup-progress-seg.is-done:nth-child(2) { animation-delay: 360ms; }
-.setup-progress-seg.is-done:nth-child(3) { animation-delay: 460ms; }
-
-@keyframes setup-seg-in {
-  from { transform: scaleX(0); }
-  to { transform: scaleX(1); }
-}
-
-/* ------------------------------------------------------------- Setup: index */
-
-.setup-steps {
-  display: grid;
-  gap: 1px;
-  margin-top: 1rem;
-  padding-top: 0.65rem;
-  border-top: 1px solid var(--color-line-soft);
-}
-
-.setup-step {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.6rem;
-  padding: 0.5rem 0.55rem;
-  border-radius: var(--radius-ctrl);
-  transition:
-    background-color 200ms ease,
-    transform 240ms var(--ease-premium);
-}
-
-.setup-step:hover {
-  background: rgba(255, 255, 255, 0.03);
-}
-
-/*
-  Where you are, not what you have done — so it reads over the tick, not instead.
-
-  It says it louder than it used to, because it means something else now. While the page
-  was one scroll, this was a report on where the scroll had got to; now the rail chooses
-  what the pane shows, and the current step is the only thing on screen saying which of
-  six questions you are looking at. A tinted row and a gold edge at its left, which is the
-  mark this app uses everywhere for the thing that is on.
-*/
-.setup-step[aria-current="true"] {
-  position: relative;
-  background: var(--color-active-bg);
-}
-
-.setup-step[aria-current="true"]::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 50%;
-  translate: 0 -50%;
-  width: 2px;
-  height: 62%;
-  border-radius: var(--radius-pill);
-  background: var(--color-gold);
-}
-
-.setup-step[aria-current="true"] .setup-step-label { color: var(--color-ink); }
-
-.setup-step[aria-current="true"] .setup-step-count { color: var(--color-gold-hi); }
-
-.setup-step-mark {
-  flex: none;
-  display: grid;
-  place-items: center;
-  width: 17px;
-  height: 17px;
-  margin-top: 1px;
-  border-radius: 50%;
-  border: 1px solid var(--color-line);
-  color: var(--color-on-gold);
-  transition: background-color 240ms ease, border-color 240ms ease;
-}
-
-.setup-step-mark i {
-  width: 4px;
-  height: 4px;
-  border-radius: 50%;
-  background: var(--color-faint);
-}
-
-.setup-step.is-done .setup-step-mark {
-  background: var(--color-gold);
-  border-color: var(--color-gold);
-}
-
-.setup-step-body { min-width: 0; flex: 1; }
-
-.setup-step-label {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  font-size: 12.5px;
-  font-weight: 600;
-  color: var(--color-muted);
-}
-
-.setup-step.is-done .setup-step-label { color: var(--color-ink); }
-
-.setup-step-label em {
-  font-style: normal;
-  font-size: 9.5px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--color-faint);
-}
-
-/* What is missing, said once and only while it is missing. */
-.setup-step-todo {
-  display: block;
-  margin-top: 0.15rem;
-  font-size: 11px;
-  line-height: 1.4;
-  color: var(--color-faint);
-}
-
-.setup-step-count {
-  flex: none;
-  font-size: 11.5px;
-  font-weight: 600;
-  color: var(--color-faint);
-}
-
-.setup-foundation-total {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 1rem;
-  margin-top: 0.9rem;
-  padding-top: 0.7rem;
-  border-top: 1px solid var(--color-line-soft);
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--color-muted);
-}
-
-.setup-foundation-total .mono {
-  font-size: 14px;
-  color: var(--color-ink);
-}
 
 /* ---------------------------------------------------------- Setup: a section */
 
@@ -5190,14 +4191,24 @@ a.past-row:hover .past-row-name { color: var(--color-gold-hi); }
   color: var(--color-faint);
 }
 
-.debt-row-more {
-  color: var(--color-muted);
-  font-weight: 600;
-  cursor: pointer;
-  transition: color 180ms ease;
-}
+/*
+  The history's rule, given the same air as everything else in the row.
 
-.debt-row-more:hover { color: var(--color-gold-hi); }
+  `DebtHistory` was drawn for the goal card, where it sits between a padded body and a
+  footer and its own `px-5` lines up with them. Dropped into a debt row it kept both
+  habits and neither fitted: the top border landed flush against `Nothing paid against
+  123k yet` — every other gap in this row is 7 to 10 pixels and that one was nought, so
+  the rule read as underlining the line above rather than opening the block below — and
+  the text sat four pixels further in than the name and the figure it belongs to.
+
+  Scoped to the row rather than fixed in the component, because on the card both of those
+  are right.
+*/
+.debt-row > .goal-history {
+  margin-top: 10px;
+  padding-left: 0;
+  padding-right: 0;
+}
 
 .debt-row-note {
   margin-top: 7px;
@@ -5207,26 +4218,6 @@ a.past-row:hover .past-row-name { color: var(--color-gold-hi); }
   line-height: 1.45;
   color: var(--color-muted);
 }
-
-.debt-moves {
-  margin-top: 10px;
-  padding: 6px 10px;
-  border: 1px solid var(--color-line-soft);
-  border-radius: var(--radius-ctrl);
-  background: rgba(255, 255, 255, 0.018);
-}
-
-.debt-move {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 4px 0;
-  font-size: 11.5px;
-  color: var(--color-muted);
-}
-
-.debt-move + .debt-move { border-top: 1px solid var(--color-line-soft); }
-.debt-move-on { flex: none; color: var(--color-faint); }
 
 @media (prefers-reduced-motion: reduce) {
   .debt-bar-fill { animation: none; }
@@ -5273,7 +4264,79 @@ a.past-row:hover .past-row-name { color: var(--color-gold-hi); }
     grid-template-columns: auto minmax(0, 1fr) 7rem 4.75rem minmax(0, 11rem) auto;
     gap: 8px;
   }
+
+  /*
+    Between 760 and 1100 the keeping pair takes a line of its own, under the name rather
+    than under the mark — seven tracks do not fit in that width without cutting `No
+    category' back to `No ca', which is the fault the note above records fixing once.
+  */
+  .setup-item-in > .setup-item-keeping {
+    grid-column: 2 / -1;
+    max-width: 22rem;
+  }
 }
+
+/*
+  Wide enough for one line, which is what a list of thirty-two wants to be.
+
+  Seven tracks: the mark, the name taking the slack, price, currency, where it is filed,
+  what kind of thing it is, and the controls.
+*/
+@media (min-width: 1100px) {
+  .setup-item-in {
+    grid-template-columns:
+      auto minmax(0, 1fr) 6.5rem 4.5rem minmax(0, 9.5rem) minmax(0, 13.5rem) auto;
+  }
+
+  .setup-item-in > .setup-item-keeping {
+    grid-column: auto;
+    max-width: none;
+  }
+}
+
+/*
+  What kind of thing it is, and — where it goes off — how long it keeps.
+
+  One cell holding two controls, not a second line. As a second line it made every one of
+  thirty-two things two rows tall with a sentence underneath, and a list of shopping
+  becomes a page of paragraphs. The select takes the slack; the day count is a small box
+  beside it and only exists on the things that have one.
+*/
+.setup-item-keeping {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+/* Three digits and no more — it holds a number of days, not an amount. */
+/*
+  A row that saves itself says so, quietly.
+
+  There is no Save button on these rows any more — every field commits on its own — so the
+  only thing left to show is that something is in flight. A word, not a control: nothing
+  here is waiting to be pressed.
+*/
+.setup-item-saving {
+  color: var(--color-faint);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.setup-item-keeps {
+  width: 4.25rem;
+  flex: 0 0 auto;
+  text-align: right;
+}
+
+/* The spinners are two more targets in a 68px box, and the box is already a number. */
+.setup-item-keeps::-webkit-outer-spin-button,
+.setup-item-keeps::-webkit-inner-spin-button {
+  appearance: none;
+  margin: 0;
+}
+
+.setup-item-keeps { appearance: textfield; }
 
 /*
   The composer has no mark, so it cannot share the saved row's template.
@@ -5747,11 +4810,9 @@ a.past-row:hover .past-row-name { color: var(--color-gold-hi); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .setup-foundation,
   .setup-seed-card,
   .setup-section,
-  .setup-row-premium,
-  .setup-progress-seg.is-done {
+  .setup-row-premium {
     animation: none !important;
     opacity: 1;
     transform: none;
@@ -5762,9 +4823,6 @@ a.past-row:hover .past-row-name { color: var(--color-gold-hi); }
 
   .setup-section,
   .setup-section-icon,
-  .setup-step,
-  .setup-step-mark,
-  .setup-progress-seg,
   .setup-row-premium,
   .setup-row-premium input,
   .setup-row-premium select,
@@ -5899,11 +4957,6 @@ a.past-row:hover .past-row-name { color: var(--color-gold-hi); }
 
 .goal-move-submit:disabled { opacity: 0.45; }
 
-@keyframes goal-orb-in {
-  from { opacity: 0; transform: translate(18px, -18px) scale(0.72); }
-  to { opacity: 1; transform: translate(0, 0) scale(1); }
-}
-
 @keyframes goal-reached-glow {
   0% { box-shadow: 0 0 0 rgba(217, 164, 65, 0); }
   45% { box-shadow: 0 0 0 6px rgba(217, 164, 65, 0.13), 0 24px 54px rgba(0, 0, 0, 0.2); }
@@ -5933,17 +4986,6 @@ a.past-row:hover .past-row-name { color: var(--color-gold-hi); }
 }
 
 .goal-reached-link:hover { text-decoration-color: var(--color-gold-hi); }
-.goal-reached-note span { color: var(--color-muted); }
-.goal-reached-note svg { flex: none; margin-top: 1px; }
-
-@keyframes goal-reached-in {
-  from { opacity: 0; transform: translateY(6px) scale(0.98); }
-  to { opacity: 1; transform: none; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .goal-reached-note { animation: none; opacity: 1; transform: none; }
-}
 
 .goals-head-side {
   display: flex;
@@ -5952,55 +4994,6 @@ a.past-row:hover .past-row-name { color: var(--color-gold-hi); }
   gap: 12px;
 }
 
-/*
-  Four figures that had drifted out of the app's own language: a flat panel, a green
-  cell borrowed from a status palette, and no relationship to the gold everything else
-  on this page is built from. Same glass, same hairlines, same gold — and the count
-  that matters most is the one wearing it.
-*/
-.goals-head-stats {
-  position: relative;
-  display: grid;
-  overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  border-radius: var(--radius-card);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.008)),
-    rgba(12, 14, 18, 0.5);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.05),
-    0 18px 48px rgba(0, 0, 0, 0.2);
-  backdrop-filter: blur(14px);
-  grid-template-columns: repeat(4, auto);
-}
-
-/* The same warm bloom the page head carries, so the strip belongs to it. */
-.goals-head-stats::after {
-  content: "";
-  position: absolute;
-  top: -34px;
-  right: 8%;
-  width: 140px;
-  height: 76px;
-  border-radius: 50%;
-  background: rgba(217, 164, 65, 0.08);
-  filter: blur(26px);
-  pointer-events: none;
-}
-
-.goals-head-stats > span {
-  position: relative;
-  z-index: 1;
-  min-width: 76px;
-  padding: 10px 13px;
-  border-right: 1px solid rgba(255, 255, 255, 0.055);
-}
-
-.goals-head-stats > span:last-child { border-right: 0; }
-.goals-head-stats > span:nth-child(2),
-.goals-head-stats > span:nth-child(3) { min-width: 116px; }
-
-.goals-head-stats small,
 .goal-saved-label {
   display: block;
   color: var(--color-faint);
@@ -6009,28 +5002,6 @@ a.past-row:hover .past-row-name { color: var(--color-gold-hi); }
   letter-spacing: 0.14em;
   text-transform: uppercase;
 }
-
-.goals-head-stats b {
-  display: block;
-  margin-top: 4px;
-  color: var(--color-ink);
-  font-size: 13.5px;
-  font-weight: 650;
-  letter-spacing: -0.2px;
-  white-space: nowrap;
-}
-
-.goals-head-stats .goals-reached {
-  background: linear-gradient(135deg, rgba(217, 164, 65, 0.16), rgba(217, 164, 65, 0.045));
-}
-
-.goals-head-stats .goals-reached small { color: rgba(230, 180, 87, 0.7); }
-.goals-head-stats .goals-reached b { color: var(--color-gold-hi); }
-
-/* Nothing reached yet is not an achievement to colour in. */
-.goals-head-stats .goals-reached.is-none { background: none; }
-.goals-head-stats .goals-reached.is-none small { color: var(--color-faint); }
-.goals-head-stats .goals-reached.is-none b { color: var(--color-muted); }
 
 .goal-overall-panel {
   overflow: hidden;
@@ -6129,31 +5100,6 @@ a.past-row:hover .past-row-name { color: var(--color-gold-hi); }
   font-size: 11.5px;
   line-height: 1.5;
 }
-
-.goals-order {
-  display: inline-flex;
-  gap: 4px;
-  padding: 4px;
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius-pill);
-  background: rgba(255, 255, 255, 0.022);
-}
-
-.goals-order-tab {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 5px 12px;
-  border-radius: var(--radius-pill);
-  color: var(--color-muted);
-  font-size: 11.5px;
-  font-weight: 650;
-  cursor: pointer;
-  transition: color 200ms ease, background-color 220ms ease;
-}
-
-.goals-order-tab:hover { color: var(--color-ink); }
-.goals-order-tab.is-on { background: var(--color-active-bg); color: var(--color-gold-hi); }
 
 
 .goal-card-premium {
@@ -6774,18 +5720,10 @@ a.past-row:hover .past-row-name { color: var(--color-gold-hi); }
 @media (max-width: 820px) {
   .goals-page-head { align-items: flex-start; }
   .goals-head-side { width: 100%; align-items: stretch; }
-  .goals-head-stats { flex: 1; }
-  .goals-head-stats > span { flex: 1; }
 }
 
 @media (max-width: 560px) {
   .goals-head-side { align-items: stretch; flex-direction: column; }
-  .goals-head-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .goals-head-stats > span,
-  .goals-head-stats > span:nth-child(2),
-  .goals-head-stats > span:nth-child(3) { min-width: 0; border-bottom: 1px solid var(--color-line-soft); }
-  .goals-head-stats > span:nth-child(2n) { border-right: 0; }
-  .goals-head-stats > span:nth-last-child(-n + 2) { border-bottom: 0; }
   .goals-head-side > a { width: 100%; }
   .goal-card-premium { min-height: 0; }
 }
@@ -6871,31 +5809,9 @@ a.past-row:hover .past-row-name { color: var(--color-gold-hi); }
   animation: zv-figure-in 0.2s var(--ease-premium);
 }
 
-/*
-  The colour popover grows out of the swatch that opened it. The popover is the
-  element right after its trigger, and it only exists while the trigger says it
-  is expanded, so it needs no class of its own — .zv-picker on the wrapper keeps
-  this to the pickers on Setup.
-*/
-@keyframes zv-pop-in {
-  from {
-    opacity: 0;
-    transform: scale(0.96) translateY(-4px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-.zv-picker :where(button[aria-expanded="true"] + div) {
-  transform-origin: top right;
-  animation: zv-pop-in 0.14s var(--ease-premium);
-}
-
 @media (prefers-reduced-motion: reduce) {
   .zv-row-in,
-  .zv-figure-in,
-  .zv-picker :where(button[aria-expanded="true"] + div) {
+  .zv-figure-in {
     animation: none;
   }
 
@@ -7174,23 +6090,6 @@ a.breakdown-row-on:hover { background: rgba(217, 164, 65, 0.2); }
 @media (min-width: 400px) {
   .zv-seg.is-kinds { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 }
-
-/*
-  The one control on the panel the app was not drawing.
-
-  A native date field brings its own picker button, and on a dark surface that button
-  arrives as a small black calendar — the only element in the form rendered by the
-  browser's taste rather than this one's. It cannot be replaced without rebuilding the
-  whole picker, which is a bad trade; it can be made to belong.
-*/
-input[type="date"]::-webkit-calendar-picker-indicator {
-  filter: invert(1);
-  opacity: 0.45;
-  cursor: pointer;
-  transition: opacity 160ms ease;
-}
-
-input[type="date"]::-webkit-calendar-picker-indicator:hover { opacity: 0.85; }
 
 /*
   Content disappearing under an edge, rather than stopping at it.
@@ -7778,24 +6677,9 @@ a.overview-cat:hover { background: rgba(255, 255, 255, 0.035); }
 
   So: words. A label never reads as a failure, and makes no demand.
 */
-/* The tail: not a control, just what it is. */
-.overview-cat-note {
-  min-width: 0;
-  overflow: hidden;
-  color: var(--color-faint);
-  font-size: 11px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 
 @media (max-width: 520px) {
   .overview-cat { gap: 8px; }
-  /*
-    The per-row offer to set a limit goes at this width: it would be a fourth thing in a
-    three-column grid and would push the figure under the name. The panel heading keeps
-    its own door.
-  */
-  .overview-cat-note { display: none; }
 }
 
 .money-row-items-toggle {
@@ -7929,27 +6813,6 @@ a.overview-cat:hover { background: rgba(255, 255, 255, 0.035); }
 */
 html, body { overflow-x: clip; }
 body > * { min-width: 0; }
-
-/*
-  Setup's header stats were three max-content columns with a 134px floor on the
-  last one — around 400px of demand on a 390px screen, which is exactly the
-  sideways scroll. Equal fractional columns ask for nothing they cannot have.
-*/
-.setup-head-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-
-@media (max-width: 560px) {
-  .setup-head-stats { grid-template-columns: minmax(0, 1fr); }
-  .setup-head-stats > span { border-right: 0; border-bottom: 1px solid var(--color-line-soft); }
-  .setup-head-stats > span:last-child { min-width: 0; border-bottom: 0; }
-  .setup-head-stats > span:nth-child(2),
-  .setup-head-stats > span:nth-child(3) { min-width: 0; }
-}
-
-@media (max-width: 760px) {
-  /* Left over from the desktop layout: a 240px floor inside a column that is now
-     the full width of a phone. */
-  .onhand-figure { min-width: 0; flex: 1 1 auto; }
-}
 
 /*
   A task title was getting about ninety pixels on a phone — "kod lek…" — because the
@@ -8093,235 +6956,7 @@ body > * { min-width: 0; }
 
 .zv-drawer .zv-brand { padding-right: 60px; }
 
-
-/* ==================================================== Tasks: the agenda bands
-   Three columns side by side gave each task about 300px, so every card stacked
-   title / project / priority / phrase / date into a narrow tower, and the three
-   towers ended at three different heights. Nothing lined up with anything.
-
-   The same three groups, laid out along the page instead of across it: a label
-   held on the left, the tasks full width beside it. Now "3 weeks late" sits in a
-   column of its own down the right-hand edge, which is the comparison you make.
-   ========================================================================== */
-.task-agenda {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin-top: 18px;
-}
-
-.task-group {
-  display: grid;
-  grid-template-columns: 196px minmax(0, 1fr);
-  overflow: hidden;
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius-card);
-  background: var(--color-surface);
-  animation: money-card-in 620ms var(--ease-premium) both;
-  transition: border-color 320ms ease;
-}
-
-.task-agenda > :nth-child(1) { animation-delay: 150ms; }
-.task-agenda > :nth-child(2) { animation-delay: 220ms; }
-.task-agenda > :nth-child(3) { animation-delay: 290ms; }
-
-.task-group:hover { border-color: rgba(255, 255, 255, 0.13); }
-.task-group-late { border-color: rgba(222, 107, 94, 0.24); }
-.task-group-late:hover { border-color: rgba(222, 107, 94, 0.42); }
-
-/* A band with nothing in it stops taking up a band's worth of room. */
-.task-group-quiet { opacity: 0.72; }
-.task-group-quiet:hover { opacity: 1; }
-
-/* The label column, with the band's tone as a bar down its outer edge — one mark
-   per group instead of one per card, which is where it belonged all along. */
-.task-group-side {
-  display: flex;
-  padding: 16px 16px 16px 19px;
-  border-right: 1px solid var(--color-line-soft);
-  background: var(--color-surface-2);
-  box-shadow: inset 3px 0 0 var(--color-line);
-}
-
-.task-group-late .task-group-side { box-shadow: inset 3px 0 0 var(--color-danger); }
-.task-group-week .task-group-side { box-shadow: inset 3px 0 0 var(--color-active); }
-
-/* On a band of twenty tasks the heading follows you down rather than scrolling off. */
-.task-group-sticky {
-  position: sticky;
-  top: 18px;
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  align-self: flex-start;
-  width: 100%;
-}
-
-.task-group-label {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  color: var(--color-muted);
-  font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
-}
-
-.task-group-late .task-group-label { color: var(--color-danger); }
-.task-group-week .task-group-label { color: var(--color-active); }
-
-.task-group-count {
-  color: var(--color-ink);
-  font-size: 22px;
-  font-weight: 700;
-  line-height: 1.05;
-  letter-spacing: -0.6px;
-}
-
-.task-group-quiet .task-group-count { color: var(--color-faint); }
-
-.task-group-note {
-  color: var(--color-faint);
-  font-size: 11.5px;
-  line-height: 1.45;
-}
-
-.task-group-list { display: flex; flex-direction: column; }
-
-.task-group-empty {
-  padding: 16px;
-  color: var(--color-faint);
-  font-size: 12.5px;
-}
-
 /* ------------------------------------------------------------- The lines */
-.task-line {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 11px 16px;
-  border-bottom: 1px solid var(--color-line-soft);
-  transition: background 220ms ease, padding-left 260ms var(--ease-premium);
-}
-
-.task-line:last-child { border-bottom: 0; }
-.task-line:hover { padding-left: 22px; background: rgba(255, 255, 255, 0.028); }
-.task-line-done { opacity: 0.55; }
-
-.task-line-body {
-  display: flex;
-  min-width: 0;
-  flex: 1;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.task-line-title {
-  overflow: hidden;
-  color: var(--color-ink);
-  font-size: 13.5px;
-  font-weight: 600;
-  line-height: 1.35;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* The right-hand block: priority, then the phrase you read with the exact date
-   underneath it for when the phrase is not precise enough. Both fixed width, so
-   they make two straight columns down the band instead of drifting with the length
-   of each title. */
-.task-line-meta {
-  display: flex;
-  flex: none;
-  width: 218px;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 10px;
-}
-
-.task-line-when {
-  display: flex;
-  flex: none;
-  width: 128px;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 1px;
-  text-align: right;
-}
-
-.task-line:hover .task-actions > * { opacity: 1; }
-
-@media (max-width: 900px) {
-  .task-group { grid-template-columns: minmax(0, 1fr); }
-
-  .task-group-side {
-    padding: 10px 14px;
-    border-right: 0;
-    border-bottom: 1px solid var(--color-line-soft);
-    box-shadow: inset 0 3px 0 var(--color-line);
-  }
-
-  .task-group-late .task-group-side { box-shadow: inset 0 3px 0 var(--color-danger); }
-  .task-group-week .task-group-side { box-shadow: inset 0 3px 0 var(--color-active); }
-
-  .task-group-sticky {
-    position: static;
-    flex-direction: row;
-    align-items: center;
-    gap: 10px;
-  }
-
-  .task-group-label { flex: 1; }
-  .task-group-count { font-size: 14px; }
-  .task-group-note { display: none; }
-}
-
-@media (max-width: 560px) {
-  /*
-    A grid rather than a wrap, so every line has the same shape: checkbox, title and
-    the controls across the top, and the priority and the date on a second row under
-    the title. Flex-wrapping put the date beside short titles and under long ones,
-    which made a list of ten tasks look like ten different components.
-  */
-  .task-line {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto;
-    align-items: center;
-    gap: 4px 10px;
-    padding: 12px 14px;
-  }
-
-  .task-line:hover { padding-left: 18px; }
-  .task-line-title { white-space: normal; }
-  .task-line-body { grid-column: 2; grid-row: 1; }
-  .task-line > .task-actions { grid-column: 3; grid-row: 1; }
-
-  .task-line-meta {
-    grid-column: 2 / 4;
-    grid-row: 2;
-    width: auto;
-    justify-content: flex-start;
-    gap: 8px;
-  }
-
-  /* The old row layout reorders `.task-prio` on a phone; inside the meta block that
-     would put the priority chip after the date it belongs in front of. */
-  .task-line-meta > .task-prio { order: 0; }
-
-  .task-line-when {
-    width: auto;
-    flex-direction: row;
-    align-items: baseline;
-    gap: 8px;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .task-group,
-  .task-line { animation: none; transition: none; }
-  .task-group-sticky { position: static; }
-}
 
 /* The delete confirmation, now portalled to the body so nothing above it in the tree
    can fade it out — a task row hides its own icons on mouseout, and the dialog used
@@ -8409,131 +7044,6 @@ body > * { min-width: 0; }
 }
 .bb-lg { min-height: 44px; padding: 0 22px; font-size: 13.5px; }
 .bb:disabled { opacity: 0.4; cursor: not-allowed; }
-
-/* 1 — gold plate ---------------------------------------------------------- */
-.bb-plate {
-  border-color: rgba(217, 164, 65, 0.5);
-  background: linear-gradient(180deg, #e0b25c, #d9a441);
-  color: #15171c;
-}
-.bb-plate:hover:not(:disabled) {
-  background: linear-gradient(180deg, #eecd86, #dcaa4b);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 8px 20px rgba(0, 0, 0, 0.3);
-}
-
-/* 2 — gold outline -------------------------------------------------------- */
-.bb-outline {
-  border-color: rgba(255, 255, 255, 0.11);
-  background: rgba(255, 255, 255, 0.03);
-  color: var(--color-muted);
-}
-.bb-outline:hover:not(:disabled) {
-  border-color: rgba(217, 164, 65, 0.72);
-  background: rgba(217, 164, 65, 0.05);
-  color: var(--color-gold-hi);
-}
-
-/* 3 — bevelled ink -------------------------------------------------------- */
-.bb-bevel {
-  border-color: rgba(255, 255, 255, 0.08);
-  background: linear-gradient(180deg, #23262e, #191c22);
-  color: var(--color-ink);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 2px 6px rgba(0, 0, 0, 0.3);
-}
-.bb-bevel:hover:not(:disabled) {
-  border-color: rgba(217, 164, 65, 0.4);
-  background: linear-gradient(180deg, #2a2e37, #1e2128);
-  color: var(--color-gold-hi);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 4px 12px rgba(0, 0, 0, 0.36);
-}
-
-/* 4 — drawn rule ---------------------------------------------------------- */
-.bb-rule {
-  padding: 0 4px;
-  border-radius: 0;
-  color: var(--color-muted);
-}
-.bb-rule::after {
-  content: "";
-  position: absolute;
-  right: 0;
-  bottom: 6px;
-  left: 0;
-  height: 1.5px;
-  border-radius: 2px;
-  background: var(--color-gold);
-  transform: scaleX(0);
-  transform-origin: left center;
-  transition: transform 280ms var(--ease-premium);
-}
-.bb-rule:hover:not(:disabled) { color: var(--color-gold-hi); }
-.bb-rule:hover:not(:disabled)::after { transform: scaleX(1); }
-
-/* 5 — leading edge -------------------------------------------------------- */
-.bb-edge {
-  border-color: rgba(255, 255, 255, 0.09);
-  background: rgba(255, 255, 255, 0.025);
-  color: var(--color-muted);
-}
-.bb-edge::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  width: 2px;
-  background: var(--color-gold);
-  transition: width 220ms var(--ease-premium), opacity 220ms ease;
-  opacity: 0.5;
-}
-.bb-edge:hover:not(:disabled) { color: var(--color-gold-hi); border-color: rgba(217, 164, 65, 0.3); }
-.bb-edge:hover:not(:disabled)::before { width: 4px; opacity: 1; }
-
-/* 6 — inset well ---------------------------------------------------------- */
-.bb-inset {
-  border-color: rgba(0, 0, 0, 0.5);
-  background: rgba(0, 0, 0, 0.28);
-  color: var(--color-muted);
-  box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.45), inset 0 -1px 0 rgba(255, 255, 255, 0.05);
-}
-.bb-inset:hover:not(:disabled) {
-  background: rgba(217, 164, 65, 0.09);
-  color: var(--color-gold-hi);
-  box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.4), inset 0 0 0 1px rgba(217, 164, 65, 0.28);
-}
-
-/* 7 — single sweep -------------------------------------------------------- */
-.bb-sweep {
-  border-color: rgba(255, 255, 255, 0.1);
-  background: rgba(255, 255, 255, 0.035);
-  color: var(--color-muted);
-}
-.bb-sweep::after {
-  content: "";
-  position: absolute;
-  top: -60%;
-  bottom: -60%;
-  left: -40%;
-  width: 34px;
-  background: linear-gradient(90deg, transparent, rgba(217, 164, 65, 0.5), transparent);
-  transform: skewX(-18deg) translateX(-60px);
-  transition: transform 620ms var(--ease-premium);
-}
-.bb-sweep:hover:not(:disabled) { border-color: rgba(217, 164, 65, 0.35); color: var(--color-gold-hi); }
-.bb-sweep:hover:not(:disabled)::after { transform: skewX(-18deg) translateX(260px); }
-
-/* 8 — frosted ------------------------------------------------------------- */
-.bb-glass {
-  border-color: rgba(255, 255, 255, 0.14);
-  background: rgba(255, 255, 255, 0.07);
-  color: var(--color-ink);
-  backdrop-filter: blur(6px);
-}
-.bb-glass:hover:not(:disabled) {
-  border-color: rgba(255, 255, 255, 0.26);
-  background: rgba(255, 255, 255, 0.12);
-  color: var(--color-gold-hi);
-}
 
 @media (prefers-reduced-motion: reduce) {
   .bb, .bb::before, .bb::after { transition: none; }
@@ -8781,6 +7291,231 @@ body > * { min-width: 0; }
   .zv-btn-quiet { transition: none; }
 }
 
+/* ------------------------------------------------------------- In the house */
+/*
+  What you have and have not finished.
+
+  Read top to bottom in one pass — what is about to go off is at the top and is the only
+  thing coloured, so the list answers "is there anything I should eat tonight" without
+  being read at all. Everything below the coloured rows is calm on purpose: a list where
+  every line asks for attention is a list where none of them get it.
+
+  No figures in dinars anywhere, and that is a decision rather than an omission — see the
+  note in `@/lib/money/stock`.
+*/
+.house-list { padding: 6px 16px 10px; display: grid; gap: 6px; }
+
+.house-row {
+  position: relative;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--color-line-soft);
+  border-left: 2px solid transparent;
+  border-radius: var(--radius-ctrl);
+  background: rgba(255, 255, 255, 0.018);
+  transition: border-color 240ms ease, background-color 240ms ease;
+}
+
+.house-row:hover { background: rgba(255, 255, 255, 0.04); }
+
+/*
+  Three states, and only two of them say anything.
+
+  Past its date is the one that costs money, so it takes the warning colour this app
+  already uses for a limit that has gone. Today is gold, which everywhere else here means
+  "this is the one that is on". Soon is a hairline and nothing more — it is a note, not an
+  alarm, and a third colour would make the first two mean less.
+*/
+.house-row.is-gone { border-left-color: var(--color-danger); background: rgba(222, 107, 94, 0.06); }
+.house-row.is-today { border-left-color: var(--color-gold); background: rgba(217, 164, 65, 0.06); }
+.house-row.is-soon { border-left-color: color-mix(in srgb, var(--color-gold) 45%, transparent); }
+
+.house-row-in {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: center;
+  gap: 6px;
+}
+
+@media (min-width: 620px) {
+  .house-row-in { grid-template-columns: minmax(0, 1fr) auto; gap: 10px; }
+}
+
+.house-name { display: block; font-size: 13px; font-weight: 600; color: var(--color-ink); }
+
+.house-sub {
+  display: block;
+  margin-top: 1px;
+  color: var(--color-muted);
+  font-size: 11.5px;
+}
+
+.house-when { color: var(--color-ink); }
+.house-row.is-gone .house-when { color: var(--color-danger); }
+.house-row.is-today .house-when { color: var(--color-gold-hi); }
+
+.house-do { display: flex; align-items: center; gap: 6px; }
+
+/*
+  The count, once somebody asks for it.
+
+  Sits in the sub-line where the figure it replaces was, so nothing on the row moves when
+  it appears — a control that shoves the rest of the line sideways as it opens is a
+  control people stop opening.
+*/
+.house-many { display: inline-flex; align-items: center; gap: 5px; }
+
+.house-qty {
+  width: 3.25rem;
+  padding: 1px 6px;
+  font-size: 11.5px;
+  text-align: right;
+}
+
+/*
+  The whole lot, beside the field — the one number nobody should have to read off the row
+  and type back into it.
+*/
+.house-all {
+  color: var(--color-muted);
+  font-size: 11px;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  transition: color 200ms ease;
+}
+
+.house-all:hover,
+.house-all:focus-visible { color: var(--color-gold-hi); }
+
+/*
+  The figure is a button, and has to look like one at rest.
+
+  It said so only on hover, on the argument that underlining every count would make
+  thirteen rows read as thirteen links. The list is three rows long and the argument cost
+  more than it saved: the way to say `I drank four` is to press that number, and a control
+  nobody can see is a control nobody uses — he asked for a way to type the amount that was
+  already there. So the dash is always drawn, faint enough not to read as a link, and it
+  firms up under the pointer.
+*/
+.house-count {
+  border-bottom: 1px dashed var(--color-line-soft);
+  transition: border-color 200ms ease, color 200ms ease;
+}
+
+.house-count:hover,
+.house-count:focus-visible {
+  border-bottom-color: var(--color-line);
+  color: var(--color-ink);
+}
+
+.house-moves {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 5px;
+  color: var(--color-faint);
+  font-size: 11px;
+}
+
+.house-moves-trigger {
+  color: var(--color-muted);
+  text-decoration: underline;
+  text-decoration-color: var(--color-line);
+  text-underline-offset: 3px;
+}
+
+.house-moves-trigger:hover { color: var(--color-ink); }
+
+.house-move { display: inline-flex; align-items: center; gap: 5px; }
+
+.house-move-undo {
+  color: var(--color-muted);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.house-move-undo:hover { color: var(--color-danger); }
+
+/*
+  The bin for the row itself, not for what is in it.
+
+  Nearly invisible until the row is hovered, because it answers a different question from
+  the two buttons beside it: those say what happened to the food, this one says the row
+  should never have existed. It sits on their line rather than in the corner above them —
+  a corner is not aligned with anything, and it drifted further out of line every time a
+  row grew a second one.
+*/
+.house-forget {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  margin-left: 2px;
+  padding: 5px;
+  border-radius: 6px;
+  color: var(--color-faint);
+  /* Invisible rather than absent: it holds its place, so the two buttons beside it do not
+     shuffle sideways the moment the pointer arrives. */
+  opacity: 0;
+  transition: opacity 200ms ease, color 200ms ease;
+}
+
+.house-row:hover .house-forget,
+.house-row:focus-within .house-forget { opacity: 1; }
+.house-forget:hover { color: var(--color-danger); }
+
+@media (hover: none) {
+  .house-forget { opacity: 1; }
+}
+
+/*
+  A composer with its action in flight.
+
+  React clears a `<form action>` when the action lands, so anything typed between pressing
+  Add and the row appearing is thrown away — you start the next name, the reset arrives,
+  and the box is empty with nothing to show for it. For those few hundred milliseconds the
+  fields stop taking input and say so by dimming; when it lands they are empty and ready.
+
+  `readOnly` on the typed fields rather than `disabled`, so the caret does not jump out of
+  the row. A select cannot be read-only, so those are disabled — their values were read
+  when the form was submitted, which is before any of this is true.
+*/
+.is-saving input,
+.is-saving select {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.house-add {
+  margin-top: 4px;
+  padding: 0.6rem;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-ctrl);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.house-add-in {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+}
+
+@media (min-width: 620px) {
+  .house-add-in {
+    grid-template-columns: minmax(0, 1fr) 4.5rem 9.5rem 5.5rem;
+    align-items: center;
+  }
+}
+
+.house-empty {
+  padding: 0.75rem 0.6rem;
+  color: var(--color-muted);
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+
+.house-empty b { color: var(--color-ink); font-weight: 600; }
+
 /* ------------------------------------------------------- Money: loans and debts */
 /*
   What is owed, both ways.
@@ -8882,7 +7617,34 @@ body > * { min-width: 0; }
   gap: 12px;
 }
 
-.loan-row-do { flex: none; }
+/*
+  The one act on a debt row, kept quiet.
+
+  It was a filled secondary button, three of them down a summary panel — which reads as
+  the three things to do on the screen, and they are the three things you are least
+  likely to do: settling a debt happens once, ever. An outline that warms on hover says
+  it is pressable without claiming to be the point of the row.
+*/
+.loan-row-do {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-ctrl);
+  color: var(--color-faint);
+  font-size: 11.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: border-color 180ms ease, background-color 180ms ease, color 180ms ease;
+}
+.loan-row-do:hover:not(:disabled) {
+  border-color: rgba(217, 164, 65, 0.38);
+  background: var(--color-active-bg);
+  color: var(--color-gold-hi);
+}
+.loan-row-do:disabled { cursor: default; opacity: 0.5; }
 
 /* Under a phone width there is no room for three tracks; the action drops beneath. */
 @media (max-width: 460px) {
@@ -8949,7 +7711,7 @@ body > * { min-width: 0; }
   animation: budget-bar-in 900ms var(--ease-premium) 200ms both;
 }
 
-/* Only drawn when something has actually been paid off, so it never says nothing. */
+/* Always drawn, and always saying something — see the note in `LoansPanel`. */
 .loan-row-foot {
   margin-top: 7px;
   font-size: 11.5px;
@@ -9322,57 +8084,6 @@ body > * { min-width: 0; }
 .zv-net-fix:hover { text-decoration-color: var(--color-gold-hi); }
 
 /* ------------------------------------------------------- Setup: what comes in */
-/*
-  The list of standing income, in the sixth step.
-
-  Read-only on purpose. Everything else in Setup is edited where it is listed, but a
-  recurring rule has an amount, a currency, an interval, an anchor day, an instalment
-  count and an end date — a form that already exists on Upcoming and would be the
-  largest thing on this page if it were inlined here. So this says what is on file and
-  hands the editing back to the screen built for it.
-*/
-.setup-earning-list {
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius-card);
-  background: var(--color-surface);
-  overflow: hidden;
-}
-
-.setup-earning-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 11px 14px;
-  border-bottom: 1px solid var(--color-line-soft);
-}
-
-.setup-earning-row:last-of-type { border-bottom: 0; }
-
-.setup-earning-name {
-  display: block;
-  font-size: 13.5px;
-  font-weight: 600;
-  color: var(--color-ink);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.setup-earning-sub {
-  display: block;
-  margin-top: 2px;
-  font-size: 11.5px;
-  color: var(--color-muted);
-}
-
-/* Green, because this is the one list in the app where every figure is money arriving. */
-.setup-earning-amount {
-  flex: none;
-  font-size: 13.5px;
-  font-weight: 600;
-  color: var(--color-ok);
-  white-space: nowrap;
-}
 
 /*
   The trend columns rise, the way the breakdown fills draw.
@@ -9726,19 +8437,6 @@ body > * { min-width: 0; }
 
 /* ------------------------------------------------------------- A row that wants you */
 
-.need-row {
-  display: grid;
-  grid-template-columns: 8px minmax(0, 1fr) auto auto;
-  align-items: center;
-  gap: 12px;
-  padding: 11px 14px;
-  border-bottom: 1px solid var(--color-line-soft);
-  transition: background-color 180ms ease;
-}
-
-.need-row:last-child { border-bottom: 0; }
-.need-row:hover { background: rgba(255, 255, 255, 0.03); }
-
 /*
   Tone is a dot, not a background. A row washed in red is a row you cannot read, and on a
   bad day there could be three of them — the colour has to say "this one" without taking
@@ -9750,10 +8448,6 @@ body > * { min-width: 0; }
   border-radius: var(--radius-pill);
   background: var(--color-faint);
 }
-
-.need-row.is-late .need-dot { background: var(--color-danger); }
-.need-row.is-over .need-dot { background: var(--color-danger); }
-.need-row.is-soon .need-dot { background: var(--color-gold); }
 
 .need-say { min-width: 0; }
 
@@ -9802,34 +8496,8 @@ body > * { min-width: 0; }
   transition: color 180ms ease, border-color 180ms ease;
 }
 
-.need-row:hover .need-cta {
-  border-color: rgba(217, 164, 65, 0.4);
-  color: var(--color-gold-hi);
-}
-
 @media (max-width: 560px) {
-  /* The verb is implied by tapping the row. Below this width the figure needs the space. */
-  .need-row { grid-template-columns: 8px minmax(0, 1fr) auto; }
   .need-cta { display: none; }
-}
-
-/* --------------------------------------------------------------- A day with nothing */
-
-.ov-calm {
-  padding: 11px 14px;
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius-card);
-  background: rgba(95, 184, 138, 0.05);
-  color: var(--color-ink);
-  font-size: 12.5px;
-  font-weight: 600;
-}
-
-.ov-calm span {
-  display: block;
-  margin-top: 2px;
-  color: var(--color-muted);
-  font-weight: 400;
 }
 
 /* -------------------------------------------------------------------- The month rule */
@@ -9856,12 +8524,6 @@ body > * { min-width: 0; }
   font-weight: 700;
   letter-spacing: -0.4px;
   color: var(--color-ink);
-}
-
-.month-rule-meta {
-  flex: 1;
-  color: var(--color-faint);
-  font-size: 11.5px;
 }
 
 /* ------------------------------------------------------------------ Budgets, in brief */
@@ -11325,22 +9987,33 @@ a.month-bar:focus-visible .month-bar-track {
 .zv-formfoot .zv-btn-quiet:hover { color: var(--color-danger); }
 
 /* ==========================================================================
-   The native date field, in this app's palette
+   The native date and time fields, in this app's palette
    --------------------------------------------------------------------------
-   The browser draws that little calendar in near-black, which on a dark field
-   is a smudge — the one control on the panel that still looked like a browser.
+   The document is `color-scheme: dark` — declared in the viewport metadata —
+   so the browser already hands over a *light* calendar and a light clock.
+   `filter: invert(1)` was written before that was true, and the moment it
+   became true the invert turned the glyph black again: a hole in the control,
+   which is the exact thing the rule was added to prevent. There were two
+   copies of it, both saying the same wrong thing, which is how it survived
+   being looked at.
+
+   So there is nothing left to correct but the weight. The clock is in here
+   with the calendar because a date and a time sitting side by side, drawn to
+   two different rules, read as two controls from two different applications.
    ========================================================================== */
 
-input[type="date"]::-webkit-calendar-picker-indicator {
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="time"]::-webkit-calendar-picker-indicator {
   cursor: pointer;
-  opacity: 0.5;
-  filter: invert(1);
+  opacity: 0.75;
   transition: opacity 180ms ease;
 }
 
 input[type="date"]:hover::-webkit-calendar-picker-indicator,
-input[type="date"]:focus::-webkit-calendar-picker-indicator {
-  opacity: 0.85;
+input[type="date"]:focus::-webkit-calendar-picker-indicator,
+input[type="time"]:hover::-webkit-calendar-picker-indicator,
+input[type="time"]:focus::-webkit-calendar-picker-indicator {
+  opacity: 1;
 }
 
 /* ==========================================================================
@@ -11628,226 +10301,6 @@ input[type="date"]:focus::-webkit-calendar-picker-indicator {
    controls over it is chrome that sorts nothing you could not already see.
    ========================================================================== */
 
-.zv-listbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-  margin-bottom: 9px;
-  padding-bottom: 10px;
-  border-bottom: 1px solid var(--color-line-soft);
-}
-
-/*
-  One row that scrolls, never a block that wraps.
-
-  Wrapped, twelve tags stood four rows deep and pushed the list they were meant to narrow
-  off the screen — the same wall the category picker grew, for the same reason. The
-  heaviest tags come first, so the scroll is there for completeness rather than for use.
-*/
-.zv-tags {
-  display: flex;
-  min-width: 0;
-  flex-wrap: nowrap;
-  gap: 5px;
-  overflow-x: auto;
-  scrollbar-width: none;
-  -webkit-mask-image: linear-gradient(90deg, #000 90%, transparent);
-  mask-image: linear-gradient(90deg, #000 90%, transparent);
-}
-
-.zv-tags::-webkit-scrollbar { display: none; }
-
-/*
-  Every chip is a word already printed on the rows below, so what pressing one will do is
-  visible before it is pressed. Smaller and quieter than the form's chips: this narrows a
-  view, it does not decide anything that gets saved.
-*/
-.zv-tag {
-  padding: 3px 9px;
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius-pill);
-  color: var(--color-muted);
-  font-size: 11px;
-  font-weight: 600;
-  white-space: nowrap;
-  transition:
-    border-color 180ms ease,
-    background-color 180ms ease,
-    color 180ms ease;
-}
-
-.zv-tag:hover { color: var(--color-ink); }
-
-.zv-tag.is-on {
-  border-color: rgba(217, 164, 65, 0.4);
-  background: var(--color-active-bg);
-  color: var(--color-gold);
-}
-
-/*
-  The count, where a chip carries one.
-
-  It is what makes the row a readout rather than a set of doors: unpressed, `Over 1 ·
-  Spending fast 1 · On track 8` has already answered the question most people came to
-  press a chip about. Tabular so the digits sit still as the numbers change, and a step
-  quieter than the word — the word is what you are choosing, the count is why.
-*/
-.zv-tag i {
-  margin-left: 5px;
-  color: var(--color-faint);
-  font-style: normal;
-  font-variant-numeric: tabular-nums;
-}
-
-.zv-tag.is-on i { color: inherit; opacity: 0.7; }
-
-/* Two words, and the divider between them is a rule rather than a border on a control. */
-.zv-order {
-  display: flex;
-  flex-shrink: 0;
-  align-items: center;
-  /*
-    No gap. The spacing now lives in the buttons' own padding, so that the space between
-    two words is part of a target rather than a corridor between two of them.
-  */
-  gap: 0;
-}
-
-/*
-  A word you can actually hit.
-
-  These were bare text with no padding at all: measured on the live page, `Name` was a
-  40 x 17 box — 680 square pixels for a control that is one of four sitting nine pixels
-  apart. Missing it does nothing and looks like nothing happened, which is exactly how a
-  working sort gets reported as a broken one. Padding roughly doubles the target and
-  changes nothing visible, because the separator below stops taking up room of its own.
-*/
-.zv-order button {
-  position: relative;
-  padding: 5px 9px;
-  min-height: 24px;
-  color: var(--color-faint);
-  font-size: 11px;
-  font-weight: 600;
-  transition: color 180ms ease;
-}
-
-.zv-order button:hover { color: var(--color-muted); }
-
-.zv-order button.is-on {
-  color: var(--color-ink);
-  text-decoration: underline;
-  text-decoration-color: var(--color-gold);
-  text-decoration-thickness: 1px;
-  text-underline-offset: 4px;
-}
-
-/*
-  The hairline between two words, taken out of the flow.
-
-  In flow it was a third thing to be spaced around, and every pixel of padding added to
-  the buttons pushed the four words further apart. Absolute, it sits on the seam where
-  two targets meet and costs no width at all — so the row reads exactly as it did while
-  each word carries a box twice the size.
-*/
-.zv-order button + button::before {
-  content: "";
-  position: absolute;
-  top: 50%;
-  left: 0;
-  width: 1px;
-  height: 9px;
-  background: var(--color-line);
-  transform: translateY(-50%);
-}
-
-
-
-/* Right, even with nothing beside it. Left would stack it directly above the section
-   kicker underneath — two rows of small labels against the same edge — and it would stop
-   matching the panel's bar, where the order always sits at the far end. */
-.zv-listbar.is-order-only { justify-content: flex-end; }
-
-/*
-  The left half of the bar: a search box, then the tags, sharing one line.
-
-  `min-width: 0` on both is what makes the tag row able to scroll instead of shoving the
-  order off the end — a flex child defaults to refusing to shrink below its content, and
-  a row of eleven chips is a lot of content.
-*/
-.zv-listbar-left {
-  display: flex;
-  min-width: 0;
-  flex: 1;
-  align-items: center;
-  gap: 10px;
-}
-
-.zv-listbar-left > .zv-tags { min-width: 0; }
-
-/*
-  The same box `.zv-search` draws, at the height of a tag chip rather than a form field.
-
-  It sits shoulder to shoulder with the chips, and a control two sizes larger than the
-  ones beside it reads as a different kind of thing — which it is not.
-*/
-.zv-listbar-find {
-  display: flex;
-  min-width: 132px;
-  max-width: 230px;
-  flex: 0 1 auto;
-  align-items: center;
-  gap: 7px;
-  padding: 3px 9px;
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius-pill);
-  background: rgba(255, 255, 255, 0.035);
-  transition: border-color 180ms ease, box-shadow 180ms ease;
-}
-
-.zv-listbar-find:focus-within {
-  border-color: var(--color-gold);
-  box-shadow: var(--shadow-ring, 0 0 0 3px rgba(217, 164, 65, 0.14));
-}
-
-.zv-listbar-find input {
-  min-width: 0;
-  flex: 1;
-  border: 0;
-  background: transparent;
-  color: var(--color-ink);
-  font-size: 11.5px;
-  font-weight: 600;
-  outline: none;
-}
-
-.zv-listbar-find input::placeholder { color: var(--color-faint); font-weight: 600; }
-.zv-listbar-find input::-webkit-search-cancel-button { display: none; }
-.zv-listbar-find button { display: flex; color: var(--color-faint); transition: color 160ms ease; }
-.zv-listbar-find button:hover { color: var(--color-ink); }
-
-/* Under a phone the bar stacks: the words keep their size, the row keeps its scroll. */
-@media (max-width: 560px) {
-  .zv-listbar { flex-wrap: wrap; }
-  .zv-listbar-left { flex: 1 1 100%; }
-  .zv-listbar .zv-order { margin-left: auto; }
-}
-
-
-
-
-
-
-
-
-
-
-/* The bar sits inside a Setup panel, so it needs the panel's own gutter and a rule under
-   it rather than the page-level spacing the money screens give it. */
-.setup-listbar { padding: 0 var(--setup-gutter, 18px); }
-.setup-listbar .zv-listbar { margin-bottom: 0; padding-bottom: 12px; }
-
 
 /* What the search found, said before the rail rather than left to be inferred from
    counts that suddenly mean something else. */
@@ -12059,6 +10512,29 @@ input[type="date"]:focus::-webkit-calendar-picker-indicator {
 
 .zv-toolbar.is-in-panel select {
   min-width: 0;
+}
+
+/*
+  The bar's own arrow, at the bar's own distance from the edge.
+
+  Chrome draws the native select arrow hard against the border box and ignores
+  `padding-right` entirely, so on a filter stretched to the full width of a panel — Setup's
+  categories, where one control takes the whole line — the chevron ends up wedged against
+  the rounded corner while the label sits ten pixels in from the other side. The control
+  reads as lopsided, and no padding on the element can move it.
+
+  So the same answer `Select` already uses on the forms: turn the appearance off and draw
+  the chevron ourselves. Twelve pixels in, which is where every other trailing mark in this
+  app sits, and the same shape and colour the form selects carry so a filter and a field
+  are visibly the same kind of object.
+*/
+.zv-toolbar select {
+  appearance: none;
+  padding-right: 32px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6' fill='none' stroke='%238a909e' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1 1L5 5L9 1'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  background-size: 10px 6px;
 }
 
 .zv-toolbar.is-in-panel .zv-toolbar-count {
@@ -12581,6 +11057,67 @@ input[type="date"]:focus::-webkit-calendar-picker-indicator {
 /* What the press costs on the left, what is left of the band on the right — so a band
    can be stepped through without counting rows to know how far in you are. */
 .task-sec-more-rest { color: var(--color-faint); font-size: 11.5px; font-weight: 600; }
+
+/*
+  The division a debt implies, shown beside the count that produces it.
+
+  A row rather than a sentence, because the left half is a reading and the right half is
+  a control: `123.105,92 over 4 payments is 30.776,48 each' and a button that puts that
+  figure in the amount. It is offered, never applied — the amount stays something the
+  person agreed to, and a form that silently rewrote a field they had typed in would be
+  the more annoying of the two ways to be wrong.
+*/
+.rule-split {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 8px 11px;
+  border: 1px solid rgba(217, 164, 65, 0.22);
+  border-radius: var(--radius-ctrl);
+  background: rgba(217, 164, 65, 0.05);
+  color: var(--color-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.rule-split b { color: var(--color-gold-hi); font-weight: 700; }
+.rule-split > button {
+  flex: none;
+  padding: 4px 10px;
+  border: 1px solid rgba(217, 164, 65, 0.35);
+  border-radius: var(--radius-ctrl);
+  color: var(--color-gold);
+  font-size: 11.5px;
+  font-weight: 700;
+  white-space: nowrap;
+  transition: border-color 180ms ease, background-color 180ms ease, color 180ms ease;
+}
+.rule-split > button:hover:not(:disabled) {
+  border-color: var(--color-gold);
+  background: color-mix(in srgb, var(--color-gold) 16%, transparent);
+}
+/* Already in — the button stays put and stops asking, rather than disappearing and
+   moving the line under the reader's eye. */
+.rule-split > button:disabled {
+  border-color: var(--color-line);
+  color: var(--color-faint);
+  cursor: default;
+}
+
+/* The way out of a debt and into the rule that pays it. */
+.debt-row-plan {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--color-muted);
+  font-size: 11.5px;
+  font-weight: 600;
+  transition: color 180ms ease;
+}
+.debt-row-plan:hover { color: var(--color-gold-hi); }
+
 
 /*
   Which section is which, said at the edge rather than in colour on the words.

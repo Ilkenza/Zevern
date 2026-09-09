@@ -8,6 +8,7 @@ import { userId } from "@/lib/supabase/current-user";
 import type { GoalEntry, GoalLine, MoneyGoal } from "@/lib/types";
 import { GOAL_MOVE_KINDS, goalKinds, walkGoal } from "@/lib/money/goal-progress";
 import { getAccounts, readAll } from "./core";
+import { getLoans } from "./loans";
 import { ReadFailed } from "@/lib/data/must";
 
 /** How many movements a goal card shows before it starts saying "and N more". */
@@ -30,7 +31,7 @@ export const getGoalLines = cache(async (): Promise<GoalLine[]> => {
   const supabase = await createClient();
   const uid = await userId(supabase);
   if (!uid) return [];
-  const [goalsRes, movements, accounts] = await Promise.all([
+  const [goalsRes, movements, accounts, loans] = await Promise.all([
     supabase
       .from("money_goals")
       .select("*")
@@ -62,6 +63,19 @@ export const getGoalLines = cache(async (): Promise<GoalLine[]> => {
     ),
     // Archived accounts still name the money that came off them, so include them.
     getAccounts(true),
+    /*
+      The debts, for the goals that are one.
+
+      A goal carrying a `loan_id` is a view of a debt: its target is the debt's total and
+      its progress is what the ledger has settled against it. Nothing on the goal row is
+      consulted for either — see the migration, and see the form, which stops offering an
+      amount the moment a debt is chosen. Two rows, one figure, and no reader anywhere
+      that has to work out which of two numbers it is looking at.
+
+      `getLoans` is cached for the request, so this costs nothing on a screen that has
+      already read them.
+    */
+    getLoans(),
   ]);
 
   const accountName = new Map(accounts.map((a) => [a.id, a.name]));
@@ -88,7 +102,54 @@ export const getGoalLines = cache(async (): Promise<GoalLine[]> => {
   }
 
   if (goalsRes.error) throw new ReadFailed("your goals", goalsRes.error.message);
+  const loanBy = new Map(loans.map((l) => [l.id, l]));
   return (goalsRes.data ?? []).map((g: MoneyGoal) => {
+    /*
+      A goal that is a debt reads entirely off the debt.
+
+      Not "prefers" the debt, and not "falls back" to its own columns — takes everything
+      and consults none of them. That is the whole safety argument for the link: a figure
+      with two possible sources is a figure every reader has to ask about, and the way to
+      not have that question is to not have the second source.
+
+      Its own kept: the name, the colour, the place in the list, the deadline. Those are
+      how you think about it. The money is what the ledger says.
+    */
+    const link = g.loan_id ? (loanBy.get(g.loan_id) ?? null) : null;
+    if (link) {
+      const total = Number(link.total_rsd) || 0;
+      return {
+        ...g,
+        // Overwritten rather than left alone, so that every existing reader — the card,
+        // the pace, `getGoalRemaining`, the overall strip — gets the debt's figures
+        // through the fields it already reads, and none of them needed teaching.
+        target_rsd: total,
+        target_amount: total,
+        currency: "RSD",
+        rate: 1,
+        paying: true,
+        progress: link.settled,
+        // Money already gone reserves nothing — the same rule every paying-off goal
+        // follows, and the reason a debt never takes dinars out of `free` twice.
+        saved: 0,
+        deposited: link.settled,
+        withdrawn: 0,
+        peak: link.settled,
+        movements: link.movements.length,
+        entries: link.movements.slice(0, GOAL_HISTORY_LIMIT).map((m) => ({
+          id: m.id,
+          kind: m.kind,
+          amount: m.amount,
+          occurred_on: m.on,
+          note: m.title,
+          account: m.accountId ? (accountName.get(m.accountId) ?? null) : null,
+          recurring: m.recurring,
+        })),
+        // The next payment goes wherever the last one went, and that is on the debt.
+        lastAccountId: link.movements[0]?.accountId ?? null,
+      };
+    }
+
     const paying = g.direction === "expense";
     const own = goalKinds(paying);
 

@@ -77,26 +77,6 @@
   }
 }
 
-/* The header line that draws itself under a page title. */
-@keyframes zv-rule-in {
-  from {
-    transform: scaleX(0);
-  }
-  to {
-    transform: scaleX(1);
-  }
-}
-
-/* Skeleton shimmer: a band of light crossing the placeholder, not a pulsing box. */
-@keyframes zv-shimmer {
-  from {
-    transform: translate3d(-100%, 0, 0);
-  }
-  to {
-    transform: translate3d(100%, 0, 0);
-  }
-}
-
 /* The sheen that crosses a primary button once on hover. */
 @keyframes zv-sheen {
   from {
@@ -116,20 +96,6 @@
 */
 .zv-page {
   animation: zv-fade 260ms var(--ease-premium) both;
-}
-
-/* A page title block: rises, and draws its rule under itself as it lands. */
-.zv-head {
-  animation: zv-rise var(--dur-page) var(--ease-premium) both;
-}
-
-/*
-  Generic rise. `--zv-delay` lets a caller place one element in the sequence without
-  a class per position, which is what a fixed ladder of `.delay-1 … .delay-9` turns
-  into within a month.
-*/
-.zv-rise {
-  animation: zv-rise var(--dur-page) var(--ease-premium) var(--zv-delay, 0ms) both;
 }
 
 /*
@@ -291,63 +257,7 @@
   box-shadow: 0 18px 40px -28px rgba(0, 0, 0, 0.9);
 }
 
-/* An interactive card — one that is itself a link — may lift. A static panel may not. */
-.zv-lift {
-  transition:
-    transform var(--dur-hover) var(--ease-premium),
-    border-color var(--dur-hover) ease,
-    box-shadow var(--dur-hover) ease;
-}
-
-.zv-lift:hover {
-  transform: translate3d(0, -2px, 0);
-  border-color: color-mix(in srgb, var(--color-gold) 28%, var(--color-line));
-  box-shadow: 0 22px 46px -26px rgba(0, 0, 0, 0.95);
-}
-
-.zv-lift:active {
-  transform: translate3d(0, 0, 0);
-  transition-duration: var(--dur-press);
-}
-
 /* ---------------------------------------------------------------------- tables */
-
-/*
-  The list treatment, and the largest single change in this file: eight screens were
-  a bare `<table>` with a hover tint.
-
-  The rail is the idea. On hover a gold edge grows down the left of the row from its
-  centre, and the row's contents shift three pixels after it. It reads as the row
-  coming forward to be read, and — unlike a background tint — it survives on a screen
-  where every row is already tinted by a status colour.
-*/
-.zv-table {
-  width: 100%;
-  font-size: 13px;
-  border-collapse: collapse;
-}
-
-.zv-table thead th {
-  padding: 0.7rem 1rem;
-  border-bottom: 1px solid var(--color-line-soft);
-  font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
-  color: var(--color-muted);
-  text-align: left;
-  white-space: nowrap;
-}
-
-.zv-table thead th.num { text-align: right; }
-
-.zv-table tbody td {
-  padding: 0.78rem 1rem;
-  border-bottom: 1px solid var(--color-line-soft);
-  vertical-align: middle;
-}
-
-.zv-table tbody tr:last-child td { border-bottom: 0; }
 
 .zv-row {
   position: relative;
@@ -394,30 +304,6 @@
 .zv-row:nth-child(9)  { animation-delay: 320ms; }
 .zv-row:nth-child(10) { animation-delay: 355ms; }
 .zv-row:nth-child(n + 11) { animation-delay: 390ms; }
-
-/*
-  A row-level action that only matters once the row is being looked at. It stays in
-  the layout at all times — fading rather than appearing — because a control that
-  changes the column width on hover makes the whole table twitch.
-*/
-.zv-row-action {
-  opacity: 0;
-  transform: translate3d(-4px, 0, 0);
-  transition:
-    opacity var(--dur-hover) ease,
-    transform var(--dur-hover) var(--ease-premium);
-}
-
-.zv-row:hover .zv-row-action,
-.zv-row:focus-within .zv-row-action {
-  opacity: 1;
-  transform: none;
-}
-
-/* Touch has no hover, so the control has to be there all the time. */
-@media (hover: none) {
-  .zv-row-action { opacity: 1; transform: none; }
-}
 
 /* -------------------------------------------------------------------- controls */
 
@@ -472,31 +358,24 @@
 */
 @media (prefers-reduced-motion: reduce) {
   .zv-page,
-  .zv-head,
-  .zv-rise,
   .zv-pagehead,
   .zv-panel,
-  .zv-lift,
   .zv-press,
   .zv-row,
   .zv-row td:first-child,
   .zv-row::before,
-  .zv-row-action,
   .zv-mark,
   .zv-nav-item,
   .zv-nav-item::before,
   .zv-nav-item svg,
   .zv-nav-count,
-  .zv-switch-option,
   .zv-menu-item,
   .zv-search,
   .zv-field,
-  .zv-nudge svg,
   .zv-turn svg {
     transition: none !important;
   }
 
-  .zv-lift:hover,
   .zv-press:active,
   .zv-row:hover,
   .zv-row:hover td:first-child,
@@ -506,8 +385,6 @@
   .zv-menu-item:hover {
     transform: none;
   }
-
-  .zv-row-action { opacity: 1; }
 
   ::view-transition-old(*),
   ::view-transition-new(*),

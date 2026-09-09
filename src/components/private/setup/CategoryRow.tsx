@@ -16,6 +16,7 @@ import {
   categoryAddCols,
   field,
   rowMotion,
+  useComposer,
   useRowCommit,
   useSavedPulse,
 } from "./kit";
@@ -34,9 +35,11 @@ export function CategoryRow({
 }) {
   const [state, formAction, pending] = useActionState<MoneyState, FormData>(saveCategory, undefined);
   const isNew = !category;
+  /* What the composer is holding — see `useComposer`, which says why it is not the form. */
+  const [draft, setDraft] = useComposer(state, { name: "" });
   const [leaving, setLeaving] = useState(false);
   const saved = useSavedPulse(category ? state : undefined);
-  const commit = useRowCommit(!isNew);
+  const commit = useRowCommit(!isNew, formAction);
 
   return (
     <form
@@ -49,6 +52,7 @@ export function CategoryRow({
         isNew
           ? "setup-cat-add rounded-b-card border-t border-line bg-white/[0.02] px-4 py-3.5"
           : "setup-cat is-quiet",
+        isNew && pending && "is-saving",
         arrived && "zv-row-in",
         leaving && "translate-x-1 opacity-0",
       )}
@@ -82,10 +86,14 @@ export function CategoryRow({
         {category && <RowMark used={uses > 0} />}
         <input
           name="name"
-          defaultValue={category?.name ?? ""}
+          {...(isNew
+            ? { value: draft.name, onChange: (e) => setDraft({ name: e.target.value }) }
+            : { defaultValue: category?.name ?? "" })}
           placeholder="Category name"
           aria-label="Category name"
           required
+          /* Shut while the row is being made — see `.is-saving` in the stylesheet. */
+          readOnly={isNew && pending}
           className={cn(field, "w-full min-w-0 font-medium", !isNew && "setup-cat-name")}
         />
 

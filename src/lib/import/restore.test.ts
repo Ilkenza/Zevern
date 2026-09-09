@@ -123,6 +123,9 @@ describe("RESTORE_ORDER", () => {
       ["money_budget_boosts", "money_budget_plans"],
       ["money_budget_categories", "money_budget_plans"],
       ["money_budget_categories", "money_categories"],
+      ["money_stock", "money_items"],
+      ["money_stock", "money_transactions"],
+      ["money_stock_moves", "money_stock"],
     ];
     const at = new Map(RESTORE_ORDER.map((t, i) => [t as string, i]));
     for (const [child, parent] of EDGES) {

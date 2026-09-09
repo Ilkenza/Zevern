@@ -43,6 +43,8 @@ const LABEL: Record<RestoreTable, string> = {
   money_budget_amounts: "budget amounts",
   money_budget_categories: "budget categories",
   money_budget_accounts: "budget accounts",
+  money_stock: "what is in the house",
+  money_stock_moves: "what has been eaten or binned",
   money_budget_boosts: "budget boosts",
 };
 

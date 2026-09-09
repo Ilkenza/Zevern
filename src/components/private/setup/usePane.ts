@@ -1,81 +1,142 @@
 "use client";
 
-import { useEffect, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 
 /**
- * Which section of Setup is on screen, taken from the address.
+ * Which section of Setup is on screen: chosen here, written into the address.
  *
  * The page used to be one column of six stacked cards and the rail was a set of anchors
  * into it: fifty-eight expense categories meant the exchange rates were two thousand
  * pixels below the fold, and "where am I" was answered by watching what scrolled past.
  * Now the rail chooses and the pane shows one thing.
  *
- * The address is the state, not a `useState`, and that is what keeps every existing link
- * working: `/private/setup#setup-accounts` is written in four other places in this app —
- * the empty ledger, the net-note fix, the seed card — and each of them now opens the pane
- * it meant instead of scrolling to it. Back and forward work for free, and so does
- * reloading on the section you were reading.
+ * The address still names the pane, so `/private/setup#setup-accounts` — written in four
+ * other places in this app — opens the section it means, back and forward work, and a
+ * reload lands where you were. What changed is which of the two is in charge.
+ *
+ * Reading the address on every render is what put the rail back on the section you came
+ * from every time you pressed a button. The tabs are plain anchors, so the browser moves
+ * the fragment and Next's router never learns of it; `revalidatePath` then makes the
+ * router put *its* URL back — the one from the last real navigation, stale fragment and
+ * all — and the pane followed it. Nothing about that is a navigation: nobody asked to go
+ * anywhere, a row was saved.
+ *
+ * So the fragment is only believed when it changes for a reason:
+ *
+ *  - once when this screen opens, which is what makes a link land where it points;
+ *  - on `hashchange`, which is a tab press or the back button and nothing else.
+ *
+ * A `history.replaceState` — Next's or ours — fires no `hashchange`, so the router can
+ * rewrite the URL as often as it likes and the pane stays where it was put. The effect at
+ * the bottom writes the pane back into the address afterwards, so the two agree again for
+ * the next reload or shared link.
  */
 export function usePane(ids: string[]): string {
-  const hash = useSyncExternalStore(subscribe, read, readOnServer);
+  const [address] = useState(makeAddress);
+  const asked = useSyncExternalStore(address.subscribe, address.read, readOnServer);
 
   /*
-    Put the address back when something takes it away.
+    Read the address once more as the move that opened this screen lands.
 
-    This is what actually happens on a delete: the action calls `revalidatePath`, Next
-    applies it by updating the router's URL — and the router's URL has no fragment in it,
-    so `#setup-expenses` is dropped on the way through. The rail then had nothing to read
-    and fell to the first pane, which is Accounts.
+    The snapshot above is taken while this screen renders, and on a client-side move
+    between pages that is too early: Next puts the new URL in place from an effect of its
+    own, in the router — a component above this one — and React runs a child's effects
+    before its parent's. Arriving from `/private/money` on `#setup-earning`, the seed
+    would read the address being left behind.
 
-    Keeping the pane in memory (below) fixes the screen; this fixes the address, so a
-    reload or a shared link still lands where you were. `replaceState` on purpose: no
-    history entry for something nobody navigated to, and no `hashchange`, so this cannot
-    feed itself.
+    So the re-read is queued as a microtask rather than done in the effect body: effects
+    of one commit are flushed together, and a microtask queued inside that flush runs
+    after all of them, the router's included. Nothing else can slip into that gap — a
+    server action needs a press and a round trip — so this window only ever catches the
+    navigation it is there for.
   */
   useEffect(() => {
-    if (hash || !ids.includes(last)) return;
-    try {
-      window.history.replaceState(null, "", `#${last}`);
-    } catch {
-      /* A browser that refuses is no worse off than before: the pane below still holds. */
-    }
-  }, [hash, ids]);
+    address.settle();
+    queueMicrotask(address.settle);
+  }, [address]);
 
-  if (ids.includes(hash)) return hash;
+  const pane = ids.includes(asked) ? asked : (ids[0] ?? "");
+
   /*
-    An empty address is not a request for the first pane.
+    Put the pane back into the address whenever something has taken it out.
 
-    Deleting two categories put the rail back on Accounts, which is what happens whenever
-    the hash is momentarily gone: this fell straight through to `ids[0]`. The last pane
-    that was actually asked for is a better answer than the first one in the list — it is
-    the only one anybody chose — so a blank reading keeps you where you were, and only a
-    real address for a real pane moves you.
+    Two things take it out, and both are the router rather than a person: applying a
+    revalidation drops the fragment, or restores an older one. Neither moves the pane any
+    more — this only keeps the address honest, so a reload or a copied link still opens
+    what is on screen.
+
+    No dependency list on purpose: the only way to notice the router has rewritten the URL
+    is to look, and the render it causes is the moment to do it. `replaceState` rather
+    than a navigation — nobody went anywhere, so nothing belongs in the history — and it
+    fires no `hashchange`, so this cannot feed itself. Next patches `replaceState` to keep
+    its own idea of the URL in step, which is what stops the next revalidation undoing
+    this one.
+
+    Only once somebody has actually named a pane, though. Arriving at a bare
+    `/private/setup` and reading it is not a request for an address with a fragment in
+    it, and writing one there would be this hook editing a URL nobody asked about.
   */
-  if (!hash && ids.includes(last)) return last;
-  return ids[0] ?? "";
+  useEffect(() => {
+    if (!asked || !pane || typeof window === "undefined") return;
+    if (window.location.hash.slice(1) === pane) return;
+    try {
+      window.history.replaceState(null, "", `#${pane}`);
+    } catch {
+      /* A browser that refuses is no worse off than before: the pane above still holds. */
+    }
+  });
+
+  return pane;
 }
+
+type Address = {
+  /** The fragment this screen is showing. Stable between `hashchange`s, on purpose. */
+  read: () => string;
+  /** Re-read the address once, after the move that opened this screen has landed. */
+  settle: () => void;
+  subscribe: (onChange: () => void) => () => void;
+};
 
 /**
- * The last pane anybody asked for, remembered across a re-render that loses the address.
+ * One reading of the address per screen, refreshed only when a person changes it.
  *
- * Module scope on purpose: it must outlive the component, and on the server it is per
- * request, so nothing leaks between people.
+ * Per mount rather than at module scope: the value has to be seeded again every time this
+ * screen opens, or arriving from a link would show whichever pane was last read.
  */
-let last = "";
+function makeAddress(): Address {
+  let seen: string | null = null;
+  let tell: (() => void) | null = null;
 
-function subscribe(onChange: () => void) {
-  window.addEventListener("hashchange", onChange);
-  return () => window.removeEventListener("hashchange", onChange);
+  const now = () => (typeof window === "undefined" ? "" : window.location.hash.slice(1));
+
+  const take = () => {
+    const next = now();
+    if (next === seen) return;
+    seen = next;
+    tell?.();
+  };
+
+  return {
+    read: () => {
+      if (seen === null) seen = now();
+      return seen;
+    },
+    settle: () => {
+      take();
+    },
+    subscribe: (onChange) => {
+      tell = onChange;
+      window.addEventListener("hashchange", take);
+      return () => {
+        tell = null;
+        window.removeEventListener("hashchange", take);
+      };
+    },
+  };
 }
 
-function read() {
-  const hash = window.location.hash.slice(1);
-  if (hash) last = hash;
-  return hash;
-}
-
-/* No address to read on the server, so the first pane is rendered and the hash — if there
-   is one — takes over on hydration. */
+/* No address to read on the server, so the first pane is rendered and the fragment — if
+   there is one — takes over as soon as this reaches a browser. */
 function readOnServer() {
   return "";
 }

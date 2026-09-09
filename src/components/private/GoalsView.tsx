@@ -13,11 +13,12 @@ import { ListBar } from "@/components/ui/ListBar";
 import { GoalIcon } from "@/components/icons/GoalIcon";
 import type { OnHand } from "@/lib/data/money";
 import type { AccountBalance } from "@/lib/data/money";
-import type { GoalLine, MoneyCategory } from "@/lib/types";
+import type { GoalLine, LoanLine, MoneyCategory } from "@/lib/types";
 import { GoalForm } from "./GoalForm";
 import { ARCHIVE_HREF, GOALS_HREF, PanelMeta, caps } from "./goals/shared";
 import { isOpen, read } from "./goals/reading";
 import { GoalCard } from "./goals/GoalCard";
+import { DebtCard } from "./goals/DebtCard";
 import { ClosedRow } from "./goals/ClosedRow";
 import { Overall } from "./goals/Overall";
 import { todayISO } from "@/lib/format";
@@ -88,6 +89,7 @@ function NoGoals() {
 
 export function GoalsView({
   goals,
+  debts,
   accounts,
   categories,
   onHand,
@@ -95,6 +97,15 @@ export function GoalsView({
   showArchived,
 }: {
   goals: GoalLine[];
+  /**
+   * What is owed, read from `money_loans` rather than copied into a goal.
+   *
+   * A debt and a goal you are paying off are the same errand, and keeping them as two
+   * rows is how one credit ends up written down twice with two different totals. So the
+   * debt stays the only place its figure lives and this screen borrows it — see
+   * `DebtCard`, which wears the goal card's design without borrowing its behaviour.
+   */
+  debts: LoanLine[];
   accounts: AccountBalance[];
   categories: MoneyCategory[];
   onHand: OnHand;
@@ -123,6 +134,24 @@ export function GoalsView({
   */
   const saving = open.filter((g) => !g.paying);
   const paying = open.filter((g) => g.paying);
+  /*
+    Only what is owed, and only what is still open.
+
+    Money lent to somebody is not something you are working your way out of — it belongs
+    on the Debts screen with the rest of the record, not among the things being paid off.
+    A settled debt is history for the same reason.
+  */
+  const owed = debts.filter((d) => d.direction === "borrowed" && d.settled_on == null);
+  /*
+    A debt already standing as a goal is drawn once, as that goal.
+
+    Otherwise the link would produce exactly what it exists to prevent: the same credit
+    on two cards in one section, which is where this whole thread started.
+  */
+  const linkedLoans = new Set(goals.map((g) => g.loan_id).filter((id): id is string => id != null));
+  const loose = owed.filter((d) => !linkedLoans.has(d.id));
+  /** And a debt that is already spoken for is not offered to a second goal either. */
+  const freeDebts = owed.filter((d) => !linkedLoans.has(d.id));
   const closed = goals.filter((g) => !isOpen(g) && !g.archived);
   const archived = goals.filter((g) => !isOpen(g) && g.archived);
   // The totals these three lines produced now live in `Overall`, which draws them once.
@@ -273,6 +302,14 @@ export function GoalsView({
     (sum, g) => sum + Math.max((Number(g.target_rsd) || 0) - g.progress, 0),
     0,
   );
+  /*
+    One figure for the section, counting both kinds of row in it.
+
+    They add up honestly: a paying-off goal's remainder and a debt's outstanding are both
+    money that still has to leave, worked out the same way. What must never be added is
+    the same thing twice — which is why a debt is not also a goal.
+  */
+  const owingTotal = leftToPay + loose.reduce((sum, d) => sum + d.outstanding, 0);
 
 
   return (
@@ -471,18 +508,37 @@ export function GoalsView({
             are money that has already gone. One heading is cheaper than teaching every
             card to explain which it is.
           */}
-          {paying.length > 0 && (
+          {/*
+            One section, one card, two kinds of row behind it.
+
+            A goal you are paying off and a debt are the same errand, and this screen
+            had them in two shapes — cards here, a stripe of rows underneath — which read
+            as two kinds of thing rather than one kind kept in two tables. Merged: the
+            debts wear the same card, and where they are stored stops being something the
+            reader has to know.
+
+            They stay two tables on purpose. A debt copied into a goal is one credit
+            written down twice, and two figures for one thing is how they end up
+            disagreeing by the amount of a typo.
+          */}
+          {(paying.length > 0 || loose.length > 0) && (
             <section className="goals-group">
               <div className="goals-group-head">
                 <h2 className="goals-group-title">Paying off</h2>
                 <PanelMeta>
-                  {paying.length} {paying.length === 1 ? "goal" : "goals"}
-                  {leftToPay > 0 && ` · ${fmt(leftToPay)} left`}
+                  {[
+                    paying.length > 0 &&
+                      `${paying.length} ${paying.length === 1 ? "goal" : "goals"}`,
+                    loose.length > 0 && `${loose.length} ${loose.length === 1 ? "debt" : "debts"}`,
+                    owingTotal > 0 && `${fmt(owingTotal)} left`,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
                 </PanelMeta>
               </div>
               <p className="goals-group-note">
                 This money has already left the account — these count what has gone, not
-                what is being held back.
+                what is being held back. Debts are kept on the Debts screen and shown here.
               </p>
               <div className="money-card-grid grid items-start gap-x-3 gap-y-5 sm:grid-cols-2">
                 {paying.map((goal, i) => (
@@ -499,6 +555,9 @@ export function GoalsView({
                     closing={closingId === goal.id}
                     onToggle={() => toggle(goal.id)}
                   />
+                ))}
+                {loose.map((debt) => (
+                  <DebtCard key={debt.id} debt={debt} />
                 ))}
               </div>
             </section>
@@ -569,6 +628,7 @@ export function GoalsView({
       >
         <GoalForm
           goal={panel?.mode === "edit" ? panel.goal : undefined}
+          debts={freeDebts}
           accounts={accounts}
           categories={categories}
           onDone={close}
@@ -577,7 +637,6 @@ export function GoalsView({
     </div>
   );
 }
-
 
 
 

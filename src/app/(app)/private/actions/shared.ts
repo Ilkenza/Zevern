@@ -10,6 +10,7 @@
  */
 
 import { goalKinds, movesToward } from "@/lib/money/goal-progress";
+import { expiryFor } from "@/lib/money/stock";
 import { todayISO } from "@/lib/format";
 import {
 CURRENCIES,
@@ -88,7 +89,8 @@ export async function ownsMoneyRow(
     | "money_loans"
     | "money_recurring"
     | "money_planned"
-    | "money_budget_plans",
+    | "money_budget_plans"
+    | "money_stock",
   id: string | null,
   uid: string,
 ): Promise<boolean> {
@@ -259,5 +261,80 @@ export async function rememberItem({
   }
 }
 
-/** Rounding leaves ragged tenths of a dinar behind; do not fail a withdrawal over one. */
-export const PENNY = 0.01;
+/**
+ * Put the food and drink from an entry into the house.
+ *
+ * Only the things marked as food or drink in Setup, which is the whole of the switch: a
+ * phone bill and a pair of socks are on the shopping list too, and a list of what is in
+ * the house that includes them is a list nobody opens twice.
+ *
+ * Only when the entry is new. Editing one already booked would put a second bunch of
+ * bananas in the bowl every time the amount was corrected — and the bowl is not what was
+ * being corrected.
+ *
+ * The rok is worked out here, once, from what the item said on the day it was bought.
+ * Deciding later that bananas keep four days rather than five does not move the date on
+ * the bunch already in the bowl; the bunch was bought under the old answer.
+ *
+ * Silent on failure, deliberately, and for the same reason `rememberItem` is: the entry
+ * is written and the money is right. A convenience behind it must never turn a saved
+ * entry into an error message.
+ */
+export async function stockUp({
+  supabase,
+  uid,
+  items,
+  transactionId,
+  on,
+}: {
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>;
+  uid: string;
+  items: readonly { name: string; qty: number }[];
+  transactionId: string | null;
+  on: string;
+}): Promise<void> {
+  if (items.length === 0) return;
+  try {
+    const names = [...new Set(items.map((i) => i.name.trim().toLowerCase()).filter(Boolean))];
+    if (names.length === 0) return;
+
+    const { data: known, error } = await supabase
+      .from("money_items")
+      .select("id, name, keeps_days, kind")
+      .eq("user_id", uid)
+      .in("kind", ["food", "drink"]);
+    if (error) throw new ReadFailed("what you keep in the house", error.message);
+
+    const tracked = new Map(
+      (known ?? []).map((row) => [row.name.trim().toLowerCase(), row] as const),
+    );
+    const lots = [];
+    for (const item of items) {
+      const match = tracked.get(item.name.trim().toLowerCase());
+      if (!match) continue;
+      const qty = Number(item.qty) || 0;
+      if (!(qty > 0)) continue;
+      lots.push({
+        item_id: match.id,
+        transaction_id: transactionId,
+        qty,
+        bought_on: on,
+        expires_on: expiryFor(on, match.keeps_days),
+      });
+    }
+    if (lots.length === 0) return;
+
+    await supabase.from("money_stock").insert(lots);
+  } catch (error) {
+    console.error("stockUp:", error);
+  }
+}
+
+/**
+ * Rounding leaves ragged tenths of a dinar behind; do not fail a withdrawal over one.
+ *
+ * Defined beside the arithmetic that uses it, in `@/lib/money/posting`, and re-exported
+ * here so every action that has always imported it from `./shared` still does. A
+ * tolerance belongs with the sum it forgives, and the sums are now testable.
+ */
+export { PENNY } from "@/lib/money/posting";

@@ -4,6 +4,8 @@ import { useState } from "react";
 import Link from "next/link";
 import { buttonClasses } from "@/components/ui/Button";
 import { fold } from "@/lib/money/entry-search";
+import { toRsd } from "@/lib/money";
+import { useDefaultCurrency } from "@/lib/money/currency";
 
 import {
   ArrowUpRight,
@@ -11,6 +13,7 @@ import {
   Coins,
   HardDriveDownload,
   Landmark,
+  Refrigerator,
   ShoppingBasket,
   Tag,
   Wallet,
@@ -19,7 +22,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { ListBar } from "@/components/ui/ListBar";
 import { Badge } from "@/components/ui/Badge";
 
-import type { RecurringRow, MoneyCategory, MoneyItem } from "@/lib/types";
+import type { RecurringRow, MoneyCategory, MoneyItem, StockLine } from "@/lib/types";
 import type { AccountBalance } from "@/lib/data/money";
 import { PanelMeta, useArrived } from "./setup/kit";
 import { AccountHead, AccountRow } from "./setup/AccountRow";
@@ -32,15 +35,56 @@ import { ItemRow } from "./setup/ItemRow";
 import { DATA_PANE, SetupTabs } from "./setup/SetupTabs";
 import { ExportPanel } from "@/components/settings/ExportPanel";
 import { foundationOf } from "./setup/foundation";
+import { HousePanel } from "./setup/HousePanel";
 import { usePane } from "./setup/usePane";
 import { useMoney } from "@/lib/money/currency";
 import { monthlyFor } from "./upcoming/rules-reading";
+
+/**
+ * What order the two long lists in Setup can be read in. `asc` is the order as it is
+ * named, and the picker writes the other end of each one itself.
+ *
+ * `As listed` first, and it is the default: the read already hands these back in an
+ * order — rank then name for categories, most-used then most-recent for things — and a
+ * screen that rearranges a familiar list the moment it opens has answered a question
+ * nobody asked. Everything under it is a question somebody did ask.
+ */
+/* What the three kinds are called on the filter. `Neither` rather than `Other`, because
+   the question the control is asking is the one the row asks: is this food or drink. */
+const KIND_NAME: Record<string, string> = { food: "Food", drink: "Drink", other: "Neither" };
+
+const CAT_SORTS = [
+  { value: "listed", label: "As listed", reverse: "Reversed" },
+  { value: "uses", label: "Most used", reverse: "Least used" },
+  { value: "name", label: "A to Z", reverse: "Z to A" },
+];
+
+const THING_SORTS = [
+  { value: "uses", label: "Most used", reverse: "Least used" },
+  { value: "name", label: "A to Z", reverse: "Z to A" },
+  { value: "price", label: "Dearest", reverse: "Cheapest" },
+  { value: "bought", label: "Bought recently", reverse: "Longest ago" },
+];
+
+/**
+ * Bigger first, with anything that has no answer at the bottom whichever way it runs.
+ *
+ * A thing with no price is not cheaper than one at 119 dinars, it is unknown — and
+ * twenty blank rows at the top of `Cheapest` is the list answering a question nobody
+ * asked. Same for a thing never bought under `Longest ago`.
+ */
+function ranked(a: number | null, b: number | null, dir: number): number {
+  if (a == null || b == null) return a == null ? (b == null ? 0 : 1) : -1;
+  return dir * (b - a);
+}
 
 export function SetupView({
   accounts,
   categories,
   usage,
   items,
+  rateUse,
+  stock,
   rates,
   ratesUpdatedOn,
   calendarToken,
@@ -54,6 +98,8 @@ export function SetupView({
   usage: Record<string, number>;
   /** The things bought before, so the list can be corrected by hand as well as filled by use. */
   items: MoneyItem[];
+  rateUse: { count: number; currencies: string[] };
+  stock: StockLine[];
   rates: { EUR: number; USD: number };
   ratesUpdatedOn: string | null;
   /** The secret path segment of the .ics feed, or null while there is no address. */
@@ -81,6 +127,8 @@ export function SetupView({
   */
   const [catQuery, setCatQuery] = useState("");
   const [catTag, setCatTag] = useState<string | null>(null);
+  const [catSort, setCatSort] = useState("listed");
+  const [catWay, setCatWay] = useState<"asc" | "desc">("asc");
   const used = (c: MoneyCategory) => (usage[c.id] ?? 0) > 0;
   const inUse = allExpense.filter(used).length;
   const catTags = [
@@ -89,12 +137,101 @@ export function SetupView({
   ].filter((t) => t.count > 0);
   const activeCatTag = catTags.some((t) => t.key === catTag) ? catTag : null;
   const catTerm = fold(catQuery.trim());
-  const expense = allExpense.filter((c) => {
-    if (catTerm && !fold(c.name).includes(catTerm)) return false;
-    if (activeCatTag === "used") return used(c);
-    if (activeCatTag === "empty") return !used(c);
-    return true;
-  });
+  const catDir = catWay === "desc" ? -1 : 1;
+  const expense = allExpense
+    .filter((c) => {
+      if (catTerm && !fold(c.name).includes(catTerm)) return false;
+      if (activeCatTag === "used") return used(c);
+      if (activeCatTag === "empty") return !used(c);
+      return true;
+    })
+    .sort((a, b) => {
+      if (catSort === "uses")
+        return (
+          catDir * ((usage[b.id] ?? 0) - (usage[a.id] ?? 0)) ||
+          a.name.localeCompare(b.name, "sr")
+        );
+      if (catSort === "name") return catDir * a.name.localeCompare(b.name, "sr");
+      /* `As listed` is the order the read hands back — by hand-set rank, then name — and
+         it is the default so that opening this section does not rearrange a list somebody
+         already knows the shape of. Reversing it is the one thing `.sort` cannot express,
+         so it is done to the copy `.filter` has already made. */
+      return 0;
+    });
+  if (catSort === "listed" && catWay === "desc") expense.reverse();
+  /*
+    A way through the shopping list, which grows the way the category list grows — every
+    name marked on an entry stays here, and at thirty-one the section for tidying it up
+    is the thing that needs tidying.
+
+    The same three controls as the categories above, asking what this list is actually
+    asked: is this food or drink, what is it filed under, which of these still have no
+    price on them, and what is the dearest thing I keep buying.
+  */
+  const [thingQuery, setThingQuery] = useState("");
+  const [thingKinds, setThingKinds] = useState<string[]>([]);
+  const [thingCats, setThingCats] = useState<string[]>([]);
+  const [thingFlag, setThingFlag] = useState("");
+  const [thingSort, setThingSort] = useState("uses");
+  const [thingWay, setThingWay] = useState<"asc" | "desc">("asc");
+
+  const tally = <K extends string>(pick: (item: MoneyItem) => K) => {
+    const counts = new Map<K, number>();
+    for (const item of items) {
+      const key = pick(item);
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+    return counts;
+  };
+  const byKind = tally((i) => i.kind);
+  const byCat = tally((i) => i.category_id ?? "none");
+  const unpriced = items.filter((i) => i.price == null).length;
+
+  const thingKindOptions = ["food", "drink", "other"]
+    .filter((k) => (byKind.get(k) ?? 0) > 0)
+    .map((k) => ({ value: k, label: `${KIND_NAME[k]} (${byKind.get(k)})` }));
+  const thingCatOptions = [
+    ...allExpense
+      .filter((c) => (byCat.get(c.id) ?? 0) > 0)
+      .map((c) => ({ value: c.id, label: `${c.name} (${byCat.get(c.id)})` })),
+    /* `none` rather than an empty string: an empty value is what the bar itself uses
+       for "do not narrow at all", and two different nothings in one control is a bug
+       waiting for the day this filter is drawn as a plain select. */
+    ...((byCat.get("none") ?? 0) > 0
+      ? [{ value: "none", label: `Nothing yet (${byCat.get("none")})` }]
+      : []),
+  ];
+
+  const thingTerm = fold(thingQuery.trim());
+  const thingDir = thingWay === "desc" ? -1 : 1;
+  /* Prices are kept in the currency the thing is bought in, so ordering them means
+     putting them all in dinars first — otherwise a 3 EUR thing sorts under a 119 RSD one
+     and the list is quietly wrong rather than loudly wrong. */
+  const inRsd = (item: MoneyItem) =>
+    item.price == null ? null : toRsd(item.price, item.currency, rates);
+  const things = items
+    .filter((item) => {
+      if (thingTerm && !fold(item.name).includes(thingTerm)) return false;
+      if (thingKinds.length > 0 && !thingKinds.includes(item.kind)) return false;
+      if (thingCats.length > 0 && !thingCats.includes(item.category_id ?? "none"))
+        return false;
+      if (thingFlag === "unpriced" && item.price != null) return false;
+      return true;
+    })
+    .sort((a, b) => {
+      if (thingSort === "name") return thingDir * a.name.localeCompare(b.name, "sr");
+      if (thingSort === "price") return ranked(inRsd(a), inRsd(b), thingDir);
+      if (thingSort === "bought")
+        return ranked(
+          a.last_used_on == null ? null : Date.parse(a.last_used_on),
+          b.last_used_on == null ? null : Date.parse(b.last_used_on),
+          thingDir,
+        );
+      return thingDir * (b.uses - a.uses) || a.name.localeCompare(b.name, "sr");
+    });
+  const thingsNarrowed =
+    thingTerm !== "" || thingKinds.length > 0 || thingCats.length > 0 || thingFlag !== "";
+
   const empty = accounts.length === 0 && categories.length === 0;
   const onHand = accounts.reduce((sum, a) => sum + a.balance, 0);
   const overviewAccounts = accounts.filter(
@@ -117,6 +254,16 @@ export function SetupView({
     .filter((rule) => rule.next_on)
     .sort((a, b) => a.next_on.localeCompare(b.next_on))[0];
 
+  const readIn = useDefaultCurrency();
+  /*
+    Whether a rate multiplies anything at all — worked out on the server, where the whole
+    of the profile is in reach. It was worked out here first and got it wrong in the
+    direction that matters: it looked at the *income* rules only, so six subscriptions
+    billed in euros and dollars were converted every month by a rate the screen had just
+    decided nobody needed.
+  */
+  const foreign = readIn !== "RSD" || rateUse.count > 0;
+
   const foundation = foundationOf({
     accounts: accounts.length,
     expense: expense.length,
@@ -125,6 +272,7 @@ export function SetupView({
     ratesUpdatedOn,
     calendarToken,
     things: items.length,
+    house: stock.length,
   });
 
   /*
@@ -140,7 +288,10 @@ export function SetupView({
   // Rows the composer has just produced, per section. Nothing on this page moves
   // until one of these lists gains something.
   const newAccounts = useArrived(accounts.map((a) => a.id));
-  const newExpense = useArrived(expense.map((c) => c.id));
+  /* From the whole list, not the visible one: searching a row out of sight and back
+     again is not the row arriving, and the animation that says `this is new` is a lie
+     the second time it plays. */
+  const newExpense = useArrived(allExpense.map((c) => c.id));
   const newIncome = useArrived(income.map((c) => c.id));
   const newThings = useArrived(items.map((i) => i.id));
 
@@ -257,6 +408,14 @@ export function SetupView({
                       })),
                     },
                   ]}
+                  sort={{
+                    value: catSort,
+                    onChange: setCatSort,
+                    label: "What order to list them in",
+                    options: CAT_SORTS,
+                    direction: catWay,
+                    onDirection: setCatWay,
+                  }}
                   shown={expense.length}
                   total={allExpense.length}
                   onClear={() => {
@@ -429,35 +588,135 @@ export function SetupView({
               id="setup-things"
               icon={ShoppingBasket}
               title="Things you buy"
-              lede="So an expense can be picked off a list instead of typed out again. Nothing lands here on its own: mark a name on an entry to keep it, or add one below."
+              lede="So an expense can be picked off a list instead of typed out again. Nothing lands here on its own: mark a name on an entry to keep it, or add one below. Mark one as food or drink and what you buy of it turns up in In the house — with a rok, if it goes off."
               className="overflow-visible"
               meta={
                 items.length > 0 ? (
                   <PanelMeta>
-                    {items.length} {items.length === 1 ? "thing" : "things"}
+                    {things.length === items.length
+                      ? `${items.length} ${items.length === 1 ? "thing" : "things"}`
+                      : `${things.length} of ${items.length}`}
                   </PanelMeta>
                 ) : undefined
               }
             >
+              {/* Same rule as the categories above: under ten, every one of them is
+                  already on the screen and a search box is furniture. */}
+              {items.length >= 10 && (
+                <ListBar
+                  inPanel
+                  query={thingQuery}
+                  onQuery={setThingQuery}
+                  searchLabel="Search things…"
+                  filters={[
+                    {
+                      value: thingKinds[0] ?? "",
+                      onChange: (v) => setThingKinds(v ? [v] : []),
+                      values: thingKinds,
+                      onValues: setThingKinds,
+                      many: "kinds",
+                      label: "Food, drink or neither",
+                      all: `Anything (${items.length})`,
+                      options: thingKindOptions,
+                    },
+                    {
+                      value: thingCats[0] ?? "",
+                      onChange: (v) => setThingCats(v ? [v] : []),
+                      values: thingCats,
+                      onValues: setThingCats,
+                      many: "categories",
+                      label: "What it is filed under",
+                      all: "Any category",
+                      options: thingCatOptions,
+                    },
+                    {
+                      value: thingFlag,
+                      onChange: setThingFlag,
+                      label: "Whether it has a price on it",
+                      all: `All ${items.length}`,
+                      options:
+                        unpriced > 0
+                          ? [{ value: "unpriced", label: `No price yet (${unpriced})` }]
+                          : [],
+                      always: unpriced > 0,
+                    },
+                  ]}
+                  sort={{
+                    value: thingSort,
+                    onChange: setThingSort,
+                    label: "What order to list them in",
+                    options: THING_SORTS,
+                    direction: thingWay,
+                    onDirection: setThingWay,
+                  }}
+                  shown={things.length}
+                  total={items.length}
+                  alwaysClear={thingsNarrowed}
+                  onClear={() => {
+                    setThingQuery("");
+                    setThingKinds([]);
+                    setThingCats([]);
+                    setThingFlag("");
+                  }}
+                />
+              )}
+
               {items.length === 0 ? (
                 <EmptyState
                   icon={ShoppingBasket}
                   title="Nothing on the list yet"
                   description="Mark a name on an entry — the bookmark beside a line, or the box under a single purchase — and it turns up here with what it cost. Or add one now."
                 />
+              ) : things.length === 0 ? (
+                <p className="py-4 text-[12.5px] text-muted">
+                  Nothing matches. All {items.length} are still here — the search or the
+                  filters are hiding them.
+                </p>
               ) : (
                 <div className="setup-item-list">
-                  {items.map((item) => (
+                  {things.map((item) => (
                     <ItemRow
                       key={item.id}
                       item={item}
-                      categories={expense}
+                      categories={allExpense}
                       arrived={newThings.has(item.id)}
                     />
                   ))}
                 </div>
               )}
-              <ItemRow categories={expense} />
+              {/*
+                The composer, and every row above it, offers every category — not the
+                ones left after the section above has been searched. What a thing can be
+                filed under is not a question about what is on screen two panes away, and
+                a row whose own category had been filtered out was drawing a select with
+                nothing selected in it.
+              */}
+              <ItemRow categories={allExpense} />
+            </SetupSection>
+          )}
+
+          {/*
+            What is in the house, directly under the list it is built from.
+
+            Everything about this lives in Setup on purpose — it was offered on Money and
+            turned down. One list, one place, and the two questions it needs (is this food,
+            and how long does it keep) are answered one section up.
+          */}
+          {pane === "setup-house" && (
+            <SetupSection
+              id="setup-house"
+              icon={Refrigerator}
+              title="In the house"
+              lede="What you have bought and not finished. A press takes one — click the number on a row to say how many, or take the lot. Nothing here is counted in money."
+              meta={
+                stock.length > 0 ? (
+                  <PanelMeta>
+                    {stock.length} {stock.length === 1 ? "thing" : "things"}
+                  </PanelMeta>
+                ) : undefined
+              }
+            >
+              <HousePanel stock={stock} items={items} />
             </SetupSection>
           )}
 
@@ -468,12 +727,22 @@ export function SetupView({
               title="Exchange rates"
               lede="What a euro and a dollar are worth in dinars. Only matters once something is held in one."
               meta={
-                <Badge status={ratesBadge(ratesUpdatedOn).status}>
-                  {ratesBadge(ratesUpdatedOn).label}
-                </Badge>
+                /* No badge while nothing is converted — it would be a warning about a
+                   number that multiplies nothing. */
+                foreign ? (
+                  <Badge status={ratesBadge(ratesUpdatedOn).status}>
+                    {ratesBadge(ratesUpdatedOn).label}
+                  </Badge>
+                ) : undefined
               }
             >
-              <RatesPanel eur={rates.EUR} usd={rates.USD} updatedOn={ratesUpdatedOn} />
+              <RatesPanel
+                eur={rates.EUR}
+                usd={rates.USD}
+                updatedOn={ratesUpdatedOn}
+                needed={foreign}
+                use={rateUse}
+              />
             </SetupSection>
           )}
 

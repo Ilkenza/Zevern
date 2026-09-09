@@ -5,6 +5,7 @@ import {
   Coins,
   HardDriveDownload,
   Landmark,
+  Refrigerator,
   ShoppingBasket,
   Tag,
   TrendingUp,
@@ -23,6 +24,7 @@ const ICON: Record<StepKey, LucideIcon> = {
   income: Coins,
   earning: TrendingUp,
   things: ShoppingBasket,
+  house: Refrigerator,
   rates: Landmark,
   calendar: CalendarClock,
 };
@@ -42,6 +44,7 @@ const SHORT: Record<StepKey, string> = {
   income: "Income",
   earning: "What comes in",
   things: "Things you buy",
+  house: "In the house",
   rates: "Rates",
   calendar: "Calendar",
 };

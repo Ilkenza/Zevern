@@ -55,6 +55,9 @@ export const EXPORT_TABLES = [
   "money_goals",
   "money_recurring",
   "money_planned",
+  // What is in the house, and what has been eaten or binned out of it.
+  "money_stock",
+  "money_stock_moves",
   "ext_usage",
 ] as const;
 

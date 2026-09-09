@@ -115,7 +115,7 @@ export function CalendarPanel({ origin, token: saved }: { origin: string; token:
             itself is the key. Replace it below and the old one stops answering.
           </p>
 
-          <dl className="grid gap-x-6 gap-y-1 text-[12.5px] min-[560px]:grid-cols-[auto_1fr]">
+          <dl className="grid gap-x-6 gap-y-1 text-[12.5px] min-[560px]:grid-cols-[auto_minmax(0,1fr)]">
             <dt className={caps}>Shows</dt>
             <dd className="text-muted">
               Name, cost, date and how often — {FEED_DAYS} days ahead.

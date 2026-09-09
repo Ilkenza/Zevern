@@ -79,6 +79,9 @@ type FeedRule = {
   ends_when: string | null;
   /** For a goal-ending rule: dinars still to fill, so the feed stops where the app does. */
   goal_remaining_rsd: number | string | null;
+  /** For an instalment plan: dinars still owed on the debt, for exactly the same reason. */
+  loan_remaining_rsd: number | string | null;
+  loan_id: string | null;
   next_on: string;
   active: boolean;
   ends_on: string | null;
@@ -131,9 +134,7 @@ function asRecurringRow(rule: FeedRule): RecurringRow {
     currency: rule.currency,
     // The feed prints dates, not money, so it has no display currency to honour.
     display_currency: null,
-    // A debt is not a calendar event; the feed prints when a rule falls due, not what
-    // it pays off.
-    loan_id: null,
+    loan_id: rule.loan_id,
     variable: Boolean(rule.variable),
     every: rule.every,
     every_count: Number(rule.every_count) || 1,
@@ -152,6 +153,10 @@ function asRecurringRow(rule: FeedRule): RecurringRow {
     category: rule.category_name ? { name: rule.category_name, color: null } : null,
     account: null,
     goal: null,
+    // The feed prints when a rule falls due, not what it pays off — the debt's name is
+    // not in the function's output and an anonymous caller has no business with it.
+    // What the feed does need is how much is left, and that arrives as a figure.
+    loan: null,
   };
 }
 
@@ -250,13 +255,22 @@ export async function GET(
     ]);
 
     /*
-      A rule that stops when its goal is full stops on a date the ledger decides, so the
-      feed is handed what is left to fill and stops its walk there. Without it a
-      subscribed calendar would keep printing a standing order into a goal that was
-      finished months ago — and a calendar nobody can trust is worse than no calendar.
+      A rule that stops when the ledger says so stops on a date only the ledger knows, so
+      the feed is handed the figure and stops its walk there. Without it a subscribed
+      calendar keeps printing a standing order into a goal that filled months ago, or an
+      instalment on a credit already paid off — and a calendar nobody can trust is worse
+      than no calendar.
+
+      Goal first, then debt, which is the order `capFor` takes them in. A rule is never
+      both — `saveRecurring` clears the debt the moment a goal is chosen — so the order
+      settles nothing, and matching it is how the two readings stay one reading.
     */
     const cap =
-      rule.ends_when === "goal" ? Math.max(0, Number(rule.goal_remaining_rsd) || 0) : undefined;
+      rule.ends_when === "goal"
+        ? Math.max(0, Number(rule.goal_remaining_rsd) || 0)
+        : rule.loan_id
+          ? Math.max(0, Number(rule.loan_remaining_rsd) || 0)
+          : undefined;
 
     for (const occurrence of occurrencesFor(row, amount, rule.variable, horizon, [], cap)) {
       // A rule whose date has already passed is waiting to be booked in the app; the

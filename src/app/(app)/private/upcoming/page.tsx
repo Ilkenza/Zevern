@@ -20,7 +20,14 @@ const WINDOWS = [30, 60, 90];
 export default async function UpcomingPage({
   searchParams,
 }: {
-  searchParams: Promise<{ view?: string; new?: string; edit?: string; plan?: string }>;
+  searchParams: Promise<{
+    view?: string;
+    new?: string;
+    edit?: string;
+    plan?: string;
+    /** Which debt a new rule is the repayment plan of — the Debts screen links here. */
+    loan?: string;
+  }>;
 }) {
   const params = await searchParams;
 
@@ -74,7 +81,10 @@ export default async function UpcomingPage({
 
     let panel: UpcomingPanel = null;
     if (params.new) {
-      panel = { mode: "new" };
+      // Checked against the debts actually read, so a stale or borrowed link opens an
+      // ordinary blank form rather than a form pointing at nothing.
+      const asked = params.loan && loans.some((l) => l.id === params.loan) ? params.loan : undefined;
+      panel = { mode: "new", loanId: asked };
     } else if (params.edit) {
       const item = items.find((i) => i.id === params.edit);
       if (item) panel = { mode: "edit", item };

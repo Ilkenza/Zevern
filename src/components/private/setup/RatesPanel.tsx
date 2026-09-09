@@ -97,7 +97,33 @@ function DefaultCurrency() {
   );
 }
 
-export function RatesPanel({ eur, usd, updatedOn }: { eur: number; usd: number; updatedOn: string | null }) {
+/**
+ * The rates, and the currency they are read in.
+ *
+ * `needed` is the whole of the change he asked for: with everything in dinars there is
+ * nothing to convert, and a panel that keeps two boxes and a `not today's, pull the NBS
+ * rate' warning in front of somebody who holds no euros is nagging about a number that
+ * multiplies nothing. It comes back by itself the moment an account, a thing on the
+ * shopping list, or the currency being read is not RSD.
+ *
+ * The currency picker stays either way. It is how a dinar profile stops being one, so
+ * hiding it behind "you have no foreign currency" would lock the door from the inside.
+ */
+export function RatesPanel({
+  eur,
+  usd,
+  updatedOn,
+  needed,
+  use,
+}: {
+  eur: number;
+  usd: number;
+  updatedOn: string | null;
+  /** Whether anything on the profile is held or read in a currency other than dinars. */
+  needed: boolean;
+  /** How many things today's rate multiplies, and which currencies they are in. */
+  use: { count: number; currencies: string[] };
+}) {
   const router = useRouter();
   const [state, formAction, pending] = useActionState<MoneyState, FormData>(saveRates, undefined);
   const [fetching, startFetch] = useTransition();
@@ -119,7 +145,34 @@ export function RatesPanel({ eur, usd, updatedOn }: { eur: number; usd: number; 
     <div>
       <DefaultCurrency />
 
-      <form action={formAction} className="px-4 py-4">
+      {!needed && (
+        <p className="px-4 py-4 text-[12.5px] leading-relaxed text-muted">
+          Everything you have is in dinars, so there is nothing to convert and no rate to
+          keep up to date. The euro and dollar rates appear here as soon as an account, a
+          thing you buy, or the currency above is not RSD.
+        </p>
+      )}
+
+      <form action={formAction} className="px-4 py-4" hidden={!needed}>
+        {/*
+          Why the boxes are here, said before they are.
+
+          "Rates aren't needed, my currency is RSD" is a fair thing to think while looking
+          at two boxes and a warning that they are out of date — the panel gave no reason
+          for existing. It does now, and the reason is a count of the person's own rows: a
+          standing rule billed in dollars is converted afresh every month, and it is this
+          figure it is multiplied by.
+        */}
+        {use.count > 0 && (
+          <p className="mb-3 text-[12px] leading-relaxed text-muted">
+            {use.count === 1 ? "One thing is" : `${use.count} things are`} billed in{" "}
+            <b className="mono font-semibold text-ink">{use.currencies.join(" and ")}</b> —
+            accounts, standing rules and prices on the shopping list. Every one of them is
+            turned into dinars by the {use.currencies.length === 1 ? "rate" : "rates"}{" "}
+            below, each time it is read.
+          </p>
+        )}
+
         <div className="grid gap-2.5 min-[420px]:grid-cols-2">
           <RateTile code="EUR" name="rate_eur" value={eur} />
           <RateTile code="USD" name="rate_usd" value={usd} />

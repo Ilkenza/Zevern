@@ -3,10 +3,9 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowRight, Check, HandCoins, RotateCcw } from "lucide-react";
+import { ArrowRight, Check, HandCoins, Plus, RotateCcw } from "lucide-react";
 import { settleLoan } from "@/app/(app)/private/actions";
 import { Panel } from "@/components/ui/Panel";
-import { buttonClasses } from "@/components/ui/Button";
 import { useMoney } from "@/lib/money/currency";
 import { cn } from "@/lib/utils";
 import type { LoanLine } from "@/lib/types";
@@ -33,7 +32,7 @@ const LOANS_DRAWN = 6;
  * already carries four panels before this one.
  */
 export function LoansPanel({ loans }: { loans: LoanLine[] }) {
-  const { fmt } = useMoney();
+  const { fmt, fmtExact } = useMoney();
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -120,7 +119,11 @@ export function LoansPanel({ loans }: { loans: LoanLine[] }) {
                   {loan.instalment && loan.instalmentsLeft != null ? (
                     <>
                       {" · "}
-                      {fmt(loan.instalment)} × {loan.instalmentsLeft} left
+                      {/* To the para, like everywhere the rate appears: it is copied off
+                          a contract and multiplied by the count beside it, and whole
+                          dinars there make the two disagree — see `DebtCard`. */}
+                      <span className="mono">{fmtExact(loan.instalment)}</span> ×{" "}
+                      {loan.instalmentsLeft} left
                     </>
                   ) : (
                     <>
@@ -133,21 +136,73 @@ export function LoansPanel({ loans }: { loans: LoanLine[] }) {
               <span className={cn("mono loan-row-amount", lent ? "text-ok" : "text-gold-hi")}>
                 {fmt(loan.outstanding)}
               </span>
-              <button
-                type="button"
-                onClick={() => settle(loan.id, true)}
-                disabled={pending}
-                className={buttonClasses(
-                  "secondary",
-                  "loan-row-do shrink-0 px-2.5 py-1 text-[11.5px] disabled:opacity-50",
-                )}
-              >
-                <Check className="h-3.5 w-3.5" aria-hidden />
-                {lent ? "Collected" : "Settled"}
-              </button>
+              {/*
+                Quiet, because of how often it is the right thing to press: once, ever,
+                per debt. Three filled buttons down a summary panel read as the three
+                things to do on the screen, and they are the three things you are least
+                likely to do — the figure and the bar beside them are why you looked.
+                It keeps its word rather than shrinking to an icon, since "Settled" and
+                "Collected" are not the same act and a tick cannot say which.
+              */}
+              {/*
+                The thing you actually do to a debt, in the place you actually do it.
+
+                This was `Settled', which closes the debt — the one act that is right once
+                ever, sitting where the eye lands on every row. On a debt with money still
+                owed it was worse than loud: pressing it made a claim that was not true,
+                on one click, with nothing asked.
+
+                What you do to a debt every month is pay some of it. So the row leads to
+                the entry form with this debt already chosen, and closing lives on the
+                Debts screen, next to the Reopen that undoes it. A debt on an instalment
+                plan does not need either — the last rate closes it, see `postRecurring`.
+
+                Once it is down to nothing the old word is the true one, and confirming it
+                is the right act, so the button comes back then and says so.
+              */}
+              {loan.outstanding > 0 ? (
+                <Link
+                  href={`/private/money?new=${lent ? "income" : "expense"}&loan=${loan.id}`}
+                  className="loan-row-do"
+                  title={`${fmt(loan.outstanding)} still ${lent ? "to collect" : "owed"}`}
+                >
+                  <Plus className="h-3.5 w-3.5" aria-hidden />
+                  {/*
+                    Two words, and the same two on both directions.
+
+                    Which way the money goes is on the row already — `You owe` against
+                    `Owed to you`, gold against green — so a label that repeats it is a
+                    label carrying nothing. What is left is the act itself, and the act is
+                    writing down a payment.
+                  */}
+                  Add payment
+                </Link>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => settle(loan.id, true)}
+                  disabled={pending}
+                  className="loan-row-do"
+                >
+                  <Check className="h-3.5 w-3.5" aria-hidden />
+                  {lent ? "Collected" : "Settled"}
+                </button>
+              )}
             </div>
 
-            {paid > 0 && (
+            {/*
+              The track is drawn whether or not anything has gone against it.
+
+              It used to appear only once a debt had been paid into, which meant a panel
+              of untouched debts was three bare lines with a button on each and nothing
+              saying where any of them stood — which is what this panel is for. An empty
+              track is not a lie: it says nothing has been paid, which is the truth, and
+              it keeps every row the same height so the column reads as a column.
+
+              What was actually wrong before was the *foot*, which said nothing at all on
+              an untouched debt. So it says something now.
+            */}
+            {total > 0 && (
               <>
                 <div className="loan-bar">
                   <span
@@ -157,7 +212,9 @@ export function LoansPanel({ loans }: { loans: LoanLine[] }) {
                   />
                 </div>
                 <p className="loan-row-foot">
-                  {fmt(paid)} of {fmt(total)} settled
+                  {paid > 0
+                    ? `${fmt(paid)} of ${fmt(total)} ${lent ? "collected" : "settled"}`
+                    : `Nothing ${lent ? "collected" : "paid"} against ${fmt(total)} yet`}
                 </p>
               </>
             )}

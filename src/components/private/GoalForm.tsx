@@ -16,7 +16,7 @@ import { DeleteButton } from "@/components/ui/DeleteButton";
 import { CURRENCY_OPTIONS } from "@/lib/money";
 import { MoneyField } from "@/components/ui/MoneyField";
 import { cn } from "@/lib/utils";
-import type { GoalLine, MoneyAccount, MoneyCategory } from "@/lib/types";
+import type { GoalLine, LoanLine, MoneyAccount, MoneyCategory } from "@/lib/types";
 import { todayISO } from "@/lib/format";
 import { useDefaultCurrency, useMoney } from "@/lib/money/currency";
 import { fromRsd } from "@/lib/money/display";
@@ -274,11 +274,14 @@ function CloseGoal({
 
 export function GoalForm({
   goal,
+  debts,
   accounts,
   categories,
   onDone,
 }: {
   goal?: GoalLine;
+  /** Open debts with no goal on them yet — what a paying-off goal can stand for. */
+  debts: LoanLine[];
   accounts: MoneyAccount[];
   categories: MoneyCategory[];
   onDone?: () => void;
@@ -294,6 +297,16 @@ export function GoalForm({
   const [paying, setPaying] = useState(goal?.direction === "expense");
   const [hasDeadline, setHasDeadline] = useState(Boolean(goal?.target_date));
   const locked = Boolean(goal);
+  /*
+    Which debt this goal stands for, if any.
+
+    Chosen on creation only — the same rule `direction` follows, and for the same reason:
+    the payments behind a goal are filed where they were filed, and re-pointing it later
+    would leave a history counted by nothing.
+  */
+  const [loanId, setLoanId] = useState(goal?.loan_id ?? "");
+  const linked = Boolean(goal ? goal.loan_id : loanId);
+  const debtOptions = debts.map((d) => ({ value: d.id, label: d.name }));
 
   return (
     <div className="flex h-full flex-col">
@@ -333,6 +346,36 @@ export function GoalForm({
             : "A name is all it takes. An amount turns it into progress, and a date turns that into a pace."}
         </p>
 
+        {/*
+          The debt this goal stands for.
+
+          Almost everything you pay off is money you owe somebody, and that is already
+          written down on the Debts screen with its direction, its total and its
+          instalment plan. Saying so here is what stops the same credit being written
+          down twice — the amount below disappears the moment a debt is chosen, because
+          the debt is then the only place the figure lives.
+
+          Left on "Nothing" it is an ordinary paying-off goal that counts what goes out,
+          which is still the right answer for something you are clearing that nobody is
+          owed for.
+        */}
+        {paying && !locked && debtOptions.length > 0 && (
+          <Select
+            label="Which debt"
+            name="loan_id"
+            value={loanId}
+            onChange={(e) => setLoanId(e.target.value)}
+            placeholder="Nothing — just count what goes out"
+            options={debtOptions}
+            help="Pick one and this goal reads its total and its progress off that debt, so the figure only ever exists in one place."
+          />
+        )}
+        {locked && goal?.loan_id && (
+          <p className="goal-kind-locked">
+            Stands for a debt — the amount and the progress come from it.
+          </p>
+        )}
+
         <Field
           label="Name"
           name="name"
@@ -352,25 +395,34 @@ export function GoalForm({
           €1.200 is a fact about euros. Progress is still counted in dinars, because
           that is what actually goes in, so the card converts and says so.
         */}
-        <div className="grid grid-cols-[1fr_110px] gap-x-2">
-          <MoneyField
-            label="Target"
-            name="target_amount"
-            defaultValue={goal?.target_amount ?? goal?.target_rsd ?? ""}
-            placeholder="0"
-            help={
-              paying
-                ? "The whole amount to clear. Leave empty to just count what goes out."
-                : "Leave empty to just count what goes in."
-            }
-          />
-          <Select
-            label="Currency"
-            name="currency"
-            defaultValue={goal?.currency ?? fallback}
-            options={CURRENCY_OPTIONS}
-          />
-        </div>
+        {/*
+          Gone entirely when a debt is chosen, rather than disabled or pre-filled.
+
+          A disabled box showing the debt's total is still a second copy of the figure on
+          the screen, and the first thing anybody does with one is wonder which of the two
+          is real. There is nothing to wonder about if there is only one.
+        */}
+        {!linked && (
+          <div className="grid grid-cols-[minmax(0,1fr)_110px] gap-x-2">
+            <MoneyField
+              label="Target"
+              name="target_amount"
+              defaultValue={goal?.target_amount ?? goal?.target_rsd ?? ""}
+              placeholder="0"
+              help={
+                paying
+                  ? "The whole amount to clear. Leave empty to just count what goes out."
+                  : "Leave empty to just count what goes in."
+              }
+            />
+            <Select
+              label="Currency"
+              name="currency"
+              defaultValue={goal?.currency ?? fallback}
+              options={CURRENCY_OPTIONS}
+            />
+          </div>
+        )}
 
         {/* color-scheme is inherited, so this reaches the native date picker. */}
         {/*

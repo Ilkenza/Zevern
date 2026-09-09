@@ -12,7 +12,8 @@
     "typecheck": "tsc --noEmit",
     "test": "TZ=Europe/Belgrade vitest run",
     "test:watch": "TZ=Europe/Belgrade vitest",
-    "css:check": "node scripts/css-check.mjs"
+    "css:check": "node scripts/css-check.mjs",
+    "types:gen": "supabase gen types typescript --project-id qbfrgybrjnylojajxfwp > src/lib/database.types.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.0",

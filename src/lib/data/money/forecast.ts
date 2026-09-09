@@ -12,7 +12,7 @@ import { userId } from "@/lib/supabase/current-user";
 import { todayISO } from "@/lib/format";
 import { monthRange, shiftMonth, toRsd } from "@/lib/money";
 import {
-  goalCapFor,
+  capFor,
   feedsGoal,
   nextDay,
   occurrencesFor,
@@ -20,6 +20,7 @@ import {
 } from "@/lib/money/occurrences";
 import { estimateFor, getPlanned, getRates, getRecurring, recentBookings } from "./core";
 import { getGoalRemaining } from "./goals";
+import { getLoanRemaining } from "./loans";
 import { NO_SPENDING, getSpendingProjection, type SpendingProjection } from "./spending";
 import { getOnHand } from "./accounts";
 
@@ -144,7 +145,7 @@ export async function getDueSoon(days = 14): Promise<DueSoon> {
   ]);
 
   const items: DueItem[] = [];
-  const goalRoom = await getGoalRemaining();
+  const [goalRoom, loanRoom] = await Promise.all([getGoalRemaining(), getLoanRemaining()]);
 
   for (const rule of rules) {
     if (!rule.active || rule.kind !== "expense" || feedsGoal(rule)) continue;
@@ -156,7 +157,7 @@ export async function getDueSoon(days = 14): Promise<DueSoon> {
       estimate.estimated,
       horizon,
       estimate.samples,
-      goalCapFor(rule, goalRoom),
+      capFor(rule, goalRoom, loanRoom),
     )) {
       items.push({
         id: occ.id,
@@ -273,7 +274,7 @@ export async function getForecast(windows: number[] = [30, 60, 90]): Promise<For
   let estimated = 0;
   let unknown = 0;
   const all: Occurrence[] = [];
-  const goalRoom = await getGoalRemaining();
+  const [goalRoom, loanRoom] = await Promise.all([getGoalRemaining(), getLoanRemaining()]);
 
   for (const item of items) {
     if (!item.active) continue;
@@ -292,7 +293,7 @@ export async function getForecast(windows: number[] = [30, 60, 90]): Promise<For
         reading.estimated,
         horizon,
         reading.samples,
-        goalCapFor(item, goalRoom),
+        capFor(item, goalRoom, loanRoom),
       ),
     );
   }
@@ -323,6 +324,9 @@ export async function getForecast(windows: number[] = [30, 60, 90]): Promise<For
       category: p.category?.name ?? null,
       color: p.category?.color ?? null,
       goal: null,
+      // A one-off has no debt to pay: `money_planned` carries no `loan_id`, because a
+      // repayment that happens once is an entry, not something to be reminded about.
+      loan: null,
       samples: [],
       days: 0,
     });
@@ -409,6 +413,7 @@ export async function getForecast(windows: number[] = [30, 60, 90]): Promise<For
           category: null,
           color: null,
           goal: null,
+          loan: null,
           samples: [],
           days,
         });

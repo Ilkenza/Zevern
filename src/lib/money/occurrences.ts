@@ -38,6 +38,8 @@ export type Occurrence = {
   color: string | null;
   /** The goal this one feeds, when it is a standing order rather than a bill. */
   goal: string | null;
+  /** The debt this one pays down, when it is an instalment rather than a bill. */
+  loan: string | null;
   /**
    * The bookings an estimate was averaged from, newest first — empty for anything
    * that is not an estimate. Carried down to the row so an average can be checked
@@ -63,6 +65,46 @@ export function goalCapFor(
   if (item.ends_when !== "goal") return undefined;
   if (!item.goal_id) return 0;
   return remaining.get(item.goal_id) ?? 0;
+}
+
+/**
+ * The money an instalment plan may still book: what is left on the debt it pays.
+ *
+ * A goal-ending rule had this and a debt-paying rule did not, which made the countdown
+ * on a debt the one figure in this app that was arithmetic on a counter rather than on
+ * the ledger. Pay 35.000 one month against a 30.776,48 rate and the counter still says
+ * three payments left — three payments that now come to more than is owed, and a last
+ * booking that overpays a settled debt.
+ *
+ * Every rule carrying a `loan_id` is capped, whatever its `ends_when` says. A debt is
+ * finished when it is paid, and that is true of the rule that pays it whether or not
+ * somebody also wrote down how many payments they expected it to take.
+ *
+ * A rule pointing at a debt that no longer exists caps at zero rather than running
+ * forever — the safer of the two wrong answers, the same choice `goalCapFor` makes.
+ */
+export function loanCapFor(
+  item: { loan_id?: string | null },
+  remaining: Map<string, number>,
+): number | undefined {
+  if (!item.loan_id) return undefined;
+  return remaining.get(item.loan_id) ?? 0;
+}
+
+/**
+ * The one cap that applies, whichever it is.
+ *
+ * A rule is never both a standing order into a goal and the instalment plan of a debt —
+ * `saveRecurring` clears the debt the moment a goal is chosen — so at most one of these
+ * answers is a number and taking the smaller of the two is a decision that never has to
+ * be made.
+ */
+export function capFor(
+  item: { ends_when?: string | null; goal_id: string | null; loan_id?: string | null },
+  goalRoom: Map<string, number>,
+  loanRoom: Map<string, number>,
+): number | undefined {
+  return goalCapFor(item, goalRoom) ?? loanCapFor(item, loanRoom);
 }
 
 /** True when this rule puts money aside rather than paying a bill. */
@@ -116,13 +158,31 @@ export function occurrencesFor(
 ): Occurrence[] {
   if (!item.active) return [];
 
+  /*
+    The counter, and the one thing that outranks it.
+
+    `installments_total` is a plan: four payments, written down when the plan was made.
+    A cap is a fact read off the ledger — what is actually left to pay — and when there
+    is one it is the authority, because the plan can be wrong in both directions and the
+    fact cannot.
+
+    Pay more than the rate one month and the plan is too long: three payments left that
+    come to more than is owed, the last of them overpaying a debt already settled. Pay
+    less and it is too short: the counter runs out with money still owed and switches off
+    the rule that was paying it, which is the worse of the two — a debt quietly left open
+    with nothing pointing at it any more.
+
+    This costs a goal rule nothing. `saveRecurring` clears the columns that do not belong
+    to the chosen end condition, so a rule that stops when its goal is full carries no
+    count to begin with.
+  */
   const left =
-    item.installments_total == null
+    cap != null || item.installments_total == null
       ? Infinity
       : Math.max(0, item.installments_total - (item.installments_done ?? 0));
   if (left === 0) return [];
-  // A goal already full stops the rule now rather than at the next due date. Anything
-  // else would project a deposit into a goal that has nowhere to put it.
+  // A goal already full, or a debt already paid, stops the rule now rather than at the
+  // next due date. Anything else would project money into somewhere that cannot take it.
   if (cap != null && cap <= 0) return [];
 
   const out: Occurrence[] = [];
@@ -151,6 +211,7 @@ export function occurrencesFor(
       // timeline the same way it reads on the goals screen.
       color: item.goal?.color ?? item.category?.color ?? null,
       goal: item.goal?.name ?? null,
+      loan: item.loan?.name ?? null,
       samples,
       days: 0,
     });

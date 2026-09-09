@@ -77,7 +77,7 @@ export function PlannedForm({
           options={CATEGORY_KIND_OPTIONS}
         />
 
-        <div className="grid grid-cols-[1fr_110px] gap-2">
+        <div className="grid grid-cols-[minmax(0,1fr)_110px] gap-2">
           <MoneyField
             label="Amount"
             name="amount"

@@ -17,7 +17,7 @@
   app".
 */
 
-const CACHE = "zevern-static-v1";
+const CACHE = "zevern-static-v2";
 
 /* Only what is safe: immutable build output, our own icons, and the font files. */
 function cacheable(url) {
@@ -34,9 +34,43 @@ self.addEventListener("install", () => {
   self.skipWaiting();
 });
 
+/*
+  Whether this worker is running in front of a development server.
+
+  The page that registers this one already refuses to in development — but a service
+  worker outlives the page that installed it, and it is scoped to an *origin*, not to a
+  build. One `npm run build && npm start` on localhost registers it there for good, and
+  every `npm run dev` afterwards is served through a cache of `/_next/static/`. In
+  development Turbopack reuses chunk filenames, so that cache never misses: the
+  stylesheet is frozen at whatever it was the day the worker was installed.
+
+  What makes it hard to see is that the JavaScript keeps updating — HMR pushes it down a
+  websocket, which never touches a worker — so the app behaves like the new code and is
+  painted by the old CSS. A layout that had been rewritten three times went on rendering
+  as the first version, and every look at it was a look at a fixed bug.
+*/
+function isDevOrigin() {
+  const h = self.location.hostname;
+  return h === "localhost" || h === "127.0.0.1" || h === "[::1]" || h.endsWith(".local");
+}
+
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     (async () => {
+      /*
+        On a dev origin the right thing is not to cache more carefully — it is to stop
+        being here. Drop every cache and unregister, so the next reload is served by the
+        dev server directly and this cannot happen again.
+      */
+      if (isDevOrigin()) {
+        const names = await caches.keys();
+        await Promise.all(names.map((n) => caches.delete(n)));
+        await self.registration.unregister();
+        const tabs = await self.clients.matchAll({ type: "window" });
+        for (const tab of tabs) tab.navigate(tab.url).catch(() => {});
+        return;
+      }
+
       const names = await caches.keys();
       await Promise.all(names.filter((n) => n !== CACHE).map((n) => caches.delete(n)));
       await self.clients.claim();
@@ -57,6 +91,8 @@ self.addEventListener("fetch", (event) => {
   } catch {
     return;
   }
+  // Belt as well as braces: until the unregister above takes effect, serve nothing here.
+  if (isDevOrigin()) return;
   if (!cacheable(url)) return;
 
   event.respondWith(

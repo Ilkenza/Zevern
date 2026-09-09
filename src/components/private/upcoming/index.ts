@@ -15,8 +15,18 @@ export const planHref = (id: string) => `${TIMELINE_HREF}?plan=${id}`;
 
 export type UpcomingViewKey = "timeline" | "rules";
 
-/** The slide-over is the same form either way: create a rule, or edit one. */
-export type UpcomingPanel = { mode: "new" } | { mode: "edit"; item: MoneyRecurring } | null;
+/**
+ * The slide-over is the same form either way: create a rule, or edit one.
+ *
+ * `loanId` is how the Debts screen opens it. A repayment plan is written down while you
+ * are looking at the debt, not while you are looking at a list of subscriptions, so that
+ * screen sends you here with the debt already chosen — and the form can then work the
+ * instalment out from what is still owed instead of asking you to divide.
+ */
+export type UpcomingPanel =
+  | { mode: "new"; loanId?: string }
+  | { mode: "edit"; item: MoneyRecurring }
+  | null;
 
 /** The same again for a one-off: plan something new, or change one already planned. */
 export type PlanPanel = { mode: "new" } | { mode: "edit"; item: PlannedRow } | null;

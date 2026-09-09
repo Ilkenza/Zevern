@@ -1,3 +1,18 @@
+/*
+  Generated from the live database. Do not edit by hand.
+
+  It was edited by hand, repeatedly, and that is what this note is about. A column added
+  by a migration got patched in here to make the compiler agree — which works, right up
+  until the patch and the database disagree about something nobody thought to patch. When
+  it was finally checked against the real schema it was missing eight whole tables,
+  `money_budget_amounts` and `money_budget_boosts` among them, and four foreign keys.
+
+  To bring it back in step, regenerate rather than patch:
+
+      npm run types:gen
+
+  A column added by a migration reaches this file that way, in the same change.
+*/
 export type Json =
   | string
   | number
@@ -7,7 +22,8 @@ export type Json =
   | Json[]
 
 export type Database = {
-
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
@@ -49,6 +65,27 @@ export type Database = {
           region?: string | null
           tier?: string | null
           user_id?: string
+        }
+        Relationships: []
+      }
+      ext_usage: {
+        Row: {
+          day: string
+          reads: number
+          user_id: string
+          writes: number
+        }
+        Insert: {
+          day?: string
+          reads?: number
+          user_id: string
+          writes?: number
+        }
+        Update: {
+          day?: string
+          reads?: number
+          user_id?: string
+          writes?: number
         }
         Relationships: []
       }
@@ -161,30 +198,6 @@ export type Database = {
           },
         ]
       }
-      outreach_templates: {
-        Row: {
-          body: string
-          created_at: string
-          id: string
-          title: string
-          user_id: string
-        }
-        Insert: {
-          body: string
-          created_at?: string
-          id?: string
-          title: string
-          user_id?: string
-        }
-        Update: {
-          body?: string
-          created_at?: string
-          id?: string
-          title?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
       money_accounts: {
         Row: {
           archived: boolean
@@ -229,6 +242,143 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      money_budget_accounts: {
+        Row: {
+          account_id: string
+          budget_id: string
+        }
+        Insert: {
+          account_id: string
+          budget_id: string
+        }
+        Update: {
+          account_id?: string
+          budget_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "money_budget_accounts_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "money_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "money_budget_accounts_budget_id_fkey"
+            columns: ["budget_id"]
+            isOneToOne: false
+            referencedRelation: "money_budget_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      money_budget_amounts: {
+        Row: {
+          amount_rsd: number
+          budget_id: string
+          created_at: string
+          id: string
+          starts_on: string
+          user_id: string
+        }
+        Insert: {
+          amount_rsd: number
+          budget_id: string
+          created_at?: string
+          id?: string
+          starts_on: string
+          user_id: string
+        }
+        Update: {
+          amount_rsd?: number
+          budget_id?: string
+          created_at?: string
+          id?: string
+          starts_on?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "money_budget_amounts_budget_id_fkey"
+            columns: ["budget_id"]
+            isOneToOne: false
+            referencedRelation: "money_budget_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      money_budget_boosts: {
+        Row: {
+          amount_rsd: number
+          created_at: string
+          id: string
+          source_budget_id: string
+          target_budget_id: string
+          user_id: string
+        }
+        Insert: {
+          amount_rsd: number
+          created_at?: string
+          id?: string
+          source_budget_id: string
+          target_budget_id: string
+          user_id: string
+        }
+        Update: {
+          amount_rsd?: number
+          created_at?: string
+          id?: string
+          source_budget_id?: string
+          target_budget_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "money_budget_boosts_source_budget_id_fkey"
+            columns: ["source_budget_id"]
+            isOneToOne: false
+            referencedRelation: "money_budget_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "money_budget_boosts_target_budget_id_fkey"
+            columns: ["target_budget_id"]
+            isOneToOne: false
+            referencedRelation: "money_budget_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      money_budget_categories: {
+        Row: {
+          budget_id: string
+          category_id: string
+        }
+        Insert: {
+          budget_id: string
+          category_id: string
+        }
+        Update: {
+          budget_id?: string
+          category_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "money_budget_categories_budget_id_fkey"
+            columns: ["budget_id"]
+            isOneToOne: false
+            referencedRelation: "money_budget_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "money_budget_categories_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "money_categories"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       money_budget_plans: {
         Row: {
@@ -280,66 +430,6 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
-      }
-      money_budget_categories: {
-        Row: {
-          budget_id: string
-          category_id: string
-        }
-        Insert: {
-          budget_id: string
-          category_id: string
-        }
-        Update: {
-          budget_id?: string
-          category_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "money_budget_categories_budget_id_fkey"
-            columns: ["budget_id"]
-            isOneToOne: false
-            referencedRelation: "money_budget_plans"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "money_budget_categories_category_id_fkey"
-            columns: ["category_id"]
-            isOneToOne: false
-            referencedRelation: "money_categories"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      money_budget_accounts: {
-        Row: {
-          account_id: string
-          budget_id: string
-        }
-        Insert: {
-          account_id: string
-          budget_id: string
-        }
-        Update: {
-          account_id?: string
-          budget_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "money_budget_accounts_account_id_fkey"
-            columns: ["account_id"]
-            isOneToOne: false
-            referencedRelation: "money_accounts"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "money_budget_accounts_budget_id_fkey"
-            columns: ["budget_id"]
-            isOneToOne: false
-            referencedRelation: "money_budget_plans"
-            referencedColumns: ["id"]
-          },
-        ]
       }
       money_budgets: {
         Row: {
@@ -409,12 +499,76 @@ export type Database = {
         }
         Relationships: []
       }
+      money_goals: {
+        Row: {
+          archived: boolean
+          color: string | null
+          completed_at: string | null
+          created_at: string
+          currency: string
+          direction: string
+          id: string
+          loan_id: string | null
+          name: string
+          rate: number
+          sort: number
+          target_amount: number | null
+          target_date: string | null
+          target_rsd: number
+          user_id: string
+        }
+        Insert: {
+          archived?: boolean
+          color?: string | null
+          completed_at?: string | null
+          created_at?: string
+          currency?: string
+          direction?: string
+          id?: string
+          loan_id?: string | null
+          name: string
+          rate?: number
+          sort?: number
+          target_amount?: number | null
+          target_date?: string | null
+          target_rsd?: number
+          user_id?: string
+        }
+        Update: {
+          archived?: boolean
+          color?: string | null
+          completed_at?: string | null
+          created_at?: string
+          currency?: string
+          direction?: string
+          id?: string
+          loan_id?: string | null
+          name?: string
+          rate?: number
+          sort?: number
+          target_amount?: number | null
+          target_date?: string | null
+          target_rsd?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "money_goals_loan_id_fkey"
+            columns: ["loan_id"]
+            isOneToOne: false
+            referencedRelation: "money_loans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       money_items: {
         Row: {
           category_id: string | null
           created_at: string
           currency: string
           id: string
+          keeps_days: number | null
+          kind: string
           last_used_on: string | null
           name: string
           price: number | null
@@ -426,6 +580,8 @@ export type Database = {
           created_at?: string
           currency?: string
           id?: string
+          keeps_days?: number | null
+          kind?: string
           last_used_on?: string | null
           name: string
           price?: number | null
@@ -437,6 +593,8 @@ export type Database = {
           created_at?: string
           currency?: string
           id?: string
+          keeps_days?: number | null
+          kind?: string
           last_used_on?: string | null
           name?: string
           price?: number | null
@@ -456,86 +614,44 @@ export type Database = {
       money_loans: {
         Row: {
           created_at: string
+          currency: string
           direction: string
           id: string
           name: string
           note: string | null
           opened_on: string
+          rate: number
           settled_on: string | null
+          total_amount: number | null
           total_rsd: number
           user_id: string
         }
         Insert: {
           created_at?: string
+          currency?: string
           direction?: string
           id?: string
           name: string
           note?: string | null
           opened_on?: string
+          rate?: number
           settled_on?: string | null
+          total_amount?: number | null
           total_rsd?: number
           user_id?: string
         }
         Update: {
           created_at?: string
+          currency?: string
           direction?: string
           id?: string
           name?: string
           note?: string | null
           opened_on?: string
+          rate?: number
           settled_on?: string | null
+          total_amount?: number | null
           total_rsd?: number
-          user_id?: string
-        }
-        Relationships: []
-      }
-      money_goals: {
-        Row: {
-          archived: boolean
-          color: string | null
-          created_at: string
-          completed_at: string | null
-          direction: string
-          sort: number
-          id: string
-          name: string
-          target_date: string | null
-          currency: string
-          rate: number
-          target_amount: number | null
-          target_rsd: number
-          user_id: string
-        }
-        Insert: {
-          archived?: boolean
-          color?: string | null
-          created_at?: string
-          completed_at?: string | null
-          direction?: string
-          sort?: number
-          id?: string
-          name: string
-          target_date?: string | null
-          currency?: string
-          rate?: number
-          target_amount?: number | null
-          target_rsd?: number
-          user_id?: string
-        }
-        Update: {
-          archived?: boolean
-          color?: string | null
-          created_at?: string
-          completed_at?: string | null
-          direction?: string
-          sort?: number
-          id?: string
-          name?: string
-          target_date?: string | null
-          currency?: string
-          rate?: number
-          target_amount?: number | null
-          target_rsd?: number
           user_id?: string
         }
         Relationships: []
@@ -612,7 +728,6 @@ export type Database = {
       }
       money_recurring: {
         Row: {
-          loan_id: string | null
           account_id: string | null
           active: boolean
           amount: number
@@ -622,21 +737,21 @@ export type Database = {
           currency: string
           display_currency: string | null
           ends_on: string | null
+          ends_when: string
           every: string
           every_count: number
-          ends_when: string
           goal_id: string | null
           id: string
           installments_done: number
           installments_total: number | null
           kind: string
+          loan_id: string | null
           name: string
           next_on: string
           user_id: string
           variable: boolean
         }
         Insert: {
-          loan_id?: string | null
           account_id?: string | null
           active?: boolean
           amount?: number
@@ -646,21 +761,21 @@ export type Database = {
           currency?: string
           display_currency?: string | null
           ends_on?: string | null
+          ends_when?: string
           every?: string
           every_count?: number
-          ends_when?: string
           goal_id?: string | null
           id?: string
           installments_done?: number
           installments_total?: number | null
           kind?: string
+          loan_id?: string | null
           name: string
           next_on?: string
           user_id?: string
           variable?: boolean
         }
         Update: {
-          loan_id?: string | null
           account_id?: string | null
           active?: boolean
           amount?: number
@@ -670,14 +785,15 @@ export type Database = {
           currency?: string
           display_currency?: string | null
           ends_on?: string | null
+          ends_when?: string
           every?: string
           every_count?: number
-          ends_when?: string
           goal_id?: string | null
           id?: string
           installments_done?: number
           installments_total?: number | null
           kind?: string
+          loan_id?: string | null
           name?: string
           next_on?: string
           user_id?: string
@@ -698,67 +814,352 @@ export type Database = {
             referencedRelation: "money_categories"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "money_recurring_goal_id_fkey"
+            columns: ["goal_id"]
+            isOneToOne: false
+            referencedRelation: "money_goals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "money_recurring_loan_id_fkey"
+            columns: ["loan_id"]
+            isOneToOne: false
+            referencedRelation: "money_loans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      money_seed_backup_accounts: {
+        Row: {
+          archived: boolean | null
+          color: string | null
+          created_at: string | null
+          currency: string | null
+          id: string | null
+          is_default: boolean | null
+          kind: string | null
+          name: string | null
+          opening_balance: number | null
+          overview_rank: number | null
+          sort: number | null
+          user_id: string | null
+        }
+        Insert: {
+          archived?: boolean | null
+          color?: string | null
+          created_at?: string | null
+          currency?: string | null
+          id?: string | null
+          is_default?: boolean | null
+          kind?: string | null
+          name?: string | null
+          opening_balance?: number | null
+          overview_rank?: number | null
+          sort?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          archived?: boolean | null
+          color?: string | null
+          created_at?: string | null
+          currency?: string | null
+          id?: string | null
+          is_default?: boolean | null
+          kind?: string | null
+          name?: string | null
+          opening_balance?: number | null
+          overview_rank?: number | null
+          sort?: number | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      money_seed_backup_goals: {
+        Row: {
+          archived: boolean | null
+          color: string | null
+          completed_at: string | null
+          created_at: string | null
+          currency: string | null
+          direction: string | null
+          id: string | null
+          name: string | null
+          rate: number | null
+          sort: number | null
+          target_amount: number | null
+          target_date: string | null
+          target_rsd: number | null
+          user_id: string | null
+        }
+        Insert: {
+          archived?: boolean | null
+          color?: string | null
+          completed_at?: string | null
+          created_at?: string | null
+          currency?: string | null
+          direction?: string | null
+          id?: string | null
+          name?: string | null
+          rate?: number | null
+          sort?: number | null
+          target_amount?: number | null
+          target_date?: string | null
+          target_rsd?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          archived?: boolean | null
+          color?: string | null
+          completed_at?: string | null
+          created_at?: string | null
+          currency?: string | null
+          direction?: string | null
+          id?: string | null
+          name?: string | null
+          rate?: number | null
+          sort?: number | null
+          target_amount?: number | null
+          target_date?: string | null
+          target_rsd?: number | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      money_seed_backup_loans: {
+        Row: {
+          created_at: string | null
+          direction: string | null
+          id: string | null
+          name: string | null
+          note: string | null
+          opened_on: string | null
+          settled_on: string | null
+          total_rsd: number | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          direction?: string | null
+          id?: string | null
+          name?: string | null
+          note?: string | null
+          opened_on?: string | null
+          settled_on?: string | null
+          total_rsd?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          direction?: string | null
+          id?: string | null
+          name?: string | null
+          note?: string | null
+          opened_on?: string | null
+          settled_on?: string | null
+          total_rsd?: number | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      money_seed_backup_planned: {
+        Row: {
+          account_id: string | null
+          amount: number | null
+          category_id: string | null
+          created_at: string | null
+          currency: string | null
+          due_on: string | null
+          id: string | null
+          kind: string | null
+          name: string | null
+          note: string | null
+          settled_at: string | null
+          transaction_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          account_id?: string | null
+          amount?: number | null
+          category_id?: string | null
+          created_at?: string | null
+          currency?: string | null
+          due_on?: string | null
+          id?: string | null
+          kind?: string | null
+          name?: string | null
+          note?: string | null
+          settled_at?: string | null
+          transaction_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          account_id?: string | null
+          amount?: number | null
+          category_id?: string | null
+          created_at?: string | null
+          currency?: string | null
+          due_on?: string | null
+          id?: string | null
+          kind?: string | null
+          name?: string | null
+          note?: string | null
+          settled_at?: string | null
+          transaction_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      money_stock: {
+        Row: {
+          bought_on: string
+          created_at: string
+          expires_on: string | null
+          id: string
+          item_id: string
+          qty: number
+          transaction_id: string | null
+          user_id: string
+        }
+        Insert: {
+          bought_on?: string
+          created_at?: string
+          expires_on?: string | null
+          id?: string
+          item_id: string
+          qty: number
+          transaction_id?: string | null
+          user_id?: string
+        }
+        Update: {
+          bought_on?: string
+          created_at?: string
+          expires_on?: string | null
+          id?: string
+          item_id?: string
+          qty?: number
+          transaction_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "money_stock_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "money_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "money_stock_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "money_transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      money_stock_moves: {
+        Row: {
+          created_at: string
+          id: string
+          kind: string
+          on_date: string
+          qty: number
+          stock_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          kind: string
+          on_date?: string
+          qty: number
+          stock_id: string
+          user_id?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          kind?: string
+          on_date?: string
+          qty?: number
+          stock_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "money_stock_moves_stock_fkey"
+            columns: ["stock_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "money_stock"
+            referencedColumns: ["id", "user_id"]
+          },
         ]
       }
       money_transactions: {
         Row: {
-          loan_id: string | null
           account_id: string | null
-          budget_id: string | null
           amount: number | null
           amount_rsd: number | null
+          budget_id: string | null
           category_id: string | null
           created_at: string
           currency: string
           goal_id: string | null
           id: string
+          items: Json | null
           kind: string
+          loan_id: string | null
           note: string | null
-          occurred_on: string
           occurred_at: string | null
+          occurred_on: string
           rate: number
-          title: string | null
           recurring_id: string | null
+          title: string | null
           to_account_id: string | null
           user_id: string
         }
         Insert: {
-          loan_id?: string | null
           account_id?: string | null
-          budget_id?: string | null
           amount?: number | null
+          amount_rsd?: number | null
+          budget_id?: string | null
           category_id?: string | null
           created_at?: string
           currency?: string
           goal_id?: string | null
           id?: string
+          items?: Json | null
           kind?: string
+          loan_id?: string | null
           note?: string | null
-          occurred_on?: string
           occurred_at?: string | null
+          occurred_on?: string
           rate?: number
-          title?: string | null
           recurring_id?: string | null
+          title?: string | null
           to_account_id?: string | null
           user_id?: string
         }
         Update: {
-          loan_id?: string | null
           account_id?: string | null
-          budget_id?: string | null
           amount?: number | null
+          amount_rsd?: number | null
+          budget_id?: string | null
           category_id?: string | null
           created_at?: string
           currency?: string
           goal_id?: string | null
           id?: string
+          items?: Json | null
           kind?: string
+          loan_id?: string | null
           note?: string | null
-          occurred_on?: string
           occurred_at?: string | null
+          occurred_on?: string
           rate?: number
-          title?: string | null
           recurring_id?: string | null
+          title?: string | null
           to_account_id?: string | null
           user_id?: string
         }
@@ -768,6 +1169,13 @@ export type Database = {
             columns: ["account_id"]
             isOneToOne: false
             referencedRelation: "money_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "money_transactions_budget_id_fkey"
+            columns: ["budget_id"]
+            isOneToOne: false
+            referencedRelation: "money_budget_plans"
             referencedColumns: ["id"]
           },
           {
@@ -782,6 +1190,13 @@ export type Database = {
             columns: ["goal_id"]
             isOneToOne: false
             referencedRelation: "money_goals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "money_transactions_loan_id_fkey"
+            columns: ["loan_id"]
+            isOneToOne: false
+            referencedRelation: "money_loans"
             referencedColumns: ["id"]
           },
           {
@@ -800,27 +1215,120 @@ export type Database = {
           },
         ]
       }
+      money_transactions_backup_pre_2026_08: {
+        Row: {
+          account_id: string | null
+          amount: number | null
+          amount_rsd: number | null
+          budget_id: string | null
+          category_id: string | null
+          created_at: string | null
+          currency: string | null
+          goal_id: string | null
+          id: string | null
+          items: Json | null
+          kind: string | null
+          loan_id: string | null
+          note: string | null
+          occurred_at: string | null
+          occurred_on: string | null
+          rate: number | null
+          recurring_id: string | null
+          title: string | null
+          to_account_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          account_id?: string | null
+          amount?: number | null
+          amount_rsd?: number | null
+          budget_id?: string | null
+          category_id?: string | null
+          created_at?: string | null
+          currency?: string | null
+          goal_id?: string | null
+          id?: string | null
+          items?: Json | null
+          kind?: string | null
+          loan_id?: string | null
+          note?: string | null
+          occurred_at?: string | null
+          occurred_on?: string | null
+          rate?: number | null
+          recurring_id?: string | null
+          title?: string | null
+          to_account_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          account_id?: string | null
+          amount?: number | null
+          amount_rsd?: number | null
+          budget_id?: string | null
+          category_id?: string | null
+          created_at?: string | null
+          currency?: string | null
+          goal_id?: string | null
+          id?: string | null
+          items?: Json | null
+          kind?: string | null
+          loan_id?: string | null
+          note?: string | null
+          occurred_at?: string | null
+          occurred_on?: string | null
+          rate?: number | null
+          recurring_id?: string | null
+          title?: string | null
+          to_account_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      outreach_templates: {
+        Row: {
+          body: string
+          created_at: string
+          id: string
+          title: string
+          user_id: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          id?: string
+          title: string
+          user_id?: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          id?: string
+          title?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
           business_address: string | null
           business_email: string | null
           business_name: string | null
-          created_at: string
           calendar_token: string | null
+          created_at: string
           custom_colors: string[]
+          default_currency: string
           ext_token_hash: string | null
-          onboarding_hidden: boolean
           full_name: string | null
-          spending_basis: string
           handle: string | null
           hidden_modules: string[]
-          default_currency: string
           id: string
+          onboarding_hidden: boolean
           rate_eur: number
           rate_usd: number
           rates_updated_on: string | null
           revenue_goal: number
+          spending_basis: string
           vat_id: string | null
         }
         Insert: {
@@ -828,20 +1336,21 @@ export type Database = {
           business_address?: string | null
           business_email?: string | null
           business_name?: string | null
-          created_at?: string
           calendar_token?: string | null
+          created_at?: string
           custom_colors?: string[]
+          default_currency?: string
           ext_token_hash?: string | null
-          onboarding_hidden?: boolean
           full_name?: string | null
-          spending_basis?: string
           handle?: string | null
           hidden_modules?: string[]
           id: string
+          onboarding_hidden?: boolean
           rate_eur?: number
           rate_usd?: number
           rates_updated_on?: string | null
           revenue_goal?: number
+          spending_basis?: string
           vat_id?: string | null
         }
         Update: {
@@ -849,21 +1358,21 @@ export type Database = {
           business_address?: string | null
           business_email?: string | null
           business_name?: string | null
-          created_at?: string
           calendar_token?: string | null
+          created_at?: string
           custom_colors?: string[]
+          default_currency?: string
           ext_token_hash?: string | null
-          onboarding_hidden?: boolean
           full_name?: string | null
-          spending_basis?: string
           handle?: string | null
           hidden_modules?: string[]
-          default_currency?: string
           id?: string
+          onboarding_hidden?: boolean
           rate_eur?: number
           rate_usd?: number
           rates_updated_on?: string | null
           revenue_goal?: number
+          spending_basis?: string
           vat_id?: string | null
         }
         Relationships: []
@@ -1125,7 +1634,30 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      calendar_feed: { Args: { p_token: string }; Returns: Json }
+      delete_user: { Args: { p_confirm: string }; Returns: undefined }
+      ext_add_lead: {
+        Args: {
+          p_channel: string
+          p_company: string
+          p_contact: string
+          p_name: string
+          p_notes: string
+          p_service: string
+          p_status: string
+          p_token: string
+        }
+        Returns: string
+      }
+      ext_get_lead: {
+        Args: { p_contact: string; p_name: string; p_token: string }
+        Returns: Json
+      }
+      ext_lead_exists: {
+        Args: { p_contact: string; p_name: string; p_token: string }
+        Returns: boolean
+      }
+      ext_note_read: { Args: { p_uid: string }; Returns: undefined }
     }
     Enums: {
       [_ in never]: never
@@ -1142,116 +1674,116 @@ type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
 
 export type Tables<
   DefaultSchemaTableNameOrOptions extends
-  | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
-  | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-  ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-    DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-  : never = never,
+    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
   ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-    DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
       Row: infer R
     }
-  ? R
-  : never
+    ? R
+    : never
   : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
-    DefaultSchema["Views"])
-  ? (DefaultSchema["Tables"] &
-    DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
-      Row: infer R
-    }
-  ? R
-  : never
-  : never
+        DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+        Row: infer R
+      }
+      ? R
+      : never
+    : never
 
 export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
-  | keyof DefaultSchema["Tables"]
-  | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-  ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-  : never = never,
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
   ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
-    Insert: infer I
-  }
-  ? I
-  : never
+      Insert: infer I
+    }
+    ? I
+    : never
   : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-  ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-    Insert: infer I
-  }
-  ? I
-  : never
-  : never
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Insert: infer I
+      }
+      ? I
+      : never
+    : never
 
 export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
-  | keyof DefaultSchema["Tables"]
-  | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-  ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-  : never = never,
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
   ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
-    Update: infer U
-  }
-  ? U
-  : never
+      Update: infer U
+    }
+    ? U
+    : never
   : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-  ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-    Update: infer U
-  }
-  ? U
-  : never
-  : never
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Update: infer U
+      }
+      ? U
+      : never
+    : never
 
 export type Enums<
   DefaultSchemaEnumNameOrOptions extends
-  | keyof DefaultSchema["Enums"]
-  | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+    | keyof DefaultSchema["Enums"]
+    | { schema: keyof DatabaseWithoutInternals },
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-  ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-  : never = never,
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
   ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
   : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
-  ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
-  : never
+    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+    : never
 
 export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
-  | keyof DefaultSchema["CompositeTypes"]
-  | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+    | keyof DefaultSchema["CompositeTypes"]
+    | { schema: keyof DatabaseWithoutInternals },
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-  ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-  : never = never,
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
   ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
   : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
-  ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
-  : never
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+    : never
 
 export const Constants = {
   public: {

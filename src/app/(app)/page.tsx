@@ -222,7 +222,7 @@ export default async function OverviewPage() {
       </div>
 
       {/* Main + right column */}
-      <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="overview-main-column space-y-6">
           <Panel
             className="overview-panel"

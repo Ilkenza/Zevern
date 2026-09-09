@@ -5,9 +5,10 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { userId } from "@/lib/supabase/current-user";
-import { feedsGoal, goalCapFor, occurrencesFor, perMonth } from "@/lib/money/occurrences";
+import { capFor, feedsGoal, occurrencesFor, perMonth } from "@/lib/money/occurrences";
 import { estimateFor, getRates, getRecurring, recentBookings } from "./core";
 import { getGoalRemaining } from "./goals";
+import { getLoanRemaining } from "./loans";
 
 export type RecurringTotals = {
   /** RSD in an average month — weekly and yearly items normalised. Bills only. */
@@ -69,11 +70,12 @@ export async function getRecurringTotals(): Promise<RecurringTotals> {
     };
   }
 
-  const [items, rates, past, goalRoom] = await Promise.all([
+  const [items, rates, past, goalRoom, loanRoom] = await Promise.all([
     getRecurring(),
     getRates(),
     recentBookings(supabase, uid),
     getGoalRemaining(),
+    getLoanRemaining(),
   ]);
 
   let expense = 0;
@@ -108,7 +110,14 @@ export async function getRecurringTotals(): Promise<RecurringTotals> {
 
     // The same item walked date by date — this is where a four-instalment credit
     // stops pretending it runs all year.
-    const dates = occurrencesFor(item, each, isEstimate, horizon, [], goalCapFor(item, goalRoom));
+    const dates = occurrencesFor(
+      item,
+      each,
+      isEstimate,
+      horizon,
+      [],
+      capFor(item, goalRoom, loanRoom),
+    );
     yearCount += dates.length;
     const sum = each * dates.length;
     if (item.kind === "income") yearIncome += sum;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -44,6 +44,34 @@ const FOCUS_LIMIT = 10;
 
 /** High first. One table, because two places sort by priority and they must agree. */
 const RANK: Record<string, number> = { high: 0, med: 1, low: 2 };
+
+/**
+ * Whether there is room to hold the two parked bands out of the scroll.
+ *
+ * Measured rather than guessed: at 900px the day strip still gets about two hundred
+ * pixels with `Later` and `No date` held aside, and below that it gets almost nothing —
+ * so under this width they go back into the row and are reached by scrolling, which is
+ * no worse than they have always been.
+ *
+ * `useSyncExternalStore` because this decides what is rendered. An effect that set state
+ * would paint the wrong arrangement first and correct it, and the React Compiler refuses
+ * `setState` in an effect for exactly that reason.
+ */
+const PIN_FROM = "(min-width: 900px)";
+
+function usePinnedEnds(): boolean {
+  return useSyncExternalStore(
+    (notify) => {
+      const q = window.matchMedia(PIN_FROM);
+      q.addEventListener("change", notify);
+      return () => q.removeEventListener("change", notify);
+    },
+    () => window.matchMedia(PIN_FROM).matches,
+    // The server has no window and no width. `false` is the arrangement that works at
+    // every size, so the first paint is never the broken one.
+    () => false,
+  );
+}
 
 /** `iso` moved by whole days, kept as a wall-clock date string. */
 function addDays(iso: string, days: number): string {
@@ -277,7 +305,7 @@ function Chip({ band, on, onPick }: { band: Band; on: boolean; onPick: () => voi
       className={cn("task-tab", `task-tab-${band.tone}`, on && "is-on", empty && "is-zero")}
     >
       {band.lead}
-      <span className="mono task-tab-count">{band.tasks.length}</span>
+      {!empty && <span className="mono task-tab-count">{band.tasks.length}</span>}
     </button>
   );
 }
@@ -500,6 +528,7 @@ export function TasksView({
     the tab vertically, throwing the tasks under it off screen to fix the strip above it.
   */
   const strip = useRef<HTMLElement>(null);
+  const bar = useRef<HTMLDivElement>(null);
 
   const nudge = (dir: 1 | -1) => {
     const el = strip.current;
@@ -593,6 +622,14 @@ export function TasksView({
 
     list.push({
       key: "undated",
+      /*
+        `No date', and plainly so.
+
+        `Someday' was tried and taken back out: it reads as a wish, and half of what
+        lands here is not one — it is the thing you wrote down before you knew when. The
+        plain description is what the row is picked out by, and it is what the move menu
+        on every other band already calls this place.
+      */
       lead: "No date",
       sub: "someday",
       tone: "parked",
@@ -667,20 +704,83 @@ export function TasksView({
   const activeKey = picked && bands.some((b) => b.key === picked) ? picked : fallback;
 
   /*
-    Bring the chosen tab into view.
+    Bring the chosen tab into view — by scrolling the strip, and nothing else.
 
     A strip that scrolls but never scrolls itself leaves you looking at a row that does
-    not contain the thing you just chose — picking `Later` from the far end, or landing on
-    a day the calendar picked, would move the panel below while the strip above stayed
-    where it was. `block: "nearest"` because the default would scroll the *page* to centre
-    the tab vertically, pushing the tasks off screen to tidy the strip above them.
+    not contain the thing you just chose: picking `Later` from the far end, or landing on
+    a day the calendar picked, moved the panel below while the row above stayed where it
+    was.
+
+    This was `scrollIntoView({ inline: "center" })`, and that is not a request to scroll
+    one element. It is a request to make an element visible, and the browser grants it by
+    scrolling *every* scrollable ancestor up to and including the document — so on any
+    page that can scroll sideways at all, choosing a day slid the whole screen across to
+    centre a tab. `block: "nearest"` was already there guarding the vertical axis against
+    exactly this, which should have been the clue that the horizontal one needed the same.
+
+    So the arithmetic is done here and the scroll is set on the strip. One element moves,
+    it is the one the person is looking at, and no ancestor is asked for anything.
   */
   useEffect(() => {
-    strip.current
-      ?.querySelector<HTMLElement>(".task-tab.is-on")
-      ?.scrollIntoView({ block: "nearest", inline: "center", behavior: "smooth" });
+    const el = strip.current;
+    const on = el?.querySelector<HTMLElement>(".task-tab.is-on");
+    if (!el || !on) return;
+    // Centred where there is room to centre it; clamped at both ends, so the first and
+    // last tabs sit against their edge rather than half off it.
+    const middle = on.offsetLeft - (el.clientWidth - on.offsetWidth) / 2;
+    const furthest = el.scrollWidth - el.clientWidth;
+    el.scrollTo({ left: Math.max(0, Math.min(middle, furthest)), behavior: "smooth" });
   }, [activeKey]);
+
+  /*
+    Which way the row still goes, told by the row.
+
+    An arrow that is always there and always the same is a promise the strip cannot keep:
+    at the far right it still looked pressable, still did nothing, and the fade at that
+    end still claimed there was more behind it. So the strip is measured — on scroll, on
+    resize, and whenever the number of tabs changes — and the answer is written on the bar
+    as `data-more`, which the stylesheet reads to wake the arrow that has somewhere to go
+    and to fade only the side that carries on.
+
+    It is one attribute rather than two pieces of state on purpose. A scroll handler that
+    sets state re-renders thirty tabs on every frame of a smooth scroll; this writes one
+    string onto a `div` React is not holding an opinion about, and the arrows and the
+    fade — being the same attribute — can never disagree.
+  */
+  const tabCount = bands.length;
+  useEffect(() => {
+    if (mode !== "days" || tabCount === 0) return;
+    const el = strip.current;
+    const shell = bar.current;
+    if (!el || !shell) return;
+    const mark = () => {
+      // Sub-pixel widths make an exact comparison at either end a coin toss.
+      const room = el.scrollWidth - el.clientWidth;
+      const ways: string[] = [];
+      if (room > 1 && el.scrollLeft > 1) ways.push("left");
+      if (room > 1 && el.scrollLeft < room - 1) ways.push("right");
+      shell.dataset.more = ways.join(" ");
+    };
+    mark();
+    el.addEventListener("scroll", mark, { passive: true });
+    const watch = new ResizeObserver(mark);
+    watch.observe(el);
+    return () => {
+      el.removeEventListener("scroll", mark);
+      watch.disconnect();
+    };
+  }, [mode, tabCount]);
   const band = bands.find((b) => b.key === activeKey) ?? bands[0];
+
+  /*
+    Which tabs scroll, and which two stand still.
+
+    Split here rather than in `bands` so everything downstream — the panel, the review,
+    the quick add — still sees one list in one order. This is only how the row is drawn.
+  */
+  const pinned = usePinnedEnds();
+  const held = pinned ? bands.filter((b) => b.tone === "parked") : [];
+  const rolling = pinned ? bands.filter((b) => b.tone !== "parked") : bands;
   const rankedTasks = [...(band?.tasks ?? [])].sort(
     (a, b) => (RANK[a.priority] ?? 1) - (RANK[b.priority] ?? 1),
   );
@@ -968,10 +1068,10 @@ export function TasksView({
               They scroll by four fifths of the strip rather than a whole one, so the tab
               you were reading stays on screen to tell you where you landed.
             */
-            <div className="task-tabbar">
+            <div className="task-tabbar" ref={bar}>
               <button
                 type="button"
-                className="task-tabnav"
+                className="task-tabnav task-tabnav-prev"
                 aria-label="Earlier days"
                 onClick={() => nudge(-1)}
               >
@@ -979,7 +1079,7 @@ export function TasksView({
               </button>
 
               <nav ref={strip} className="task-tabs" aria-label="Pick a day">
-                {bands.map((b) => (
+                {rolling.map((b) => (
                   <Chip
                     key={b.key}
                     band={b}
@@ -994,12 +1094,41 @@ export function TasksView({
 
               <button
                 type="button"
-                className="task-tabnav"
+                className="task-tabnav task-tabnav-next"
                 aria-label="Later days"
                 onClick={() => nudge(1)}
               >
                 <ChevronRight className="h-4 w-4" aria-hidden />
               </button>
+
+              {/*
+                The two that are not days, held out of the scroll.
+
+                `No date` sat at the far end of four weeks: to reach the tasks you had
+                deliberately not dated you scrolled past a month of days you had. They are
+                not days and they do not belong in a row that is one — so where there is
+                room they stand at the end and stay there, and the arrows move only the
+                days, which is what they were for.
+
+                Below 900px there is no room to hold anything aside — the strip would be
+                left with fifty pixels — so they go back into the row and are reached by
+                scrolling, exactly as before. Measured, not guessed: see `PIN_FROM`.
+              */}
+              {held.length > 0 && (
+                <span className="task-tabs-held">
+                  {held.map((b) => (
+                    <Chip
+                      key={b.key}
+                      band={b}
+                      on={b.key === activeKey}
+                      onPick={() => {
+                        setPicked(b.key);
+                        leaveReview();
+                      }}
+                    />
+                  ))}
+                </span>
+              )}
             </div>
           ) : null}
 

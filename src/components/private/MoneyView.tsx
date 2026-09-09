@@ -42,7 +42,7 @@ import { SpendBreakdown } from "./SpendBreakdown";
 import type { AccountBalance, MonthSummary } from "@/lib/data/money";
 
 export type MoneyPanel =
-  | { mode: "new"; kind: string }
+  | { mode: "new"; kind: string; loanId?: string }
   | { mode: "edit"; tx: TransactionRow }
   | null;
 
@@ -1223,6 +1223,7 @@ export function MoneyView({
         <TransactionForm
           tx={panel?.mode === "edit" ? panel.tx : undefined}
           defaultKind={panel?.mode === "new" ? panel.kind : "expense"}
+          presetLoanId={panel?.mode === "new" ? panel.loanId : undefined}
           data={data}
         />
       </SlideOver>

@@ -27,6 +27,7 @@ import {
   caps,
   field,
   rowMotion,
+  usePicked,
   useRowCommit,
   useSavedPulse,
 } from "./kit";
@@ -323,7 +324,11 @@ export function AccountRow({ account, arrived }: { account?: AccountBalance; arr
   const [overviewError, setOverviewError] = useState<string | null>(null);
   // The composer confirms by producing a row, not by lighting itself up.
   const saved = useSavedPulse(account ? state : undefined);
-  const commit = useRowCommit(!isNew);
+  const commit = useRowCommit(!isNew, formAction);
+  // Same as the item rows: a dropdown follows its row until somebody picks something
+  // else, so a save cannot snap it back to the answer before it. See `usePicked`.
+  const [accountKind, setAccountKind] = usePicked(account?.kind ?? "bank");
+  const [accountCurrency, setAccountCurrency] = usePicked(account?.currency ?? fallback);
 
   return (
     <form
@@ -342,6 +347,7 @@ export function AccountRow({ account, arrived }: { account?: AccountBalance; arr
         isNew
           ? "rounded-b-card border-t border-line bg-white/[0.02] py-3.5"
           : "is-quiet border-b border-line-soft py-2.5 last:border-b-0",
+        isNew && pending && "is-saving",
         arrived && "zv-row-in",
         leaving && "translate-x-1 opacity-0",
       )}
@@ -356,6 +362,8 @@ export function AccountRow({ account, arrived }: { account?: AccountBalance; arr
           placeholder="Account name"
           aria-label="Account name"
           required
+          /* Shut while the row is being made — see `.is-saving` in the stylesheet. */
+          readOnly={isNew && pending}
           className={cn(
             field,
             "w-full min-w-0 font-medium col-span-2 min-[720px]:col-span-1",
@@ -364,7 +372,12 @@ export function AccountRow({ account, arrived }: { account?: AccountBalance; arr
 
         <select
           name="kind"
-          defaultValue={account?.kind ?? "bank"}
+          value={accountKind}
+          onChange={(e) => {
+            setAccountKind(e.target.value);
+            commit.onPick(e);
+          }}
+          disabled={isNew && pending}
           aria-label="Account type"
           className={cn(field, "w-full scheme-dark")}
         >
@@ -384,7 +397,12 @@ export function AccountRow({ account, arrived }: { account?: AccountBalance; arr
         */}
         <select
           name="currency"
-          defaultValue={account?.currency ?? fallback}
+          value={accountCurrency}
+          onChange={(e) => {
+            setAccountCurrency(e.target.value);
+            commit.onPick(e);
+          }}
+          disabled={isNew && pending}
           aria-label="Currency"
           className={cn(field, "mono w-full font-semibold scheme-dark")}
         >

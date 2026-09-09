@@ -26,6 +26,31 @@ import { unreadable } from "@/lib/data/must";
 
 /* ------------------------------------------------------------------- goals */
 
+/**
+ * Whether a goal already stands for a debt — asked on edit, where the form does not
+ * resend the link. Its own answer rather than the client's, so a hand-made request
+ * cannot detach a goal from its debt and leave the two figures loose.
+ *
+ * `null` means the question could not be answered. It is returned rather than swallowed
+ * because the two answers are not equally safe: guessing "not linked" writes a target
+ * onto a goal that reads its target from a debt, which is the second figure this whole
+ * arrangement exists to prevent. The save stops instead.
+ */
+async function isLinked(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  id: string,
+  uid: string,
+): Promise<boolean | null> {
+  const { data, error } = await supabase
+    .from("money_goals")
+    .select("loan_id")
+    .eq("id", id)
+    .eq("user_id", uid)
+    .maybeSingle();
+  if (error) return null;
+  return data?.loan_id != null;
+}
+
 export async function saveGoal(_prev: MoneyState, formData: FormData): Promise<MoneyState> {
   const id = String(formData.get("id") ?? "").trim();
   const name = String(formData.get("name") ?? "").trim();
@@ -42,6 +67,17 @@ export async function saveGoal(_prev: MoneyState, formData: FormData): Promise<M
     them. The form does not offer the change and this does not accept it.
   */
   const direction = formData.get("direction") === "expense" ? "expense" : "income";
+  /*
+    The debt this goal is a view of.
+
+    Only on a paying-off goal, because a debt is the only thing you pay off — a standing
+    order into a holiday fund has nothing to be a view of. And only on creation, for the
+    same reason `direction` is: the entries behind a goal are typed to where they were
+    filed, and re-pointing a goal at a debt later would leave its history counted by
+    nothing.
+  */
+  const loanId =
+    direction === "expense" ? String(formData.get("loan_id") ?? "").trim() || null : null;
 
   // A target below zero is not a smaller goal, it is a broken one: every percentage on
   // the card is `saved / target`, and a negative divisor turns progress inside out.
@@ -68,12 +104,23 @@ export async function saveGoal(_prev: MoneyState, formData: FormData): Promise<M
   const rate = currency === "RSD" ? 1 : rateFor(currency, rates);
   const targetRsd = Math.round(targetAmount * rate * 100) / 100;
 
+  /*
+    A goal that is a debt keeps no figure of its own — not a stale one, not a copy.
+
+    The reader takes the target from `money_loans.total_rsd` and would ignore these
+    columns whatever they held, so writing anything into them would leave a number in the
+    database that no screen shows and nothing keeps in step. That is the shape a wrong
+    figure hides in. Nulled on the way in, and the form does not offer the field at all.
+  */
+  const standsForDebt = id ? await isLinked(supabase, id, uid) : false;
+  if (standsForDebt === null) return { error: unreadable("whether this goal stands for a debt") };
+  const linked = loanId != null || standsForDebt;
   const payload = {
     name,
-    target_amount: targetAmount,
-    currency,
-    rate,
-    target_rsd: targetRsd,
+    target_amount: linked ? null : targetAmount,
+    currency: linked ? "RSD" : currency,
+    rate: linked ? 1 : rate,
+    target_rsd: linked ? 0 : targetRsd,
     target_date: targetDate,
     color,
   };
@@ -100,7 +147,7 @@ export async function saveGoal(_prev: MoneyState, formData: FormData): Promise<M
     if (lastError) return { error: unreadable("where the new goal goes in the list") };
     ({ error } = await supabase
       .from("money_goals")
-      .insert({ ...payload, direction, sort: (last?.sort ?? -1) + 1 }));
+      .insert({ ...payload, direction, loan_id: loanId, sort: (last?.sort ?? -1) + 1 }));
   }
   if (error) return { error: saveErrorMessage(error) };
 

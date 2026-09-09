@@ -54,6 +54,29 @@ export type MoneyLoan = Tables<"money_loans">;
 /** A thing bought, remembered so it can be picked instead of retyped. */
 export type MoneyItem = Tables<"money_items">;
 export type MoneyRecurring = Tables<"money_recurring">;
+
+/**
+ * One lot of a thing that is in the house, and what has happened to it.
+ *
+ * `left` is derived, never stored — see `@/lib/data/money/stock`. A lot with nothing left
+ * is not in this list at all, which is what makes it a list of what you have rather than
+ * a list of what you have ever bought.
+ */
+export type StockLine = {
+  id: string;
+  itemId: string;
+  transactionId: string | null;
+  name: string;
+  /** food, drink or other. Only the first two are ever followed into the house. */
+  kind: string;
+  /** How many were bought. */
+  bought: number;
+  /** How many are left, after everything eaten and binned. */
+  left: number;
+  boughtOn: string;
+  expiresOn: string | null;
+  moves: { id: string; kind: string; qty: number; on: string }[];
+};
 export type MoneyBudget = Tables<"money_budgets">;
 export type MoneyBudgetPlan = Tables<"money_budget_plans">;
 export type MoneyTransaction = Tables<"money_transactions">;
@@ -81,6 +104,15 @@ export type RecurringRow = MoneyRecurring & {
   account: { name: string } | null;
   /** Set when the rule is a standing order into a goal rather than a bill. */
   goal: { name: string; color: string | null } | null;
+  /**
+   * Set when the rule is the repayment plan of a debt.
+   *
+   * The timeline has always known which goal a standing order feeds and printed it; the
+   * debt beside it was in the row all along as `loan_id` and never shown, so an
+   * instalment read as an ordinary bill for an amount nobody recognised. Same idea,
+   * other direction: one says what the money is for, the other what it is against.
+   */
+  loan: { name: string } | null;
 };
 
 /**
@@ -111,12 +143,37 @@ export type LoanLine = MoneyLoan & {
   settled: number;
   /** What is still owed. Never negative — an overpayment is settled, not owed back. */
   outstanding: number;
-  /** Movements against this loan, newest first. */
-  movements: { id: string; on: string; amount: number; kind: string; title: string | null }[];
+  /**
+   * Movements against this loan, newest first.
+   *
+   * Carries the account and whether a rule booked it, because a goal linked to this debt
+   * shows these as its own history — and a history that cannot say which account a
+   * payment left is a history somebody has to go and look up elsewhere.
+   */
+  movements: {
+    id: string;
+    on: string;
+    amount: number;
+    kind: string;
+    title: string | null;
+    accountId: string | null;
+    /** The account's name, so a history can say where the money went without a lookup. */
+    account: string | null;
+    recurring: boolean;
+  }[];
   /** Set when a recurring rule is paying it down: how many of its instalments are left. */
   instalmentsLeft: number | null;
   /** What one instalment costs, when there is a rule behind it. */
   instalment: number | null;
+  /**
+   * The rule paying it down, so the debt can link straight to it.
+   *
+   * The debt screen prints the instalment but had no way to reach the thing that books
+   * it — you were told `30.776,48 × 3 left` and left to find that rule yourself among
+   * the subscriptions. Null when nothing is paying this debt down, which is the ordinary
+   * state of a debt owed to a friend.
+   */
+  ruleId: string | null;
 };
 
 /** A category with its monthly limit and what has been spent against it. */

@@ -26,6 +26,34 @@ export async function saveCategory(_prev: MoneyState, formData: FormData): Promi
   const uid = await userId(supabase);
   if (!uid) return { error: "Not signed in." };
 
+  /*
+    One live name per kind, checked here rather than with an index.
+
+    Two categories both called Groceries split a year of spending down the middle and
+    nothing on any screen says which is which: the tile, the picker on the entry form and
+    the budget all print the same word twice. An index would be the stronger guard and is
+    the wrong one here — the restore adds rows by id, in slices of five hundred, so a
+    backup holding a name this profile has since typed again would fail the whole slice
+    rather than the one row, and take every entry that pointed at those categories with
+    it.
+
+    Archived ones are not in the way: they are off every screen, so the name is free
+    again. `%` and `_` are escaped because this is a LIKE, and a category called `100%
+    fun` should be compared, not treated as a pattern.
+  */
+  const like = name.replace(/[\\%_]/g, (m) => `\\${m}`);
+  const { data: clash, error: clashError } = await supabase
+    .from("money_categories")
+    .select("id")
+    .eq("user_id", uid)
+    .eq("kind", kind)
+    .eq("archived", false)
+    .ilike("name", like)
+    .limit(1);
+  if (clashError) return { error: "Could not read your categories. Try again." };
+  if (clash?.[0] && clash[0].id !== id)
+    return { error: `You already have ${kind === "income" ? "an income" : "an expense"} category called that.` };
+
   const payload = { name, kind, color };
 
   const { error } = id

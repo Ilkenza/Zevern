@@ -227,8 +227,22 @@ export function Row({ line, from }: { line: ForecastLine; from: string }) {
                 </>
               )}
               <Dot />
+              {/*
+                What the money is for, or what it is against.
+
+                A goal rule says `Into Za Rim'. An instalment said `Kredit' — its category
+                — which is the truth and not the answer: what a reader wants from a row
+                taking 30.776,48 out of next month is which debt that is. It keeps the
+                category too, because a repayment is still spending and still lands in a
+                budget; the debt goes first because it is the rarer, more specific fact.
+              */}
               {line.goal ? (
                 <span className="min-w-0 truncate text-held">Into {line.goal}</span>
+              ) : line.loan ? (
+                <span className="min-w-0 truncate">
+                  <span className="text-gold-hi">Pays {line.loan}</span>
+                  {line.category && <span className="text-muted"> · {line.category}</span>}
+                </span>
               ) : (
                 <span className="min-w-0 truncate">{line.category ?? "No category"}</span>
               )}

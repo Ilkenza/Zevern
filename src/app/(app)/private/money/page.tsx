@@ -29,6 +29,8 @@ export default async function MoneyPage({
     new?: string;
     edit?: string;
     cat?: string;
+    /** Which debt a new entry pays — the debts panels link straight in. */
+    loan?: string;
   }>;
 }) {
   const params = await searchParams;
@@ -116,7 +118,14 @@ export default async function MoneyPage({
 
   let panel: MoneyPanel = null;
   if (params.new) {
-    panel = { mode: "new", kind: params.new };
+    /*
+      Checked against the debts actually read, so a stale link opens an ordinary blank
+      form rather than one pointing at nothing — the same guard the Upcoming route puts
+      on its own `loan` param, and for the same reason.
+    */
+    const onDebt =
+      params.loan && loans.some((l) => l.id === params.loan) ? params.loan : undefined;
+    panel = { mode: "new", kind: params.new, loanId: onDebt };
   } else if (params.edit) {
     const tx = await getTransaction(params.edit);
     if (tx) panel = { mode: "edit", tx };

@@ -23,7 +23,6 @@
 export {
   ESTIMATE_FROM,
   getAccounts,
-  getBudgets,
   getCategories,
   getDueRecurring,
   getPlanned,
@@ -39,6 +38,8 @@ export {
   type Occurrence,
   type OccurrenceSource,
 } from "@/lib/money/occurrences";
+
+export { getStock } from "./stock";
 
 export { getRecurringTotals, type RecurringTotals } from "./recurring";
 
@@ -97,6 +98,6 @@ export {
 } from "./accounts";
 
 export { getItems } from "./items";
-export { getLoans, isLoanOpen, loanTotals } from "./loans";
+export { getLoanRemaining, getLoans, isLoanOpen, loanTotals } from "./loans";
 
 export { getMoney } from "./display";

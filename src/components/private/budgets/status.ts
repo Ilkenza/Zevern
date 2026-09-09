@@ -86,67 +86,6 @@ export function clean(value: string): string {
   return value.replace(/\D/g, "").slice(0, 12);
 }
 
-export type Totals = {
-  limit: number;
-  spent: number;
-  /** Percent of the total limit spent. Uncapped: 120 is a real and useful answer. */
-  used: number;
-  /**
-   * Percent of the budget that is due to have gone by now — dated charges in full,
-   * the rest spread over the days. This is what `used` is judged against and where
-   * the tick sits, not the calendar.
-   */
-  pacePct: number;
-  /** Percent of the month's days gone. Only ever shown as the explanation. */
-  calendarPct: number;
-  /** Where the month lands at today's rate — the month itself once it is finished. */
-  projected: number;
-  /** How far past the limit that projection goes. Negative means slack. */
-  overshoot: number;
-  left: number;
-};
-
-export function totalsOf(lines: BudgetLine[], pace: number, isCurrentMonth: boolean): Totals {
-  // A percentage can only compare like with like. Spending from a category with no
-  // limit has no denominator, so it stays visible in the separate summary callout but
-  // must not make the categories that do have limits look further spent than they are.
-  const limited = lines.filter((line) => line.limit > 0);
-  const limit = limited.reduce((s, l) => s + l.limit, 0);
-  const spent = limited.reduce((s, l) => s + judged(l), 0);
-  const fixedPaid = limited.reduce((s, l) => s + Math.max(l.fixedPaid ?? 0, 0), 0);
-  const fixedDue = limited.reduce((s, l) => s + Math.max(l.fixedDue ?? 0, 0), 0);
-
-  /*
-    Only the everyday part is extrapolated. The bills already paid are a fact and the
-    bills still to come are a date, so both go in at face value and neither is divided
-    by how much of the month has gone.
-
-    This is the whole fix. Rent of 60.000 against 100.000 of limits, on the 3rd, used
-    to project 639.000 and announce half a million over; it now projects 60.000 plus
-    three days of groceries stretched to a month, and says nothing, because there is
-    nothing to say yet.
-
-    A finished month has already landed wherever it landed; only a running one is being
-    projected forward at all.
-  */
-  const everyday = Math.max(spent - fixedPaid, 0);
-  const projected =
-    pace > 0 && isCurrentMonth ? Math.round(fixedPaid + fixedDue + everyday / pace) : spent;
-
-  const expected = limited.reduce((s, l) => s + expectedBy(l, pace), 0);
-
-  return {
-    limit,
-    spent,
-    used: limit > 0 ? Math.round((spent / limit) * 100) : 0,
-    pacePct: limit > 0 ? Math.round((expected / limit) * 100) : Math.round(pace * 100),
-    calendarPct: Math.round(pace * 100),
-    projected,
-    overshoot: projected - limit,
-    left: Math.max(limit - spent, 0),
-  };
-}
-
 /** The one category worth naming when the month is heading over, and what closes it. */
 export type Remedy = {
   category: string;

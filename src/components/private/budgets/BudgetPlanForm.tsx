@@ -275,7 +275,7 @@ export function BudgetPlanForm({
           <Field label="Name" name="name" defaultValue={plan?.name ?? ""} maxLength={60} required
             placeholder={kind === "savings" ? "What you are saving towards" : "Groceries, Holiday…"} />
 
-          <div className="grid grid-cols-[1fr_110px] gap-2">
+          <div className="grid grid-cols-[minmax(0,1fr)_110px] gap-2">
           <MoneyField
             label={kind === "savings" ? "Target" : "Limit"}
             name="amount"
@@ -619,7 +619,6 @@ export function BudgetPlanForm({
     </div>
   );
 }
-
 
 
 

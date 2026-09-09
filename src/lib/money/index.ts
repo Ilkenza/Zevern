@@ -28,6 +28,27 @@ export type Rates = { EUR: number; USD: number };
 export const DEFAULT_RATES: Rates = { EUR: 117.2, USD: 101 };
 
 /** How many RSD one unit of `currency` is worth. */
+/**
+ * How many payments of `each` are still needed to clear `outstanding`.
+ *
+ * Counted in whole cents on both sides, and that is the whole point of the function.
+ * Written the obvious way — `Math.ceil(Math.round(a) / Math.round(b))` — a credit of
+ * 123.105,92 at a rate of 30.776,48 comes out at **five**, because rounding the two
+ * dinars figures first turns an exact 4 into 4,00006 and `ceil` believes it. Four
+ * payments that divide perfectly are the ordinary case for a credit, so the ordinary
+ * case was the broken one.
+ *
+ * Rounding to cents before dividing makes 3.077.648 × 4 = 12.310.592 exactly, with no
+ * epsilon to tune and no float to distrust. A remainder is still a payment, so what is
+ * left over rounds up: 88.105,92 at that rate is two full ones and a short one.
+ */
+export function paymentsLeft(outstanding: number, each: number): number | null {
+  const owed = Math.round(Math.max(outstanding, 0) * 100);
+  const rate = Math.round(each * 100);
+  if (rate <= 0) return null;
+  return Math.ceil(owed / rate);
+}
+
 export function rateFor(currency: string, rates: Rates): number {
   if (currency === "EUR") return rates.EUR > 0 ? rates.EUR : DEFAULT_RATES.EUR;
   if (currency === "USD") return rates.USD > 0 ? rates.USD : DEFAULT_RATES.USD;

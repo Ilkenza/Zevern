@@ -39,6 +39,9 @@ readingOf
  * windows behind this one, and only once there are any: a "history" of the single period
  * you are standing in is the same numbers a third time.
  */
+/** Row widths for the placeholder list, cycled — a list of equal bars reads as a table. */
+const SKELETON_WIDTHS = ["58%", "44%", "66%", "38%", "52%", "48%"];
+
 export function HistoryPanel({
   line,
   entries,
@@ -74,6 +77,20 @@ export function HistoryPanel({
   const [dir, setDir] = useState<"asc" | "desc">("asc");
   const [dateKey, setDateKey] = useState("");
   const [picked, setPicked] = useState({ from: "", to: "" });
+
+  /*
+    How long the list about to arrive is — when that is a thing this screen already knows.
+
+    It knows it for the budget's own window, because `line.entries` is the count behind
+    the figure printed at the top of this very panel. It does not know it for any other
+    span: asking for `Last 3 months` is a fresh question, and the honest placeholder for
+    an unknown is a short one that does not look like an answer.
+
+    Capped at a screenful. Past that the list scrolls either way, so more grey rows buy
+    nothing and a six-hundred-row skeleton costs a frame to draw.
+  */
+  const known = dateKey ? null : line.entries;
+  const skeletonRows = known === null ? 3 : Math.min(known, 12);
 
   /*
     The same spans as everywhere else, plus the one only this panel has.
@@ -345,49 +362,80 @@ export function HistoryPanel({
           already in hand, was a full history. It read as though only half the panel had
           opened. A skeleton of the list that is coming says the same thing without
           leaving a hole where the list will be.
+
+          What it must not do is answer. It drew six rows and the count and the total as
+          grey blocks, for every budget — so a budget holding one entry opened with six,
+          and a budget holding none opened with six as well, then emptied. That is not a
+          placeholder for an unknown, it is a wrong answer shown first, and this app does
+          not print a figure it has not got.
+
+          It has got them. `line.entries` is the count the card's own figure was worked
+          out from and `line.used` is that figure, both already on this screen before the
+          read is even sent — so the heading is printed for real, the list is drawn to
+          the length it is actually going to be, and a budget with nothing in it says so
+          at once instead of flashing a list it never had.
         */
-        <div aria-busy="true" aria-label="Reading the ledger">
-          <p className="zv-entries-sum">
-            <Skeleton w="66px" h={12} />
-            <Skeleton w="74px" h={14} />
-          </p>
+        skeletonRows === 0 ? (
+          /*
+            Nothing was spent in this window, so the read cannot come back with anything.
+            The answer now beats six grey rows that are about to disappear — and it is
+            the same sentence the finished panel prints, so nothing moves when it lands.
+          */
+          <p className="zv-entries-sum">Nothing in it yet.</p>
+        ) : (
+          <div aria-busy="true" aria-label="Reading the ledger">
+            <p className="zv-entries-sum">
+              {known === null ? (
+                <Skeleton w="66px" h={12} />
+              ) : known === 1 ? (
+                "1 entry"
+              ) : (
+                `${known} entries`
+              )}
+              {known === null ? <Skeleton w="74px" h={14} /> : <b>{fmt(line.used)}</b>}
+            </p>
 
-          {/*
-            The toolbar's own footprint, not just the rows'.
+            {/*
+              The toolbar's own footprint, not just the rows'.
 
-            Skeleton rows alone still let the bar drop in above them when the read lands,
-            which shoves the whole list down ninety pixels — the jolt this is here to
-            prevent, arriving from the one part that was not drawn.
-          */}
-          <div className="zv-toolbar is-in-panel" aria-hidden>
-            <div className="zv-toolbar-find flex h-[35px] items-center">
-              <Skeleton w="9rem" h={13} />
+              Skeleton rows alone still let the bar drop in above them when the read lands,
+              which shoves the whole list down ninety pixels — the jolt this is here to
+              prevent, arriving from the one part that was not drawn.
+
+              Four blocks, which is what the bar wears at its narrowest: search, dates,
+              order, direction. The category filter is a fifth and only appears when there
+              is something to filter by, and a skeleton is better one short than one long
+              — a bar that shrinks on arrival is the jolt again, pointing the other way.
+            */}
+            <div className="zv-toolbar is-in-panel" aria-hidden>
+              <div className="zv-toolbar-find flex h-[35px] items-center">
+                <Skeleton w="9rem" h={13} />
+              </div>
+              <Skeleton className="zv-skel-ctl" h={34} />
+              <Skeleton className="zv-skel-ctl" h={34} />
+              <Skeleton w="32px" h={34} />
             </div>
-            <Skeleton className="zv-skel-ctl" h={34} />
-            <Skeleton className="zv-skel-ctl" h={34} />
-            <Skeleton className="zv-skel-ctl" h={34} />
-            <Skeleton w="32px" h={34} />
+
+            {/*
+              `zv-entry` itself, not a shape that resembles it.
+
+              The first version was a flex row with its own padding and gap and no third
+              column — so it was the wrong height, and the amounts down the right-hand edge
+              were simply missing. Borrowing the real row's class means the grid, the
+              hairline and the spacing cannot drift from the list they stand in for: one of
+              them is the other one, empty.
+            */}
+            <ul className="zv-entries">
+              {Array.from({ length: skeletonRows }, (_, i) => (
+                <li key={i} className="zv-entry is-skeleton">
+                  <Skeleton w="30px" h={10} />
+                  <Skeleton w={SKELETON_WIDTHS[i % SKELETON_WIDTHS.length]} h={12} />
+                  <Skeleton w="52px" h={12} />
+                </li>
+              ))}
+            </ul>
           </div>
-
-          {/*
-            `zv-entry` itself, not a shape that resembles it.
-
-            The first version was a flex row with its own padding and gap and no third
-            column — so it was the wrong height, and the amounts down the right-hand edge
-            were simply missing. Borrowing the real row's class means the grid, the
-            hairline and the spacing cannot drift from the list they stand in for: one of
-            them is the other one, empty.
-          */}
-          <ul className="zv-entries">
-            {["58%", "44%", "66%", "38%", "52%", "48%"].map((w, i) => (
-              <li key={i} className="zv-entry is-skeleton">
-                <Skeleton w="30px" h={10} />
-                <Skeleton w={w} h={12} />
-                <Skeleton w="52px" h={12} />
-              </li>
-            ))}
-          </ul>
-        </div>
+        )
       ) : entries.length === 0 || !shown ? (
         /*
           Empty because of the window is not empty. Say which, and leave the way out.

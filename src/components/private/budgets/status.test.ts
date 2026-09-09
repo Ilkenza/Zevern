@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { BudgetLine } from "@/lib/types";
-import { clean, expectedBy, remedyFor, shouldSuggest, statusOf, totalsOf } from "./status";
+import { clean, expectedBy, judged, remedyFor, shouldSuggest, statusOf } from "./status";
 
 function line(
   limit: number,
@@ -51,41 +51,6 @@ describe("statusOf", () => {
   it("tells an unlimited category apart from an unused one", () => {
     expect(statusOf(line(0, 4000), 0.5)).toBe("untracked");
     expect(statusOf(line(0, 0), 0.5)).toBe("unset");
-  });
-});
-
-describe("totalsOf", () => {
-  const lines = [line(45000, 31200), line(12000, 15400), line(0, 7300)];
-
-  it("keeps spending without limits out of the limit totals", () => {
-    const t = totalsOf(lines, 0.81, true);
-    expect(t.limit).toBe(57000);
-    expect(t.spent).toBe(46600);
-    expect(t.used).toBe(82);
-  });
-
-  it("projects a running month forward at the rate so far", () => {
-    const t = totalsOf([line(100000, 81000)], 0.81, true);
-    expect(t.projected).toBe(100000);
-    expect(t.overshoot).toBe(0);
-  });
-
-  it("does not project a month that has already finished", () => {
-    // Half a month's spending in a past month is the answer, not half a projection.
-    const t = totalsOf([line(100000, 40000)], 0.5, false);
-    expect(t.projected).toBe(40000);
-  });
-
-  it("reports what is left, never a negative amount of room", () => {
-    expect(totalsOf([line(10000, 4000)], 0.5, true).left).toBe(6000);
-    expect(totalsOf([line(10000, 14000)], 0.5, true).left).toBe(0);
-  });
-
-  it("is all zeros rather than NaN when nothing has a limit", () => {
-    const t = totalsOf([line(0, 500)], 0.5, true);
-    expect(t.limit).toBe(0);
-    expect(t.spent).toBe(0);
-    expect(t.used).toBe(0);
   });
 });
 
@@ -176,34 +141,6 @@ describe("statusOf, with dated charges", () => {
   });
 });
 
-describe("totalsOf, with dated charges", () => {
-  it("does not multiply a paid bill by the month it has not had", () => {
-    // 60.000 of rent and 2.000 of groceries against 100.000, on the 3rd. The old
-    // projection divided the lot by 0.1 and announced 620.000.
-    const t = totalsOf([line(100000, 62000, 0, { paid: 60000 })], 0.1, true);
-    expect(t.projected).toBe(80000);
-    expect(t.overshoot).toBeLessThan(0);
-  });
-
-  it("counts what is still to come at face value", () => {
-    const t = totalsOf([line(100000, 0, 0, { due: 60000 })], 0.1, true);
-    expect(t.projected).toBe(60000);
-  });
-
-  it("keeps the calendar separately from the pace it no longer is", () => {
-    const t = totalsOf([line(100000, 62000, 0, { paid: 60000 })], 0.1, true);
-    expect(t.calendarPct).toBe(10);
-    // 60.000 landed plus a tenth of the 40.000 that accrues.
-    expect(t.pacePct).toBe(64);
-  });
-
-  it("leaves a month with no dated charges where it was", () => {
-    const t = totalsOf([line(100000, 81000)], 0.81, true);
-    expect(t.projected).toBe(100000);
-    expect(t.pacePct).toBe(t.calendarPct);
-  });
-});
-
 describe("remedyFor", () => {
   const overspent = line(10000, 8000, 0, { name: "Eating out" });
   const onPace = line(60000, 30000, 0, { name: "Groceries" });
@@ -249,14 +186,14 @@ describe("what a budget is judged on", () => {
   it("counts what the budget owns, not what the category cost", () => {
     const holidayLunch: BudgetLine = { ...line(3052, 14737), counted: 3000 };
     expect(statusOf(holidayLunch, 0.9)).toBe("ontrack");
-    expect(totalsOf([holidayLunch], 0.9, true).spent).toBe(3000);
+    expect(judged(holidayLunch)).toBe(3000);
   });
 
   it("judges a category no budget owns against itself, as before", () => {
     const plain = line(3052, 14737);
     expect(plain.counted).toBeUndefined();
     expect(statusOf(plain, 0.9)).toBe("over");
-    expect(totalsOf([plain], 0.9, true).spent).toBe(14737);
+    expect(judged(plain)).toBe(14737);
   });
 });
 
