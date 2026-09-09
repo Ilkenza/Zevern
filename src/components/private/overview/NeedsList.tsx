@@ -63,7 +63,15 @@ function BookRow({ need, rule }: { need: Need; rule: RecurringRow }) {
   };
 
   return (
-    <div className="need-line is-late">
+    /*
+      The row's own tone, not a colour hardcoded here.
+
+      It said `is-late` on every booking row, which was true of all of them by accident —
+      they all came off the already-due list — and wrong the moment the list learned that
+      a wage arriving and a bill unpaid are different news. `needs-you.ts` decides; this
+      draws what it decided.
+    */
+    <div className={`need-line is-${need.tone}`}>
       <span className="need-dot" aria-hidden />
       <span className="need-say">
         <span className="need-title">{need.title}</span>
@@ -113,7 +121,7 @@ function PriceRow({ need, tx }: { need: Need; tx: { id: string; currency: string
   const typed = Number(amount.replace(",", ".")) || 0;
 
   return (
-    <div className="need-line is-quiet">
+    <div className={`need-line is-${need.tone}`}>
       <span className="need-dot" aria-hidden />
       <span className="need-say">
         <span className="need-title">{need.title}</span>

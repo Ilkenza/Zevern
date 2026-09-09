@@ -124,9 +124,9 @@ describe("what gets to be the headline", () => {
         coming: [{ id: "r1", name: "Kredit za laptop", amount: 30776.48, on: "2026-08-31" }],
       }),
     );
-    // Six times smaller and still first: its date has already gone by.
+    // Six times smaller and still first: its date is today, the other one's is not.
     expect(headline?.title).toBe("Struja");
-    expect(headline?.tone).toBe("late");
+    expect(headline?.tone).toBe("due");
   });
 
   it("breaks a tie on size, because the big one decides whether the small one fits", () => {
@@ -154,7 +154,7 @@ describe("rows that can be finished on the spot", () => {
     const struja = rule({ id: "d1", name: "Struja", amount: 4200 });
     const { all } = readNeeds(input({ dueNow: [struja] }));
     expect(all[0].action).toEqual({ kind: "book", rule: struja });
-    expect(all[0].detail).toBe("Due 2026-08-28 · usually 4.200");
+    expect(all[0].detail).toBe("due today · usually 4.200");
   });
 
   it("says the amount changes rather than printing a zero", () => {
@@ -162,7 +162,37 @@ describe("rows that can be finished on the spot", () => {
       input({ dueNow: [rule({ id: "d1", name: "Struja", variable: true })] }),
     );
     expect(all[0].amount).toBeNull();
-    expect(all[0].detail).toBe("Due 2026-08-28 · the amount changes");
+    expect(all[0].detail).toBe("due today · the amount changes");
+  });
+
+  /*
+    A wage is on this list for one reason — the ledger does not know it landed — and for
+    none of the reasons the other rows are here. It was drawn in the danger colour and
+    told, in the same words as an unpaid bill, that it was overdue.
+  */
+  it("draws money arriving as its own thing, not as a bill", () => {
+    const { all } = readNeeds(
+      input({
+        dueNow: [rule({ id: "d1", name: "Plata", kind: "income", variable: true })],
+      }),
+    );
+    expect(all[0].tone).toBe("in");
+    expect(all[0].detail).toBe("expected today · the amount changes");
+  });
+
+  it("keeps an unpaid bill above a wage waiting to be written down", () => {
+    const { all } = readNeeds(
+      input({
+        dueNow: [
+          rule({ id: "d1", name: "Plata", kind: "income", amount: 90000, next_on: "2026-08-27" }),
+          rule({ id: "d2", name: "Struja", amount: 4200, next_on: "2026-08-27" }),
+        ],
+      }),
+    );
+    expect(all.map((n) => n.title)).toEqual(["Struja", "Plata"]);
+    expect(all[0].tone).toBe("late");
+    expect(all[0].detail).toBe("1 day overdue · usually 4.200");
+    expect(all[1].detail).toBe("expected yesterday · usually 90.000");
   });
 
   /*

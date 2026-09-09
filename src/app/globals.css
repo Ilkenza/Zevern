@@ -8971,9 +8971,20 @@ body > * { min-width: 0; }
 .need-line:last-child { border-bottom: 0; }
 a.need-line:hover { background: rgba(255, 255, 255, 0.03); }
 
+/*
+  Three states, three colours, and the third one is not a warning.
+
+  Red is for the two things that are already wrong: a bill whose date has gone by, and a
+  budget past its limit. Gold is for the things that want doing now — due today, or
+  falling within three days. Green is money arriving, which is on this list because it
+  needs writing down and for no other reason: a wage drawn in the same red as an unpaid
+  instalment made the best news on the page look like the worst.
+*/
 .need-line.is-late .need-dot,
 .need-line.is-over .need-dot { background: var(--color-danger); }
+.need-line.is-due .need-dot,
 .need-line.is-soon .need-dot { background: var(--color-gold); }
+.need-line.is-in .need-dot { background: var(--color-ok); }
 
 /* The plain rows keep their figure and their word, so they need the fourth column. */
 a.need-line { grid-template-columns: 8px minmax(0, 1fr) auto auto; }

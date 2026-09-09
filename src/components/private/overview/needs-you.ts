@@ -15,7 +15,19 @@ import type { BudgetPlanLine, RecurringRow, TransactionRow } from "@/lib/types";
 import type { PlanReading } from "@/components/private/budgets/plan-reading";
 import { windowLabel } from "@/components/private/budgets/plan-reading";
 
-export type NeedTone = "late" | "over" | "soon" | "quiet";
+/**
+ * What the row's mark says, and it says one of three things: fine, act, already wrong.
+ *
+ * `in` is separate from the rest because it is the only one that is not a claim on the
+ * money. A salary waiting to be written down was drawn in the same red as an unpaid
+ * electricity bill, and red on this screen means somebody is owed — so the one row on the
+ * page that means money *arriving* was the most alarming thing on it.
+ *
+ * `due` is the day itself. Everything already dated was `late`, so a bill falling due this
+ * morning and one three days past its date were the same colour and the same word, and the
+ * difference between them is the whole reason to look.
+ */
+export type NeedTone = "late" | "due" | "in" | "over" | "soon" | "quiet";
 
 /**
  * What the row lets you do about it.
@@ -59,9 +71,17 @@ const WEIGHT = {
   overdue: 0,
   imminent: 1,
   over: 2,
-  unpriced: 3,
-  soon: 4,
-  running: 5,
+  /*
+    Money coming in, under the things that are going wrong and over the paperwork.
+
+    It belongs on this list — nothing else will remind you the salary landed and the
+    ledger does not know — but it is not a problem, and it used to share the top weight
+    with an unpaid bill. On a bad morning that put "Plata" above an overdue instalment.
+  */
+  expected: 3,
+  unpriced: 4,
+  soon: 5,
+  running: 6,
 } as const;
 
 /** Bills closer than this are "in three days", not "next week". */
@@ -118,6 +138,20 @@ export function whenPhrase(days: number): string {
   return `due in ${days} days`;
 }
 
+/**
+ * The same half of a date, for money coming the other way.
+ *
+ * "1 day overdue" is a thing you have done wrong. A salary that has not landed yet is not
+ * late — nobody is waiting on you — so it says when it is expected and leaves the blame
+ * out of it.
+ */
+function arrivalPhrase(days: number): string {
+  if (days < 0) return days === -1 ? "expected yesterday" : `expected ${-days} days ago`;
+  if (days === 0) return "expected today";
+  if (days === 1) return "expected tomorrow";
+  return `expected in ${days} days`;
+}
+
 export function readNeeds(input: NeedsInput): NeedsReading {
   const { today, fmt } = input;
   const all: Need[] = [];
@@ -130,16 +164,32 @@ export function readNeeds(input: NeedsInput): NeedsReading {
   for (const rule of input.dueNow) {
     const amount = Number(rule.amount);
     const known = !rule.variable && amount > 0;
+    const days = daysUntil(today, rule.next_on);
+    /*
+      A recurring rule is a bill or it is a wage — those are the only two the form can
+      make, `goal` being an expense that lands in a goal. Which one it is decides both
+      the colour of the row and the verb in it, because money arriving and money owed are
+      not the same news however similar the row looks.
+    */
+    const arriving = rule.kind === "income";
     all.push({
       id: `due:${rule.id}`,
-      tone: "late",
+      tone: arriving ? "in" : days < 0 ? "late" : "due",
       title: rule.name,
-      detail: known
-        ? `Due ${rule.next_on} · usually ${fmt(amount)}`
-        : `Due ${rule.next_on} · the amount changes`,
+      /*
+        The date in words, like every other row on this list.
+
+        It printed `Due 2026-09-10`, which is the database's way of saying it and made the
+        reader work out what today was to know whether that mattered. The phrase that does
+        that work already existed two functions up and was being used everywhere except on
+        the rows that can be acted on.
+      */
+      detail: `${arriving ? arrivalPhrase(days) : whenPhrase(days)} · ${
+        known ? `usually ${fmt(amount)}` : "the amount changes"
+      }`,
       amount: known ? amount : null,
       action: { kind: "book", rule },
-      weight: WEIGHT.overdue,
+      weight: arriving ? WEIGHT.expected : WEIGHT.overdue,
     });
   }
 
