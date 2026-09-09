@@ -124,3 +124,37 @@ Where a child row points at a parent, put the ownership in the key:
 Then prove it, with a `do $$ ... raise exception $$` probe that writes the bad row, catches
 the violation and aborts — so the check runs against the real database and leaves nothing
 behind.
+
+## How the owner files things, when the app has to guess
+
+Rules about his money, in a file about the code, for one reason: the moment anything
+guesses a category — a receipt read off a fiscal QR, a bank line matched to a name, a
+field filled from the last entry with the same title — it has to guess the way he files by
+hand. Guess differently and the same coffee lands in two categories, and then neither
+figure answers anything.
+
+**A café is `Fun`, not `Eating out`.** Coffee at home costs thirty dinars; the 250 in a
+café buys an hour sitting with somebody. What was bought is the outing, and the coffee is
+the excuse — so beer, kafana, cinema and a concert are the same line. `Eating out` is the
+narrower thing: a meal that replaced cooking. Burek in the morning, a pizza because there
+was no time, delivery, lunch out — money that was going to be spent on food anyway, only
+more of it.
+
+The test is one question: *would the same thing at home have done?* Burek, yes — so
+`Eating out`. Coffee with a friend, no — so `Fun`. Where the meal is itself the outing, a
+pizza with friends and two hours at the table, it is `Fun`: the outing is what created the
+spend, and without it there is no bill.
+
+The point of the split is which figure can be acted on. `Fun` is the line an ordinary
+decision moves, so it is the one worth looking at in a thin month. `Eating out` answers a
+different question — what not cooking costs — and it stays lumpy, a couple of bills a
+month, which is what it should look like.
+
+**A whip-round is one share, not the pot.** Several people put in for a present and he
+pays 1.000 of the 5.000: the expense is 1.000, filed under `Gifts`. (`Gifts` is giving to
+a person — a present, a wedding envelope, a wreath. `Donations` is giving to a cause.)
+
+If he collects the other 4.000 and hands the lot over, that money passed through him and
+was never his — nothing is recorded for it, because 5.000 in the ledger is a month lying
+by 4.000. A share somebody has not put in yet is `Lent out` in that person's name, and it
+closes when they pay.
