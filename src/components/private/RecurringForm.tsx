@@ -75,6 +75,17 @@ export function RecurringForm({
     undefined,
   );
   const [variable, setVariable] = useState(item?.variable ?? false);
+  /*
+    Whether this one writes its own entry when the day comes.
+
+    Off unless the rule already says otherwise, which is the answer for almost everything:
+    the app cannot see money move, so anything it records unasked is a prediction filed as
+    a fact. A standing order is the exception worth having a switch for — it really does
+    leave the account whether or not anybody opens an app — and that is a fact about the
+    arrangement with the bank, which is why it is asked here, per rule, and not once in a
+    settings screen for all of them.
+  */
+  const [selfBooks, setSelfBooks] = useState(item?.books_itself ?? false);
   const [goalId, setGoalId] = useState(item?.goal_id ?? "");
   /*
     The debt, the payment and the number of payments — three figures that are one figure.
@@ -277,6 +288,51 @@ export function RecurringForm({
               </span>
             </span>
             {variable && <input type="hidden" name="variable" value="on" />}
+          </button>
+        )}
+
+        {/*
+          Only where it can mean anything: a bill whose figure changes has nothing to post
+          on its own, so offering the switch there would be offering a setting that does
+          nothing — the shape of promise this app is not allowed to make.
+        */}
+        {!variable && (
+          <button
+            type="button"
+            onClick={() => setSelfBooks(!selfBooks)}
+            aria-pressed={selfBooks}
+            className={cn(
+              "zv-press mb-2.5 flex w-full items-center gap-2.5 rounded-ctrl border px-3 py-2.5 text-left transition-colors",
+              selfBooks ? "border-gold/45 bg-active-bg" : "border-line hover:border-line-soft",
+            )}
+          >
+            <span
+              className={cn(
+                "flex h-4 w-4 shrink-0 items-center justify-center rounded-[4px] border transition-colors",
+                selfBooks ? "border-gold bg-gold text-on-gold" : "border-line",
+              )}
+              aria-hidden
+            >
+              {selfBooks && (
+                <svg
+                  viewBox="0 0 12 12"
+                  className="h-2.5 w-2.5"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                >
+                  <path d="M2 6.5 4.6 9 10 3.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              )}
+            </span>
+            <span className="text-[13px] text-ink">
+              Record it for me when the day comes
+              <span className="block text-[11.5px] text-faint">
+                For a standing order that leaves on its own. Off, and the overview asks
+                you first.
+              </span>
+            </span>
+            {selfBooks && <input type="hidden" name="books_itself" value="on" />}
           </button>
         )}
 

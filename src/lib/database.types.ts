@@ -732,6 +732,7 @@ export type Database = {
           active: boolean
           amount: number
           anchor_day: number | null
+          books_itself: boolean
           category_id: string | null
           created_at: string
           currency: string
@@ -756,6 +757,7 @@ export type Database = {
           active?: boolean
           amount?: number
           anchor_day?: number | null
+          books_itself?: boolean
           category_id?: string | null
           created_at?: string
           currency?: string
@@ -780,6 +782,7 @@ export type Database = {
           active?: boolean
           amount?: number
           anchor_day?: number | null
+          books_itself?: boolean
           category_id?: string | null
           created_at?: string
           currency?: string

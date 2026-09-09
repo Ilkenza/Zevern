@@ -27,6 +27,7 @@ import {
 import { MoneyField } from "@/components/ui/MoneyField";
 import { buttonClasses } from "@/components/ui/Button";
 import { MoreRow } from "@/components/ui/MoreRow";
+import { booksItself } from "@/lib/money/books-itself";
 import { useMoney } from "@/lib/money/currency";
 import { formatAmount } from "@/lib/money";
 import type { Need } from "./needs-you";
@@ -35,15 +36,6 @@ import type { DueSoon } from "@/lib/data/money";
 
 /** How many of the automatically recorded ones get named before it becomes a count. */
 const AUTO_NAMED = 3;
-
-/** A fixed rule entered before its date books itself; anything else waits for a tap. */
-function booksItself(item: RecurringRow): boolean {
-  return (
-    !item.variable &&
-    Number(item.amount) > 0 &&
-    String(item.created_at).slice(0, 10) < item.next_on
-  );
-}
 
 function BookRow({ need, rule }: { need: Need; rule: RecurringRow }) {
   const router = useRouter();
@@ -93,7 +85,7 @@ function BookRow({ need, rule }: { need: Need; rule: RecurringRow }) {
           disabled={pending}
           className={buttonClasses("primary", "px-2.5 py-1.5 text-[12px]")}
         >
-          {pending ? "…" : "Book"}
+          {pending ? "…" : rule.kind === "income" ? "Received" : "Paid"}
         </button>
         <button
           type="button"

@@ -198,6 +198,13 @@ export async function saveRecurring(_prev: MoneyState, formData: FormData): Prom
   */
   const loanId = goalId ? null : String(formData.get("loan_id") ?? "").trim() || null;
   const variable = goalId ? false : formData.get("variable") != null;
+  /*
+    A variable rule can never carry this, whatever arrives in the form. The checkbox is
+    not rendered beside one, so the only way this pair reaches here is a request built by
+    hand — and a rule that says "book yourself" with no figure to book is a row that would
+    sit in the database contradicting itself.
+  */
+  const selfBooks = !variable && formData.get("books_itself") != null;
   const amount = variable ? 0 : num(formData.get("amount"));
   const currency = currencyOf(formData.get("currency"));
   /*
@@ -283,6 +290,7 @@ export async function saveRecurring(_prev: MoneyState, formData: FormData): Prom
     amount,
     currency,
     variable,
+    books_itself: selfBooks,
     every,
     every_count: everyCount,
     ends_when: endsWhen,
@@ -630,6 +638,14 @@ export async function postAllDueFixed(): Promise<MoneyState> {
     .select("id, next_on, created_at")
     .eq("user_id", uid)
     .eq("active", true)
+    /*
+      The switch, asked of the database rather than of the screen.
+
+      This used to book every fixed rule that had fallen due, which made the client's
+      filter decorative: whatever the list on screen showed, this posted the lot. So the
+      one place that writes entries nobody typed is the place the switch has to be read.
+    */
+    .eq("books_itself", true)
     .eq("variable", false)
     .gt("amount", 0)
     .lte("next_on", today);

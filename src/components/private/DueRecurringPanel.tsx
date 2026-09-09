@@ -9,6 +9,7 @@ import { MoreRow } from "@/components/ui/MoreRow";
 import { buttonClasses } from "@/components/ui/Button";
 import { MoneyField } from "@/components/ui/MoneyField";
 import { formatAmount } from "@/lib/money";
+import { booksItself } from "@/lib/money/books-itself";
 import type { RecurringRow } from "@/lib/types";
 
 /**
@@ -24,19 +25,6 @@ const DUE_SHOWN = 4;
 
 /** Enough names to recognise the batch. Past three it is a paragraph, not a note. */
 const AUTO_NAMED = 3;
-
-/**
- * An item books itself only when the amount is known AND it was entered before the
- * date it falls due. Something added today with today's date waits for a tap instead —
- * otherwise saving it would immediately post an entry nobody confirmed.
- */
-function booksItself(item: RecurringRow): boolean {
-  return (
-    !item.variable &&
-    Number(item.amount) > 0 &&
-    String(item.created_at).slice(0, 10) < item.next_on
-  );
-}
 
 /** One waiting item: variable ones need an amount, fixed ones may override theirs. */
 function DueRow({ item }: { item: RecurringRow }) {
@@ -89,7 +77,7 @@ function DueRow({ item }: { item: RecurringRow }) {
         disabled={pending}
         className={buttonClasses("primary", "px-3 py-1.5")}
       >
-        {pending ? "…" : "Record payment"}
+        {pending ? "…" : item.kind === "income" ? "Received" : "Paid"}
       </button>
       <button
         type="button"
@@ -109,9 +97,9 @@ function DueRow({ item }: { item: RecurringRow }) {
 }
 
 /**
- * Fixed items entered ahead of time book themselves the first time the page is opened
- * after they fall due. Everything else — variable items, and anything entered today —
- * waits here for a confirmation.
+ * Rules told to book themselves do so the first time the page is opened after they fall
+ * due. Everything else waits here to be confirmed — which, since the switch starts off,
+ * is every rule until somebody says otherwise.
  */
 export function DueRecurringPanel({ due }: { due: RecurringRow[] }) {
   const router = useRouter();

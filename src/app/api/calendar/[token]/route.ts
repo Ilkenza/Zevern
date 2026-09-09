@@ -136,6 +136,8 @@ function asRecurringRow(rule: FeedRule): RecurringRow {
     display_currency: null,
     loan_id: rule.loan_id,
     variable: Boolean(rule.variable),
+    // Inert like the rest: the feed prints dates, and nothing it does writes an entry.
+    books_itself: false,
     every: rule.every,
     every_count: Number(rule.every_count) || 1,
     ends_when: rule.ends_when ?? "never",
