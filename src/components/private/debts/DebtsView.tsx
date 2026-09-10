@@ -275,9 +275,23 @@ export function DebtsView({ debts, panel }: { debts: LoanLine[]; panel: DebtsPan
                       */}
                       {!done && (
                         <Link
-                          href={`/private/money?new=${lent ? "income" : "expense"}&loan=${debt.id}`}
-                          aria-label={`Add a payment against ${debt.name}`}
-                          title="Add payment"
+                          /*
+                            Money coming back is not income.
+
+                            This opened the form on `income`, which counts as a repayment
+                            in the reader and reads as earnings everywhere else: lend
+                            2.000 and collect 2.000 and the month claimed you had earned
+                            it, when nothing had happened but your own money returning.
+                            `loan_in` lands it on the account and leaves the month alone,
+                            which is the whole reason that kind exists.
+                          */
+                          href={`/private/money?new=${lent ? "loan_in" : "expense"}&loan=${debt.id}`}
+                          aria-label={
+                            lent
+                              ? `Record what ${debt.name} paid back`
+                              : `Add a payment against ${debt.name}`
+                          }
+                          title={lent ? "Record a repayment" : "Add payment"}
                           className="zv-rowctrl zv-rowctrl-sm"
                         >
                           <Plus className="h-3.25 w-3.25" />

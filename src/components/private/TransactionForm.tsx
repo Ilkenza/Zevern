@@ -199,6 +199,13 @@ export function TransactionForm({
 
   const { accounts, categories, goals, loans, rates, budgets = [], items: known = [] } = data;
 
+  /*
+    The debt now named on a `loan_in`, when it is one running towards you.
+    Only then does the sentence under the picker have something to correct.
+  */
+  const backToYou =
+    kind === "loan_in" ? (loans.find((l) => l.id === loanChoice && l.direction === "lent") ?? null) : null;
+
   /* Folded: `money_items` holds one row per name whatever its case, so this must too. */
   const titleKey = title.trim().toLowerCase();
   const titleOnList =
@@ -712,12 +719,21 @@ export function TransactionForm({
           the month and stays an ordinary expense — but naming the debt is what makes it
           pay that debt down instead of just leaving the account.
 
+          And on an income, which is the mirror and was missing. `saveTransaction` has
+          always kept a `loan_id` on an income — the reader counts it as a repayment —
+          and the Debts screen has always linked here to record one. The field it linked
+          to was never drawn, so the debt arrived in the address, sat in state, and was
+          not among the things the form posted: the money landed, the debt did not move,
+          and nothing said so. The same silence swallowed an edit — reopening an income
+          that already named a debt would save it having quietly forgotten which.
+
           Only when there is a debt, though. It used to sit on every purchase, so a
           coffee asked which loan it was paying off — a question with one possible
           answer, on the form people fill in most often. A field whose only honest reply
           is "nothing" is not a question, it is furniture.
         */}
-        {(isLoanKind(kind) || (kind === "expense" && loanOptions.length > 0)) && (
+        {(isLoanKind(kind) ||
+          ((kind === "expense" || kind === "income") && loanOptions.length > 0)) && (
           <Select
             /*
               "Which debt" asked the wrong man a fair question.
@@ -733,24 +749,46 @@ export function TransactionForm({
               list; nothing on the closed picker said so, which is how a required field
               that looks empty turns into a refusal nobody can act on.
             */
-            label={kind === "expense" ? "Pays off" : kind === "loan_out" ? "Who is it with" : "Which debt"}
+            label={
+              kind === "expense"
+                ? "Pays off"
+                : kind === "income"
+                  ? "Repays"
+                  : kind === "loan_out"
+                    ? "Who is it with"
+                    : "Which debt"
+            }
             name="loan_id"
             value={loanChoice}
             onChange={(e) => setLoanChoice(e.target.value)}
             placeholder={
               kind === "expense"
                 ? "Nothing — an ordinary expense"
-                : kind === "loan_out"
-                  ? "Pick who, or add somebody new"
-                  : "Pick one, or add a new one"
+                : kind === "income"
+                  ? "Nothing — ordinary income"
+                  : kind === "loan_out"
+                    ? "Pick who, or add somebody new"
+                    : "Pick one, or add a new one"
             }
             options={loanOptions}
             help={
               kind === "expense"
                 ? "Set this on an instalment and the debt falls by itself."
-                : kind === "loan_out"
-                  ? "The money leaves the account, but it is not spending — it comes back. Somebody new? Pick ＋ Somebody new and name them below."
-                  : "The money lands on the account, but it is not income. Nothing on the list yet? Pick ＋ A new debt and name it below."
+                : kind === "income"
+                  ? "Somebody paying you back, or a payment of yours that came back."
+                  : kind === "loan_out"
+                    ? "The money leaves the account, but it is not spending — it comes back. Somebody new? Pick ＋ Somebody new and name them below."
+                    : /*
+                        Once the debt is named, the form can say which of the two things
+                        this tab does. `Borrowed` is the honest name for opening one and
+                        the wrong name for closing one, and the second is what somebody
+                        handing your money back is — so the sentence says it out loud
+                        rather than leaving the tab to be read as a claim about who owes
+                        whom.
+                      */
+                      backToYou
+                      ? `${backToYou.name} paying you back. It lands on the account and is not income — it was already yours.`
+                      : "The money lands on the account, but it is not income. Nothing on the list yet? Pick ＋ A new debt and name it below."
             }
           />
         )}
