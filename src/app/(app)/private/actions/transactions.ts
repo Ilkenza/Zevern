@@ -6,6 +6,7 @@ getMoney,getRates
 } from "@/lib/data/money";
 import { isLoanKind, isTxKind, NEW_LOAN, rateFor } from "@/lib/money";
 import { GOAL_MOVE_KINDS, goalKinds, movesToward } from "@/lib/money/goal-progress";
+import { loanClosure } from "@/lib/money/loan-progress";
 import { itemsArePriced,itemsTotal,parseItems,parseKeep } from "@/lib/money/items";
 import { userId } from "@/lib/supabase/current-user";
 import { saveErrorMessage } from "@/lib/supabase/errors";
@@ -14,6 +15,7 @@ import { redirect } from "next/navigation";
 import {
 currencyOf,
 goalBalance,
+loanOwed,
 MAX_AMOUNT,
 MoneyState,
 num,
@@ -27,6 +29,56 @@ today
 import { unreadable } from "@/lib/data/must";
 
 /* ------------------------------------------------------------ transactions */
+
+/**
+ * What each debt this write touches had on it beforehand.
+ *
+ * Read before the entry is written, because afterwards the question cannot be asked any
+ * more: the whole point is to compare. An edit can move a movement from one debt to
+ * another, so both are read — the one being left can be reopened by the leaving just as
+ * the one being joined can be closed by the joining.
+ */
+async function owedBefore(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  uid: string,
+  loanIds: Iterable<string>,
+): Promise<Map<string, number>> {
+  const before = new Map<string, number>();
+  for (const loanId of new Set(loanIds)) {
+    const now = await loanOwed(supabase, uid, loanId);
+    // A debt that could not be read counts as one that had money on it, so a failed read
+    // can close a debt that is genuinely clear but can never reopen one that is not.
+    before.set(loanId, now ? now.outstanding : Number.POSITIVE_INFINITY);
+  }
+  return before;
+}
+
+/**
+ * And what the write did to it: closed it, opened it again, or neither.
+ *
+ * Quiet on failure, deliberately, and the precedent is `postRecurring`: the entry is
+ * already written and the debt already reads as nought owed, so the worst case is a row
+ * that wants closing by hand — which is where this started. Turning a saved entry into an
+ * error message over it would be the larger fault.
+ */
+async function syncLoanClosure(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  uid: string,
+  loanId: string,
+  before: number,
+  on: string,
+): Promise<void> {
+  const now = await loanOwed(supabase, uid, loanId);
+  if (!now) return;
+  const move = loanClosure({ before, after: now.outstanding, settled: now.settled });
+  if (!move) return;
+  const { error } = await supabase
+    .from("money_loans")
+    .update({ settled_on: move === "close" ? on : null })
+    .eq("id", loanId)
+    .eq("user_id", uid);
+  if (error) console.error("syncLoanClosure:", error.message);
+}
 
 /**
  * Every kind that is allowed to name a goal at all. Which of them a *particular* goal
@@ -418,6 +470,33 @@ export async function saveTransaction(_prev: MoneyState, formData: FormData): Pr
     items: items.length > 0 ? items : null,
   };
 
+  /*
+    The debts this save is about to move, and what they owed a moment ago.
+
+    The one it names now, and — on an edit — the one it may be walking away from, which
+    is read off the stored row rather than trusted to the form: the form only knows where
+    the entry is going.
+  */
+  const touched = new Set<string>();
+  if (loanRef) touched.add(loanRef);
+  if (id) {
+    const { data: was, error: wasError } = await supabase
+      .from("money_transactions")
+      .select("loan_id")
+      .eq("id", id)
+      .eq("user_id", uid)
+      .maybeSingle();
+    /*
+      Not worth turning a good save into an error message. What it costs is one case: a
+      debt this entry is walking away from keeps its closed date until the next thing
+      touches it — and the entry itself, which is what was asked for, is written either
+      way.
+    */
+    if (wasError) console.error("saveTransaction previous debt:", wasError.message);
+    else if (was?.loan_id) touched.add(was.loan_id);
+  }
+  const owed = await owedBefore(supabase, uid, touched);
+
   let written: string | null = id || null;
   if (id) {
     const { error } = await supabase
@@ -436,6 +515,22 @@ export async function saveTransaction(_prev: MoneyState, formData: FormData): Pr
       .maybeSingle();
     if (error) return { error: saveErrorMessage(error) };
     written = made?.id ?? null;
+  }
+
+  /*
+    A debt paid down to nothing closes itself, and one that stops being paid opens again.
+
+    `postRecurring` has done the first half for the instalment since it was written, with
+    the reason spelled out beside it: a list that asks to be told what it can see is a
+    list that stops being read. The same money entered by hand did nothing, so a debt
+    collected in full sat in the open list at nought beside a `Collected' button — the
+    identical fact recorded two ways giving two answers.
+
+    Dated by the entry rather than by the clock, because a repayment written down on
+    Thursday for money that came back on Monday closed the debt on Monday.
+  */
+  for (const loanId of touched) {
+    await syncLoanClosure(supabase, uid, loanId, owed.get(loanId) ?? Number.POSITIVE_INFINITY, occurredOn);
   }
 
   /*
@@ -559,7 +654,7 @@ export async function removeTransaction(id: string): Promise<MoneyState> {
 
   const { data: row, error: rowError } = await supabase
     .from("money_transactions")
-    .select("kind, goal_id, amount_rsd")
+    .select("kind, goal_id, amount_rsd, loan_id")
     .eq("id", id)
     .eq("user_id", uid)
     .maybeSingle();
@@ -593,12 +688,33 @@ export async function removeTransaction(id: string): Promise<MoneyState> {
     }
   }
 
+  /*
+    What the debt behind it owed while the entry was still there — the same comparison the
+    save makes, from the other side. Taking away the payment that cleared a debt has to
+    take the closing with it, or the row goes on claiming to be collected while the ledger
+    says the money never came.
+  */
+  const owed = row?.loan_id
+    ? await owedBefore(supabase, uid, [row.loan_id])
+    : new Map<string, number>();
+
   const { error } = await supabase
     .from("money_transactions")
     .delete()
     .eq("id", id)
     .eq("user_id", uid);
   if (error) return { error: saveErrorMessage(error) };
+
+  if (row?.loan_id) {
+    await syncLoanClosure(
+      supabase,
+      uid,
+      row.loan_id,
+      owed.get(row.loan_id) ?? Number.POSITIVE_INFINITY,
+      today(),
+    );
+  }
+
   refresh();
   return { ok: true };
 }

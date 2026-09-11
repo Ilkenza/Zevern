@@ -1,3 +1,5 @@
+import { PENNY } from "./posting";
+
 /**
  * Which way a movement moves a debt, and by how much.
  *
@@ -22,6 +24,37 @@
  * subtract; the opening does not count at all, because the total is stated on the debt
  * rather than derived from the entry that started it.
  */
+
+/**
+ * Whether the debt should now close itself, open itself again, or be left alone.
+ *
+ * A debt paid down to nothing used to sit in the open list at nought, beside a button
+ * asking to be told what the row already said. `postRecurring` fixed that for the
+ * instalment years ago — the last rate closes the debt — and left the same money entered
+ * by hand doing nothing, so the identical fact recorded two ways gave two answers.
+ *
+ * Reopening is the harder half, and the reason it takes `before` at all. Closing a debt
+ * with a balance still on it is a real thing somebody does — the rest was forgiven, see
+ * `settleLoan` — and a rule that reopened any closed debt showing money owed would undo
+ * that the moment anything else was touched. So the door only swings back for a debt that
+ * was standing at nothing: it was closed because it was paid, the payment has gone, and
+ * the reason it was closed went with it.
+ */
+export type LoanClosure = "close" | "reopen" | null;
+
+export function loanClosure(input: {
+  /** What was owed before the entry was written, edited or removed. */
+  before: number;
+  /** And what is owed now. */
+  after: number;
+  /** Whether the debt currently carries a settled date. */
+  settled: boolean;
+}): LoanClosure {
+  const { before, after, settled } = input;
+  if (after <= PENNY && !settled) return "close";
+  if (after > PENNY && settled && before <= PENNY) return "reopen";
+  return null;
+}
 
 /** A movement against a debt, reduced to what this file needs. */
 export type LoanMove = { kind: string; amount: number };

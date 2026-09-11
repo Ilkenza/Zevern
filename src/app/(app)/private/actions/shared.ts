@@ -10,6 +10,7 @@
  */
 
 import { goalKinds, movesToward } from "@/lib/money/goal-progress";
+import { settledOf } from "@/lib/money/loan-progress";
 import { expiryFor } from "@/lib/money/stock";
 import { todayISO } from "@/lib/format";
 import {
@@ -145,6 +146,55 @@ export function plainDate(value: FormDataEntryValue | string | null): string | n
  * is money handed back that was never set aside, written into the ledger. A goal being
  * paid off had its money leave the account when it was spent, so it holds zero, always.
  */
+/**
+ * What one debt still has on it, read from the ledger rather than from a cached list.
+ *
+ * The mirror of `goalBalance`, and here for the same reason: an action deciding what to
+ * do about a debt needs the figure *now*, inside its own transaction, not the one the
+ * page was rendered with. `getLoans` answers the same question for a screen and caches
+ * per request, which is exactly wrong for a caller that has just written a movement and
+ * wants to know what it did.
+ *
+ * `settled` is handed back alongside, because the two questions this figure gets asked —
+ * has it just been cleared, was it closed already — cannot be answered by the number on
+ * its own.
+ */
+export async function loanOwed(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  uid: string,
+  loanId: string,
+): Promise<{ outstanding: number; settled: boolean } | null> {
+  const [loanRes, moveRes] = await Promise.all([
+    supabase
+      .from("money_loans")
+      .select("direction, total_rsd, settled_on")
+      .eq("id", loanId)
+      .eq("user_id", uid)
+      .maybeSingle(),
+    supabase
+      .from("money_transactions")
+      .select("kind, amount_rsd")
+      .eq("user_id", uid)
+      .eq("loan_id", loanId),
+  ]);
+  if (loanRes.error || moveRes.error) {
+    console.error("loanOwed:", (loanRes.error ?? moveRes.error)?.message);
+    return null;
+  }
+  if (!loanRes.data) return null;
+
+  const total = Number(loanRes.data.total_rsd) || 0;
+  const settled = settledOf(
+    loanRes.data.direction,
+    (moveRes.data ?? []).map((r) => ({ kind: r.kind, amount: Number(r.amount_rsd) || 0 })),
+  );
+  return {
+    // The same floor the reader keeps: an overpayment is a paid debt, not a negative one.
+    outstanding: Math.max(total - settled, 0),
+    settled: loanRes.data.settled_on != null,
+  };
+}
+
 export async function goalBalance(
   supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
   uid: string,

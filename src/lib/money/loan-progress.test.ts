@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { settledOf, weighLoanMove } from "./loan-progress";
+import { loanClosure, settledOf, weighLoanMove } from "./loan-progress";
 
 /*
   A debt is the one figure in this app that is worked out from the ledger every time it
@@ -89,5 +89,41 @@ describe("settledOf", () => {
     // figure it has nothing to do with.
     expect(settledOf("borrowed", [{ kind: "expense", amount: 1000 }, { kind: "saving", amount: 999 }]))
       .toBe(1000);
+  });
+});
+
+describe("loanClosure", () => {
+  it("closes a debt the moment the ledger says nothing is left", () => {
+    expect(loanClosure({ before: 3000, after: 0, settled: false })).toBe("close");
+  });
+
+  it("says nothing about a debt already closed", () => {
+    expect(loanClosure({ before: 0, after: 0, settled: true })).toBe(null);
+  });
+
+  it("leaves a debt with money on it open", () => {
+    expect(loanClosure({ before: 3000, after: 1000, settled: false })).toBe(null);
+  });
+
+  /*
+    The payment that closed it has gone — by a delete, or by an edit down — so the reason
+    the debt was closed went with it.
+  */
+  it("reopens one that was standing at nothing and no longer is", () => {
+    expect(loanClosure({ before: 0, after: 2700, settled: true })).toBe("reopen");
+  });
+
+  /*
+    The other way a debt closes: somebody forgave what was left. It was never at nought,
+    so nothing here may touch it — otherwise the forgiveness comes undone the next time
+    any entry against that debt is edited.
+  */
+  it("never reopens a debt that was closed with a balance still on it", () => {
+    expect(loanClosure({ before: 4000, after: 6000, settled: true })).toBe(null);
+  });
+
+  /* Rounding leaves tenths of a dinar behind; they are not a debt. */
+  it("counts a hundredth of a dinar as paid", () => {
+    expect(loanClosure({ before: 100, after: 0.004, settled: false })).toBe("close");
   });
 });
