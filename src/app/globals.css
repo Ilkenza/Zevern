@@ -7782,19 +7782,51 @@ body > * { min-width: 0; }
     inset 0 1px 0 rgba(255, 255, 255, 0.07),
     0 22px 50px -12px rgba(0, 0, 0, 0.8),
     0 2px 8px rgba(0, 0, 0, 0.4);
-  animation: zv-menu-in 190ms var(--ease-premium) both;
+  /*
+    Two animations, because the reveal and the fade are not the same length.
+
+    The clip does the opening and takes the full 230ms; the fade is over in 110 and only
+    exists so the first sliver does not arrive as a hard edge. Run as one animation they
+    would have to share a duration, and a panel still fading at 200ms is a panel that
+    looks like it is loading.
+  */
+  animation:
+    zv-menu-in 230ms cubic-bezier(0.32, 0.72, 0, 1) both,
+    zv-menu-fade 110ms linear both;
+  /*
+    Not `--ease-premium` on the reveal, and that is the one place in this file where it
+    is the wrong curve. It is a hard deceleration — 78% of the way there in the first
+    quarter of its time — which is what you want for something settling into a position,
+    and it means a clip using it is effectively open before the eye has caught it
+    travelling. The gesture was there and nobody could see it. This curve holds the
+    first third back and glides the rest, so the panel is watched opening rather than
+    found open.
+  */
 }
 
 /*
-  It grows out of the corner the button is in — `transform-origin` above says which — so
-  the further it starts from full size, the more it reads as having come *from* the
-  button rather than having been placed near it. At 0.965 the move was too small to say
-  anything; the panel simply appeared, very slightly. 0.94 and eight pixels is still
-  nowhere near a bounce and it is the difference between arriving and being drawn.
+  It is uncovered, not inflated — and this is the whole of the difference.
+
+  Every version before this scaled the panel from 0.94 up to full size, and the text
+  scaled with it: for about a fifth of a second every glyph in the menu was being resampled
+  a few per cent smaller than its hinted size, which on a retina screen is a shimmer you
+  read as cheapness long before you could name it. The panel arrived and the letters
+  swam.
+
+  So nothing scales now. The box is full-size from the first frame and a clip runs down
+  it, which keeps the type on its pixels the whole way and reads as a drawer opening out
+  of the button rather than a card being blown up towards you. The inset matches
+  `--radius-card`, so the corners stay round while the edge travels; four pixels of drop
+  are left in because a reveal with no movement at all reads as a wipe.
 */
 @keyframes zv-menu-in {
-  from { opacity: 0; transform: translateY(-8px) scale(0.94); }
-  to { opacity: 1; transform: none; }
+  from { transform: translateY(-4px); clip-path: inset(0 0 70% 0 round 12px); }
+  to { transform: none; clip-path: inset(0 0 0 0 round 12px); }
+}
+
+@keyframes zv-menu-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 /*
@@ -7817,12 +7849,18 @@ body > * { min-width: 0; }
   fading where it stands, so the gesture reverses instead of ending.
 */
 .zv-menu[data-closing] {
-  animation: zv-menu-out 120ms cubic-bezier(0.4, 0, 0.9, 0.4) forwards;
+  animation: zv-menu-out 130ms cubic-bezier(0.4, 0, 0.9, 0.4) forwards;
   pointer-events: none;
 }
 
+/*
+  The same door, shut. The clip runs back up the panel and the last of it goes out under
+  the button — not as far as it came from, because a closing panel only has to clear the
+  eye, and carrying it all the way back to a sliver makes the shutting longer than the
+  opening for no reading gained.
+*/
 @keyframes zv-menu-out {
-  to { opacity: 0; transform: translateY(-6px) scale(0.955); }
+  to { opacity: 0; transform: translateY(-4px); clip-path: inset(0 0 45% 0 round 12px); }
 }
 
 /*
@@ -7884,11 +7922,19 @@ body > * { min-width: 0; }
     still lets the row behind you close gently.
   */
   transition: color 260ms ease;
-  animation: zv-menu-item-in 170ms var(--ease-premium) both;
+  animation: zv-menu-item-in 200ms var(--ease-premium) both;
 }
 
+/*
+  They rise into the opening, where they used to slide in from the left.
+
+  Sideways was the right move under a panel that appeared all at once: it gave the list
+  a direction of its own. Under a clip running downward it fights the reveal — a row
+  arriving from the left through an edge travelling down reads as two gestures crossing.
+  Four pixels up, in the same direction the panel is opening, and the two become one.
+*/
 @keyframes zv-menu-item-in {
-  from { opacity: 0; transform: translateX(-5px); }
+  from { opacity: 0; transform: translateY(4px); }
   to { opacity: 1; transform: none; }
 }
 

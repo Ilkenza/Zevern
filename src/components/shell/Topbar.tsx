@@ -202,12 +202,17 @@ export function Topbar({
                     role="menuitem"
                     onClick={closeMenu}
                     /*
-                      Eighteen milliseconds apart, which is under the threshold at which a
-                      cascade becomes a queue. The list still lands as one gesture; it just
-                      lands in an order, and the eye reads an order as something that was
-                      arranged rather than something that appeared.
+                      Twenty-six milliseconds apart, paced to the edge coming down the
+                      panel rather than to itself. The clip uncovers the fifth row around
+                      130ms in; a row that has already settled before the edge reaches it
+                      reads as printed on the panel, and one still arriving after the edge
+                      has passed reads as late. Matching the two makes the list look like
+                      it is being revealed rather than delivered.
+
+                      Capped at the sixth, because past that the cascade stops being a
+                      gesture and becomes a queue — the freelance menu has seven.
                     */
-                    style={{ animationDelay: `${Math.min(i, 4) * 18}ms` }}
+                    style={{ animationDelay: `${Math.min(i, 5) * 26}ms` }}
                     className="zv-menu-item flex items-center gap-2.5 rounded-ctrl px-2.5 py-2 text-[13px] font-medium"
                   >
                     {/*
