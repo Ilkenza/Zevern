@@ -386,6 +386,21 @@
     transform: none;
   }
 
+  /*
+    Shortened, not switched off — and that distinction is load-bearing here.
+
+    The `+ New` menu unmounts when its closing animation reports that it has ended.
+    `animation: none` on that panel would mean the event never fires, and the belt-and-
+    braces timer in `Topbar` would be the only thing left taking a menu off the screen.
+    One millisecond is instant to the eye and still an animation to the browser.
+  */
+  .zv-menu,
+  .zv-menu[data-closing],
+  .zv-menu-item {
+    animation-duration: 1ms !important;
+    animation-delay: 0ms !important;
+  }
+
   ::view-transition-old(*),
   ::view-transition-new(*),
   ::view-transition-group(*) {

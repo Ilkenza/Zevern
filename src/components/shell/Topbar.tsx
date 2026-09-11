@@ -20,7 +20,30 @@ export function Topbar({
   hidden?: string[];
   onMenu: () => void;
 }) {
-  const [menuOpen, setMenuOpen] = useState(false);
+  /*
+    Three states, because a menu that only has two cannot be watched leaving.
+
+    `menuOpen && <div/>` takes the panel off the screen in the same frame the press
+    lands: it opens with a considered little rise and disappears like a dropped
+    connection, and the asymmetry is the whole of why closing it felt cheap. So the panel
+    stays mounted through `closing`, plays its own way out, and unmounts when the
+    animation says it is done.
+
+    The timer is the belt to that braces. `animationend` is the honest signal and it does
+    not fire if the element never animates — a tab in the background, a browser that
+    skipped the frame, a stylesheet that has not landed — and a menu stuck half-shut over
+    the page is a worse fault than the one being fixed. Whichever arrives first wins, and
+    the other finds nothing left to do.
+  */
+  const [menu, setMenu] = useState<"shut" | "open" | "closing">("shut");
+  const menuOpen = menu === "open";
+  const closeMenu = () => setMenu((m) => (m === "open" ? "closing" : m));
+
+  useEffect(() => {
+    if (menu !== "closing") return;
+    const t = setTimeout(() => setMenu("shut"), 260);
+    return () => clearTimeout(t);
+  }, [menu]);
 
   /*
     Pressing anywhere outside it closes it, and so does Escape.
@@ -41,10 +64,10 @@ export function Topbar({
   useEffect(() => {
     if (!menuOpen) return;
     const onDown = (e: PointerEvent) => {
-      if (!group.current?.contains(e.target as Node)) setMenuOpen(false);
+      if (!group.current?.contains(e.target as Node)) closeMenu();
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setMenuOpen(false);
+      if (e.key === "Escape") closeMenu();
     };
     document.addEventListener("pointerdown", onDown);
     document.addEventListener("keydown", onKey);
@@ -121,7 +144,8 @@ export function Topbar({
       {/* + New */}
       <div ref={group} className="relative">
         <button
-          onClick={() => setMenuOpen((v) => !v)}
+          /* Pressed again while it is leaving, it comes back rather than waiting its turn. */
+          onClick={() => setMenu((m) => (m === "open" ? "closing" : "open"))}
           aria-haspopup="menu"
           aria-expanded={menuOpen}
           className={buttonClasses("primary", "zv-press zv-turn")}
@@ -129,10 +153,19 @@ export function Topbar({
           <Plus className="h-4 w-4" />
           New
         </button>
-        {menuOpen && (
+        {menu !== "shut" && (
           <>
             <div
               role="menu"
+              data-closing={menu === "closing" ? "" : undefined}
+              /*
+                Only the panel's own animation ends the panel. Every row inside it
+                animates too and those events bubble, so without this the first item to
+                finish would take the menu with it.
+              */
+              onAnimationEnd={(e) => {
+                if (e.target === e.currentTarget && menu === "closing") setMenu("shut");
+              }}
               className="zv-menu absolute right-0 z-50 mt-2 w-53 rounded-card border border-line bg-surface p-1.5 shadow-[0_16px_40px_-12px_rgba(0,0,0,0.6)]"
             >
               {/*
@@ -145,7 +178,7 @@ export function Topbar({
                   New
                 </span>
                 <button
-                  onClick={() => setMenuOpen(false)}
+                  onClick={closeMenu}
                   aria-label="Close menu"
                   title="Close"
                   className="zv-press flex h-6.5 w-6.5 items-center justify-center rounded-ctrl text-faint hover:bg-white/6 hover:text-ink"
@@ -167,14 +200,14 @@ export function Topbar({
                   <Link
                     href={item.href}
                     role="menuitem"
-                    onClick={() => setMenuOpen(false)}
+                    onClick={closeMenu}
                     /*
                       Eighteen milliseconds apart, which is under the threshold at which a
                       cascade becomes a queue. The list still lands as one gesture; it just
                       lands in an order, and the eye reads an order as something that was
                       arranged rather than something that appeared.
                     */
-                    style={{ animationDelay: `${i * 18}ms` }}
+                    style={{ animationDelay: `${Math.min(i, 4) * 18}ms` }}
                     className="zv-menu-item flex items-center gap-2.5 rounded-ctrl px-2.5 py-2 text-[13px] font-medium"
                   >
                     {/*

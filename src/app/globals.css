@@ -7782,12 +7782,86 @@ body > * { min-width: 0; }
     inset 0 1px 0 rgba(255, 255, 255, 0.07),
     0 22px 50px -12px rgba(0, 0, 0, 0.8),
     0 2px 8px rgba(0, 0, 0, 0.4);
-  animation: zv-menu-in 170ms var(--ease-premium) both;
+  animation: zv-menu-in 190ms var(--ease-premium) both;
 }
 
+/*
+  It grows out of the corner the button is in — `transform-origin` above says which — so
+  the further it starts from full size, the more it reads as having come *from* the
+  button rather than having been placed near it. At 0.965 the move was too small to say
+  anything; the panel simply appeared, very slightly. 0.94 and eight pixels is still
+  nowhere near a bounce and it is the difference between arriving and being drawn.
+*/
 @keyframes zv-menu-in {
-  from { opacity: 0; transform: translateY(-6px) scale(0.965); }
+  from { opacity: 0; transform: translateY(-8px) scale(0.94); }
   to { opacity: 1; transform: none; }
+}
+
+/*
+  And the way out, which the menu did not have.
+
+  It was `open && <panel/>`: a considered little rise on the way in, and on the way out
+  the panel was simply not there in the next frame — the same disappearance a crash
+  makes. Nothing about it was slow; it was the asymmetry that read as cheap, because a
+  thing that arrives with intent and leaves without any never becomes an object in the
+  room.
+
+  Faster than the entrance, and deliberately. Coming in, the panel is new and the eye
+  needs the time to find it; going out, the decision is already made and the only thing
+  left is to get out of the way — hold it as long as the entrance and the menu feels
+  like it is arguing. 120 against 170 is the ratio that reads as obedient.
+
+  Its own curve, too. `--ease-premium` decelerates: right for something settling into
+  place, wrong for something leaving, where a gentle start and an accelerating finish is
+  how objects actually go. It lifts back towards the button it came from rather than
+  fading where it stands, so the gesture reverses instead of ending.
+*/
+.zv-menu[data-closing] {
+  animation: zv-menu-out 120ms cubic-bezier(0.4, 0, 0.9, 0.4) forwards;
+  pointer-events: none;
+}
+
+@keyframes zv-menu-out {
+  to { opacity: 0; transform: translateY(-6px) scale(0.955); }
+}
+
+/*
+  The rows leave with the panel, not one at a time.
+
+  Arriving, the stagger is what makes the list read as arranged. Leaving, the same
+  cascade is six things dithering about who goes first, on a panel that is already
+  shrinking — and their entrance animation would otherwise still be holding them at
+  `both`, replaying under the exit. One object goes; nothing inside it argues.
+*/
+.zv-menu[data-closing] .zv-menu-item {
+  animation: none;
+}
+
+/*
+  The plus turns into a cross while the menu is open.
+
+  `zv-turn` has been on this button — and on five others — since before the sheen was
+  taken out, and the rule it named went with it: the class has been sitting in the markup
+  doing nothing, kept alive only by a line in the reduced-motion block switching off a
+  transition that no longer existed.
+
+  What it should do is the one thing the button was not doing: say that it has become the
+  way out. The panel below it opens and closes; the control that opens it looked the same
+  either way, so the only affordance for closing was the X inside the menu or a press
+  somewhere else. A plus rotated 45 degrees is a cross — the same eight pixels of ink,
+  turned — and it turns back on the way out, which makes the whole gesture one thing that
+  reverses rather than two that happen to be near each other.
+
+  Keyed off `aria-expanded`, so it is the state the screen reader is told about that
+  drives it; the five link buttons wearing this class have no such attribute and are
+  untouched.
+*/
+.zv-turn svg {
+  transition: transform 220ms var(--ease-premium);
+}
+
+.zv-turn[aria-expanded="true"] svg {
+  transform: rotate(45deg);
 }
 
 .zv-menu-item,
