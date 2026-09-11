@@ -53,6 +53,21 @@ export function ForecastOutlook({
     : days;
   const coverage = (coveredDays / days) * 100;
   const endingBalance = forecast.startingBalance + horizon.net;
+  /*
+    Whether this is a check or an inventory.
+
+    With everyday spending projected, the line is the question the card's name asks: does
+    the money last. With it off — which is a setting, two panels down — the line is only
+    the dated items, so what comes back is rent and salary and nothing else. That answer
+    is worth having and it is not the one the card was giving: `All 90 days are covered`
+    and a figure eighty thousand higher than today, on a screen that counted no groceries,
+    no coffee, no fuel. The number is honest arithmetic and the sentence around it was a
+    promise the arithmetic never made.
+
+    So the sentence changes and the sum does not. Nothing here recalculates anything — it
+    says what was counted, and points at the switch that would count the rest.
+  */
+  const everyday = forecast.spending.basis !== "off" && forecast.spending.monthly > 0;
   return (
     <section className={`forecast-outlook${firstNegative ? " forecast-outlook-risk" : ""}`}>
       <header className="forecast-outlook-head">
@@ -62,7 +77,9 @@ export function ForecastOutlook({
         <span className={`forecast-outlook-state${firstNegative ? " is-risk" : ""}`}>
           {firstNegative
             ? `Money runs short ${shortDate(firstNegative.on)}`
-            : `All ${days} days are covered`}
+            : everyday
+              ? `All ${days} days are covered`
+              : "Everything dated is covered"}
         </span>
       </header>
 
@@ -75,9 +92,11 @@ export function ForecastOutlook({
           <p>
             {outgoingOnly
               ? "Based on the costs you added. Income is not included yet."
-              : firstNegative
-                ? "Your scheduled costs become higher than your available money."
-                : "Your available money covers the full period."}
+              : !everyday
+                ? "Only dated items are counted — no groceries, no coffee, no fuel. Everyday spending is off, below."
+                : firstNegative
+                  ? "Your scheduled costs become higher than your available money."
+                  : "Your available money covers the full period."}
           </p>
         </div>
       </div>
@@ -105,7 +124,7 @@ export function ForecastOutlook({
         </div>
         <span className="forecast-balance-arrow" aria-hidden>→</span>
         <div>
-          <span>Free after {days} days</span>
+          <span>{everyday ? `Free after ${days} days` : `After ${days} days, if nothing else is spent`}</span>
           <strong className={`mono${endingBalance < 0 ? " is-risk" : ""}`}>
             {fmt(endingBalance)}
           </strong>

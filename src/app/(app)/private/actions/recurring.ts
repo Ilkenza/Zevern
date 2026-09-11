@@ -17,6 +17,7 @@ import { createClient as createSupabaseServerClient } from "@/lib/supabase/serve
 import { redirect } from "next/navigation";
 import {
 currencyOf,
+MAX_AMOUNT,
 MoneyState,
 num,
 ownsMoneyRow,
@@ -386,6 +387,15 @@ export async function postRecurring(id: string, amountOverride?: number): Promis
 
   const asked = amountOverride != null && amountOverride > 0 ? amountOverride : Number(item.amount);
   if (!(asked > 0)) return { error: "This one needs an amount before it can be booked." };
+  /*
+    The same ceiling the entry form keeps, on the one door into the ledger that did not
+    have it. A rate is typed over in a box the width of four characters, on a screen
+    people use half-awake, and a slipped zero booked here went in as money that left the
+    account — the difference between a mistyped bill and a fabricated one being only that
+    nobody chose it.
+  */
+  if (asked > MAX_AMOUNT)
+    return { error: "That figure is too large to be right. Check it and try again." };
 
   /*
     What is owed, read once — before the entry is written, and reused below to decide
