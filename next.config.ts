@@ -116,11 +116,24 @@ const nextConfig: NextConfig = {
           // A referrer leaks the path, and the paths here contain row ids — and, on
           // the calendar feed, the token itself. Send the origin at most.
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-          // Nothing in the app uses any of these, so nothing should be able to ask.
+          /*
+            Nothing in the app may ask for any of these — except the camera, which one
+            screen now does.
+
+            `camera=()` is an empty allow-list: no origin at all, the page's own included.
+            It was correct when it was written, and it stayed in place when the receipt
+            scanner arrived — so the browser refused `getUserMedia` in a millisecond, with
+            no prompt, on every address the app is served from, while the browser's own
+            camera setting said "sites can ask" and macOS had the browser switched on.
+            Three layers, two of them innocent, and the refusal was coming from here.
+
+            `self` is the whole of the change: this origin may use the camera, and nothing
+            it embeds can. Everything else stays shut.
+          */
           {
             key: "Permissions-Policy",
             value:
-              "camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()",
+              "camera=(self), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()",
           },
           // Keep this window's browsing context to itself.
           { key: "Cross-Origin-Opener-Policy", value: "same-origin" },

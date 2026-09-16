@@ -45,20 +45,22 @@ async function whyNot(err: unknown): Promise<string> {
 
     if (state === "denied") {
       /*
-        Deliberately NOT "click the icon next to the address".
+        The operating system first, and the browser second — which is the opposite of the
+        order this was written in, and of the order anybody guesses.
 
-        That was the first thing this said, and on the browser it was said to there was no
-        camera row behind that icon to click: the block was the browser's own default for
-        every site, not a decision about this one, and a padlock menu only lists the
-        permissions a site has actually been given or refused. Being sent to look for a
-        control that is not there is worse than being told nothing.
+        Two wrong versions came before this one. The first said "click the icon next to
+        the address", and there was no camera row behind that icon. The second blamed the
+        browser's own default, and a screenshot showed that default set to "sites can ask"
+        with no site overridden either way — while the camera was still refused instantly,
+        with no prompt, on two different origins.
 
-        The settings page always exists, so that is what is named — with the right scheme
-        for the browser reading it, because `chrome://` is not a page in Brave and
-        `brave://` is not one in Chrome. It has to be copied rather than linked: no page is
-        allowed to navigate to its own browser's settings.
+        What is left is the layer underneath: on macOS an app has to be granted the camera
+        by the system before anything inside it can ask for one, and when it has not been,
+        the browser reports the permission as denied and refuses in a millisecond. It looks
+        exactly like a site being blocked, which is why it costs an hour to find. So it is
+        named first now, and the browser's own page second.
       */
-      return `Kamera je blokirana u pregledaču — zato te i ne pita, i zato nema "Kamera" u meniju pored adrese. Nalepi ${settingsPath()} u adresu i dozvoli sajtovima da traže kameru. Ako i dalje ne radi: Podešavanja → Privatnost i bezbednost → Kamera, pa uključi pregledač.`;
+      return `Kamera je odbijena pre nego što je pregledač uopšte stigao da pita. Prvo proveri sistem: Podešavanja → Privatnost i bezbednost → Kamera, uključi pregledač i zatvori ga pa otvori ponovo. Ako je tamo već uključen, nalepi ${settingsPath()} u adresu i dozvoli sajtovima da traže kameru.`;
     }
     return "Nisi dozvolio kameru. Klikni Kamera ponovo i izaberi Dozvoli.";
   }
