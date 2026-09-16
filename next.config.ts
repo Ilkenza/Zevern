@@ -43,6 +43,14 @@ function supabaseOrigin(): string {
  *   threaded through the proxy — which is worth doing the day this app renders
  *   somebody else's markup. It renders none: there is no `dangerouslySetInnerHTML`
  *   anywhere in `src`, so there is no injection point for the directive to close.
+ * - `script-src` also carries 'wasm-unsafe-eval', which is not the loosening it looks
+ *   like. It permits one thing: compiling a WebAssembly module. It does not turn on
+ *   `eval`, `new Function`, or running a string as script — those stay refused, and
+ *   `'unsafe-eval'` would have allowed all of them. The receipt scanner's QR decoder is
+ *   WebAssembly, served from this origin, and without this token the browser refuses to
+ *   compile it: it worked in development only because Fast Refresh needs 'unsafe-eval'
+ *   there, which happens to cover WebAssembly too. In production it failed with a
+ *   CompileError, on every path, from the day it shipped.
  * - `style-src` carries it because Tailwind and every inline `style` attribute in
  *   the charts need it, and a style attribute cannot exfiltrate anything here.
  * - `img-src https:` is for avatars and whatever a client's logo turns out to be.
@@ -58,7 +66,7 @@ function contentSecurityPolicy(): string {
   const supabase = supabaseOrigin();
   return [
     "default-src 'self'",
-    `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
+    `script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'${isDev ? " 'unsafe-eval'" : ""}`,
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob: https:",
     "font-src 'self' data:",

@@ -68,7 +68,7 @@ export function warmQrReader(): void {
  * still refuses to build a hundred-megabyte buffer out of something larger.
  */
 export async function pixelsOf(source: Blob, max = 3000): Promise<ImageData> {
-  const bitmap = await createImageBitmap(source);
+  const bitmap = await decode(source);
   try {
     const scale = Math.min(1, max / Math.max(bitmap.width, bitmap.height));
     const w = Math.max(1, Math.round(bitmap.width * scale));
@@ -85,6 +85,57 @@ export async function pixelsOf(source: Blob, max = 3000): Promise<ImageData> {
     // The decoded picture is let go the moment its pixels have been copied.
     bitmap.close();
   }
+}
+
+/**
+ * A picture as a bitmap, including the one format the browser will not open.
+ *
+ * Every iPhone photographs in HEIC unless it has been told otherwise, and Chromium — so
+ * Brave, Chrome and Edge — cannot decode it. On a desktop that is the end of the road:
+ * `createImageBitmap` throws, and "photograph the receipt" answers "this format is not
+ * supported", which is true and useless, because the photograph in his hand is the only
+ * copy he has.
+ *
+ * So the decoder for it is fetched, and only then. It is about three megabytes — libheif
+ * compiled to WebAssembly, which is what decoding HEIC actually costs, because HEIC is
+ * HEVC in a box. Nobody pays it unless they hand over a file the browser has already
+ * refused: ordinary JPEG and PNG never reach this branch, and a session that never picks
+ * a HEIC never downloads a byte of it.
+ *
+ * `type: "bitmap"` rather than converting to JPEG first. A re-encode would put compression
+ * noise onto a 109-module code at exactly the scale the modules live at, which is the one
+ * thing this picture cannot afford.
+ */
+async function decode(source: Blob): Promise<ImageBitmap> {
+  try {
+    return await createImageBitmap(source);
+  } catch (err) {
+    if (!(await looksLikeHeif(source))) throw err;
+    // The `csp` build is the one that does not reach for `eval` — see the policy note in
+    // `next.config.ts`, which admits WebAssembly and nothing else.
+    const { heicTo } = await import("heic-to/csp");
+    return await heicTo({ blob: source, type: "bitmap" });
+  }
+}
+
+/**
+ * Whether these bytes are a HEIF-family file, read from the bytes rather than the name.
+ *
+ * A file picker hands over whatever it is given, and the extension is a suggestion. The
+ * first box of an ISO base media file names its brand in bytes 8 to 12, so twelve bytes
+ * settle it — cheap enough to run on every picture the browser has already refused, and
+ * certain enough not to fetch three megabytes on the strength of a guess.
+ */
+async function looksLikeHeif(source: Blob): Promise<boolean> {
+  const head = new Uint8Array(await source.slice(0, 12).arrayBuffer());
+  if (head.length < 12) return false;
+
+  const text = (from: number, to: number) => String.fromCharCode(...head.slice(from, to));
+  if (text(4, 8) !== "ftyp") return false;
+
+  return ["heic", "heix", "heim", "heis", "hevc", "hevx", "hevm", "hevs", "mif1", "msf1"].includes(
+    text(8, 12).toLowerCase(),
+  );
 }
 
 /**

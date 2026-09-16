@@ -339,7 +339,9 @@ export function ReceiptScan({
   const fromPhoto = async (file: File | undefined) => {
     if (!file) return;
     setError(null);
-    setNote("Gledam sliku…");
+    // An iPhone photograph may have to be decoded before it can be looked at, and that
+    // takes a few seconds — long enough that a panel saying nothing reads as stuck.
+    setNote("Otvaram sliku…");
     try {
       const found = await readQrCode(file);
       if (!found) {
@@ -351,17 +353,13 @@ export function ReceiptScan({
     } catch (err) {
       setNote(null);
       /*
-        The real reason, not a shrug. This used to say only "I could not read the picture",
-        which is the same sentence for a format the browser cannot open, a file that is not
-        an image at all, and a decoder that failed to load — three different things to do
-        about it, and no way to tell which one you were looking at.
+        The real reason, not a shrug — and no longer a guess at HEIC, because HEIC is now
+        decoded rather than refused. What is left here is a file that is not a picture at
+        all, or a decoder that would not load, and those want different things done about
+        them, so the message says which one happened.
       */
       const why = err instanceof Error ? err.message : String(err);
-      setError(
-        /image|decode|source|bitmap/i.test(why)
-          ? "Ovaj format slike pregledač ne ume da otvori (HEIC?). Sačuvaj kao JPG ili PNG."
-          : `Sliku nisam mogao da pročitam: ${why.slice(0, 120)}`,
-      );
+      setError(`Sliku nisam mogao da otvorim: ${why.slice(0, 140)}`);
     }
   };
 
