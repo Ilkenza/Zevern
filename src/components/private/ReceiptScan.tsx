@@ -116,6 +116,8 @@ export function ReceiptScan({
   const [busy, setBusy] = useState(false);
   const [pasted, setPasted] = useState("");
   const [camera, setCamera] = useState<"starting" | "live" | "off">("off");
+  /* What the camera is actually giving, so a failure to read is not also a mystery. */
+  const [feed, setFeed] = useState<string | null>(null);
 
   const video = useRef<HTMLVideoElement>(null);
   const stream = useRef<MediaStream | null>(null);
@@ -124,6 +126,8 @@ export function ReceiptScan({
   const reading = useRef(false);
   /* Set the instant a code is found, so a frame already in flight cannot fire twice. */
   const done = useRef(false);
+  /* How many frames have been looked at, so silence can be told from stillness. */
+  const looked = useRef(0);
 
   /*
     Are we in the browser yet — asked without a state change in an effect, the same way
@@ -146,6 +150,7 @@ export function ReceiptScan({
     stream.current = null;
     if (video.current) video.current.srcObject = null;
     setCamera("off");
+    setFeed(null);
   }, []);
 
   /* The camera must not survive the panel, a route change, or a tab being closed. */
@@ -191,26 +196,60 @@ export function ReceiptScan({
     reading.current = true;
     try {
       /*
-        Scaled down, but not far. A version 23 symbol is 109 modules across, and below
-        roughly four pixels a module nothing can read it — so the cap is high enough to
-        keep that and low enough that a 4K phone camera does not spend the whole frame
-        budget copying pixels.
+        The middle of the sensor, at the sensor's own resolution — not the whole frame
+        shrunk to fit.
+
+        This is the difference between reading a fiscal receipt and not. The code is 109
+        modules across, and nothing decodes one below about three pixels a module, so the
+        only number that matters is how many pixels land on the code itself. Scaling the
+        whole frame down threw away a fifth of them for no reason; cropping the square the
+        viewfinder is already asking him to aim with keeps every one, and throws away only
+        the parts of the picture the code was never in.
+
+        The cap is a memory limit, not a quality one: it only engages on a camera giving
+        more than sixteen hundred pixels down the short side, and then it is still more
+        than a dense code needs.
       */
-      const scale = Math.min(1, 1600 / el.videoWidth);
-      const w = Math.round(el.videoWidth * scale);
-      const h = Math.round(el.videoHeight * scale);
+      const side = Math.min(el.videoWidth, el.videoHeight);
+      const out = Math.min(side, 1600);
+      const sx = Math.round((el.videoWidth - side) / 2);
+      const sy = Math.round((el.videoHeight - side) / 2);
 
       const canvas = document.createElement("canvas");
-      canvas.width = w;
-      canvas.height = h;
+      canvas.width = out;
+      canvas.height = out;
       const ctx = canvas.getContext("2d", { willReadFrequently: true });
       if (!ctx) return;
-      ctx.drawImage(el, 0, 0, w, h);
+      ctx.drawImage(el, sx, sy, side, side, 0, 0, out, out);
 
-      const found = await readQrCode(ctx.getImageData(0, 0, w, h));
-      if (found && !done.current) await submit(found);
-    } catch {
-      /* A frame that will not decode is the ordinary case, not an error. */
+      const found = await readQrCode(ctx.getImageData(0, 0, out, out));
+      looked.current++;
+      if (found && !done.current) return void (await submit(found));
+
+      /*
+        After about seven seconds of looking, say so.
+
+        Silence is the wrong answer here, because the commonest reason this finds nothing
+        is not a shaky hand — it is a camera that cannot resolve the code at all. A fiscal
+        QR is 109 modules across, and measured against this decoder it needs roughly two
+        hundred pixels when the picture is perfectly sharp and four hundred once there is
+        any softness in it. A laptop's webcam is fixed-focus at about half a metre, where a
+        two-centimetre code lands on about seventy pixels — so no amount of holding it
+        steadier will ever work, and a panel that just keeps staring implies it might.
+      */
+      if (looked.current === 45 && !done.current) {
+        setNote("Ne nalazim kod. Priđi bliže — a ako je ovo laptop kamera, ona je za ovako gust kod najčešće preslaba: uslikaj telefonom ili nalepi link.");
+      }
+    } catch (err) {
+      /*
+        A frame that will not decode is the ordinary case. A decoder that will not load is
+        not, and swallowing both left the panel staring silently at a working camera with
+        no way to tell the two apart. The first failure is reported; the rest are frames.
+      */
+      if (looked.current === 0) {
+        setError(`Čitač se ne učitava: ${err instanceof Error ? err.message : String(err)}`);
+      }
+      looked.current++;
     } finally {
       reading.current = false;
     }
@@ -240,12 +279,16 @@ export function ReceiptScan({
     setCamera("starting");
     try {
       const media = await navigator.mediaDevices.getUserMedia({
-        // The back camera, and as much detail as it will give: the code is dense enough
-        // that a 640-wide stream cannot resolve it however steady the hand is.
+        /*
+          The back camera, and every pixel it will give. `ideal` rather than `min`, so a
+          camera that cannot manage this still opens at whatever it has — but a phone that
+          can shoot four thousand pixels across should not be handed a 720p stream for a
+          code that needs the detail.
+        */
         video: {
           facingMode: { ideal: "environment" },
-          width: { ideal: 1920 },
-          height: { ideal: 1080 },
+          width: { ideal: 2560 },
+          height: { ideal: 1440 },
         },
         audio: false,
       });
@@ -254,6 +297,18 @@ export function ReceiptScan({
         video.current.srcObject = media;
         await video.current.play().catch(() => {});
       }
+      const track = media.getVideoTracks()[0];
+      const shot = track?.getSettings?.();
+      /*
+        Printed, because it is the number that decides whether this can work at all. A
+        laptop's webcam is fixed-focus at about half a metre: hold a receipt where it can
+        focus and the code is a hundred pixels across, which is one pixel per module and
+        unreadable by anything. Seeing `1280×720` on screen is what turns "it just does
+        not work" into "this camera cannot, the phone can".
+      */
+      if (shot?.width && shot?.height) setFeed(`${shot.width}×${shot.height}`);
+
+      looked.current = 0;
       setCamera("live");
       setNote("Drži QR sa računa u okviru.");
       timer.current = window.setInterval(() => void sweep(), 160);
@@ -371,7 +426,12 @@ export function ReceiptScan({
             </div>
 
             <div className="shrink-0 space-y-3 px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-4">
-              {note && <p className="text-center text-[12.5px] text-muted">{note}</p>}
+              {note && (
+                <p className="text-center text-[12.5px] text-muted">
+                  {note}
+                  {feed && <span className="mono text-faint"> · {feed}</span>}
+                </p>
+              )}
               {error && (
                 <p className="rounded-ctrl border border-danger/40 bg-danger/10 px-3 py-2 text-center text-[12.5px] text-ink">
                   {error}
