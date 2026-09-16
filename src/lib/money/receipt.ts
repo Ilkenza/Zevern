@@ -64,6 +64,27 @@ export type ScannedReceipt = {
 export type ReceiptRead = { ok: true; receipt: ScannedReceipt } | { ok: false; error: string };
 
 /**
+ * `1 stavka`, `3 stavke`, `7 stavki` — the count and the word that goes with it.
+ *
+ * Serbian has three forms where English has two, and the third is the one a rule written
+ * as "one or many" always gets wrong: two, three and four take their own ending. The app
+ * printed "3 stavki" on the first receipt it ever read, which is the kind of mistake that
+ * makes a screen feel translated rather than written.
+ *
+ * The teens are the exception that makes it a function rather than a lookup: eleven
+ * through fourteen take the many-form even though they end in one through four.
+ */
+export function counted(n: number, one: string, few: string, many: string): string {
+  const abs = Math.abs(Math.trunc(n));
+  const lastTwo = abs % 100;
+  const last = abs % 10;
+  if (lastTwo >= 11 && lastTwo <= 14) return `${n} ${many}`;
+  if (last === 1) return `${n} ${one}`;
+  if (last >= 2 && last <= 4) return `${n} ${few}`;
+  return `${n} ${many}`;
+}
+
+/**
  * The token out of a scanned address, or nothing.
  *
  * This is the security of the whole feature in one function, so it is written as an
@@ -153,7 +174,7 @@ export function readReceipt(payload: unknown): ReceiptRead {
   const notes: string[] = [];
   if (dropped > 0) {
     notes.push(
-      `Račun ima ${dropped} ${dropped === 1 ? "stavku" : "stavki"} više nego što jedan unos prima — nisu ušle u listu.`,
+      `Račun ima ${counted(dropped, "stavku", "stavke", "stavki")} više nego što jedan unos prima — nisu ušle u listu.`,
     );
   }
 

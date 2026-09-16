@@ -6,7 +6,7 @@ import { Field } from "@/components/ui/Field";
 import { MoneyField } from "@/components/ui/MoneyField";
 import { TxItems } from "@/components/private/TxItems";
 import { ReceiptScan } from "@/components/private/ReceiptScan";
-import type { ScannedReceipt } from "@/lib/money/receipt";
+import { counted, type ScannedReceipt } from "@/lib/money/receipt";
 import { itemsArePriced, itemsTotal, parseItems } from "@/lib/money/items";
 import { fillFromPick, fillFromTyping, type Fill } from "@/lib/money/known";
 import { Select } from "@/components/ui/Select";
@@ -447,8 +447,15 @@ export function TransactionForm({
                 </p>
                 <p className="tx-scan-sub">
                   {scan.receipt.items.length > 0
-                    ? `${scan.receipt.items.length} ${scan.receipt.items.length === 1 ? "stavka" : "stavki"} popunjeno — izmeni šta hoćeš pre nego što sačuvaš.`
-                    : "Iznos i datum popunjeni — stavke nisu pročitane."}
+                    /*
+                      `Pročitano:` and then the count, rather than the count and then a
+                      participle. Serbian makes the participle agree as well as the noun —
+                      `1 stavka popunjena`, `3 stavke popunjene`, `5 stavki popunjeno` —
+                      and a label with a colon after it sidesteps the agreement entirely
+                      instead of getting it wrong in two cases out of three.
+                    */
+                    ? `Pročitano: ${counted(scan.receipt.items.length, "stavka", "stavke", "stavki")} — izmeni šta hoćeš pre nego što sačuvaš.`
+                    : "Pročitani iznos i datum — stavke nisu pročitane."}
                 </p>
                 {/*
                   A warning, never a refusal. One trip to the shop is often two entries

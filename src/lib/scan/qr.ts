@@ -52,6 +52,42 @@ export function warmQrReader(): void {
 }
 
 /**
+ * A picture, as pixels the decoder can work on.
+ *
+ * Handing the decoder the file itself is the obvious thing and it is the wrong thing. The
+ * decoder brings its own small image reader, which knows JPEG and PNG and nothing else —
+ * so a photograph straight off a phone, which is as likely as not HEIC, made it throw
+ * rather than fail to find a code, and the panel said "I could not read the picture"
+ * without saying why. The browser has already solved this: `createImageBitmap` decodes
+ * whatever the browser itself can display.
+ *
+ * The cap is high on purpose. A photograph of a whole receipt has the code taking up maybe
+ * a fifth of the frame, and a version 23 symbol is 109 modules across — scale a 4000px
+ * photo down to 1600 and those modules land at under three pixels each, which is under
+ * what anything can read. Three thousand keeps a phone photograph essentially intact and
+ * still refuses to build a hundred-megabyte buffer out of something larger.
+ */
+export async function pixelsOf(source: Blob, max = 3000): Promise<ImageData> {
+  const bitmap = await createImageBitmap(source);
+  try {
+    const scale = Math.min(1, max / Math.max(bitmap.width, bitmap.height));
+    const w = Math.max(1, Math.round(bitmap.width * scale));
+    const h = Math.max(1, Math.round(bitmap.height * scale));
+
+    const canvas = document.createElement("canvas");
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    if (!ctx) throw new Error("canvas unavailable");
+    ctx.drawImage(bitmap, 0, 0, w, h);
+    return ctx.getImageData(0, 0, w, h);
+  } finally {
+    // The decoded picture is let go the moment its pixels have been copied.
+    bitmap.close();
+  }
+}
+
+/**
  * The text inside the first QR code in this picture, or nothing.
  *
  * Takes what the caller already has — a frame lifted off a video, or a photograph as a
@@ -60,7 +96,9 @@ export function warmQrReader(): void {
  */
 export async function readQrCode(source: ImageData | Blob): Promise<string | null> {
   const { readBarcodes } = await reader();
-  const found = await readBarcodes(source, {
+  // A file is turned into pixels by the browser first; see `pixelsOf` for why.
+  const pixels = source instanceof Blob ? await pixelsOf(source) : source;
+  const found = await readBarcodes(pixels, {
     formats: ["QRCode"],
     /*
       Worth the milliseconds. `tryHarder` is what lets the decoder rotate, deskew and

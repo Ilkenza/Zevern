@@ -12,6 +12,47 @@ import type { ScannedReceipt } from "@/lib/money/receipt";
 const subscribeToNothing = () => () => {};
 
 /**
+ * Why the camera did not open, in a sentence somebody can act on.
+ *
+ * `NotAllowedError` covers two situations that need opposite things done about them, and
+ * telling them apart is the whole value of this function. If the browser has never been
+ * asked, the answer is to press the button again and say yes. If it was asked once and
+ * told no, the browser will never ask again — it throws the same error instantly, forever,
+ * and no amount of pressing the button will produce a prompt. That second case is what
+ * "it says allow it but it never asks me" is, and the only way out of it is the site
+ * settings behind the icon in the address bar.
+ */
+async function whyNot(err: unknown): Promise<string> {
+  const name = err instanceof Error ? err.name : "";
+
+  if (name === "NotFoundError" || name === "OverconstrainedError") {
+    return "Ne vidim nijednu kameru na ovom uređaju. Slikaj račun ili nalepi link.";
+  }
+
+  if (name === "NotReadableError") {
+    return "Kameru već koristi neki drugi program. Zatvori ga pa probaj ponovo.";
+  }
+
+  if (name === "NotAllowedError" || name === "SecurityError") {
+    let state: string | null = null;
+    try {
+      // Not in the TypeScript permission list, and supported everywhere that matters.
+      const status = await navigator.permissions.query({ name: "camera" as PermissionName });
+      state = status.state;
+    } catch {
+      /* Some browsers do not answer for the camera; the general message covers it. */
+    }
+
+    if (state === "denied") {
+      return "Kamera je blokirana za ovu adresu — zato te pregledač i ne pita. Klikni ikonicu levo od adrese → Kamera → Dozvoli, pa osveži stranicu. Na Mac-u proveri i Podešavanja → Privatnost i bezbednost → Kamera.";
+    }
+    return "Nisi dozvolio kameru. Klikni Kamera ponovo i izaberi Dozvoli.";
+  }
+
+  return "Kamera se ne otvara ovde. Slikaj račun ili nalepi link.";
+}
+
+/**
  * The camera, pointed at the QR on a fiscal receipt.
  *
  * What this is for: not having to type what was in the bag. Every receipt printed in
@@ -148,6 +189,17 @@ export function ReceiptScan({
     setError(null);
     done.current = false;
 
+    /*
+      A browser only ever offers the camera on a secure origin, and `localhost` counts as
+      one — so this is the phone opening the dev server over the network, where there is
+      nothing to allow and no prompt to wait for. Saying "allow it" there sends somebody
+      hunting through settings for a switch that does not exist.
+    */
+    if (!window.isSecureContext) {
+      setError("Kamera radi samo preko HTTPS. Otvori aplikaciju na zevern.vercel.app, ili slikaj račun.");
+      return;
+    }
+
     if (!navigator.mediaDevices?.getUserMedia) {
       setError("Ovaj pregledač ne daje kameru — slikaj račun ili nalepi link.");
       return;
@@ -175,12 +227,7 @@ export function ReceiptScan({
       timer.current = window.setInterval(() => void sweep(), 160);
     } catch (err) {
       setCamera("off");
-      const denied = err instanceof Error && (err.name === "NotAllowedError" || err.name === "SecurityError");
-      setError(
-        denied
-          ? "Kamera nije dozvoljena. Dozvoli je u pregledaču, ili slikaj račun."
-          : "Kamera se ne otvara ovde. Slikaj račun ili nalepi link.",
-      );
+      setError(await whyNot(err));
     }
   }, [sweep]);
 
@@ -210,13 +257,24 @@ export function ReceiptScan({
       const found = await readQrCode(file);
       if (!found) {
         setNote(null);
-        setError("Nisam našao QR na slici. Priđi bliže i uslikaj ponovo.");
+        setError("Na slici nema QR koda koji mogu da pročitam. Uslikaj bliže, tako da kod bude krupan i ceo u kadru.");
         return;
       }
       await submit(found);
-    } catch {
+    } catch (err) {
       setNote(null);
-      setError("Sliku nisam mogao da pročitam.");
+      /*
+        The real reason, not a shrug. This used to say only "I could not read the picture",
+        which is the same sentence for a format the browser cannot open, a file that is not
+        an image at all, and a decoder that failed to load — three different things to do
+        about it, and no way to tell which one you were looking at.
+      */
+      const why = err instanceof Error ? err.message : String(err);
+      setError(
+        /image|decode|source|bitmap/i.test(why)
+          ? "Ovaj format slike pregledač ne ume da otvori (HEIC?). Sačuvaj kao JPG ili PNG."
+          : `Sliku nisam mogao da pročitam: ${why.slice(0, 120)}`,
+      );
     }
   };
 

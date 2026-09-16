@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { journalItems, readReceipt, receiptDay, receiptToken, receiptUrl } from "./receipt";
+import { counted, journalItems, readReceipt, receiptDay, receiptToken, receiptUrl } from "./receipt";
 
 /*
   Three real receipts, fetched from the tax service while this parser was being written,
@@ -355,5 +355,33 @@ describe("receiptDay", () => {
     expect(receiptDay("no time here", "2026-09-12T22:30:00Z")).toBe("2026-09-13");
     expect(receiptDay("no time here", "2026-01-12T22:30:00Z")).toBe("2026-01-12");
     expect(receiptDay("no time here", "rubbish")).toBe("");
+  });
+});
+
+describe("counted", () => {
+  /*
+    The form a rule written as "one or many" always gets wrong. `3 stavki` is what the
+    app printed on the first receipt it ever read.
+  */
+  it("gives two, three and four their own ending", () => {
+    expect(counted(1, "stavka", "stavke", "stavki")).toBe("1 stavka");
+    expect(counted(2, "stavka", "stavke", "stavki")).toBe("2 stavke");
+    expect(counted(3, "stavka", "stavke", "stavki")).toBe("3 stavke");
+    expect(counted(4, "stavka", "stavke", "stavki")).toBe("4 stavke");
+    expect(counted(5, "stavka", "stavke", "stavki")).toBe("5 stavki");
+  });
+
+  it("knows the teens are not the numbers they end in", () => {
+    expect(counted(11, "stavka", "stavke", "stavki")).toBe("11 stavki");
+    expect(counted(12, "stavka", "stavke", "stavki")).toBe("12 stavki");
+    expect(counted(14, "stavka", "stavke", "stavki")).toBe("14 stavki");
+  });
+
+  it("counts on past a hundred the same way", () => {
+    expect(counted(21, "stavka", "stavke", "stavki")).toBe("21 stavka");
+    expect(counted(23, "stavka", "stavke", "stavki")).toBe("23 stavke");
+    expect(counted(25, "stavka", "stavke", "stavki")).toBe("25 stavki");
+    expect(counted(101, "stavka", "stavke", "stavki")).toBe("101 stavka");
+    expect(counted(0, "stavka", "stavke", "stavki")).toBe("0 stavki");
   });
 });
