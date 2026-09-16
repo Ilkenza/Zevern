@@ -44,12 +44,42 @@ async function whyNot(err: unknown): Promise<string> {
     }
 
     if (state === "denied") {
-      return "Kamera je blokirana za ovu adresu — zato te pregledač i ne pita. Klikni ikonicu levo od adrese → Kamera → Dozvoli, pa osveži stranicu. Na Mac-u proveri i Podešavanja → Privatnost i bezbednost → Kamera.";
+      /*
+        Deliberately NOT "click the icon next to the address".
+
+        That was the first thing this said, and on the browser it was said to there was no
+        camera row behind that icon to click: the block was the browser's own default for
+        every site, not a decision about this one, and a padlock menu only lists the
+        permissions a site has actually been given or refused. Being sent to look for a
+        control that is not there is worse than being told nothing.
+
+        The settings page always exists, so that is what is named — with the right scheme
+        for the browser reading it, because `chrome://` is not a page in Brave and
+        `brave://` is not one in Chrome. It has to be copied rather than linked: no page is
+        allowed to navigate to its own browser's settings.
+      */
+      return `Kamera je blokirana u pregledaču — zato te i ne pita, i zato nema "Kamera" u meniju pored adrese. Nalepi ${settingsPath()} u adresu i dozvoli sajtovima da traže kameru. Ako i dalje ne radi: Podešavanja → Privatnost i bezbednost → Kamera, pa uključi pregledač.`;
     }
     return "Nisi dozvolio kameru. Klikni Kamera ponovo i izaberi Dozvoli.";
   }
 
   return "Kamera se ne otvara ovde. Slikaj račun ili nalepi link.";
+}
+
+/** Where the camera switch lives, named for the browser that is asking. */
+function settingsPath(): string {
+  const nav = navigator as Navigator & { brave?: unknown };
+  if (nav.brave) return "brave://settings/content/camera";
+
+  const brands = (navigator as Navigator & { userAgentData?: { brands?: { brand: string }[] } })
+    .userAgentData?.brands?.map((b) => b.brand)
+    .join(" ") ?? navigator.userAgent;
+
+  if (/Edg/i.test(brands)) return "edge://settings/content/camera";
+  if (/Opera|OPR/i.test(brands)) return "opera://settings/content/camera";
+  if (/Chrome|Chromium/i.test(brands)) return "chrome://settings/content/camera";
+  // Safari and Firefox keep it in their own preferences rather than at an address.
+  return "podešavanja pregledača → Kamera";
 }
 
 /**
