@@ -5,6 +5,8 @@ import { saveTransaction, deleteTransaction, type MoneyState } from "@/app/(app)
 import { Field } from "@/components/ui/Field";
 import { MoneyField } from "@/components/ui/MoneyField";
 import { TxItems } from "@/components/private/TxItems";
+import { ReceiptScan } from "@/components/private/ReceiptScan";
+import type { ScannedReceipt } from "@/lib/money/receipt";
 import { itemsArePriced, itemsTotal, parseItems } from "@/lib/money/items";
 import { fillFromPick, fillFromTyping, type Fill } from "@/lib/money/known";
 import { Select } from "@/components/ui/Select";
@@ -23,7 +25,7 @@ import type {
 } from "@/lib/types";
 import { ChipPicker } from "@/components/ui/ChipPicker";
 import { ItemPicker } from "@/components/ui/ItemPicker";
-import { todayISO } from "@/lib/format";
+import { formatDate, todayISO } from "@/lib/format";
 import { useDefaultCurrency, useMoney } from "@/lib/money/currency";
 
 export type TxFormData = {
@@ -118,6 +120,31 @@ export function TransactionForm({
     `@/lib/money/known` and tested there; here it is only the setting of them, and an
     absent key means a field nobody is touching.
   */
+  /**
+   * A receipt the server has read, poured into the form — and nothing more than that.
+   *
+   * Every field it touches stays editable, and the one it is least sure of it does not
+   * touch at all: the category. A receipt says where the money went and not what it was
+   * for, and the same shop is Groceries one trip and Work meals the next — so that stays
+   * the one answer the person gives, which is also the answer the shopping list has
+   * already been filling in by name.
+   */
+  const takeReceipt = (receipt: ScannedReceipt, seenOn: string | null) => {
+    // A count and not a clock: the stamp only has to differ from the last one, and a
+    // reading of the time taken during render is a value React is entitled to distrust.
+    setScan((was) => ({ receipt, seenOn, stamp: (was?.stamp ?? 0) + 1 }));
+    // Fiscal receipts are in dinars by definition; an entry opened in euros is not.
+    setCurrency("RSD");
+    setAmount(String(receipt.total));
+    setTitle(receipt.store);
+    if (receipt.items.length > 0) {
+      setMany(true);
+      setItemsSum(itemsTotal(receipt.items));
+      setItemCount(receipt.items.length);
+      setFromItems(itemsArePriced(receipt.items));
+    }
+  };
+
   const apply = (fill: Fill) => {
     if (fill.categoryId !== undefined) setCategoryId(fill.categoryId);
     if (fill.amount !== undefined) setAmount(fill.amount);
@@ -143,6 +170,26 @@ export function TransactionForm({
     the answer is already there.
   */
   const [initialItems] = useState(() => parseItems(tx?.items));
+  /*
+    The receipt that filled this form, when one did.
+
+    Held whole rather than poured straight into the fields, for three reasons: the lines
+    have to be handed to `TxItems` as its starting rows, the receipt number has to travel
+    with the entry so the same slip can be recognised next time, and what was read has to
+    be *shown* — a form that silently rearranges itself is a form you have to re-check
+    field by field, which is more work than typing it.
+
+    `stamp` is what makes a second scan replace the first. The date field and the item
+    rows are uncontrolled, as they have always been, so changing a default is not enough
+    to move them; keyed on this, they are built again from the new receipt.
+  */
+  const [scan, setScan] = useState<{
+    receipt: ScannedReceipt;
+    seenOn: string | null;
+    stamp: number;
+  } | null>(null);
+  /* The rows the list starts from: the scanned ones once there are any. */
+  const scannedRows = scan?.receipt.items ?? initialItems;
   const [many, setMany] = useState(() => initialItems.length > 0);
   /*
     One purchase, one name — which is the only entry the shopping list has anything to say
@@ -330,6 +377,8 @@ export function TransactionForm({
     <div className="flex h-full flex-col">
       <form action={formAction} className="flex-1">
         {tx && <input type="hidden" name="id" value={tx.id} />}
+        {/* Which paper receipt this entry came off, so scanning it twice can be noticed. */}
+        <input type="hidden" name="receipt_no" value={scan?.receipt.number ?? tx?.receipt_no ?? ""} />
         {returnTo && <input type="hidden" name="return_to" value={returnTo} />}
         <input type="hidden" name="kind" value={kind} />
         {/*
@@ -372,6 +421,57 @@ export function TransactionForm({
           spend" number in the app becoming a guess.
         */}
         {/*
+          The paper, read instead of typed.
+
+          Offered above the question it answers, because it answers it: a receipt with six
+          things on it turns the form into the list version by itself. Purchases only —
+          nothing else in this app comes with a receipt.
+
+          What it fills is shown underneath rather than left to be noticed. Four fields
+          move at once, and a form that rearranges itself in silence is one that has to be
+          re-read from the top; a line saying which shop, which day and how much is the
+          difference between checking a figure and auditing a screen.
+        */}
+        {kind === "expense" && (
+          <div className="tx-scan">
+            <ReceiptScan onRead={takeReceipt} />
+
+            {scan && (
+              <div className="tx-scan-read" role="status">
+                <p className="tx-scan-line">
+                  <span className="tx-scan-shop">{scan.receipt.store}</span>
+                  <span className="tx-scan-dot">·</span>
+                  {formatDate(scan.receipt.boughtOn)}
+                  <span className="tx-scan-dot">·</span>
+                  <span className="mono">{fmt(scan.receipt.total)}</span>
+                </p>
+                <p className="tx-scan-sub">
+                  {scan.receipt.items.length > 0
+                    ? `${scan.receipt.items.length} ${scan.receipt.items.length === 1 ? "stavka" : "stavki"} popunjeno — izmeni šta hoćeš pre nego što sačuvaš.`
+                    : "Iznos i datum popunjeni — stavke nisu pročitane."}
+                </p>
+                {/*
+                  A warning, never a refusal. One trip to the shop is often two entries
+                  here — the week's food and the food that goes to work are different
+                  categories out of the same bag — so the second one is something a
+                  person does on purpose.
+                */}
+                {scan.seenOn && (
+                  <p className="tx-scan-warn">
+                    Ovaj račun je već unet {formatDate(scan.seenOn)}. Ako deliš račun na dva unosa, nastavi.
+                  </p>
+                )}
+                {scan.receipt.notes.map((note) => (
+                  <p key={note} className="tx-scan-warn">
+                    {note}
+                  </p>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/*
           Asked before anything is typed, because it decides what the rest of the form
           is. Switching back to one thing drops the list — which is the point: the two
           are alternatives, not layers, and an entry carrying both would have two
@@ -396,9 +496,9 @@ export function TransactionForm({
               type="button"
               onClick={() => {
                 setMany(true);
-                setItemsSum(itemsTotal(initialItems));
-                setItemCount(initialItems.length);
-                setFromItems(itemsArePriced(initialItems));
+                setItemsSum(itemsTotal(scannedRows));
+                setItemCount(scannedRows.length);
+                setFromItems(itemsArePriced(scannedRows));
               }}
               aria-pressed={many}
               className={many ? "is-on" : undefined}
@@ -485,7 +585,8 @@ export function TransactionForm({
             name="title"
             label={TITLE_LABEL[kind] ?? "Name"}
             items={known}
-            defaultValue={tx?.title ?? ""}
+            key={`title-${scan?.stamp ?? 0}`}
+            defaultValue={scan?.receipt.store ?? tx?.title ?? ""}
             placeholder="Shop, bill, ticket…"
             onValueChange={setTitle}
             help={
@@ -577,7 +678,8 @@ export function TransactionForm({
         */}
         {kind === "expense" && many && (
           <TxItems
-            initial={initialItems}
+            key={`items-${scan?.stamp ?? 0}`}
+            initial={scannedRows}
             currency={currency}
             known={known}
             onTotalChange={(total, count, priced) => {
@@ -834,10 +936,11 @@ export function TransactionForm({
         */}
         <div className="grid grid-cols-[minmax(0,1fr)_130px] gap-2">
           <Field
+            key={`date-${scan?.stamp ?? 0}`}
             label="Date"
             name="occurred_on"
             type="date"
-            defaultValue={tx?.occurred_on ?? todayISO()}
+            defaultValue={scan?.receipt.boughtOn || tx?.occurred_on || todayISO()}
           />
           <Field
             label="Time"

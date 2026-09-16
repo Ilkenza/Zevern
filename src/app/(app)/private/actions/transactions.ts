@@ -122,6 +122,17 @@ export async function saveTransaction(_prev: MoneyState, formData: FormData): Pr
     ...items.map((i) => i.name),
     String(formData.get("title") ?? ""),
   ]);
+  /*
+    The fiscal receipt this entry came off, when one was scanned.
+
+    Only ever a receipt number — the format the tax service prints, which is letters,
+    digits and two hyphens and nothing else. It is here so that scanning the same slip a
+    second time can be recognised, and it is filtered rather than trusted for the usual
+    reason: this is a form field, and a form field is whatever the browser was told to
+    send. Anything that is not shaped like a receipt number is stored as nothing.
+  */
+  const receiptRaw = String(formData.get("receipt_no") ?? "").trim().slice(0, 64);
+  const receiptNo = /^[A-Za-z0-9-]{4,64}$/.test(receiptRaw) ? receiptRaw : null;
   const rawAmount = String(formData.get("amount") ?? "").trim();
   /*
     A typed figure wins; an empty one is filled in by the list.
@@ -468,6 +479,7 @@ export async function saveTransaction(_prev: MoneyState, formData: FormData): Pr
     // `null` rather than `[]`, so "this entry has no list" is one value everywhere
     // instead of two that every read would have to treat the same.
     items: items.length > 0 ? items : null,
+    receipt_no: receiptNo,
   };
 
   /*

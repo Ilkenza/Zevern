@@ -1117,6 +1117,7 @@ export type Database = {
           occurred_at: string | null
           occurred_on: string
           rate: number
+          receipt_no: string | null
           recurring_id: string | null
           title: string | null
           to_account_id: string | null
@@ -1139,6 +1140,7 @@ export type Database = {
           occurred_at?: string | null
           occurred_on?: string
           rate?: number
+          receipt_no?: string | null
           recurring_id?: string | null
           title?: string | null
           to_account_id?: string | null
@@ -1161,6 +1163,7 @@ export type Database = {
           occurred_at?: string | null
           occurred_on?: string
           rate?: number
+          receipt_no?: string | null
           recurring_id?: string | null
           title?: string | null
           to_account_id?: string | null

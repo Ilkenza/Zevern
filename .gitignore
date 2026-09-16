@@ -67,3 +67,7 @@ Thumbs.db
 
 # Scratch that the remote bridge cannot delete
 _to_delete/
+
+# Copied from node_modules by scripts/copy-zxing.mjs before every dev run and build,
+# so it can never be a version behind the code that calls it. Not source.
+/public/zxing_reader.wasm

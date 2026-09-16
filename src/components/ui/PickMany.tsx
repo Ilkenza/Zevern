@@ -92,13 +92,16 @@ export function PickMany({
     const below = window.innerHeight - rect.bottom;
     const up = below < tall + 12 && rect.top > below;
 
+    /*
+      Viewport numbers, against a `position: fixed` menu — see the long note in
+      `ItemPicker.place`. The page scroll used to be added in here too, which is correct
+      on a toolbar sitting on an ordinary page and silently wrong the moment one of these
+      is opened inside a pinned panel.
+    */
     setBox({
-      top: up ? rect.top + window.scrollY - tall - 6 : rect.bottom + window.scrollY + 6,
+      top: up ? rect.top - tall - 6 : rect.bottom + 6,
       // Never off the left edge, and never so far right that the menu leaves the window.
-      left: Math.max(
-        8 + window.scrollX,
-        Math.min(rect.left + window.scrollX, window.scrollX + window.innerWidth - 240),
-      ),
+      left: Math.max(8, Math.min(rect.left, window.innerWidth - 240)),
       // Never narrower than the button.
       width: Math.max(rect.width, 224),
       up,

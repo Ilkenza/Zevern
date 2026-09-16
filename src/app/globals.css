@@ -3677,7 +3677,8 @@ body::after {
   panel is what a shop receipt would look like if a receipt were designed.
 */
 .item-menu {
-  position: absolute;
+  /* Viewport-positioned: the page under it is pinned, not scrolled — see `ItemPicker.place`. */
+  position: fixed;
   z-index: 60;
   min-width: 17rem;
   max-width: min(24rem, calc(100vw - 24px));
@@ -4600,7 +4601,8 @@ a.past-row:hover .past-row-name { color: var(--color-gold-hi); }
   own shadow rather than inheriting a panel's.
 */
 .zv-pick-menu {
-  position: absolute;
+  /* Viewport-positioned, as `.item-menu` is, and for the same reason. */
+  position: fixed;
   z-index: 60;
   max-width: min(22rem, calc(100vw - 24px));
   padding: 5px;
@@ -6496,6 +6498,66 @@ a.breakdown-row-on:hover { background: rgba(217, 164, 65, 0.2); }
   entry has one, and one is worth a sentence — it is also the only place the rule is ever
   explained, so it says what it will do rather than naming a feature.
 */
+/* ------------------------------------------ The receipt, before it becomes an entry */
+
+/*
+  The scan button and the line that says what it found.
+
+  Deliberately quiet. The button is the app's secondary treatment because scanning is an
+  alternative to typing, not the recommended way through the form — and what it reports
+  afterwards is a receipt, so it is set the way a receipt is: the shop at reading weight,
+  the day and the figure beside it in the numeral face, and the small print underneath.
+*/
+.tx-scan {
+  margin-bottom: 0.875rem;
+}
+
+.tx-scan-read {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--color-gold) 22%, var(--color-line));
+  border-radius: var(--radius-ctrl);
+  background: color-mix(in srgb, var(--color-gold) 5%, transparent);
+  animation: zv-pick-in 160ms var(--ease-premium) both;
+}
+
+.tx-scan-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+  color: var(--color-ink);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.tx-scan-shop {
+  font-weight: 700;
+}
+
+.tx-scan-dot {
+  color: var(--color-faint);
+}
+
+.tx-scan-sub {
+  margin-top: 3px;
+  color: var(--color-muted);
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+
+/*
+  Something worth knowing, not something that went wrong — so it is the warning colour
+  and not the danger one. Every message printed here is a thing the person may well have
+  meant to do: splitting one receipt across two entries, or a receipt too long to fit.
+*/
+.tx-scan-warn {
+  margin-top: 6px;
+  color: var(--color-gold-hi);
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+
 .tx-keep-title {
   display: flex;
   align-items: center;

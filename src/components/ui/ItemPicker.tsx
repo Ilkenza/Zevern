@@ -119,6 +119,22 @@ export function ItemPicker({
     items.length > 0 &&
     (shown.length > 0 ? !(shown.length === 1 && fold(shown[0].name) === typed) : typed.length > 0);
 
+  /*
+    Where the menu goes, in the viewport's numbers — and it is `position: fixed` to match.
+
+    It used to be `absolute` with `window.scrollY` added in, which is the right sum for a
+    page that scrolls and the wrong one everywhere this field actually lives. `SlideOver`
+    pins the page while a panel is open: `body { position: fixed; top: -scrollY }`. That
+    makes the body the menu's containing block *and* lifts it by however far the page had
+    been scrolled — while `window.scrollY` now reads 0, because the document no longer
+    scrolls at all. So the sum came out as `rect.bottom + 6` measured from a box sitting
+    six hundred pixels above the screen, and the list opened off the top of it: the arrow
+    turned, the field said it was open, and there was nothing to see.
+
+    Fixed against the viewport has no second frame of reference to disagree with. The
+    capture-phase scroll listener below re-places it when the panel's own scroller moves,
+    which is the only scrolling left while a panel is up.
+  */
   const place = () => {
     const rect = field.current?.getBoundingClientRect();
     if (!rect) return;
@@ -126,8 +142,8 @@ export function ItemPicker({
     const below = window.innerHeight - rect.bottom;
     const up = below < tall + 12 && rect.top > below;
     setBox({
-      top: up ? rect.top + window.scrollY - tall - 6 : rect.bottom + window.scrollY + 6,
-      left: rect.left + window.scrollX,
+      top: up ? rect.top - tall - 6 : rect.bottom + 6,
+      left: rect.left,
       width: rect.width,
     });
   };

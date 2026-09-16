@@ -3,9 +3,11 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "predev": "node scripts/copy-zxing.mjs",
     "dev": "next dev",
     "dev:clean": "rm -rf .next && next dev",
     "dev:webpack": "next dev --webpack",
+    "prebuild": "node scripts/copy-zxing.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
@@ -23,7 +25,8 @@
     "next": "16.2.10",
     "pdfjs-dist": "^6.3.289",
     "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "react-dom": "19.2.4",
+    "zxing-wasm": "^3.1.4"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
