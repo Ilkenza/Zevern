@@ -27,6 +27,7 @@ stockUp,
 today
 } from "./shared";
 import { unreadable } from "@/lib/data/must";
+import { syncTransferFee } from "./fee";
 
 /* ------------------------------------------------------------ transactions */
 
@@ -154,6 +155,20 @@ export async function saveTransaction(_prev: MoneyState, formData: FormData): Pr
   const currency = currencyOf(formData.get("currency"));
   const accountId = String(formData.get("account_id") ?? "").trim() || null;
   const toAccountId = String(formData.get("to_account_id") ?? "").trim() || null;
+  /*
+    What the move cost, on top of what moved.
+
+    A cash machine that is not your bank's takes a charge: ask it for 5.000 and the bank
+    is debited 5.250. Those are two different facts and the transfer can only hold one of
+    them — whatever leaves `account_id` arrives at `to_account_id`, by construction — so
+    without this the trip had to be entered as one number, and either the cash was 250
+    too high or the bank was.
+
+    Read for every kind and used by one. A figure left in the box while the kind is
+    changed away from `transfer` is not a charge on anything, and the pair below is
+    removed rather than kept.
+  */
+  const fee = num(formData.get("fee"), 0);
   const categoryId = String(formData.get("category_id") ?? "").trim() || null;
   const goalId = String(formData.get("goal_id") ?? "").trim() || null;
   /*
@@ -211,6 +226,12 @@ export async function saveTransaction(_prev: MoneyState, formData: FormData): Pr
   }
   if (kind === "transfer" && (!accountId || !toAccountId || accountId === toAccountId))
     return { error: "A transfer needs two different accounts." };
+  /*
+    Refused rather than rounded away, because a charge is a figure somebody read off a
+    screen and a figure that is quietly ignored is worse than one that is refused: the
+    entry saves, looks right, and is wrong by exactly the amount they typed.
+  */
+  if (fee < 0 || !(fee < MAX_AMOUNT)) return { error: "That is not a fee." };
   if (kind === "saving" && !goalId) return { error: "Pick the goal this saving belongs to." };
   if (kind === "withdraw" && !goalId) return { error: "Pick the goal this money comes out of." };
   // Both directions name an account, because that is the account the money is being
@@ -491,10 +512,15 @@ export async function saveTransaction(_prev: MoneyState, formData: FormData): Pr
   */
   const touched = new Set<string>();
   if (loanRef) touched.add(loanRef);
+  /*
+    Set when the entry being edited is a transfer's fee and is being turned into
+    something that is not an expense. See where it is used, below.
+  */
+  let unhookFee = false;
   if (id) {
     const { data: was, error: wasError } = await supabase
       .from("money_transactions")
-      .select("loan_id")
+      .select("loan_id, fee_for_id")
       .eq("id", id)
       .eq("user_id", uid)
       .maybeSingle();
@@ -505,18 +531,38 @@ export async function saveTransaction(_prev: MoneyState, formData: FormData): Pr
       way.
     */
     if (wasError) console.error("saveTransaction previous debt:", wasError.message);
-    else if (was?.loan_id) touched.add(was.loan_id);
+    else {
+      if (was?.loan_id) touched.add(was.loan_id);
+      unhookFee = Boolean(was?.fee_for_id) && kind !== "expense";
+    }
   }
   const owed = await owedBefore(supabase, uid, touched);
 
   let written: string | null = id || null;
   if (id) {
-    const { error } = await supabase
+    /*
+      The row comes back so the save can prove it touched one.
+
+      Scoped by owner, an update of somebody else's id matches nothing and returns no
+      error — which used to report success for a save that saved nothing. It matters
+      more now: the id is what a transfer's fee is hung on, and an unproven one would let
+      a forged form pin a charge to an entry on another profile.
+    */
+    /*
+      A fee turned into anything but an expense stops being that transfer's fee. Left
+      linked, the transfer would go on reading it as its charge — and the next save of
+      the transfer would quietly turn it back into an expense, rewriting an entry the
+      person had deliberately changed.
+    */
+    const { data: updated, error } = await supabase
       .from("money_transactions")
-      .update(payload)
+      .update(unhookFee ? { ...payload, fee_for_id: null } : payload)
       .eq("id", id)
-      .eq("user_id", uid);
+      .eq("user_id", uid)
+      .select("id")
+      .maybeSingle();
     if (error) return { error: saveErrorMessage(error) };
+    if (!updated) return { error: "That entry is not on your profile." };
   } else {
     // The id comes back so the food this entry bought can point at the shop trip it came
     // from — see `stockUp` below.
@@ -527,6 +573,53 @@ export async function saveTransaction(_prev: MoneyState, formData: FormData): Pr
       .maybeSingle();
     if (error) return { error: saveErrorMessage(error) };
     written = made?.id ?? null;
+  }
+
+  /*
+    The charge the move cost, as an entry of its own.
+
+    After the transfer rather than before it, because the fee points at the transfer and
+    a new one has no id until it is written. An edit takes the same path: the pair is
+    brought into line with whatever the form now says, including "no fee at all", which
+    is how a charge typed by mistake goes away again.
+
+    A failure here is reported rather than swallowed. Everywhere else in this function a
+    convenience that fails is logged and the entry still saves, and that is right for a
+    shopping list — but this one is money. Silently dropping it leaves the bank short by
+    the fee with nothing on the screen to say why, which is the exact fault this whole
+    column exists to fix.
+  */
+  if (written) {
+    const feeError = await syncTransferFee(supabase, uid, {
+      transferId: written,
+      wanted: kind === "transfer" ? fee : 0,
+      accountId,
+      currency,
+      rate,
+      occurredOn,
+      occurredAt,
+      title,
+    });
+    if (feeError) {
+      /*
+        A brand-new transfer whose fee could not be written is removed again, so the
+        error means what it says: nothing was saved. Left in place, the form would still
+        be open with the same figures on it — and pressing Save again would add the move
+        a second time, because a new entry has no id for the retry to find.
+
+        An edit keeps its update. Its id is known, so the retry lands on the same row and
+        brings the fee into line; there is nothing to duplicate.
+      */
+      if (!id) {
+        const { error: undoError } = await supabase
+          .from("money_transactions")
+          .delete()
+          .eq("id", written)
+          .eq("user_id", uid);
+        if (undoError) console.error("saveTransaction undo after fee:", undoError.message);
+      }
+      return { error: feeError };
+    }
   }
 
   /*

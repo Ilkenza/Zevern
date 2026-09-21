@@ -26,11 +26,11 @@ async function whyNot(err: unknown): Promise<string> {
   const name = err instanceof Error ? err.name : "";
 
   if (name === "NotFoundError" || name === "OverconstrainedError") {
-    return "Ne vidim nijednu kameru na ovom uređaju. Slikaj račun ili nalepi link.";
+    return "No camera on this device. Photograph the receipt, or paste the link.";
   }
 
   if (name === "NotReadableError") {
-    return "Kameru već koristi neki drugi program. Zatvori ga pa probaj ponovo.";
+    return "Another program is using the camera. Close it and try again.";
   }
 
   if (name === "NotAllowedError" || name === "SecurityError") {
@@ -60,12 +60,12 @@ async function whyNot(err: unknown): Promise<string> {
         exactly like a site being blocked, which is why it costs an hour to find. So it is
         named first now, and the browser's own page second.
       */
-      return `Kamera je odbijena pre nego što je pregledač uopšte stigao da pita. Prvo proveri sistem: Podešavanja → Privatnost i bezbednost → Kamera, uključi pregledač i zatvori ga pa otvori ponovo. Ako je tamo već uključen, nalepi ${settingsPath()} u adresu i dozvoli sajtovima da traže kameru.`;
+      return `The camera was refused before the browser could even ask. Check the system first: Settings → Privacy & Security → Camera, switch the browser on, then quit it and open it again. If it is already on there, paste ${settingsPath()} into the address bar and let sites ask for the camera.`;
     }
-    return "Nisi dozvolio kameru. Klikni Kamera ponovo i izaberi Dozvoli.";
+    return "The camera was not allowed. Press Camera again and choose Allow.";
   }
 
-  return "Kamera se ne otvara ovde. Slikaj račun ili nalepi link.";
+  return "The camera will not open here. Photograph the receipt, or paste the link.";
 }
 
 /** Where the camera switch lives, named for the browser that is asking. */
@@ -81,7 +81,7 @@ function settingsPath(): string {
   if (/Opera|OPR/i.test(brands)) return "opera://settings/content/camera";
   if (/Chrome|Chromium/i.test(brands)) return "chrome://settings/content/camera";
   // Safari and Firefox keep it in their own preferences rather than at an address.
-  return "podešavanja pregledača → Kamera";
+  return "your browser's settings → Camera";
 }
 
 /**
@@ -168,7 +168,7 @@ export function ReceiptScan({
       stop();
       setBusy(true);
       setError(null);
-      setNote("Čitam račun…");
+      setNote("Reading the receipt…");
 
       const state = await scanReceipt(text);
       setBusy(false);
@@ -238,7 +238,7 @@ export function ReceiptScan({
         steadier will ever work, and a panel that just keeps staring implies it might.
       */
       if (looked.current === 45 && !done.current) {
-        setNote("Ne nalazim kod. Priđi bliže — a ako je ovo laptop kamera, ona je za ovako gust kod najčešće preslaba: uslikaj telefonom ili nalepi link.");
+        setNote("No code found yet. Move closer — and if this is a laptop camera, it is usually too weak for a code this dense: photograph it with your phone, or paste the link.");
       }
     } catch (err) {
       /*
@@ -247,7 +247,7 @@ export function ReceiptScan({
         no way to tell the two apart. The first failure is reported; the rest are frames.
       */
       if (looked.current === 0) {
-        setError(`Čitač se ne učitava: ${err instanceof Error ? err.message : String(err)}`);
+        setError(`The reader will not load: ${err instanceof Error ? err.message : String(err)}`);
       }
       looked.current++;
     } finally {
@@ -267,12 +267,12 @@ export function ReceiptScan({
       hunting through settings for a switch that does not exist.
     */
     if (!window.isSecureContext) {
-      setError("Kamera radi samo preko HTTPS. Otvori aplikaciju na zevern.vercel.app, ili slikaj račun.");
+      setError("The camera only works over HTTPS. Open the app at zevern.vercel.app, or photograph the receipt.");
       return;
     }
 
     if (!navigator.mediaDevices?.getUserMedia) {
-      setError("Ovaj pregledač ne daje kameru — slikaj račun ili nalepi link.");
+      setError("This browser will not give a camera — photograph the receipt, or paste the link.");
       return;
     }
 
@@ -310,7 +310,7 @@ export function ReceiptScan({
 
       looked.current = 0;
       setCamera("live");
-      setNote("Drži QR sa računa u okviru.");
+      setNote("Hold the receipt's QR inside the frame.");
       timer.current = window.setInterval(() => void sweep(), 160);
     } catch (err) {
       setCamera("off");
@@ -341,12 +341,12 @@ export function ReceiptScan({
     setError(null);
     // An iPhone photograph may have to be decoded before it can be looked at, and that
     // takes a few seconds — long enough that a panel saying nothing reads as stuck.
-    setNote("Otvaram sliku…");
+    setNote("Opening the picture…");
     try {
       const found = await readQrCode(file);
       if (!found) {
         setNote(null);
-        setError("Na slici nema QR koda koji mogu da pročitam. Uslikaj bliže, tako da kod bude krupan i ceo u kadru.");
+        setError("No QR on that picture that I can read. Take it closer, with the code large and whole in the frame.");
         return;
       }
       await submit(found);
@@ -359,7 +359,7 @@ export function ReceiptScan({
         them, so the message says which one happened.
       */
       const why = err instanceof Error ? err.message : String(err);
-      setError(`Sliku nisam mogao da otvorim: ${why.slice(0, 140)}`);
+      setError(`Could not open that picture: ${why.slice(0, 140)}`);
     }
   };
 
@@ -373,27 +373,27 @@ export function ReceiptScan({
         className={buttonClasses("secondary", "w-full")}
       >
         <ScanLine className="h-4 w-4" aria-hidden="true" />
-        Skeniraj račun
+        Scan a receipt
       </button>
 
       {open &&
         mounted &&
         createPortal(
-          <div className="fixed inset-0 z-[70] flex flex-col bg-black/92" role="dialog" aria-modal="true" aria-label="Skeniranje računa">
+          <div className="fixed inset-0 z-[70] flex flex-col bg-black/92" role="dialog" aria-modal="true" aria-label="Scanning a receipt">
             <div className="flex shrink-0 items-center justify-between gap-3 px-5 py-4">
               <div>
-                <p className="text-[13.5px] font-semibold text-ink">Skeniraj račun</p>
+                <p className="text-[13.5px] font-semibold text-ink">Scan a receipt</p>
                 {/*
                   Said on the screen, not only in a changelog. The one thing a person
                   wants to know before pointing a camera at their shopping is where the
                   picture goes, and the answer here is nowhere.
                 */}
-                <p className="text-[11.5px] text-muted">Slika se ne čuva — čita se i briše.</p>
+                <p className="text-[11.5px] text-muted">The picture is not kept — it is read and dropped.</p>
               </div>
               <button
                 type="button"
                 onClick={close}
-                aria-label="Zatvori"
+                aria-label="Close"
                 className="rounded-ctrl p-2 text-muted hover:text-ink"
               >
                 <X className="h-5 w-5" aria-hidden="true" />
@@ -417,7 +417,7 @@ export function ReceiptScan({
               {camera !== "live" && (
                 <div className="absolute inset-0 grid place-items-center px-6 text-center">
                   <p className="text-[13px] text-muted">
-                    {camera === "starting" ? "Otvaram kameru…" : "Kamera nije uključena."}
+                    {camera === "starting" ? "Opening the camera…" : "The camera is off."}
                   </p>
                 </div>
               )}
@@ -444,12 +444,12 @@ export function ReceiptScan({
                   className={buttonClasses("secondary")}
                 >
                   <Camera className="h-4 w-4" aria-hidden="true" />
-                  {camera === "live" ? "Ponovo" : "Kamera"}
+                  {camera === "live" ? "Again" : "Camera"}
                 </button>
 
                 <label className={buttonClasses("secondary", "cursor-pointer")}>
                   <ImageIcon className="h-4 w-4" aria-hidden="true" />
-                  Slikaj
+                  Photo
                   <input
                     type="file"
                     accept="image/*"
@@ -473,7 +473,7 @@ export function ReceiptScan({
                 <input
                   value={pasted}
                   onChange={(e) => setPasted(e.target.value)}
-                  placeholder="ili nalepi link sa računa"
+                  placeholder="or paste the receipt's link"
                   inputMode="url"
                   autoComplete="off"
                   className="zv-field min-w-0 flex-1 rounded-ctrl border border-line bg-white/[0.035] px-3 py-2.5 text-[13px] text-ink placeholder:text-faint focus:border-gold focus:shadow-ring focus:outline-none"
@@ -490,7 +490,7 @@ export function ReceiptScan({
                   className={buttonClasses("ghost")}
                 >
                   <Link2 className="h-4 w-4" aria-hidden="true" />
-                  Učitaj
+                  Load
                 </button>
               </div>
             </div>

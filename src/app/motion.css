@@ -267,8 +267,17 @@
     transform 260ms var(--ease-premium);
 }
 
-/* The rail. `scaleY` from the middle, so it opens rather than drops. */
-.zv-row::before {
+/*
+  The rail. `scaleY` from the middle, so it opens rather than drops.
+
+  Drawn by the row itself only when the row is not a table row. A generated box on a
+  `<tr>` is not decoration to the table: Chromium lays it out as a cell of its own, in
+  front of the first real one, so every row of every list built on `<table>` — invoices,
+  quotes, projects, clients, SEO checks — sat one column to the right of its header, with
+  an empty column down the left and the last cell hanging past the header's edge. Measured,
+  not guessed: header cells at x 10/81/198, the same row's cells at 81/198/298.
+*/
+.zv-row:not(tr)::before {
   content: "";
   position: absolute;
   inset-block: 0;
@@ -284,13 +293,38 @@
   background-color: rgba(255, 255, 255, 0.022);
 }
 
-.zv-row:hover::before { transform: scaleY(1); }
+.zv-row:not(tr):hover::before { transform: scaleY(1); }
 
-.zv-row:hover td:first-child { transform: translate3d(3px, 0, 0); }
+/*
+  In a table the rail lives in the first cell, which is a block container and can hold a
+  positioned box without the table noticing.
 
-.zv-row td:first-child {
+  The cell slides 3px on hover and the rail would ride along with it, so the rail slides
+  back by the same 3px on the same curve — it stays on the row's edge while the text
+  moves. Both states carry the same two functions, translate then scale, so the browser
+  interpolates them one by one instead of falling back to a matrix, which a zero scale
+  cannot be decomposed from.
+*/
+tr.zv-row > td:first-child {
+  position: relative;
   transition: transform 260ms var(--ease-premium);
 }
+
+tr.zv-row > td:first-child::before {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  left: 0;
+  width: 2px;
+  background: var(--color-gold);
+  transform: translate3d(0, 0, 0) scaleY(0);
+  transform-origin: center;
+  transition: transform 260ms var(--ease-premium);
+}
+
+tr.zv-row:hover > td:first-child { transform: translate3d(3px, 0, 0); }
+
+tr.zv-row:hover > td:first-child::before { transform: translate3d(-3px, 0, 0) scaleY(1); }
 
 /* Rows arrive in sequence, on the same ladder as everything else. */
 .zv-row:nth-child(1)  { animation-delay: 40ms; }
@@ -363,7 +397,8 @@
   .zv-press,
   .zv-row,
   .zv-row td:first-child,
-  .zv-row::before,
+  .zv-row:not(tr)::before,
+  tr.zv-row > td:first-child::before,
   .zv-mark,
   .zv-nav-item,
   .zv-nav-item::before,
@@ -385,6 +420,16 @@
   .zv-menu-item:hover {
     transform: none;
   }
+
+  /*
+    The table rows' own selectors, repeated at their own weight. `tr.zv-row:hover >
+    td:first-child` outranks `.zv-row:hover td:first-child` above by one type selector,
+    so without these the cell would still slide for somebody who asked for no motion —
+    and the rail, sliding back 3px from a cell that no longer moves, would hang outside
+    the row.
+  */
+  tr.zv-row:hover > td:first-child { transform: none; }
+  tr.zv-row:hover > td:first-child::before { transform: translate3d(0, 0, 0) scaleY(1); }
 
   /*
     Shortened, not switched off — and that distinction is load-bearing here.

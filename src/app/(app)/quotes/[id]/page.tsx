@@ -40,7 +40,7 @@ export default async function QuoteDetailPage({
           <h1 className="font-display text-[24px] font-extrabold tracking-[-0.5px] text-ink">
             {quote.title}
           </h1>
-          <div className="mt-2 flex items-center gap-2">
+          <div className="mt-2 flex flex-wrap items-center gap-2">
             <Badge status={badge.variant}>{badge.label}</Badge>
             {quote.client?.name && (
               <span className="text-[13px] text-muted">
@@ -98,10 +98,10 @@ export default async function QuoteDetailPage({
                 <th className="border-b border-line-soft px-4 py-2.75 text-left text-[10.5px] font-bold uppercase tracking-[0.07em] text-muted">
                   Item
                 </th>
-                <th className="border-b border-line-soft px-4 py-2.75 text-right text-[10.5px] font-bold uppercase tracking-[0.07em] text-muted">
+                <th className="hidden border-b border-line-soft px-4 py-2.75 text-right text-[10.5px] font-bold uppercase tracking-[0.07em] text-muted sm:table-cell">
                   Price
                 </th>
-                <th className="border-b border-line-soft px-4 py-2.75 text-right text-[10.5px] font-bold uppercase tracking-[0.07em] text-muted">
+                <th className="hidden border-b border-line-soft px-4 py-2.75 text-right text-[10.5px] font-bold uppercase tracking-[0.07em] text-muted sm:table-cell">
                   Qty
                 </th>
                 <th className="border-b border-line-soft px-4 py-2.75 text-right text-[10.5px] font-bold uppercase tracking-[0.07em] text-muted">
@@ -114,14 +114,18 @@ export default async function QuoteDetailPage({
                 <tr key={i}>
                   <td className="border-b border-line-soft px-4 py-3 text-ink">
                     {it.label}
+                    {/* Phone: quantity and unit price as one line under the item. */}
+                    <div className="mono mt-0.5 text-[11.5px] text-muted sm:hidden">
+                      {it.qty} × {formatMoney(it.price, quote.currency)}
+                    </div>
                   </td>
-                  <td className="mono border-b border-line-soft px-4 py-3 text-right text-muted">
+                  <td className="mono hidden border-b border-line-soft px-4 py-3 text-right whitespace-nowrap text-muted sm:table-cell">
                     {formatMoney(it.price, quote.currency)}
                   </td>
-                  <td className="mono border-b border-line-soft px-4 py-3 text-right text-muted">
+                  <td className="mono hidden border-b border-line-soft px-4 py-3 text-right text-muted sm:table-cell">
                     {it.qty}
                   </td>
-                  <td className="mono border-b border-line-soft px-4 py-3 text-right text-ink">
+                  <td className="mono border-b border-line-soft px-4 py-3 text-right whitespace-nowrap text-ink">
                     {formatMoney(it.price * it.qty, quote.currency)}
                   </td>
                 </tr>

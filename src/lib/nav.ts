@@ -41,7 +41,23 @@ export type ModuleKey =
   | "invoices"
   | "quotes"
   | "seo"
-  | "toolbox";
+  | "toolbox"
+  /*
+    The private half of the app, switched the same way as everything else.
+
+    Zevern is sold as the freelance side; the money and the private tasks are a second
+    thing a buyer may not want, and until now there was no way to say so — the switch at
+    the top of the sidebar was permanent furniture, so half the product stood there
+    whether it was wanted or not.
+
+    Filed as a module rather than as a column of its own because that is what it is, and
+    because the switch for it then already exists: Settings lists every module with a
+    checkbox, so turning it back on later needs no new screen and no explaining.
+
+    Absent from `hidden_modules` means shown, so every account that existed before this
+    keeps both halves without a migration.
+  */
+  | "private";
 
 export type NavItem = {
   label: string;
@@ -191,4 +207,5 @@ export const MODULE_OPTIONS: { key: ModuleKey; label: string }[] = [
   { key: "quotes", label: "Quotes" },
   { key: "seo", label: "SEO / GEO" },
   { key: "toolbox", label: "Toolbox" },
+  { key: "private", label: "Private — tasks and money" },
 ];

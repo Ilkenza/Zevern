@@ -588,7 +588,7 @@ export function SetupView({
               id="setup-things"
               icon={ShoppingBasket}
               title="Things you buy"
-              lede="So an expense can be picked off a list instead of typed out again. Nothing lands here on its own: mark a name on an entry to keep it, or add one below. Mark one as food or drink and what you buy of it turns up in In the house — with a rok, if it goes off."
+              lede="So an expense can be picked off a list instead of typed out again. Nothing lands here on its own: mark a name on an entry to keep it, or add one below. Mark one as food or drink and what you buy of it turns up in In the house — with a use-by date, if it goes off."
               className="overflow-visible"
               meta={
                 items.length > 0 ? (

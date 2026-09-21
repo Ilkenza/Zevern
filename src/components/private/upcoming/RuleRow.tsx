@@ -13,7 +13,7 @@ import { makeMoney } from "@/lib/money/display";
 import { cn } from "@/lib/utils";
 import type { RecurringRow } from "@/lib/types";
 import { RULES_HREF, daysBetween, whenLabel } from "./index";
-import { Dot, NO_COLOUR, caps } from "./ui";
+import { NO_COLOUR, WithDot, caps } from "./ui";
 import { EVERY_LABEL, EVERY_TICK, read, ruleCols } from "./rules-reading";
 
 export function RuleRow({ item, rates, today }: { item: RecurringRow; rates: Rates; today: string }) {
@@ -117,27 +117,33 @@ export function RuleRow({ item, rates, today }: { item: RecurringRow; rates: Rat
             <div className="ml-auto min-[760px]:hidden">{controls}</div>
           </div>
 
-          <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11.5px] text-muted">
-            <span>{EVERY_LABEL[item.every] ?? item.every}</span>
-            <Dot />
-            {item.goal ? (
-              <span className="min-w-0 truncate text-held">{item.goal.name}</span>
-            ) : item.loan ? (
-              <span className="min-w-0 truncate">
-                <span className="text-gold-hi">{item.loan.name}</span>
-                {item.category && <span> · {item.category.name}</span>}
-              </span>
-            ) : (
-              <span className="min-w-0 truncate">{item.category?.name ?? "No category"}</span>
-            )}
-            <Dot />
-            <span className="min-w-0 truncate">{item.account?.name ?? "No account"}</span>
-            {item.ends_on && (
-              <>
-                <Dot />
-                <span className="mono">until {item.ends_on}</span>
-              </>
-            )}
+          {/* The same clipped first dot as the timeline rows — the note is in `TimelineRow`. */}
+          <div className="mt-0.5 overflow-hidden text-[11.5px] text-muted">
+            <div className="-ml-2.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+              <WithDot>
+                <span>{EVERY_LABEL[item.every] ?? item.every}</span>
+              </WithDot>
+              <WithDot>
+                {item.goal ? (
+                  <span className="min-w-0 truncate text-held">{item.goal.name}</span>
+                ) : item.loan ? (
+                  <span className="min-w-0 truncate">
+                    <span className="text-gold-hi">{item.loan.name}</span>
+                    {item.category && <span> · {item.category.name}</span>}
+                  </span>
+                ) : (
+                  <span className="min-w-0 truncate">{item.category?.name ?? "No category"}</span>
+                )}
+              </WithDot>
+              <WithDot>
+                <span className="min-w-0 truncate">{item.account?.name ?? "No account"}</span>
+              </WithDot>
+              {item.ends_on && (
+                <WithDot>
+                  <span className="mono">until {item.ends_on}</span>
+                </WithDot>
+              )}
+            </div>
           </div>
         </div>
       </div>

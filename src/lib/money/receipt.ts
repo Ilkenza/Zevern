@@ -64,27 +64,6 @@ export type ScannedReceipt = {
 export type ReceiptRead = { ok: true; receipt: ScannedReceipt } | { ok: false; error: string };
 
 /**
- * `1 stavka`, `3 stavke`, `7 stavki` — the count and the word that goes with it.
- *
- * Serbian has three forms where English has two, and the third is the one a rule written
- * as "one or many" always gets wrong: two, three and four take their own ending. The app
- * printed "3 stavki" on the first receipt it ever read, which is the kind of mistake that
- * makes a screen feel translated rather than written.
- *
- * The teens are the exception that makes it a function rather than a lookup: eleven
- * through fourteen take the many-form even though they end in one through four.
- */
-export function counted(n: number, one: string, few: string, many: string): string {
-  const abs = Math.abs(Math.trunc(n));
-  const lastTwo = abs % 100;
-  const last = abs % 10;
-  if (lastTwo >= 11 && lastTwo <= 14) return `${n} ${many}`;
-  if (last === 1) return `${n} ${one}`;
-  if (last >= 2 && last <= 4) return `${n} ${few}`;
-  return `${n} ${many}`;
-}
-
-/**
  * The token out of a scanned address, or nothing.
  *
  * This is the security of the whole feature in one function, so it is written as an
@@ -139,7 +118,7 @@ export function receiptUrl(token: string): string {
  * text, because only the lines are printed and not sent.
  */
 export function readReceipt(payload: unknown): ReceiptRead {
-  if (!payload || typeof payload !== "object") return { ok: false, error: "Račun nije stigao u očekivanom obliku." };
+  if (!payload || typeof payload !== "object") return { ok: false, error: "The receipt did not arrive in the expected shape." };
   const body = payload as Record<string, unknown>;
 
   const request = asRecord(body.invoiceRequest);
@@ -147,7 +126,7 @@ export function readReceipt(payload: unknown): ReceiptRead {
   const journal = typeof body.journal === "string" ? body.journal : "";
 
   if (!request || !result || !journal) {
-    return { ok: false, error: "Račun nije stigao u očekivanom obliku." };
+    return { ok: false, error: "The receipt did not arrive in the expected shape." };
   }
 
   /*
@@ -161,20 +140,20 @@ export function readReceipt(payload: unknown): ReceiptRead {
   const invoiceType = Number(request.invoiceType);
   const transactionType = Number(request.transactionType);
   if (transactionType === 1) {
-    return { ok: false, error: "Ovo je račun za refundaciju, ne kupovinu — unesi ga kao prihod." };
+    return { ok: false, error: "This is a refund receipt, not a purchase — enter it as income." };
   }
-  if (invoiceType === 1) return { ok: false, error: "Ovo je predračun, nije fiskalni račun." };
-  if (invoiceType === 2) return { ok: false, error: "Ovo je kopija računa — skeniraj original." };
-  if (invoiceType === 3) return { ok: false, error: "Ovo je probni račun, nije pravi." };
+  if (invoiceType === 1) return { ok: false, error: "This is a proforma, not a fiscal receipt." };
+  if (invoiceType === 2) return { ok: false, error: "This is a copy of a receipt — scan the original." };
+  if (invoiceType === 3) return { ok: false, error: "This is a training receipt, not a real one." };
 
   const total = money(result.totalAmount);
-  if (!(total > 0)) return { ok: false, error: "Račun nema iznos." };
+  if (!(total > 0)) return { ok: false, error: "The receipt has no amount." };
 
   const { items, dropped } = journalItems(journal);
   const notes: string[] = [];
   if (dropped > 0) {
     notes.push(
-      `Račun ima ${counted(dropped, "stavku", "stavke", "stavki")} više nego što jedan unos prima — nisu ušle u listu.`,
+      `The receipt has ${dropped} ${dropped === 1 ? "line" : "lines"} more than one entry holds — they are not in the list.`,
     );
   }
 
@@ -188,9 +167,9 @@ export function readReceipt(payload: unknown): ReceiptRead {
   */
   const balanced = items.length > 0 && dropped === 0 && Math.abs(sum - total) <= 1;
   if (items.length > 0 && !balanced && dropped === 0) {
-    notes.push(`Stavke daju ${sum.toLocaleString("sr-RS")} a račun kaže ${total.toLocaleString("sr-RS")} — iznos ostaje sa računa.`);
+    notes.push(`The lines come to ${sum.toLocaleString("sr-RS")} but the receipt says ${total.toLocaleString("sr-RS")} — the amount stays as the receipt's.`);
   }
-  if (items.length === 0) notes.push("Nijedna stavka nije pročitana — iznos i datum jesu.");
+  if (items.length === 0) notes.push("No lines were read — the amount and the date were.");
 
   return {
     ok: true,

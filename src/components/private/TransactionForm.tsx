@@ -6,13 +6,13 @@ import { Field } from "@/components/ui/Field";
 import { MoneyField } from "@/components/ui/MoneyField";
 import { TxItems } from "@/components/private/TxItems";
 import { ReceiptScan } from "@/components/private/ReceiptScan";
-import { counted, type ScannedReceipt } from "@/lib/money/receipt";
+import type { ScannedReceipt } from "@/lib/money/receipt";
 import { itemsArePriced, itemsTotal, parseItems } from "@/lib/money/items";
 import { fillFromPick, fillFromTyping, type Fill } from "@/lib/money/known";
 import { Select } from "@/components/ui/Select";
 import { Button } from "@/components/ui/Button";
 import { DeleteButton } from "@/components/ui/DeleteButton";
-import { canFileInto, CURRENCY_OPTIONS, isGoalKind, isLoanKind, isPayingKind, NEW_LOAN, rateFor, TX_KIND_ALL, TX_KIND_OPTIONS, type Rates } from "@/lib/money";
+import { canFileInto, CURRENCY_OPTIONS, feeOf, isGoalKind, isLoanKind, isPayingKind, NEW_LOAN, rateFor, TX_KIND_ALL, TX_KIND_OPTIONS, type Rates } from "@/lib/money";
 import { cn } from "@/lib/utils";
 import type {
   LoanLine,
@@ -25,7 +25,7 @@ import type {
 } from "@/lib/types";
 import { ChipPicker } from "@/components/ui/ChipPicker";
 import { ItemPicker } from "@/components/ui/ItemPicker";
-import { formatDate, todayISO } from "@/lib/format";
+import { formatDate, formatMoney, todayISO } from "@/lib/format";
 import { useDefaultCurrency, useMoney } from "@/lib/money/currency";
 
 export type TxFormData = {
@@ -114,6 +114,17 @@ export function TransactionForm({
   // `tx.amount` is null on an entry logged without a price, and `String(null)` is the
   // word "null" — which is what the field would have opened with.
   const [amount, setAmount] = useState(tx?.amount == null ? "" : String(tx.amount));
+  /*
+    What the move cost on top of what moved — a cash machine that is not your bank's.
+
+    Opened from the paired expense rather than from this row, because that is where it
+    lives. If the form started this empty on an edit, saving an untouched transfer would
+    delete a charge nobody meant to touch.
+  */
+  const [fee, setFee] = useState(() => {
+    const had = tx ? feeOf(tx) : 0;
+    return had > 0 ? String(had) : "";
+  });
 
   /*
     What the shopping list is allowed to change. Which fields those are is decided in
@@ -294,6 +305,23 @@ export function TransactionForm({
   const budgetOffered = filableBudgets.some((b) => b.id === budgetId[0]);
 
   const accountOptions = accounts.map((a) => ({ value: a.id, label: `${a.name} · ${a.currency}` }));
+
+  /*
+    The two halves of a charged move, worked out only when both are actually numbers.
+
+    Null while either box is empty or half-typed, so the line appears when it has
+    something true to say instead of flickering "0 leaves" at somebody mid-keystroke.
+  */
+  const feeNum = Number(fee.replace(",", "."));
+  const amountNum = Number(amount.replace(",", "."));
+  const feeSplit =
+    kind === "transfer" && Number.isFinite(feeNum) && feeNum > 0 && Number.isFinite(amountNum) && amountNum > 0
+      ? {
+          moved: amountNum,
+          fee: feeNum,
+          total: Math.round((amountNum + feeNum) * 100) / 100,
+        }
+      : null;
   /*
     A transfer is nearly always one movement: money off a card or out of the bank, into
     a pocket. Money out of an ATM is not spending — it is the same dinars in a different
@@ -447,15 +475,8 @@ export function TransactionForm({
                 </p>
                 <p className="tx-scan-sub">
                   {scan.receipt.items.length > 0
-                    /*
-                      `Pročitano:` and then the count, rather than the count and then a
-                      participle. Serbian makes the participle agree as well as the noun —
-                      `1 stavka popunjena`, `3 stavke popunjene`, `5 stavki popunjeno` —
-                      and a label with a colon after it sidesteps the agreement entirely
-                      instead of getting it wrong in two cases out of three.
-                    */
-                    ? `Pročitano: ${counted(scan.receipt.items.length, "stavka", "stavke", "stavki")} — izmeni šta hoćeš pre nego što sačuvaš.`
-                    : "Pročitani iznos i datum — stavke nisu pročitane."}
+                    ? `Read: ${scan.receipt.items.length} ${scan.receipt.items.length === 1 ? "item" : "items"} — change anything you like before saving.`
+                    : "The amount and the date were read — the items were not."}
                 </p>
                 {/*
                   A warning, never a refusal. One trip to the shop is often two entries
@@ -465,7 +486,7 @@ export function TransactionForm({
                 */}
                 {scan.seenOn && (
                   <p className="tx-scan-warn">
-                    Ovaj račun je već unet {formatDate(scan.seenOn)}. Ako deliš račun na dva unosa, nastavi.
+                    This receipt was already entered on {formatDate(scan.seenOn)}. If you are splitting it across two entries, carry on.
                   </p>
                 )}
                 {scan.receipt.notes.map((note) => (
@@ -670,7 +691,7 @@ export function TransactionForm({
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             maxLength={80}
-            placeholder={many ? "Maxi, pijaca, apoteka…" : (TITLE_HINT[kind] ?? "Shop, bill, ticket…")}
+            placeholder={many ? "Supermarket, market, pharmacy…" : (TITLE_HINT[kind] ?? "Shop, bill, ticket…")}
             required={!many}
           />
         )}
@@ -761,6 +782,40 @@ export function TransactionForm({
                   : undefined
             }
           />
+        )}
+
+        {/*
+          What the move cost, and what actually left the account.
+
+          A cash machine that is not your bank's takes a charge, and the two figures it
+          leaves you with are different: 5.000 in your hand, 5.250 off the statement.
+          Before this there was one box for both, so one of the two balances was always
+          wrong by the charge — and the charge itself, which is real spending, appeared
+          nowhere in any month.
+
+          The line underneath is the whole point of the pair being visible together. It
+          is the number on the bank's screen, which is the one you will be reconciling
+          against, and it is spelled out rather than left to be worked out in your head
+          while you are still standing at the machine.
+        */}
+        {kind === "transfer" && (
+          <div className="tx-fee">
+            <MoneyField
+              label="Fee (optional)"
+              name="fee"
+              value={fee}
+              onValueChange={setFee}
+              placeholder="0"
+              help="What the machine or the bank charged on top. Leave empty if nothing."
+            />
+            {feeSplit && (
+              <p className="tx-fee-sum">
+                Off the account: <strong>{formatMoney(feeSplit.total, currency)}</strong> —{" "}
+                {formatMoney(feeSplit.moved, currency)} arrives,{" "}
+                {formatMoney(feeSplit.fee, currency)} is the fee.
+              </p>
+            )}
+          </div>
         )}
 
         {(kind === "expense" || kind === "income") && (

@@ -37,3 +37,24 @@ describe("booksItself", () => {
     expect(booksItself(rule({ created_at: "2026-09-04T09:00:00Z" }))).toBe(false);
   });
 });
+
+/*
+  Every screen that splits "posts on its own" from "waits for you" has to ask this one
+  function. The overview's needs list once kept its own copy, written before the switch
+  existed, and quietly dropped overdue fixed bills that were waiting for a tap.
+*/
+describe("who asks", () => {
+  it("the overview's needs list and both panels all go through booksItself", async () => {
+    const { readFileSync } = await import("node:fs");
+    for (const file of [
+      "src/app/(app)/private/page.tsx",
+      "src/components/private/overview/NeedsList.tsx",
+      "src/components/private/DueRecurringPanel.tsx",
+    ]) {
+      const source = readFileSync(file, "utf8");
+      expect(source, file).toContain('from "@/lib/money/books-itself"');
+      // The retired inline copy of the rule.
+      expect(source, file).not.toMatch(/String\(r\.created_at\)\.slice\(0, 10\) >= r\.next_on/);
+    }
+  });
+});

@@ -4,6 +4,8 @@ import { createClient } from "@/lib/supabase/server";
 import { Landing } from "@/components/marketing/Landing";
 import { GettingStarted } from "@/components/onboarding/GettingStarted";
 import { getOnboarding } from "@/lib/data/onboarding";
+import { Quickstart } from "@/components/onboarding/Quickstart";
+import { getQuickstart } from "@/lib/data/quickstart";
 import { Kpi } from "@/components/ui/Kpi";
 import { AttentionBand } from "@/components/overview/AttentionBand";
 import { Panel } from "@/components/ui/Panel";
@@ -26,7 +28,7 @@ import {
   effectiveInvoiceStatus,
   invoiceStatusBadge,
 } from "@/lib/status";
-import { formatCurrency, formatDate } from "@/lib/format";
+import { formatCurrency, formatDate, formatMoney } from "@/lib/format";
 import { TaskCheckbox } from "@/components/tasks/TaskCheckbox";
 import { RevenueGoalCard } from "@/components/overview/RevenueGoalCard";
 import { ActivityFeed } from "@/components/overview/ActivityFeed";
@@ -119,6 +121,7 @@ export default async function OverviewPage() {
     activity,
     followups,
     onboarding,
+    quickstart,
     overdueTasks,
     followupCount,
   ] = await Promise.all([
@@ -132,6 +135,7 @@ export default async function OverviewPage() {
     getRecentActivity(6),
     getLeadsForFollowup(5),
     getOnboarding(),
+    getQuickstart(),
     getOverdueTaskCount(),
     getFollowupCount(),
   ]);
@@ -168,6 +172,13 @@ export default async function OverviewPage() {
           </Link>
         </div>
       </header>
+
+      {/*
+        The questions come before the checklist, and only while there is something for
+        them to build. They are the two-minute path; the checklist is the fortnight one,
+        and putting the long list first is how somebody decides the app is work.
+      */}
+      {!quickstart.hidden && <Quickstart data={quickstart} />}
 
       {!onboarding.hidden && <div className="overview-onboarding"><GettingStarted onboarding={onboarding} /></div>}
 
@@ -221,8 +232,16 @@ export default async function OverviewPage() {
         />
       </div>
 
-      {/* Main + right column */}
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+      {/*
+        Main + right column.
+
+        `grid-cols-1` on a phone, not "no columns". A grid with no template makes one `auto`
+        track, and an auto track is as wide as the widest thing in it — here the Projects
+        table, 547px of it on a 390px screen. Both columns came out that wide, and the page
+        guard (`overflow-x: clip` on the body) cut off the value, the status and the right
+        half of every panel below. `grid-cols-1` is `minmax(0, 1fr)`: the screen's width.
+      */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="overview-main-column space-y-6">
           <Panel
             className="overview-panel"
@@ -258,10 +277,10 @@ export default async function OverviewPage() {
                       <th className="border-b border-line-soft px-4 py-2.75 text-left text-[10.5px] font-bold uppercase tracking-[0.07em] text-muted">
                         Project
                       </th>
-                      <th className="border-b border-line-soft px-4 py-2.75 text-left text-[10.5px] font-bold uppercase tracking-[0.07em] text-muted">
+                      <th className="hidden border-b border-line-soft px-4 py-2.75 text-left text-[10.5px] font-bold uppercase tracking-[0.07em] text-muted sm:table-cell">
                         Client
                       </th>
-                      <th className="border-b border-line-soft px-4 py-2.75 text-left text-[10.5px] font-bold uppercase tracking-[0.07em] text-muted">
+                      <th className="hidden border-b border-line-soft px-4 py-2.75 text-left text-[10.5px] font-bold uppercase tracking-[0.07em] text-muted sm:table-cell">
                         Status
                       </th>
                       <th className="border-b border-line-soft px-4 py-2.75 text-right text-[10.5px] font-bold uppercase tracking-[0.07em] text-muted">
@@ -277,22 +296,33 @@ export default async function OverviewPage() {
                           key={p.id}
                           className="overview-table-row transition-colors hover:bg-white/2"
                         >
-                          <td className="border-b border-line-soft px-4 py-3 font-semibold text-ink">
+                          <td className="border-b border-line-soft px-4 py-3 font-semibold text-ink max-sm:w-full max-sm:max-w-0">
                             <Link
                               href={`/projects/${p.id}`}
                               className="hover:text-gold-hi"
                             >
                               {p.title}
                             </Link>
+                            {/* Phone: the client under the title, the status under the value. */}
+                            {p.client?.name && (
+                              <div className="mt-0.5 truncate text-[11.5px] font-normal text-muted sm:hidden">
+                                {p.client.name}
+                              </div>
+                            )}
                           </td>
-                          <td className="border-b border-line-soft px-4 py-3 text-muted">
+                          <td className="hidden border-b border-line-soft px-4 py-3 text-muted sm:table-cell">
                             <ClientCell name={p.client?.name} />
                           </td>
-                          <td className="border-b border-line-soft px-4 py-3">
+                          <td className="hidden border-b border-line-soft px-4 py-3 sm:table-cell">
                             <Badge status={badge.variant}>{badge.label}</Badge>
                           </td>
-                          <td className="mono border-b border-line-soft px-4 py-3 text-right text-ink">
-                            {formatCurrency(p.value)}
+                          <td className="border-b border-line-soft px-4 py-3 text-right text-ink">
+                            <div className="mono whitespace-nowrap">
+                              {formatMoney(p.value, p.currency)}
+                            </div>
+                            <div className="mt-1 sm:hidden">
+                              <Badge status={badge.variant}>{badge.label}</Badge>
+                            </div>
                           </td>
                         </tr>
                       );
@@ -337,10 +367,10 @@ export default async function OverviewPage() {
                       <th className="border-b border-line-soft px-4 py-2.75 text-left text-[10.5px] font-bold uppercase tracking-[0.07em] text-muted">
                         Number
                       </th>
-                      <th className="border-b border-line-soft px-4 py-2.75 text-left text-[10.5px] font-bold uppercase tracking-[0.07em] text-muted">
+                      <th className="hidden border-b border-line-soft px-4 py-2.75 text-left text-[10.5px] font-bold uppercase tracking-[0.07em] text-muted sm:table-cell">
                         Client
                       </th>
-                      <th className="border-b border-line-soft px-4 py-2.75 text-left text-[10.5px] font-bold uppercase tracking-[0.07em] text-muted">
+                      <th className="hidden border-b border-line-soft px-4 py-2.75 text-left text-[10.5px] font-bold uppercase tracking-[0.07em] text-muted sm:table-cell">
                         Status
                       </th>
                       <th className="border-b border-line-soft px-4 py-2.75 text-right text-[10.5px] font-bold uppercase tracking-[0.07em] text-muted">
@@ -358,22 +388,32 @@ export default async function OverviewPage() {
                           key={inv.id}
                           className="overview-table-row transition-colors hover:bg-white/2"
                         >
-                          <td className="mono border-b border-line-soft px-4 py-3 font-semibold text-ink">
+                          <td className="border-b border-line-soft px-4 py-3 font-semibold text-ink max-sm:w-full max-sm:max-w-0">
                             <Link
                               href={`/invoices/${inv.id}`}
-                              className="hover:text-gold-hi"
+                              className="mono whitespace-nowrap hover:text-gold-hi"
                             >
                               {inv.number ?? "—"}
                             </Link>
+                            {inv.client?.name && (
+                              <div className="mt-0.5 truncate text-[11.5px] font-normal text-muted sm:hidden">
+                                {inv.client.name}
+                              </div>
+                            )}
                           </td>
-                          <td className="border-b border-line-soft px-4 py-3 text-muted">
+                          <td className="hidden border-b border-line-soft px-4 py-3 text-muted sm:table-cell">
                             <ClientCell name={inv.client?.name} />
                           </td>
-                          <td className="border-b border-line-soft px-4 py-3">
+                          <td className="hidden border-b border-line-soft px-4 py-3 sm:table-cell">
                             <Badge status={badge.variant}>{badge.label}</Badge>
                           </td>
-                          <td className="mono border-b border-line-soft px-4 py-3 text-right text-ink">
-                            {formatCurrency(inv.amount)}
+                          <td className="border-b border-line-soft px-4 py-3 text-right text-ink">
+                            <div className="mono whitespace-nowrap">
+                              {formatMoney(inv.amount, inv.currency)}
+                            </div>
+                            <div className="mt-1 sm:hidden">
+                              <Badge status={badge.variant}>{badge.label}</Badge>
+                            </div>
                           </td>
                         </tr>
                       );

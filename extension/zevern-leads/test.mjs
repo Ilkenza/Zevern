@@ -33,7 +33,7 @@ const noSite = mapsToLead({ name: "Pekara", phone: "+38160123", hasWebsite: fals
 eq("maps: channel google_maps", noSite.channel, "google_maps");
 eq("maps: contact = phone", noSite.contact, "+38160123");
 eq("maps: no site → service new_site", noSite.service, "new_site");
-eq("maps: notes has link + nema sajt", noSite.notes, "https://maps/x · nema sajt");
+eq("maps: notes has link + no website", noSite.notes, "https://maps/x · no website");
 
 const hasSite = mapsToLead({ name: "Cafe", phone: "", hasWebsite: true, link: "https://maps/y" });
 eq("maps: has site → empty service", hasSite.service, "");

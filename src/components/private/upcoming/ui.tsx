@@ -49,10 +49,32 @@ export function PanelMeta({ children }: { children: React.ReactNode }) {
   );
 }
 
+/*
+  4px wide exactly, so the 10px a meta line is pulled left by (this and its 6px gap)
+  hides the first dot of every line and nothing else.
+*/
 export function Dot() {
   return (
-    <span aria-hidden="true" className="text-faint">
+    <span aria-hidden="true" className="inline-block w-1 text-center text-faint">
       ·
+    </span>
+  );
+}
+
+/**
+ * A separator and the fact after it, as one piece.
+ *
+ * The meta lines wrap, and with the dot as a flex item of its own the wrap fell between
+ * a dot and its fact as often as anywhere else — so on a phone half the lines ended in a
+ * stray `·` and the next one began without it. Held together, a line can only break
+ * before a dot, and the line's box hides the dot that lands at its start (see the meta
+ * line in `TimelineRow`): `in 9 days` ends one line and `Pays Macbook` starts the next.
+ */
+export function WithDot({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="inline-flex max-w-full min-w-0 items-center gap-x-1.5">
+      <Dot />
+      {children}
     </span>
   );
 }

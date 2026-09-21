@@ -55,6 +55,11 @@ export function QuotesView({ quotes }: { quotes: QuoteWithClient[] }) {
                         key={h}
                         className={`border-b border-line-soft px-4 py-2.75 text-[10.5px] font-bold uppercase tracking-[0.07em] text-muted ${
                           idx >= 3 ? "text-right" : "text-left"
+                        } ${
+                          /* Client, status and date ride inside the row on a phone. */
+                          h === "Client" || h === "Status" || h === "Date"
+                            ? "hidden sm:table-cell"
+                            : ""
                         }`}
                       >
                         {h}
@@ -71,7 +76,7 @@ export function QuotesView({ quotes }: { quotes: QuoteWithClient[] }) {
                       key={q.id}
                       className="zv-row"
                     >
-                      <td className="border-b border-line-soft px-4 py-3 font-semibold text-ink">
+                      <td className="border-b border-line-soft px-4 py-3 font-semibold text-ink max-sm:w-full max-sm:max-w-0">
                         <Link
                           href={`/quotes/${q.id}`}
                           transitionTypes={["zv-forward"]}
@@ -79,17 +84,26 @@ export function QuotesView({ quotes }: { quotes: QuoteWithClient[] }) {
                         >
                           {q.title}
                         </Link>
+                        {/* Phone: who and when under the title, the status under the total. */}
+                        <div className="mt-0.5 truncate text-[11.5px] font-normal text-muted sm:hidden">
+                          {[q.client?.name, formatDate(q.created_at)].filter(Boolean).join(" · ")}
+                        </div>
                       </td>
-                      <td className="border-b border-line-soft px-4 py-3 text-muted">
+                      <td className="hidden border-b border-line-soft px-4 py-3 text-muted sm:table-cell">
                         {q.client?.name ?? "—"}
                       </td>
-                      <td className="border-b border-line-soft px-4 py-3">
+                      <td className="hidden border-b border-line-soft px-4 py-3 sm:table-cell">
                         <Badge status={badge.variant}>{badge.label}</Badge>
                       </td>
-                      <td className="mono border-b border-line-soft px-4 py-3 text-right text-ink">
-                        {formatMoney(quoteTotal(q.items), q.currency)}
+                      <td className="border-b border-line-soft px-4 py-3 text-right text-ink">
+                        <div className="mono whitespace-nowrap">
+                          {formatMoney(quoteTotal(q.items), q.currency)}
+                        </div>
+                        <div className="mt-1 sm:hidden">
+                          <Badge status={badge.variant}>{badge.label}</Badge>
+                        </div>
                       </td>
-                      <td className="mono border-b border-line-soft px-4 py-3 text-right text-muted">
+                      <td className="mono hidden border-b border-line-soft px-4 py-3 text-right whitespace-nowrap text-muted sm:table-cell">
                         {formatDate(q.created_at)}
                       </td>
                     </tr>

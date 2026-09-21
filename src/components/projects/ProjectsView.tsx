@@ -41,7 +41,9 @@ export function ProjectsView({
           { label: "All", value: String(projects.length) },
           {
             label: "Active",
-            value: String(projects.filter((p) => p.status === "active").length),
+            // "In progress" — the same count the Overview's `Active projects` shows. This
+            // read `"active"`, which is not a status, and so showed 0 whatever was running.
+            value: String(projects.filter((p) => p.status === "in_progress").length),
             tone: "gold",
           },
         ]}
@@ -73,19 +75,19 @@ export function ProjectsView({
                   <th className="border-b border-line-soft px-4 py-2.75 text-left text-[10.5px] font-bold uppercase tracking-[0.07em] text-muted">
                     Project
                   </th>
-                  <th className="border-b border-line-soft px-4 py-2.75 text-left text-[10.5px] font-bold uppercase tracking-[0.07em] text-muted">
+                  <th className="hidden border-b border-line-soft px-4 py-2.75 text-left text-[10.5px] font-bold uppercase tracking-[0.07em] text-muted sm:table-cell">
                     Client
                   </th>
-                  <th className="border-b border-line-soft px-4 py-2.75 text-left text-[10.5px] font-bold uppercase tracking-[0.07em] text-muted">
+                  <th className="hidden border-b border-line-soft px-4 py-2.75 text-left text-[10.5px] font-bold uppercase tracking-[0.07em] text-muted sm:table-cell">
                     Status
                   </th>
                   <th className="border-b border-line-soft px-4 py-2.75 text-right text-[10.5px] font-bold uppercase tracking-[0.07em] text-muted">
                     Value
                   </th>
-                  <th className="border-b border-line-soft px-4 py-2.75 text-right text-[10.5px] font-bold uppercase tracking-[0.07em] text-muted">
+                  <th className="hidden border-b border-line-soft px-4 py-2.75 text-right text-[10.5px] font-bold uppercase tracking-[0.07em] text-muted sm:table-cell">
                     Due
                   </th>
-                  <th className="border-b border-line-soft px-4 py-2.75" />
+                  <th className="border-b border-line-soft py-2.75 pr-3 sm:px-4" />
                 </tr>
               </thead>
               <tbody>
@@ -96,7 +98,7 @@ export function ProjectsView({
                       key={p.id}
                       className="zv-row group"
                     >
-                      <td className="border-b border-line-soft px-4 py-3 font-semibold text-ink">
+                      <td className="border-b border-line-soft px-4 py-3 font-semibold text-ink max-sm:w-full max-sm:max-w-0">
                         <Link
                           href={`/projects/${p.id}`}
                           transitionTypes={["zv-forward"]}
@@ -104,24 +106,48 @@ export function ProjectsView({
                         >
                           {p.title}
                         </Link>
+                        {/*
+                          On a phone the row is two lines instead of six columns: who it is
+                          for and when it is due under the title, the status under the value.
+                          Six columns in 350px either scroll sideways — hiding the value, the
+                          one figure the list is for — or squeeze every title to one word a line.
+
+                          The cell is `w-full max-w-0` there, the same on every list: a table
+                          sizes a column by its longest line that cannot wrap, and a truncated
+                          line counts at its full length — so without it this one line pushed
+                          the value back off the screen. With it the column takes what is left
+                          and the line ends in an ellipsis.
+                        */}
+                        {(p.client?.name || p.due_date) && (
+                          <div className="mt-0.5 truncate text-[11.5px] font-normal text-muted sm:hidden">
+                            {[p.client?.name, p.due_date ? `due ${formatDate(p.due_date)}` : null]
+                              .filter(Boolean)
+                              .join(" · ")}
+                          </div>
+                        )}
                       </td>
-                      <td className="border-b border-line-soft px-4 py-3 text-muted">
+                      <td className="hidden border-b border-line-soft px-4 py-3 text-muted sm:table-cell">
                         {p.client?.name ?? "—"}
                       </td>
-                      <td className="border-b border-line-soft px-4 py-3">
+                      <td className="hidden border-b border-line-soft px-4 py-3 sm:table-cell">
                         <Badge status={badge.variant}>{badge.label}</Badge>
                       </td>
-                      <td className="mono border-b border-line-soft px-4 py-3 text-right text-ink">
-                        {formatMoney(p.value, p.currency)}
+                      <td className="border-b border-line-soft px-4 py-3 text-right text-ink">
+                        <div className="mono whitespace-nowrap">
+                          {formatMoney(p.value, p.currency)}
+                        </div>
+                        <div className="mt-1 sm:hidden">
+                          <Badge status={badge.variant}>{badge.label}</Badge>
+                        </div>
                       </td>
-                      <td className="mono border-b border-line-soft px-4 py-3 text-right text-muted">
+                      <td className="mono hidden border-b border-line-soft px-4 py-3 text-right whitespace-nowrap text-muted sm:table-cell">
                         {formatDate(p.due_date)}
                       </td>
-                      <td className="border-b border-line-soft px-4 py-3 text-right">
+                      <td className="border-b border-line-soft py-3 pr-3 text-right sm:px-4">
                         <Link
                           href={`/projects?edit=${p.id}`}
                           aria-label={`Edit ${p.title}`}
-                          className="inline-flex rounded-ctrl p-1.5 text-faint opacity-0 transition-opacity hover:bg-white/5 hover:text-ink group-hover:opacity-100"
+                          className="inline-flex rounded-ctrl p-1.5 text-faint transition-colors hover:bg-white/5 hover:text-ink focus-visible:text-ink"
                         >
                           <Pencil className="h-3.75 w-3.75" />
                         </Link>

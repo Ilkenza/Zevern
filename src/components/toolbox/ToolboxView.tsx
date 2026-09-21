@@ -118,7 +118,7 @@ export function ToolboxView({
                       <Link
                         href={`/toolbox?edit=${t.id}`}
                         aria-label={`Edit ${t.name}`}
-                        className="shrink-0 rounded-ctrl p-1 text-faint opacity-0 transition-opacity hover:bg-white/5 hover:text-ink group-hover:opacity-100"
+                        className="shrink-0 rounded-ctrl p-1 text-faint transition-colors hover:bg-white/5 hover:text-ink focus-visible:text-ink"
                       >
                         <Pencil className="h-3.5 w-3,5" />
                       </Link>

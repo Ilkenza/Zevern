@@ -59,6 +59,20 @@ export function toRsd(amount: number, currency: string, rates: Rates): number {
   return Math.round(amount * rateFor(currency, rates) * 100) / 100;
 }
 
+/**
+ * An amount in euros, whatever it was written in.
+ *
+ * The Freelance side counts in euros — the revenue goal, a lead's value and every total
+ * on its overview are all labelled €. Invoices, though, are written in the client's own
+ * money, and the overview used to add them up as they came: a 159.400 dinar invoice
+ * went into "Outstanding" as €159.400. Dinars are the bridge because the rates are kept
+ * as dinars per unit; converting through them is one rule for all three currencies.
+ */
+export function inEuros(amount: number, currency: string, rates: Rates): number {
+  if (currency === "EUR") return amount;
+  return Math.round(((amount * rateFor(currency, rates)) / rateFor("EUR", rates)) * 100) / 100;
+}
+
 /** Dinars, no cents — the only figure that matters at a glance. */
 /*
   The space between the figure and `RSD` is an ordinary one, and that is deliberate —
@@ -401,6 +415,52 @@ export function anchorDayFor(startOn: string, every: string): number | null {
   return day === lastOfMonth ? 31 : day;
 }
 
+/**
+ * A day of the month somebody typed, or `null` when they typed nothing usable.
+ *
+ * Separate from the date arithmetic below because the two failures are different: a
+ * blank box means "I did not say", which is an answer, and `31st of Feb` means a
+ * number that has to be clamped, which is not. Only the first one gets a null.
+ */
+export function monthlyDayFrom(value: unknown): number | null {
+  const day = Math.trunc(Number(String(value ?? "").trim()));
+  if (!Number.isFinite(day) || day < 1 || day > 31) return null;
+  return day;
+}
+
+/**
+ * When a monthly thing next falls due, given the day of the month it lands on.
+ *
+ * This month if that day has not gone yet, next month if it has. Dated in the past it
+ * would arrive already overdue, and somebody's first sight of their own forecast would
+ * be a row in red for a bill they have in fact already paid.
+ *
+ * A 31st in a thirty-day month is the last day of it, which is what the rule means by
+ * it — and the `anchor_day` stored beside this keeps the 31 so the month after comes
+ * back to the 31st rather than staying stuck on the 30th. That is the division of
+ * labour between the two columns: this one is a date, the anchor is the intention.
+ *
+ * `today` is passed rather than read so the rule can be tested at a month end without
+ * waiting for one.
+ */
+export function nextMonthlyOn(day: number | null, today: string): string {
+  if (day === null) return today;
+
+  const [year, month, dayNow] = today.split("-").map(Number);
+  if (!year || !month || !dayNow) return today;
+
+  const inThisMonth = day >= dayNow;
+  const y = inThisMonth ? year : month === 12 ? year + 1 : year;
+  const m = inThisMonth ? month : month === 12 ? 1 : month + 1;
+
+  // Day zero of the month after `m` is the last day of `m`; `m` is 1-based here, so
+  // the index handed to Date.UTC is already the following month.
+  const lastOfMonth = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  const landing = Math.min(day, lastOfMonth);
+
+  return `${y}-${String(m).padStart(2, "0")}-${String(landing).padStart(2, "0")}`;
+}
+
 
 /** Palette used for categories, goals and accounts. */
 /**
@@ -438,6 +498,27 @@ export const SWATCHES = [
   The ten expense colours are now distinct, and none of them is a state colour. The
   three income ones may repeat an expense colour: they are never listed together.
 */
+/**
+ * The category a transfer's fee is filed under.
+ *
+ * Named rather than typed out at each end, because two places have to agree on it: the
+ * seed below, and `saveTransaction`, which looks the category up when it writes the fee
+ * and creates it if the list has not got one. A second spelling of the same word would
+ * put the charge somewhere nobody looks for it.
+ */
+export const BANK_FEES = "Bank fees";
+
+/**
+ * What a transfer's fee was, or zero when it carried none.
+ *
+ * Absent and null both mean none, and a paired row with no figure on it reads as zero
+ * rather than NaN — the form opens its fee box from this, and NaN in a money field is a
+ * figure that saves as nothing and deletes the charge.
+ */
+export function feeOf(row: { fee?: { amount: number | null } | null }): number {
+  return Number(row.fee?.amount ?? 0) || 0;
+}
+
 export const DEFAULT_CATEGORIES: { name: string; kind: "expense" | "income"; color: string }[] = [
   { name: "Groceries", kind: "expense", color: "#8fb85f" },
   { name: "Eating out", kind: "expense", color: "#d6885b" },
@@ -448,10 +529,39 @@ export const DEFAULT_CATEGORIES: { name: string; kind: "expense" | "income"; col
   { name: "Shopping", kind: "expense", color: "#b08968" },
   { name: "Fun", kind: "expense", color: "#d6759b" },
   { name: "Learning", kind: "expense", color: "#7a86d6" },
+  /*
+    Three that were added to a real account by hand before they were added here.
+
+    `Car` is what the car costs standing still — registration, insurance, a service, a
+    part. `Transport` above it is what moving costs, which is a weekly figure; a
+    registration landing inside it reads as getting about having suddenly got dearer.
+    `Fines` is any penalty at all, and it is its own line because a seatbelt ticket is
+    not a travel cost and a late-payment charge is not a bill. `Taxes` is what the state
+    takes on what is earned, which is neither.
+  */
+  { name: "Car", kind: "expense", color: "#6f93a8" },
+  { name: "Fines", kind: "expense", color: "#c76b6b" },
+  { name: "Taxes", kind: "expense", color: "#9a9256" },
+  /*
+    Everything the bank takes for holding the money rather than for anything bought: a
+    cash machine that is not yours, account upkeep, a card, a wire, the spread on a
+    conversion. Not `Bills & utilities` — that is the flat's running costs, and a 250
+    charge for standing at the wrong cash machine landing among the electricity is how
+    a bill goes up for a reason nobody can find.
+  */
+  { name: BANK_FEES, kind: "expense", color: "#8a7f9e" },
+  // The catch-all sorts last, because a list whose last line is a real category invites
+  // a scroll that finds nothing.
   { name: "Other", kind: "expense", color: "#6b7185" },
   { name: "Salary", kind: "income", color: "#c2b24a" },
   { name: "Freelance", kind: "income", color: "#c9c4bb" },
   { name: "Gift", kind: "income", color: "#a98bd6" },
+  /*
+    Money coming back is income, not a negative expense. A returned jumper entered as
+    `Shopping −4.000` makes the month's shopping figure a net of two different facts and
+    hides both of them; as income it stays a thing that happened.
+  */
+  { name: "Refund", kind: "income", color: "#6fae8a" },
 ];
 
 /* ------------------------------------------------------------- the month's net */

@@ -298,35 +298,45 @@ function Row({
         />
         <div className="min-w-0 flex-1">
           <div className="truncate text-[13.5px] font-medium text-ink">{label}</div>
-          <div className="truncate text-[11.5px] text-muted">
-            {/*
-              The time leads the line when there is one — it is the only part of a row
-              that says *when within the day*, and reading it first is how a list of a
-              Saturday's spending turns back into a Saturday.
-            */}
-            {dated && <span className="mono text-faint">{tx.occurred_on} · </span>}
-            {tx.occurred_at ? `${String(tx.occurred_at).slice(0, 5)} · ` : ""}
-            {belongsTo ? `${belongsTo} · ` : ""}
-            {tx.account?.name ?? "No account"}
-            {/*
-              Which budget it was filed into, on the row itself.
+          {/*
+            The line truncates; the items toggle must not.
 
-              This is the fact that makes the rest of the app add up. An entry put into a
-              budget by hand is counted by that budget and by nothing else — so a 14.737
-              dinner filed into `na moru` is real Eating out spending in the breakdown and
-              not a dinar against the monthly Eating out limit. Both readings are correct
-              and together they look like the app moving money about, until the row says
-              where the money went. It is drawn like the filing it is, not like a category.
-            */}
-            {tx.budget?.name && (
-              <>
-                {" · "}
-                <span className="money-row-filed">{tx.budget.name}</span>
-              </>
-            )}
-            {tx.note && label !== tx.note ? ` · ${tx.note}` : ""}
+            It used to be the last thing inside the truncated line, so the ellipsis ate it
+            first — on a phone "12:00 · Groceries · Bank (RSD) · 13 items" is cut at the
+            account, and a receipt's list could not be opened at all. The details truncate
+            in their own span and the toggle sits after it, always whole.
+          */}
+          <div className="flex min-w-0 items-baseline text-[11.5px] text-muted">
+            <span className="min-w-0 truncate">
+              {/*
+                The time leads the line when there is one — it is the only part of a row
+                that says *when within the day*, and reading it first is how a list of a
+                Saturday's spending turns back into a Saturday.
+              */}
+              {dated && <span className="mono text-faint">{tx.occurred_on} · </span>}
+              {tx.occurred_at ? `${String(tx.occurred_at).slice(0, 5)} · ` : ""}
+              {belongsTo ? `${belongsTo} · ` : ""}
+              {tx.account?.name ?? "No account"}
+              {/*
+                Which budget it was filed into, on the row itself.
+
+                This is the fact that makes the rest of the app add up. An entry put into a
+                budget by hand is counted by that budget and by nothing else — so a 14.737
+                dinner filed into `na moru` is real Eating out spending in the breakdown and
+                not a dinar against the monthly Eating out limit. Both readings are correct
+                and together they look like the app moving money about, until the row says
+                where the money went. It is drawn like the filing it is, not like a category.
+              */}
+              {tx.budget?.name && (
+                <>
+                  {" · "}
+                  <span className="money-row-filed">{tx.budget.name}</span>
+                </>
+              )}
+              {tx.note && label !== tx.note ? ` · ${tx.note}` : ""}
+            </span>
             {items.length > 0 && (
-              <>
+              <span className="shrink-0 whitespace-pre">
                 {" · "}
                 <button
                   type="button"
@@ -336,7 +346,7 @@ function Row({
                 >
                   {items.length} {items.length === 1 ? "item" : "items"}
                 </button>
-              </>
+              </span>
             )}
           </div>
         </div>

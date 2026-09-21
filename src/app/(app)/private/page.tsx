@@ -25,11 +25,14 @@ import {
   isGoalOpen,
 } from "@/lib/data/money";
 import { getMoney } from "@/lib/data/money";
+import { getMoneyQuickstart } from "@/lib/data/quickstart";
+import { booksItself } from "@/lib/money/books-itself";
 import { getTasksForToday } from "@/lib/data/tasks";
 import { todayISO } from "@/lib/format";
 import { Panel } from "@/components/ui/Panel";
 import { Kpi } from "@/components/ui/Kpi";
 import { NetKpi } from "@/components/private/NetKpi";
+import { MoneyQuickstart } from "@/components/private/MoneyQuickstart";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { TaskCheckbox } from "@/components/tasks/TaskCheckbox";
 import { MoreRow } from "@/components/ui/MoreRow";
@@ -145,7 +148,7 @@ export default async function PrivateOverviewPage({
     screen should not pay for what it is not going to draw. The placeholders are never
     read — every one of them sits behind `live` in the markup below.
   */
-  const [summary, lines, trend, incomeOnFile, allGoals, due, tasks, onHand, accounts, unpriced, soon, loans, plans, past] =
+  const [summary, lines, trend, incomeOnFile, allGoals, due, tasks, onHand, accounts, unpriced, soon, loans, plans, past, quickstart] =
     await Promise.all([
       getMonthSummary(month),
       getBudgetLines(month),
@@ -205,6 +208,17 @@ export default async function PrivateOverviewPage({
         and it is the read the live page spends thirteen on not needing.
       */
       live ? Promise.resolve([]) : getTransactions({ month }),
+      /*
+        Whether this account has ever said where its money is.
+
+        Behind `live` with the rest, and for the plainest of the reasons on this page: the
+        card asks you to set something up, and there is nothing to set up in a month that
+        is already over. Somebody reading back July does not need to be asked what their
+        rent is on the way in.
+      */
+      live
+        ? getMoneyQuickstart()
+        : Promise.resolve({ hasAccounts: true, recurring: 0, hidden: true, currency: "RSD" as const }),
     ]);
 
   const { owedToYou, youOwe } = loanTotals(loans);
@@ -341,12 +355,18 @@ export default async function PrivateOverviewPage({
   const needs = live
     ? readNeeds({
         today,
-        // Only the ones waiting for a tap. The fixed rules entered ahead of time book
-        // themselves when the screen opens, and listing them as things that need you
-        // would be asking about work already done by the time you read it.
-        dueNow: due.filter(
-          (r) => r.variable || !(Number(r.amount) > 0) || String(r.created_at).slice(0, 10) >= r.next_on,
-        ),
+        /*
+          Only the ones waiting for a tap — and "waiting" is `booksItself`'s answer, the
+          same one `NeedsList` uses to decide what to post on its own.
+
+          This had its own copy of the rule, written before a rule could be told not to
+          book itself: every fixed amount entered ahead of time was assumed to post when
+          the screen opened. Once that became a switch — off unless it is turned on — the
+          copy went on assuming, so a fixed bill with the switch off was neither booked
+          nor listed. Overdue, it fell out of `coming` too, and disappeared from the
+          overview entirely on exactly the day it most needed to be on it.
+        */
+        dueNow: due.filter((r) => !booksItself(r)),
         // Already-due items are the `dueNow` list above; counting them from both
         // sources would report one late bill as two.
         coming: soon.items
@@ -567,6 +587,24 @@ export default async function PrivateOverviewPage({
 
   return (
     <div className="money-premium mx-auto max-w-300 space-y-4">
+      {/*
+        Above the masthead, because it is the one thing on the screen that is true.
+
+        Every block below this is a figure, and with no account on file every one of them
+        is zero — a page that reads as a person with nothing rather than a person who has
+        not said yet. The card is what tells the difference, so it goes where it is read
+        first and disappears the moment it has its answer.
+      */}
+      {/*
+        Mounted on every live render and left to hide its own card, rather than dropped
+        from the tree the moment it has nothing to ask. The first answer creates the
+        accounts, the save refreshes this page, and on that refresh `hidden` turns true —
+        so a conditional here unmounted the component mid-run, closed its panel, and the
+        second and third questions were never asked of anybody. Kept mounted, the run's
+        own state carries it to the end; see `MoneyQuickstart`.
+      */}
+      {live && <MoneyQuickstart data={quickstart} />}
+
       {/*
         The top of the screen is about now, and nothing up here can disagree with a month
         picker — because the picker is not up here any more. It sits on the rule further

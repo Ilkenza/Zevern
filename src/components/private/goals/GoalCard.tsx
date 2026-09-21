@@ -312,13 +312,19 @@ export function GoalCard({
         */}
         <p className="goal-card-line">
           {!expanded && firstStep > 0 ? (
-            <>
+            /*
+              One span, so it wraps as a sentence. The line is a flex row, and loose text
+              either side of the button made three flex items — on a card too narrow for
+              the whole sentence each one wrapped in its own column: `Nothing in / yet.`,
+              the button, `— that is 10% / of the way.` side by side.
+            */
+            <span className="min-w-0">
               Nothing in yet.{" "}
               <button type="button" onClick={onToggle} className="goal-first-step">
                 Start with {fmt(firstStep)}
               </button>{" "}
               — that is {Math.round((firstStep / target) * 100)}% of the way.
-            </>
+            </span>
           ) : r.done ? (
             goal.paying ? (
               /*

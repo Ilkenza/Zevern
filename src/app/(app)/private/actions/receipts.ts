@@ -61,15 +61,15 @@ function tooFast(uid: string): boolean {
 export async function scanReceipt(scanned: string): Promise<ScanState> {
   const supabase = await createSupabaseServerClient();
   const uid = await userId(supabase);
-  if (!uid) return { ok: false, error: "Nisi prijavljen." };
+  if (!uid) return { ok: false, error: "Not signed in." };
 
-  if (tooFast(uid)) return { ok: false, error: "Previše skeniranja odjednom — sačekaj minut." };
+  if (tooFast(uid)) return { ok: false, error: "Too many scans at once — wait a minute." };
 
   const token = receiptToken(scanned);
   if (!token) {
     return {
       ok: false,
-      error: "Ovaj kod nije fiskalni račun. QR na računu vodi na suf.purs.gov.rs.",
+      error: "That code is not a fiscal receipt. The QR on a receipt points at suf.purs.gov.rs.",
     };
   }
 
@@ -89,22 +89,22 @@ export async function scanReceipt(scanned: string): Promise<ScanState> {
     });
 
     if (response.status >= 300 && response.status < 400) {
-      return { ok: false, error: "Poreska služba je preusmerila zahtev — račun nije pročitan." };
+      return { ok: false, error: "The tax service redirected the request — the receipt was not read." };
     }
-    if (response.status === 404) return { ok: false, error: "Poreska služba ne zna za ovaj račun." };
+    if (response.status === 404) return { ok: false, error: "The tax service does not know this receipt." };
     if (!response.ok) {
-      return { ok: false, error: `Poreska služba nije odgovorila (${response.status}). Probaj ponovo.` };
+      return { ok: false, error: `The tax service did not answer (${response.status}). Try again.` };
     }
 
     const text = await capped(response, MAX_BYTES);
-    if (text === null) return { ok: false, error: "Odgovor je prevelik da bi bio račun." };
+    if (text === null) return { ok: false, error: "That answer is too large to be a receipt." };
 
     payload = JSON.parse(text);
   } catch (error) {
     const timedOut = error instanceof Error && error.name === "TimeoutError";
     return {
       ok: false,
-      error: timedOut ? "Poreska služba ne odgovara. Probaj ponovo." : "Račun nije pročitan.",
+      error: timedOut ? "The tax service is not answering. Try again." : "The receipt was not read.",
     };
   }
 

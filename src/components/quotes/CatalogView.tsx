@@ -71,11 +71,16 @@ export function CatalogView({
         ) : (
           <div>
             {items.map((it) => (
+              /*
+                On a phone the three prices take a line of their own under the name. Beside
+                it they left the name about 110px, and "Landing page (one-pager)" came out
+                one word a line.
+              */
               <div
                 key={it.id}
-                className="zv-row group flex items-center gap-3 border-b border-line-soft px-4 py-3 last:border-b-0"
+                className="zv-row group flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-line-soft px-4 py-3 last:border-b-0 sm:flex-nowrap"
               >
-                <div className="min-w-0 flex-1">
+                <div className="order-1 min-w-0 flex-1">
                   <div className="text-[13.5px] font-semibold text-ink">
                     {it.label}
                   </div>
@@ -85,7 +90,7 @@ export function CatalogView({
                     </div>
                   )}
                 </div>
-                <span className="mono shrink-0 text-right text-[12px] text-ink">
+                <span className="mono order-3 flex basis-full flex-wrap gap-x-2 text-[12px] text-ink sm:order-2 sm:basis-auto sm:shrink-0 sm:justify-end sm:text-right">
                   {[
                     it.price_rsd != null
                       ? formatMoney(it.price_rsd, "RSD")
@@ -99,7 +104,7 @@ export function CatalogView({
                   ]
                     .filter(Boolean)
                     .map((s, i) => (
-                      <span key={i} className="ml-2 whitespace-nowrap">
+                      <span key={i} className="whitespace-nowrap">
                         {s}
                       </span>
                     ))}
@@ -112,7 +117,7 @@ export function CatalogView({
                 <Link
                   href={`/quotes/catalog?edit=${it.id}`}
                   aria-label={`Edit ${it.label}`}
-                  className="inline-flex rounded-ctrl p-1.5 text-faint opacity-0 transition-opacity hover:bg-white/5 hover:text-ink group-hover:opacity-100"
+                  className="order-2 inline-flex rounded-ctrl p-1.5 text-faint transition-colors hover:bg-white/5 hover:text-ink focus-visible:text-ink sm:order-3"
                 >
                   <Pencil className="h-3.75 w-3.75" />
                 </Link>

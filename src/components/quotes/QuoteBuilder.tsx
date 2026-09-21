@@ -93,13 +93,22 @@ export function QuoteBuilder({
         />
       </div>
 
+      {/*
+        One line per item on a wide screen, two on a phone.
+
+        Five things in a row — name, price, quantity, amount, remove — need about 420px, and
+        a phone gives this box 348. The box clips, so the amount and the remove button were
+        simply not there: a line could be added on a phone but not checked or taken out
+        again. Under `sm` the name takes the first line and the figures the second, read as
+        a sum: `price × qty = amount`.
+      */}
       <div className="overflow-hidden rounded-card border border-line bg-surface">
         <div className="flex items-center gap-2 border-b border-line-soft px-4 py-2 text-[10.5px] font-bold uppercase tracking-[0.07em] text-muted">
           <span className="flex-1">Item</span>
-          <span className="w-24 text-right">Price</span>
-          <span className="w-14 text-right">Qty</span>
-          <span className="w-24 text-right">Amount</span>
-          <span className="w-6" />
+          <span className="hidden w-24 text-right sm:inline">Price</span>
+          <span className="hidden w-14 text-right sm:inline">Qty</span>
+          <span className="hidden w-24 text-right sm:inline">Amount</span>
+          <span className="hidden w-6 sm:inline" />
         </div>
 
         {items.length === 0 ? (
@@ -110,13 +119,14 @@ export function QuoteBuilder({
           items.map((it, i) => (
             <div
               key={i}
-              className="flex items-center gap-2 border-b border-line-soft px-4 py-2 last:border-b-0"
+              className="flex flex-wrap items-center gap-2 border-b border-line-soft px-4 py-2 last:border-b-0 sm:flex-nowrap"
             >
               <input
                 value={it.label}
                 onChange={(e) => update(i, { label: e.target.value })}
                 placeholder="Feature"
-                className={`${cellInput} flex-1`}
+                aria-label="Item"
+                className={`${cellInput} w-full min-w-0 sm:w-auto sm:flex-1`}
               />
               <input
                 type="number"
@@ -124,16 +134,24 @@ export function QuoteBuilder({
                 min="0"
                 value={it.price}
                 onChange={(e) => update(i, { price: Number(e.target.value) })}
+                aria-label="Price"
                 className={`mono ${cellInput} w-24 text-right`}
               />
+              <span aria-hidden="true" className="text-[12px] text-faint sm:hidden">
+                ×
+              </span>
               <input
                 type="number"
                 min="1"
                 value={it.qty}
                 onChange={(e) => update(i, { qty: Number(e.target.value) })}
+                aria-label="Quantity"
                 className={`mono ${cellInput} w-14 text-right`}
               />
-              <span className="mono w-24 text-right text-[13px] text-ink">
+              <span className="mono ml-auto text-right text-[13px] whitespace-nowrap text-ink sm:ml-0 sm:w-24">
+                <span aria-hidden="true" className="text-faint sm:hidden">
+                  ={" "}
+                </span>
                 {formatMoney(it.price * it.qty, currency)}
               </span>
               <button
@@ -150,7 +168,7 @@ export function QuoteBuilder({
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex w-full min-w-0 flex-wrap items-center gap-2 sm:w-auto">
           <select
             onChange={(e) => {
               if (e.target.value) {
@@ -159,7 +177,7 @@ export function QuoteBuilder({
               }
             }}
             aria-label="Add from catalog"
-            className="rounded-ctrl border border-line bg-white/[0.035] px-2.5 py-2 text-[12.5px] text-ink scheme-dark focus:border-gold focus:shadow-ring focus:outline-none"
+            className="w-full min-w-0 max-w-full rounded-ctrl border border-line bg-white/[0.035] px-2.5 py-2 text-[12.5px] text-ink scheme-dark focus:border-gold focus:shadow-ring focus:outline-none sm:w-auto"
           >
             <option value="" className="bg-[#1A1D24] text-[#ECEEF2]">
               + Add from catalog ({currency})…
@@ -188,7 +206,8 @@ export function QuoteBuilder({
           </button>
         </div>
 
-        <div className="text-right">
+        {/* `ml-auto` keeps it on the right when the row wraps on a phone. */}
+        <div className="ml-auto text-right">
           <div className="text-[11px] uppercase tracking-wider text-muted">
             Total
           </div>

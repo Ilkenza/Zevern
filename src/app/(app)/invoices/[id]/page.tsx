@@ -106,22 +106,28 @@ export default async function InvoiceDetailPage({
             <thead>
               <tr className="text-left text-[10.5px] uppercase tracking-[0.07em] text-muted">
                 <th className="px-4 py-2 font-bold">Description</th>
-                <th className="px-4 py-2 text-right font-bold">Qty</th>
-                <th className="px-4 py-2 text-right font-bold">Unit</th>
+                <th className="hidden px-4 py-2 text-right font-bold sm:table-cell">Qty</th>
+                <th className="hidden px-4 py-2 text-right font-bold sm:table-cell">Unit</th>
                 <th className="px-4 py-2 text-right font-bold">Amount</th>
               </tr>
             </thead>
             <tbody>
               {invoice.items.map((it, i) => (
                 <tr key={i} className="border-t border-line-soft">
-                  <td className="px-4 py-2.5 text-ink">{it.label}</td>
-                  <td className="mono px-4 py-2.5 text-right text-muted">
+                  <td className="px-4 py-2.5 text-ink">
+                    {it.label}
+                    {/* Phone: quantity and unit price as one line under the description. */}
+                    <div className="mono mt-0.5 text-[11.5px] text-muted sm:hidden">
+                      {it.qty} × {formatMoney(it.price, invoice.currency)}
+                    </div>
+                  </td>
+                  <td className="mono hidden px-4 py-2.5 text-right text-muted sm:table-cell">
                     {it.qty}
                   </td>
-                  <td className="mono px-4 py-2.5 text-right text-muted">
+                  <td className="mono hidden px-4 py-2.5 text-right whitespace-nowrap text-muted sm:table-cell">
                     {formatMoney(it.price, invoice.currency)}
                   </td>
-                  <td className="mono px-4 py-2.5 text-right text-ink">
+                  <td className="mono px-4 py-2.5 text-right whitespace-nowrap text-ink">
                     {formatMoney(it.price * it.qty, invoice.currency)}
                   </td>
                 </tr>

@@ -9,7 +9,7 @@ import { caps } from "./ui";
 export function NoRules() {
   const steps = [
     "Name it, say what it costs and when it next falls due.",
-    "Fixed amounts book themselves the first time you open this after the date passes. Variable ones — electricity, water — wait for you to type the amount.",
+    "When the day comes it waits for you: press Paid and it is booked, or type the amount first if it changes, like electricity. Only a rule with Record it for me switched on books itself.",
     "Give it a number of payments or an end date and it stops on its own when it is done.",
   ];
 

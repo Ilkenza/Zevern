@@ -101,7 +101,7 @@ export function ImportForm() {
           </li>
           <li>
             <span className="mono text-ink">channel</span> — email · instagram ·
-            linkedin · whatsapp · phone · other
+            facebook · google_maps · linkedin · whatsapp · phone · other
           </li>
           <li>
             <span className="mono text-ink">service</span> — new_site · redesign
@@ -109,7 +109,9 @@ export function ImportForm() {
           </li>
           <li>
             <span className="mono text-ink">status</span> — new · contacted ·
-            seen · replied · negotiating · won · lost
+            seen · replied · interested · follow_up_soon · negotiating ·
+            waiting · maybe · won · lost. Left out, a new lead
+            starts as new and an existing one keeps the status it has.
           </li>
           <li>
             <span className="mono text-ink">value</span> — € number ·{" "}

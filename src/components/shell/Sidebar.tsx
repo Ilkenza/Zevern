@@ -37,6 +37,8 @@ export function Sidebar({
     workspace === "private"
       ? PRIVATE_NAV_ITEMS
       : NAV_ITEMS.filter((item) => !item.moduleKey || !hidden.includes(item.moduleKey));
+  /* The private half is a module like any other, and a hidden one is not offered. */
+  const halves = WORKSPACES.filter((w) => w.key !== "private" || !hidden.includes("private"));
 
   return (
     <aside className="flex h-screen flex-col border-r border-line bg-sidebar lg:sticky lg:top-0">
@@ -57,8 +59,14 @@ export function Sidebar({
         the same job, and the switch is on every screen — so a look of its own would be
         the most visible inconsistency in the product rather than the least.
       */}
+      {/*
+        One half is not a switch. When the private side is turned off the control has a
+        single button that goes where you already are, which is furniture pretending to
+        be a choice — so it is not drawn at all.
+      */}
+      {halves.length > 1 && (
       <div className="zv-seg mx-3">
-        {WORKSPACES.map((w) => {
+        {halves.map((w) => {
           const active = workspace === w.key;
           return (
             <Link
@@ -73,6 +81,7 @@ export function Sidebar({
           );
         })}
       </div>
+      )}
 
       {/* Nav */}
       <nav className="zv-nav-list flex-1 space-y-0.5 overflow-y-auto px-3 py-2">

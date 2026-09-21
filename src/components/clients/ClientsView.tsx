@@ -76,19 +76,19 @@ export function ClientsView({
                   <th className="border-b border-line-soft px-4 py-2.75 text-left text-[10.5px] font-bold uppercase tracking-[0.07em] text-muted">
                     Name
                   </th>
-                  <th className="border-b border-line-soft px-4 py-2.75 text-left text-[10.5px] font-bold uppercase tracking-[0.07em] text-muted">
+                  <th className="hidden border-b border-line-soft px-4 py-2.75 text-left text-[10.5px] font-bold uppercase tracking-[0.07em] text-muted sm:table-cell">
                     Contact
                   </th>
-                  <th className="border-b border-line-soft px-4 py-2.75 text-left text-[10.5px] font-bold uppercase tracking-[0.07em] text-muted">
+                  <th className="border-b border-line-soft px-4 py-2.75 text-right text-[10.5px] font-bold uppercase tracking-[0.07em] text-muted sm:text-left">
                     Tier
                   </th>
-                  <th className="border-b border-line-soft px-4 py-2.75 text-right text-[10.5px] font-bold uppercase tracking-[0.07em] text-muted">
+                  <th className="hidden border-b border-line-soft px-4 py-2.75 text-right text-[10.5px] font-bold uppercase tracking-[0.07em] text-muted sm:table-cell">
                     Projects
                   </th>
-                  <th className="border-b border-line-soft px-4 py-2.75 text-right text-[10.5px] font-bold uppercase tracking-[0.07em] text-muted">
+                  <th className="hidden border-b border-line-soft px-4 py-2.75 text-right text-[10.5px] font-bold uppercase tracking-[0.07em] text-muted sm:table-cell">
                     Added
                   </th>
-                  <th className="border-b border-line-soft px-4 py-2.75" />
+                  <th className="border-b border-line-soft py-2.75 pr-3 sm:px-4" />
                 </tr>
               </thead>
               <tbody>
@@ -97,7 +97,7 @@ export function ClientsView({
                     key={c.id}
                     className="zv-row group"
                   >
-                    <td className="border-b border-line-soft px-4 py-3 font-semibold text-ink">
+                    <td className="border-b border-line-soft px-4 py-3 font-semibold text-ink max-sm:w-full max-sm:max-w-0">
                       <Link
                         href={`/clients/${c.id}`}
                         transitionTypes={["zv-forward"]}
@@ -105,8 +105,14 @@ export function ClientsView({
                       >
                         {c.name}
                       </Link>
+                      {/* Phone: how to reach them under the name; the tier stays as a column. */}
+                      {(c.contact || c.contact_channel) && (
+                        <div className="mt-0.5 truncate text-[11.5px] font-normal text-muted sm:hidden">
+                          {[c.contact, c.contact_channel].filter(Boolean).join(" · ")}
+                        </div>
+                      )}
                     </td>
-                    <td className="border-b border-line-soft px-4 py-3 text-muted">
+                    <td className="hidden border-b border-line-soft px-4 py-3 text-muted sm:table-cell">
                       {c.contact ?? "—"}
                       {c.contact_channel && (
                         <span className="block text-[11.5px] text-faint">
@@ -114,7 +120,7 @@ export function ClientsView({
                         </span>
                       )}
                     </td>
-                    <td className="border-b border-line-soft px-4 py-3">
+                    <td className="border-b border-line-soft px-4 py-3 text-right sm:text-left">
                       {clientTierBadge(c.tier) ? (
                         <Badge status={clientTierBadge(c.tier)!.variant}>
                           {clientTierBadge(c.tier)!.label}
@@ -122,18 +128,22 @@ export function ClientsView({
                       ) : (
                         <span className="text-faint">—</span>
                       )}
+                      <div className="mono mt-1 text-[11px] whitespace-nowrap text-faint sm:hidden">
+                        {c.projects?.[0]?.count ?? 0}{" "}
+                        {(c.projects?.[0]?.count ?? 0) === 1 ? "project" : "projects"}
+                      </div>
                     </td>
-                    <td className="mono border-b border-line-soft px-4 py-3 text-right text-muted">
+                    <td className="mono hidden border-b border-line-soft px-4 py-3 text-right text-muted sm:table-cell">
                       {c.projects?.[0]?.count ?? 0}
                     </td>
-                    <td className="mono border-b border-line-soft px-4 py-3 text-right text-muted">
+                    <td className="mono hidden border-b border-line-soft px-4 py-3 text-right whitespace-nowrap text-muted sm:table-cell">
                       {formatDate(c.created_at)}
                     </td>
-                    <td className="border-b border-line-soft px-4 py-3 text-right">
+                    <td className="border-b border-line-soft py-3 pr-3 text-right sm:px-4">
                       <Link
                         href={`/clients?edit=${c.id}`}
                         aria-label={`Edit ${c.name}`}
-                        className="inline-flex rounded-ctrl p-1.5 text-faint opacity-0 transition-opacity hover:bg-white/5 hover:text-ink group-hover:opacity-100"
+                        className="inline-flex rounded-ctrl p-1.5 text-faint transition-colors hover:bg-white/5 hover:text-ink focus-visible:text-ink"
                       >
                         <Pencil className="h-3.75 w-3.75" />
                       </Link>

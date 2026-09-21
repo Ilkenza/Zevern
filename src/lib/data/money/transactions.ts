@@ -12,6 +12,45 @@ import type { TransactionRow } from "@/lib/types";
 import { readAll, TX_SELECT } from "./core";
 import { ReadFailed } from "@/lib/data/must";
 
+/**
+ * Hang each transfer's fee on it, from the expense row that points back at it.
+ *
+ * A second read rather than an embed, because PostgREST refuses to embed this table in
+ * itself (see `TX_SELECT`). Only transfers can carry a fee, so a page with none of them
+ * costs nothing — no read is made at all.
+ *
+ * A failed read throws. The edit form opens its fee box from what this attaches, and a
+ * form that opened empty because the read quietly failed would, on an untouched save,
+ * delete a charge that exists. Refusing to show the page is the lesser harm.
+ *
+ * In chunks, because the ids travel in the URL and `All time` on a two-year ledger can
+ * hold a few hundred cash-machine trips.
+ */
+async function withFees(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  uid: string,
+  rows: TransactionRow[],
+): Promise<TransactionRow[]> {
+  const transfers = rows.filter((r) => r.kind === "transfer").map((r) => r.id);
+  if (transfers.length === 0) return rows;
+
+  const fees = new Map<string, { id: string; amount: number | null }>();
+  const CHUNK = 150;
+  for (let i = 0; i < transfers.length; i += CHUNK) {
+    const { data, error } = await supabase
+      .from("money_transactions")
+      .select("id, amount, fee_for_id")
+      .eq("user_id", uid)
+      .in("fee_for_id", transfers.slice(i, i + CHUNK));
+    if (error) throw new ReadFailed("the fees on your transfers", error.message);
+    for (const f of data ?? []) {
+      if (f.fee_for_id) fees.set(f.fee_for_id, { id: f.id, amount: f.amount });
+    }
+  }
+
+  return rows.map((r) => (r.kind === "transfer" ? { ...r, fee: fees.get(r.id) ?? null } : r));
+}
+
 export type TxFilter = {
   month?: string;
   /**
@@ -118,7 +157,7 @@ export async function getTransactions(filter: TxFilter = {}): Promise<Transactio
   if (filter.limit) {
     const { data, error } = await build().limit(filter.limit);
     if (error) throw new ReadFailed("your entries", error.message);
-    return (data ?? []) as TransactionRow[];
+    return withFees(supabase, uid, (data ?? []) as TransactionRow[]);
   }
 
   /*
@@ -130,10 +169,11 @@ export async function getTransactions(filter: TxFilter = {}): Promise<Transactio
     error and nothing on screen to say so. The same fault that had the accounts screen
     reporting more money than existed.
   */
-  return (await readAll(
+  const all = (await readAll(
     (from, to) => build().range(from, to),
     "your entries",
   )) as TransactionRow[];
+  return withFees(supabase, uid, all);
 }
 
 /**
@@ -174,7 +214,9 @@ export async function getTransaction(id: string): Promise<TransactionRow | null>
     .eq("user_id", uid)
     .maybeSingle();
   if (error) throw new ReadFailed("this entry", error.message);
-  return (data as TransactionRow | null) ?? null;
+  if (!data) return null;
+  const [row] = await withFees(supabase, uid, [data as TransactionRow]);
+  return row;
 }
 
 export type MonthSummary = {

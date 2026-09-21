@@ -36,6 +36,16 @@ import type {
   look exactly like a screen putting the money somewhere else. The filing is a fact about
   the entry; the row it lives on is where it belongs.
 */
+/*
+  Deliberately no `fee` embed here, and the reason is measured rather than guessed.
+
+  A transfer's fee lives on a second row pointing back at it (`fee_for_id`), which makes
+  it this table embedded in itself. PostgREST does not resolve that: asked for
+  `fee:money_transactions!money_transactions_fee_for_id_fkey(...)` against the live API
+  it answers HTTP 400, PGRST200, "Could not find a relationship" — and because this
+  select is shared by every list in the money module, one embed would have taken all of
+  them down at once. The fee is attached afterwards by `withFees`, with a plain read.
+*/
 export const TX_SELECT =
   "*, category:money_categories(name, color, kind), account:money_accounts!money_transactions_account_id_fkey(name, currency), goal:money_goals(name), budget:money_budget_plans!money_transactions_budget_id_fkey(name)";
 

@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 import type { ForecastLine } from "@/lib/data/money";
 import { ShortfallActions } from "../ShortfallActions";
 import { daysBetween, planHref, shortfallLevers, whenLabel } from "./index";
-import { Dot, Marker, caps } from "./ui";
+import { Marker, WithDot, caps } from "./ui";
 
 /**
  * The one thing on this screen that cannot wait: the first date the free money runs
@@ -209,56 +209,65 @@ export function Row({ line, from }: { line: ForecastLine; from: string }) {
           )}
         </div>
 
-        <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-[11.5px] text-muted">
-          <span className="mono">{line.on}</span>
-          {everyday ? (
-            <>
-              <Dot />
-              <span>
-                {line.days} {line.days === 1 ? "day" : "days"} of ordinary living
-              </span>
-            </>
-          ) : (
-            <>
-              {when && (
-                <>
-                  <Dot />
-                  <span>{when}</span>
-                </>
-              )}
-              <Dot />
-              {/*
-                What the money is for, or what it is against.
-
-                A goal rule says `Into Za Rim'. An instalment said `Kredit' — its category
-                — which is the truth and not the answer: what a reader wants from a row
-                taking 30.776,48 out of next month is which debt that is. It keeps the
-                category too, because a repayment is still spending and still lands in a
-                budget; the debt goes first because it is the rarer, more specific fact.
-              */}
-              {line.goal ? (
-                <span className="min-w-0 truncate text-held">Into {line.goal}</span>
-              ) : line.loan ? (
-                <span className="min-w-0 truncate">
-                  <span className="text-gold-hi">Pays {line.loan}</span>
-                  {line.category && <span className="text-muted"> · {line.category}</span>}
+        {/*
+          The dots sit in front of what they separate, and the first one on every line is
+          hidden: the row is pulled 10px left (a 4px dot and its 6px gap) inside a box that
+          clips. So a wrapped line starts with its fact, not with a `·`, and none ends in one.
+        */}
+        <div className="mt-0.5 overflow-hidden text-[11.5px] text-muted">
+          <div className="-ml-2.5 flex flex-wrap items-center gap-x-1.5">
+            <WithDot>
+              <span className="mono">{line.on}</span>
+            </WithDot>
+            {everyday ? (
+              <WithDot>
+                <span>
+                  {line.days} {line.days === 1 ? "day" : "days"} of ordinary living
                 </span>
-              ) : (
-                <span className="min-w-0 truncate">{line.category ?? "No category"}</span>
-              )}
-              <Dot />
-              <span className="inline-flex items-center gap-1 text-faint">
-                {line.source === "recurring" ? (
-                  <>
-                    <Repeat aria-hidden="true" className="h-3 w-3" />
-                    Repeats
-                  </>
-                ) : (
-                  <>One-off</>
+              </WithDot>
+            ) : (
+              <>
+                {when && (
+                  <WithDot>
+                    <span>{when}</span>
+                  </WithDot>
                 )}
-              </span>
-            </>
-          )}
+                <WithDot>
+                  {/*
+                    What the money is for, or what it is against.
+
+                    A goal rule says `Into Za Rim'. An instalment said `Kredit' — its category
+                    — which is the truth and not the answer: what a reader wants from a row
+                    taking 30.776,48 out of next month is which debt that is. It keeps the
+                    category too, because a repayment is still spending and still lands in a
+                    budget; the debt goes first because it is the rarer, more specific fact.
+                  */}
+                  {line.goal ? (
+                    <span className="min-w-0 truncate text-held">Into {line.goal}</span>
+                  ) : line.loan ? (
+                    <span className="min-w-0 truncate">
+                      <span className="text-gold-hi">Pays {line.loan}</span>
+                      {line.category && <span className="text-muted"> · {line.category}</span>}
+                    </span>
+                  ) : (
+                    <span className="min-w-0 truncate">{line.category ?? "No category"}</span>
+                  )}
+                </WithDot>
+                <WithDot>
+                  <span className="inline-flex items-center gap-1 text-faint">
+                    {line.source === "recurring" ? (
+                      <>
+                        <Repeat aria-hidden="true" className="h-3 w-3" />
+                        Repeats
+                      </>
+                    ) : (
+                      <>One-off</>
+                    )}
+                  </span>
+                </WithDot>
+              </>
+            )}
+          </div>
         </div>
 
         {open && inspectable && <EstimateDetail line={line} />}

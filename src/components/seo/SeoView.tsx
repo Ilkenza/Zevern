@@ -78,13 +78,13 @@ export function SeoView({
                   <th className="border-b border-line-soft px-4 py-2.75 text-left text-[10.5px] font-bold uppercase tracking-[0.07em] text-muted">
                     Site
                   </th>
-                  <th className="border-b border-line-soft px-4 py-2.75 text-left text-[10.5px] font-bold uppercase tracking-[0.07em] text-muted">
+                  <th className="hidden border-b border-line-soft px-4 py-2.75 text-left text-[10.5px] font-bold uppercase tracking-[0.07em] text-muted sm:table-cell">
                     Title
                   </th>
-                  <th className="border-b border-line-soft px-4 py-2.75 text-left text-[10.5px] font-bold uppercase tracking-[0.07em] text-muted">
+                  <th className="border-b border-line-soft px-4 py-2.75 text-right text-[10.5px] font-bold uppercase tracking-[0.07em] text-muted sm:text-left">
                     Score
                   </th>
-                  <th className="border-b border-line-soft px-4 py-2.75 text-right text-[10.5px] font-bold uppercase tracking-[0.07em] text-muted">
+                  <th className="hidden border-b border-line-soft px-4 py-2.75 text-right text-[10.5px] font-bold uppercase tracking-[0.07em] text-muted sm:table-cell">
                     Checked
                   </th>
                 </tr>
@@ -97,25 +97,33 @@ export function SeoView({
                       key={c.id}
                       className="zv-row"
                     >
-                      <td className="border-b border-line-soft px-4 py-3 font-semibold text-ink">
+                      <td className="border-b border-line-soft px-4 py-3 font-semibold text-ink max-sm:w-full max-sm:max-w-0">
                         <Link
                           href={`/seo/${c.id}`}
                           transitionTypes={["zv-forward"]}
-                          className="hover:text-gold-hi"
+                          className="wrap-anywhere hover:text-gold-hi"
                         >
                           {domainOf(c.url)}
                         </Link>
+                        {/*
+                          Phone: when it was checked and the page's title under the site. The
+                          score is the column that stays — it is what the list is read for, and
+                          it was the one pushed off the right edge.
+                        */}
+                        <div className="mt-0.5 truncate text-[11.5px] font-normal text-muted sm:hidden">
+                          {[formatRelativeTime(c.created_at), c.title].filter(Boolean).join(" · ")}
+                        </div>
                       </td>
-                      <td className="max-w-70 truncate border-b border-line-soft px-4 py-3 text-muted">
+                      <td className="hidden max-w-70 truncate border-b border-line-soft px-4 py-3 text-muted sm:table-cell">
                         {c.title ?? "—"}
                       </td>
-                      <td className="border-b border-line-soft px-4 py-3">
+                      <td className="border-b border-line-soft px-4 py-3 text-right whitespace-nowrap sm:text-left">
                         <Badge status={badge.variant}>
                           <span className="mono">{c.score}</span> ·{" "}
                           {badge.label}
                         </Badge>
                       </td>
-                      <td className="mono border-b border-line-soft px-4 py-3 text-right text-muted">
+                      <td className="mono hidden border-b border-line-soft px-4 py-3 text-right whitespace-nowrap text-muted sm:table-cell">
                         {formatRelativeTime(c.created_at)}
                       </td>
                     </tr>

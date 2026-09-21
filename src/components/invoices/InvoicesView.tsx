@@ -77,19 +77,19 @@ export function InvoicesView({
                   <th className="border-b border-line-soft px-4 py-2.75 text-left text-[10.5px] font-bold uppercase tracking-[0.07em] text-muted">
                     Number
                   </th>
-                  <th className="border-b border-line-soft px-4 py-2.75 text-left text-[10.5px] font-bold uppercase tracking-[0.07em] text-muted">
+                  <th className="hidden border-b border-line-soft px-4 py-2.75 text-left text-[10.5px] font-bold uppercase tracking-[0.07em] text-muted sm:table-cell">
                     Client
                   </th>
-                  <th className="border-b border-line-soft px-4 py-2.75 text-left text-[10.5px] font-bold uppercase tracking-[0.07em] text-muted">
+                  <th className="hidden border-b border-line-soft px-4 py-2.75 text-left text-[10.5px] font-bold uppercase tracking-[0.07em] text-muted sm:table-cell">
                     Status
                   </th>
                   <th className="border-b border-line-soft px-4 py-2.75 text-right text-[10.5px] font-bold uppercase tracking-[0.07em] text-muted">
                     Amount
                   </th>
-                  <th className="border-b border-line-soft px-4 py-2.75 text-right text-[10.5px] font-bold uppercase tracking-[0.07em] text-muted">
+                  <th className="hidden border-b border-line-soft px-4 py-2.75 text-right text-[10.5px] font-bold uppercase tracking-[0.07em] text-muted sm:table-cell">
                     Due
                   </th>
-                  <th className="border-b border-line-soft px-4 py-2.75" />
+                  <th className="border-b border-line-soft py-2.75 pr-3 sm:px-4" />
                 </tr>
               </thead>
               <tbody>
@@ -100,32 +100,45 @@ export function InvoicesView({
                       key={inv.id}
                       className="zv-row group"
                     >
-                      <td className="mono border-b border-line-soft px-4 py-3 font-semibold text-ink">
+                      <td className="border-b border-line-soft px-4 py-3 font-semibold text-ink max-sm:w-full max-sm:max-w-0">
                         <Link
                           href={`/invoices/${inv.id}`}
                           transitionTypes={["zv-forward"]}
-                          className="hover:text-gold-hi"
+                          className="mono whitespace-nowrap hover:text-gold-hi"
                         >
                           {inv.number ?? "—"}
                         </Link>
+                        {/* Phone: who and when under the number, the status under the amount. */}
+                        {(inv.client?.name || inv.due_date) && (
+                          <div className="mt-0.5 truncate text-[11.5px] font-normal text-muted sm:hidden">
+                            {[inv.client?.name, inv.due_date ? `due ${formatDate(inv.due_date)}` : null]
+                              .filter(Boolean)
+                              .join(" · ")}
+                          </div>
+                        )}
                       </td>
-                      <td className="border-b border-line-soft px-4 py-3 text-muted">
+                      <td className="hidden border-b border-line-soft px-4 py-3 text-muted sm:table-cell">
                         {inv.client?.name ?? "—"}
                       </td>
-                      <td className="border-b border-line-soft px-4 py-3">
+                      <td className="hidden border-b border-line-soft px-4 py-3 sm:table-cell">
                         <Badge status={badge.variant}>{badge.label}</Badge>
                       </td>
-                      <td className="mono border-b border-line-soft px-4 py-3 text-right text-ink">
-                        {formatMoney(inv.amount, inv.currency)}
+                      <td className="border-b border-line-soft px-4 py-3 text-right text-ink">
+                        <div className="mono whitespace-nowrap">
+                          {formatMoney(inv.amount, inv.currency)}
+                        </div>
+                        <div className="mt-1 sm:hidden">
+                          <Badge status={badge.variant}>{badge.label}</Badge>
+                        </div>
                       </td>
-                      <td className="mono border-b border-line-soft px-4 py-3 text-right text-muted">
+                      <td className="mono hidden border-b border-line-soft px-4 py-3 text-right whitespace-nowrap text-muted sm:table-cell">
                         {formatDate(inv.due_date)}
                       </td>
-                      <td className="border-b border-line-soft px-4 py-3 text-right">
+                      <td className="border-b border-line-soft py-3 pr-3 text-right sm:px-4">
                         <Link
                           href={`/invoices?edit=${inv.id}`}
                           aria-label={`Edit invoice ${inv.number ?? ""}`}
-                          className="inline-flex rounded-ctrl p-1.5 text-faint opacity-0 transition-opacity hover:bg-white/5 hover:text-ink group-hover:opacity-100"
+                          className="inline-flex rounded-ctrl p-1.5 text-faint transition-colors hover:bg-white/5 hover:text-ink focus-visible:text-ink"
                         >
                           <Pencil className="h-3.75 w-3.75" />
                         </Link>

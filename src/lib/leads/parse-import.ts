@@ -17,7 +17,14 @@ export type ImportRow = {
   contact: string | null;
   channel: string | null;
   service: string | null;
-  status: string;
+  /*
+    Null when the sheet did not say — no status column, an empty cell, or a word that is
+    not a status. It used to become "new", and on an update that read as an instruction:
+    paste a sheet without a status column over four hundred leads and every one of them
+    that had got anywhere was offered back to New. A new lead still starts as New; see
+    `computeImportPlan`.
+  */
+  status: string | null;
   value: number;
   notes: string | null;
   next_followup: string | null;
@@ -65,6 +72,36 @@ function splitLine(line: string, delim: string): string[] {
   return out.map((s) => s.trim());
 }
 
+
+/**
+ * A figure as a spreadsheet writes it, in whichever convention it was typed.
+ *
+ * "1.200" is twelve hundred to anybody who writes numbers the Serbian way, and the old
+ * reading — every comma a decimal point, the first dot kept — turned it into 1.2. So the
+ * separators are read by position rather than by symbol: where both appear, the last one
+ * is the decimal mark; where one appears more than once, or once with exactly three
+ * digits after it, it is a thousands mark. "12.50" and "1,5" are still decimals.
+ */
+export function importedAmount(raw: string): number {
+  const s = raw.replace(/[^\d.,-]/g, "");
+  if (!s) return Number.NaN;
+
+  const lastDot = s.lastIndexOf(".");
+  const lastComma = s.lastIndexOf(",");
+
+  if (lastDot >= 0 && lastComma >= 0) {
+    const decimal = lastDot > lastComma ? "." : ",";
+    const thousands = decimal === "." ? "," : ".";
+    return Number(s.split(thousands).join("").replace(decimal, "."));
+  }
+
+  const mark = lastDot >= 0 ? "." : lastComma >= 0 ? "," : "";
+  if (!mark) return Number(s);
+
+  const parts = s.split(mark);
+  const groupsOfThree = parts.length > 2 || parts[parts.length - 1].length === 3;
+  return Number(groupsOfThree ? parts.join("") : parts.join("."));
+}
 
 export function parseLeadsImport(text: string): ParseResult {
   const clean = text.replace(/\r\n?/g, "\n").trim();
@@ -117,13 +154,9 @@ export function parseLeadsImport(text: string): ParseResult {
     const channel = CHANNELS.includes(channelRaw) ? channelRaw : null;
 
     const statusRaw = get(iStatus).toLowerCase().replace(/\s+/g, "_");
-    const status = (LEAD_STATUSES as readonly string[]).includes(statusRaw) ? statusRaw : "new";
+    const status = (LEAD_STATUSES as readonly string[]).includes(statusRaw) ? statusRaw : null;
 
-    const valNum = Number(
-      get(iValue)
-        .replace(/[^\d.,-]/g, "")
-        .replace(",", "."),
-    );
+    const valNum = importedAmount(get(iValue));
     const value = Number.isFinite(valNum) && valNum > 0 ? valNum : 0;
 
     const follow = get(iFollow);

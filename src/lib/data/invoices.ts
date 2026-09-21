@@ -4,6 +4,8 @@ import { todayISO } from "@/lib/format";
 import { effectiveInvoiceStatus } from "@/lib/status";
 import type { InvoiceWithClient } from "@/lib/types";
 import { ReadFailed } from "./must";
+import { getRates } from "./money/core";
+import { inEuros } from "@/lib/money";
 
 const WITH_CLIENT = "*, client:clients(name)";
 
@@ -134,10 +136,15 @@ export async function getInvoiceStats(): Promise<InvoiceStats> {
   const uid = await userId(supabase);
   if (!uid) return empty;
 
-  const { data, error } = await supabase
-    .from("invoices")
-    .select("amount, status, issued_at, due_date")
-    .eq("user_id", uid);
+  /*
+    With the currency, and the rates to read it by. Every figure below is shown with a €
+    in front of it, so every figure below has to be in euros before it is added to
+    another — see `inEuros`.
+  */
+  const [{ data, error }, rates] = await Promise.all([
+    supabase.from("invoices").select("amount, currency, status, issued_at, due_date").eq("user_id", uid),
+    getRates(),
+  ]);
   if (error) throw new ReadFailed("your invoice totals", error.message);
   const rows = data ?? [];
   const month = todayISO().slice(0, 7);
@@ -156,7 +163,7 @@ export async function getInvoiceStats(): Promise<InvoiceStats> {
   let overdueAmount = 0;
 
   for (const inv of rows) {
-    const amount = Number(inv.amount) || 0;
+    const amount = inEuros(Number(inv.amount) || 0, inv.currency, rates);
     const eff = effectiveInvoiceStatus(inv);
     const issuedMonth = inv.issued_at?.slice(0, 7);
 

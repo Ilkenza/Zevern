@@ -2558,8 +2558,18 @@ body::after {
 
 .task-row-date { flex: none; color: var(--color-muted); font-size: 12px; }
 
-/* Project line and exact date, shared by the Today rows and the agenda lines. */
+/*
+  Project line and exact date, shared by the Today rows and the agenda lines.
+
+  A block, as wide as its text and never wider than the row. It is a link, and a link is
+  inline — and an inline box ignores `overflow` and `text-overflow`, so a long client and
+  project ran straight out of the card and were cut off mid-word ("…rasporedom kursev")
+  instead of ending in an ellipsis. `fit-content` keeps the pressable part to the words.
+*/
 .task-card-project {
+  display: block;
+  width: fit-content;
+  max-width: 100%;
   overflow: hidden;
   color: var(--color-muted);
   font-size: 11px;
@@ -4250,14 +4260,31 @@ a.past-row:hover .past-row-name { color: var(--color-gold-hi); }
 /*
   Mark, name, price, currency, where it is filed, controls.
 
-  Under 760px it folds to two lines rather than shrinking every field past reading: the
-  name takes the first line on its own, and the rest share the second.
+  Under 760px it folds to three lines rather than shrinking every field past reading: the
+  name and the bin on the first, what it costs on the second, where it is filed and what
+  kind of thing it is on the third — each pair in two equal halves under the name.
+
+  That was the intent before too, but the rule only said "two columns" and let the seven
+  controls fall into them in order. So the price landed in the mark's `auto` track and
+  swelled it, the name was pushed into the right half as `Plazma mix zel`, and `Not food
+  or drink` came out as `N`. Every control is placed by name now; nothing is left to
+  where it happens to fall.
 */
 .setup-item-in {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr) auto;
   align-items: center;
   gap: 6px;
+}
+
+@media (max-width: 759.98px) {
+  .setup-item-in > .setup-mark { grid-area: 1 / 1; }
+  .setup-item-in > .setup-item-name { grid-area: 1 / 2 / 2 / 4; }
+  .setup-item-in > .setup-item-ctrl { grid-area: 1 / 4; }
+  .setup-item-in > .setup-item-price { grid-area: 2 / 2; }
+  .setup-item-in > .setup-item-cur { grid-area: 2 / 3 / 3 / 5; }
+  .setup-item-in > .setup-item-cat { grid-area: 3 / 2; }
+  .setup-item-in > .setup-item-keeping { grid-area: 3 / 3 / 4 / 5; }
 }
 
 @media (min-width: 760px) {
@@ -6880,6 +6907,13 @@ body > * { min-width: 0; }
   A task title was getting about ninety pixels on a phone — "kod lek…" — because the
   badge and the date beside it are both `flex: none`. Below 560px the meta drops to
   its own line and the title gets the row.
+
+  The row is the checkbox and the title on the first line, and everything else on the
+  second, under the title. The title used to take `100%`, which pushed it off the
+  checkbox's line: the box sat alone at the top with `4 days late` beside it, the task
+  it ticks off one line lower. The note (how late) now goes with the rest of the meta,
+  and the empty `::before` is a 20px spacer that lines the second line up under the
+  title instead of under the box — it and the 12px gap are the checkbox's width.
 */
 @media (max-width: 560px) {
   .task-row {
@@ -6887,8 +6921,15 @@ body > * { min-width: 0; }
     row-gap: 4px;
   }
 
-  .task-row > div:first-of-type { flex: 1 1 100%; order: 1; }
+  .task-row::before {
+    content: "";
+    flex: 0 0 20px;
+    order: 2;
+  }
+
+  .task-row > div:first-of-type { flex: 1 1 calc(100% - 32px); order: 1; }
   .task-row > .task-prio,
+  .task-row > .task-row-note,
   .task-row > .task-row-date { order: 2; }
   .task-row-date { margin-left: auto; }
   .task-row:hover { padding-left: 16px; }
@@ -10957,6 +10998,17 @@ input[type="time"]:focus::-webkit-calendar-picker-indicator {
   padding-right: 0.875rem;
 }
 
+/*
+  Inside the bar the chevron is not the browser's: `.zv-toolbar select` turns the native
+  one off and draws its own, 10px wide and 14px in from the edge. The 14px above was
+  written for the native arrow, and against the drawn one it left the label running
+  under the chevron whenever the chosen order was the longest — `What needs you firs▾t`
+  on Budgets. The text has to stop where the chevron's room begins, 32px in.
+*/
+.zv-toolbar .zv-toolbar-order > select {
+  padding-right: 32px;
+}
+
 .zv-toolbar-order > select:focus {
   border-color: transparent;
   box-shadow: none;
@@ -11322,3 +11374,349 @@ input[type="time"]:focus::-webkit-calendar-picker-indicator {
 .task-sec.is-today { border-left: 2px solid var(--color-gold); }
 .task-sec.is-late .task-sec-count { color: var(--color-danger); }
 .task-sec.is-today .task-sec-title { color: var(--color-gold-hi); }
+
+/* ------------------------------------------ The three questions a new account is asked */
+
+/*
+  Quieter than the checklist beside it, on purpose.
+
+  Two invitations shouting at once on an empty Overview is how a first screen becomes a
+  wall, so the checklist keeps the progress ring and the colour, and this keeps one mark,
+  one line and a button. It also retires the moment it is answered — there is no state in
+  which both are on screen for long.
+*/
+.qs-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 14px 16px;
+  border: 1px solid color-mix(in srgb, var(--color-gold) 22%, var(--color-line));
+  border-radius: var(--radius-card);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 60%),
+    var(--color-surface);
+}
+
+.qs-card-mark {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-ctrl);
+  background: color-mix(in srgb, var(--color-gold) 14%, transparent);
+  color: var(--color-gold-hi);
+}
+
+.qs-card-title {
+  color: var(--color-ink);
+  font-size: 13.5px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.qs-card-detail {
+  margin-top: 2px;
+  color: var(--color-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.qs-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.qs-card-skip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-muted);
+  font-size: 12px;
+  cursor: pointer;
+  transition: color 160ms ease;
+}
+
+.qs-card-skip:hover { color: var(--color-ink); }
+
+.qs-flow {
+  padding: 4px 0 8px;
+}
+
+/* Three dots, not a percentage. Three is a number you can see without reading it. */
+.qs-progress {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 18px;
+}
+
+.qs-progress-step {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--color-line);
+  border-radius: 999px;
+  color: var(--color-faint);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.qs-progress-step.is-now {
+  border-color: var(--color-gold);
+  color: var(--color-gold-hi);
+}
+
+.qs-progress-step.is-past {
+  border-color: color-mix(in srgb, var(--color-gold) 40%, var(--color-line));
+  background: color-mix(in srgb, var(--color-gold) 16%, transparent);
+  color: var(--color-gold-hi);
+}
+
+.qs-question {
+  color: var(--color-ink);
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.3;
+  text-wrap: balance;
+}
+
+.qs-hint {
+  margin: 6px 0 16px;
+  color: var(--color-muted);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+/*
+  An answer is a card, not a radio button.
+
+  Each of these carries a sentence explaining what choosing it does to the app, and a
+  sentence does not fit beside a twelve-pixel circle. Pressing one is the answer — there is
+  no separate Next to hunt for, which is the step people lose wizards on.
+*/
+.qs-choices {
+  display: grid;
+  gap: 10px;
+}
+
+.qs-choice {
+  display: block;
+  padding: 13px 15px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-card);
+  background: rgba(255, 255, 255, 0.02);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 160ms ease, background 160ms ease;
+}
+
+.qs-choice:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--color-gold) 45%, var(--color-line));
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.qs-choice:disabled { opacity: 0.55; cursor: not-allowed; }
+
+.qs-choice.is-on {
+  border-color: color-mix(in srgb, var(--color-gold) 55%, var(--color-line));
+}
+
+.qs-choice-title {
+  display: block;
+  color: var(--color-ink);
+  font-size: 13.5px;
+  font-weight: 700;
+}
+
+.qs-choice-detail {
+  display: block;
+  margin-top: 3px;
+  color: var(--color-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+/* The guesses, offered as something to correct rather than something to obey. */
+.qs-trades {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-bottom: 14px;
+}
+
+.qs-trade {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 11px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-pill);
+  color: var(--color-muted);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 160ms ease, border-color 160ms ease;
+}
+
+.qs-trade:hover {
+  border-color: color-mix(in srgb, var(--color-gold) 45%, var(--color-line));
+  color: var(--color-gold-hi);
+}
+
+.qs-rows {
+  display: grid;
+  gap: 7px;
+}
+
+.qs-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 96px 30px;
+  align-items: center;
+  gap: 7px;
+}
+
+.qs-row-label,
+.qs-row-price,
+.qs-row-day {
+  width: 100%;
+  min-width: 0;
+  padding: 9px 11px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-ctrl);
+  background: rgba(255, 255, 255, 0.035);
+  color: var(--color-ink);
+  font-size: 13px;
+}
+
+.qs-row-price { text-align: right; }
+
+.qs-row-label::placeholder,
+.qs-row-price::placeholder,
+.qs-row-day::placeholder { color: var(--color-faint); }
+
+.qs-row-label:focus,
+.qs-row-price:focus,
+.qs-row-day:focus {
+  border-color: var(--color-gold);
+  box-shadow: var(--shadow-ring);
+  outline: none;
+}
+
+.qs-row-drop {
+  display: grid;
+  place-items: center;
+  height: 30px;
+  border-radius: var(--radius-ctrl);
+  color: var(--color-faint);
+  cursor: pointer;
+  transition: color 160ms ease;
+}
+
+.qs-row-drop:hover { color: var(--color-danger); }
+
+.qs-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 11px 0 0;
+  color: var(--color-muted);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 180ms ease;
+}
+
+.qs-add:hover { color: var(--color-gold-hi); }
+
+.qs-finish {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.qs-error {
+  margin: 10px 0;
+  color: var(--color-danger);
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+/*
+  A row that also lands on a day.
+
+  Three fields and a bin where the account rows have two, so the grid is declared again
+  rather than nudged — a `is-dated` that only widened one column would leave the header
+  above it pointing at the wrong field the first time a label got longer.
+*/
+.qs-row.is-dated {
+  grid-template-columns: minmax(0, 1fr) 96px 56px 30px;
+}
+
+.qs-row-day { text-align: center; }
+
+/*
+  The header exists because `changes` and `1` are not self-describing.
+
+  It matches the dated row's columns exactly and is hidden from screen readers, which read
+  each field's own label instead — a header repeated on every one of six rows is noise to
+  anybody listening to it.
+*/
+.qs-heads {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 96px 56px 30px;
+  gap: 7px;
+  margin-bottom: 6px;
+  padding: 0 11px;
+  color: var(--color-faint);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.qs-heads > span:nth-child(2) { text-align: right; }
+.qs-heads > span:nth-child(3) { text-align: center; }
+
+/* What stands where the rows will be, before there are any. */
+.qs-blank {
+  padding: 14px 0;
+  color: var(--color-faint);
+  font-size: 12.5px;
+}
+
+.qs-note {
+  color: var(--color-faint);
+  font-size: 12px;
+}
+
+/*
+  The charge a transfer cost, and what that makes the move add up to.
+
+  Its own block rather than a field in the run, because the two belong together: the box
+  is a question and the line under it is the answer to the one you actually wanted —
+  what the bank's screen will say. Separated by a rule so the pair reads as an aside on
+  the amount above rather than as two more fields to fill in.
+*/
+.tx-fee {
+  display: grid;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-line);
+}
+
+.tx-fee-sum {
+  color: var(--color-muted);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.tx-fee-sum strong {
+  color: var(--color-ink);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}

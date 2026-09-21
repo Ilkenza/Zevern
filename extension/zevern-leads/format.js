@@ -52,7 +52,7 @@ function mapsToLead(p) {
     channel: "google_maps",
     service: p.hasWebsite ? "" : "new_site",
     status: "new",
-    notes: [p.link || "", p.hasWebsite ? "" : "nema sajt"].filter(Boolean).join(" · "),
+    notes: [p.link || "", p.hasWebsite ? "" : "no website"].filter(Boolean).join(" · "),
   };
 }
 

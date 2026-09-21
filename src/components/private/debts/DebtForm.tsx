@@ -87,7 +87,7 @@ export function DebtForm({ debt, onDone }: { debt?: LoanLine; onDone?: () => voi
           label="Name"
           name="name"
           defaultValue={debt?.name ?? ""}
-          placeholder={lent ? "Pozajmica bratu" : "Kredit — Raiffeisen"}
+          placeholder={lent ? "Loan to my brother" : "Car loan — Raiffeisen"}
           required
           help="Whose debt it is, or what it paid for."
         />

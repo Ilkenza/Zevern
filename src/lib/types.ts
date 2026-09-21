@@ -89,6 +89,14 @@ export type TransactionRow = MoneyTransaction & {
   /** The budget it was filed into by hand, if any — see `TX_SELECT`. */
   budget: { name: string } | null;
   /*
+    The charge a transfer cost, as its own expense row pointing back at this one.
+
+    Attached by `withFees` after the read rather than embedded in it — PostgREST will not
+    embed this table in itself — so it is present on transfers that came through a loader
+    and absent everywhere else. Read it through `feeOf`, which treats absent as none.
+  */
+  fee?: { id: string; amount: number | null } | null;
+  /*
     What was in the bag.
 
     Declared here rather than taken from the generated database types, because the

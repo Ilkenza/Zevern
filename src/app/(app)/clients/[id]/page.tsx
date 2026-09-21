@@ -10,7 +10,7 @@ import { buttonClasses } from "@/components/ui/Button";
 import { DeleteButton } from "@/components/ui/DeleteButton";
 import { deleteClient } from "../actions";
 import { projectStatusBadge } from "@/lib/status";
-import { formatCurrency, formatDate } from "@/lib/format";
+import { formatDate, formatMoney } from "@/lib/format";
 import { FolderKanban } from "lucide-react";
 
 export default async function ClientDetailPage({
@@ -88,13 +88,13 @@ export default async function ClientDetailPage({
                   <th className="border-b border-line-soft px-4 py-2.75 text-left text-[10.5px] font-bold uppercase tracking-[0.07em] text-muted">
                     Project
                   </th>
-                  <th className="border-b border-line-soft px-4 py-2.75 text-left text-[10.5px] font-bold uppercase tracking-[0.07em] text-muted">
+                  <th className="hidden border-b border-line-soft px-4 py-2.75 text-left text-[10.5px] font-bold uppercase tracking-[0.07em] text-muted sm:table-cell">
                     Status
                   </th>
                   <th className="border-b border-line-soft px-4 py-2.75 text-right text-[10.5px] font-bold uppercase tracking-[0.07em] text-muted">
                     Value
                   </th>
-                  <th className="border-b border-line-soft px-4 py-2.75 text-right text-[10.5px] font-bold uppercase tracking-[0.07em] text-muted">
+                  <th className="hidden border-b border-line-soft px-4 py-2.75 text-right text-[10.5px] font-bold uppercase tracking-[0.07em] text-muted sm:table-cell">
                     Due
                   </th>
                 </tr>
@@ -114,14 +114,29 @@ export default async function ClientDetailPage({
                         >
                           {p.title}
                         </Link>
+                        {p.due_date && (
+                          <div className="mt-0.5 text-[11.5px] font-normal text-muted sm:hidden">
+                            due {formatDate(p.due_date)}
+                          </div>
+                        )}
                       </td>
-                      <td className="border-b border-line-soft px-4 py-3">
+                      <td className="hidden border-b border-line-soft px-4 py-3 sm:table-cell">
                         <Badge status={badge.variant}>{badge.label}</Badge>
                       </td>
-                      <td className="mono border-b border-line-soft px-4 py-3 text-right text-ink">
-                        {formatCurrency(p.value)}
+                      <td className="border-b border-line-soft px-4 py-3 text-right text-ink">
+                        {/*
+                          In the project's own currency. This was `formatCurrency(p.value)`,
+                          which is euros whatever the project says — a 198.400 RSD job read
+                          as €198,400 here and as 198.400 RSD on every other screen.
+                        */}
+                        <div className="mono whitespace-nowrap">
+                          {formatMoney(p.value, p.currency)}
+                        </div>
+                        <div className="mt-1 sm:hidden">
+                          <Badge status={badge.variant}>{badge.label}</Badge>
+                        </div>
                       </td>
-                      <td className="mono border-b border-line-soft px-4 py-3 text-right text-muted">
+                      <td className="mono hidden border-b border-line-soft px-4 py-3 text-right whitespace-nowrap text-muted sm:table-cell">
                         {formatDate(p.due_date)}
                       </td>
                     </tr>

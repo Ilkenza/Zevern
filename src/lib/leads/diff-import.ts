@@ -35,7 +35,8 @@ export function computeImportPlan(rows: ImportRow[], existing: Lead[]): ImportPl
   for (const r of rows) {
     const ex = byKey.get(keyOf(r.contact, r.name));
     if (!ex) {
-      newRows.push(r);
+      // A lead nobody has told us about yet starts where every new lead starts.
+      newRows.push({ ...r, status: r.status ?? "new" });
       continue;
     }
 
@@ -50,6 +51,7 @@ export function computeImportPlan(rows: ImportRow[], existing: Lead[]): ImportPl
       }
     }
 
+    // Only a status the sheet actually gave. A missing one leaves the lead where it is.
     if (r.status && r.status !== ex.status) {
       changes.push({ field: "status", from: disp(ex.status), to: disp(r.status) });
       payload.status = r.status;

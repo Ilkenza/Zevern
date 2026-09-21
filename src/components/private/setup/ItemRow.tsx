@@ -137,9 +137,9 @@ function SavedItem({
             const next = latest.current.name;
             if (next.trim() && next.trim() !== item.name) put("name", next);
           }}
-          placeholder="Rozi sok"
+          placeholder="Orange juice"
           aria-label="What it is called"
-          className={cn(field, "w-full min-w-0 font-medium setup-cat-name")}
+          className={cn(field, "w-full min-w-0 font-medium setup-cat-name setup-item-name")}
         />
 
         <MoneyField
@@ -155,7 +155,7 @@ function SavedItem({
           }}
           placeholder="Price"
           aria-label="What it cost last time"
-          className="mb-0"
+          className="mb-0 setup-item-price"
           inputClassName={cn(field, "w-full min-w-0 text-right")}
         />
 
@@ -166,7 +166,7 @@ function SavedItem({
             put("currency", e.target.value);
           }}
           aria-label="Currency"
-          className={cn(field, "scheme-dark")}
+          className={cn(field, "scheme-dark setup-item-cur")}
         >
           {CURRENCY_OPTIONS.map((c) => (
             <option key={c.value} value={c.value} className="bg-surface">
@@ -182,7 +182,7 @@ function SavedItem({
             put("category_id", e.target.value);
           }}
           aria-label="Where it gets filed"
-          className={cn(field, "scheme-dark min-w-0")}
+          className={cn(field, "scheme-dark min-w-0 setup-item-cat")}
         >
           <option value="" className="bg-surface">
             No category
@@ -256,7 +256,7 @@ function SavedItem({
           )}
         </div>
 
-        <div className="flex min-w-0 items-center justify-end gap-2">
+        <div className="setup-item-ctrl flex min-w-0 items-center justify-end gap-2">
           {/* A word rather than a button: nothing here waits to be pressed. */}
           {saving && <span className="setup-item-saving">Saving…</span>}
           <RowDelete
@@ -302,7 +302,7 @@ function NewItem({ categories }: { categories: MoneyCategory[] }) {
           name="name"
           value={draft.name}
           onChange={(e) => setDraft({ name: e.target.value })}
-          placeholder="Rozi sok"
+          placeholder="Orange juice"
           aria-label="What it is called"
           required
           readOnly={pending}

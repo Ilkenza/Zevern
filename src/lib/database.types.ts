@@ -1108,6 +1108,7 @@ export type Database = {
           category_id: string | null
           created_at: string
           currency: string
+          fee_for_id: string | null
           goal_id: string | null
           id: string
           items: Json | null
@@ -1131,6 +1132,7 @@ export type Database = {
           category_id?: string | null
           created_at?: string
           currency?: string
+          fee_for_id?: string | null
           goal_id?: string | null
           id?: string
           items?: Json | null
@@ -1154,6 +1156,7 @@ export type Database = {
           category_id?: string | null
           created_at?: string
           currency?: string
+          fee_for_id?: string | null
           goal_id?: string | null
           id?: string
           items?: Json | null
@@ -1329,6 +1332,7 @@ export type Database = {
           handle: string | null
           hidden_modules: string[]
           id: string
+          money_onboarding_hidden: boolean
           onboarding_hidden: boolean
           rate_eur: number
           rate_usd: number
@@ -1351,6 +1355,7 @@ export type Database = {
           handle?: string | null
           hidden_modules?: string[]
           id: string
+          money_onboarding_hidden?: boolean
           onboarding_hidden?: boolean
           rate_eur?: number
           rate_usd?: number
@@ -1373,6 +1378,7 @@ export type Database = {
           handle?: string | null
           hidden_modules?: string[]
           id?: string
+          money_onboarding_hidden?: boolean
           onboarding_hidden?: boolean
           rate_eur?: number
           rate_usd?: number

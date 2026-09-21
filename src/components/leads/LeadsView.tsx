@@ -126,7 +126,7 @@ function LeadRow({ lead }: { lead: Lead }) {
       <Link
         href={`/leads?edit=${lead.id}`}
         aria-label={`Edit ${lead.name}`}
-        className="inline-flex shrink-0 rounded-ctrl p-1.5 text-faint transition-opacity hover:bg-white/5 hover:text-ink sm:opacity-0 sm:group-hover:opacity-100"
+        className="inline-flex shrink-0 rounded-ctrl p-1.5 text-faint transition-colors hover:bg-white/5 hover:text-ink focus-visible:text-ink"
       >
         <Pencil className="h-3.75 w-3.75" />
       </Link>

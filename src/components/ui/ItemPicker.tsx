@@ -390,7 +390,7 @@ export function ItemPicker({
             <div className="item-menu-list">
               {shown.length === 0 && (
                 <p className="item-none">
-                  Ništa slično na listi — nastavi da kucaš, dodaje se kad sačuvaš.
+                  Nothing like that on your list — keep typing.
                 </p>
               )}
               {shown.slice(0, OFFERED * 3).map((item, i) => (
@@ -419,7 +419,7 @@ export function ItemPicker({
 
             {shown.length > 0 && (
               <p className="item-menu-foot">
-                <kbd>↑</kbd><kbd>↓</kbd> za kretanje · <kbd>↵</kbd> da izabereš
+                <kbd>↑</kbd><kbd>↓</kbd> to move · <kbd>↵</kbd> to choose
               </p>
             )}
           </div>,
@@ -454,7 +454,7 @@ function mark(name: string, typed: string): React.ReactNode {
 /** What the row knows about this thing besides its name. Absent rather than padded. */
 function story(item: MoneyItem): string {
   const bits: string[] = [];
-  if (item.uses > 0) bits.push(item.uses === 1 ? "kupljeno jednom" : `kupljeno ${item.uses}\u00d7`);
-  if (item.last_used_on) bits.push(`poslednji put ${item.last_used_on.slice(8, 10)}.${item.last_used_on.slice(5, 7)}.`);
+  if (item.uses > 0) bits.push(item.uses === 1 ? "bought once" : `bought ${item.uses}\u00d7`);
+  if (item.last_used_on) bits.push(`last ${item.last_used_on.slice(8, 10)}.${item.last_used_on.slice(5, 7)}.`);
   return bits.join(" \u00b7 ");
 }

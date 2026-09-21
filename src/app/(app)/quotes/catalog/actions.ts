@@ -28,7 +28,7 @@ export async function saveServiceItem(
 
   if (!label) return { error: "Label is required." };
   if ([priceRsd, priceEur, priceUsd].some((p) => Number.isNaN(p)))
-    return { error: "Cene moraju biti pozitivni brojevi." };
+    return { error: "Prices have to be zero or more." };
 
   const supabase = await createSupabaseServerClient();
   const uid = await userId(supabase);

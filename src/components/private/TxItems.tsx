@@ -450,7 +450,7 @@ function ItemRow({
           label="Item"
           items={known}
           defaultValue={row.name}
-          placeholder="Kafa 3 u 1"
+          placeholder="Instant coffee"
           autoFocus={autoFocus}
           inputClassName="tx-cell w-full min-w-0"
           className="min-w-0"
