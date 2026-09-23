@@ -6,6 +6,7 @@ import {
   commitRestore,
   parseBackup,
   planRestore,
+  selfLinkOrder,
 } from "./restore";
 
 const UID = "11111111-1111-1111-1111-111111111111";
@@ -336,5 +337,52 @@ describe("commitRestore", () => {
     expect(outcome.error).toContain("projects");
     expect(outcome.added).toBe(1);
     expect(rowsFor(db, "clients")).toHaveLength(1);
+  });
+});
+
+/* ------------------------------------------------------- rows that point at rows */
+
+/*
+  Two rows of `money_transactions` can point at a third: a transfer's fee at the
+  transfer, a refund at the purchase it undoes. The export is ordered by `id`, which for
+  random uuids is no order at all, so the pointer could be inserted first and Postgres
+  would refuse the batch — on a file that is a perfectly good backup.
+*/
+describe("selfLinkOrder", () => {
+  const rows = (...ids: string[]) => ids.map((id) => ({ id }));
+
+  it("puts a row before the row that points at it", () => {
+    const out = selfLinkOrder(
+      [
+        { id: "fee", fee_for_id: "move" },
+        { id: "move" },
+      ],
+      ["fee_for_id", "refund_of_id"],
+    );
+    expect(out.map((r) => r.id)).toEqual(["move", "fee"]);
+  });
+
+  it("leaves a row pointing at something already in the database where it is", () => {
+    const out = selfLinkOrder(
+      [
+        { id: "refund", refund_of_id: "bought-last-year" },
+        { id: "other" },
+      ],
+      ["refund_of_id"],
+    );
+    expect(out.map((r) => r.id)).toEqual(["refund", "other"]);
+  });
+
+  it("keeps every row, and only reorders when something has to move", () => {
+    const plain = rows("a", "b", "c");
+    expect(selfLinkOrder(plain, ["fee_for_id"])).toEqual(plain);
+    const tangled = selfLinkOrder(
+      [
+        { id: "a", refund_of_id: "b" },
+        { id: "b", refund_of_id: "a" },
+      ],
+      ["refund_of_id"],
+    );
+    expect(tangled).toHaveLength(2);
   });
 });

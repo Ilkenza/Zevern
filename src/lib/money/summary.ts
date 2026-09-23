@@ -13,7 +13,7 @@
  * So the sum lives here, both callers use it, and it is the thing the tests can hold.
  */
 
-import { UNCATEGORIZED_CATEGORY_ID } from "./index";
+import { isRefund, UNCATEGORIZED_CATEGORY_ID } from "./index";
 
 /** As little of an entry as adding it up requires. */
 export type SummableEntry = {
@@ -58,6 +58,20 @@ export function sumEntries(entries: Iterable<SummableEntry>): EntryTotals {
       spentBy.set(id, (spentBy.get(id) ?? 0) + value);
       /* Counted whatever it cost — an entry with no price yet is still a purchase. */
       countBy.set(id, (countBy.get(id) ?? 0) + 1);
+    } else if (isRefund(entry.kind)) {
+      /*
+        Money back comes off what the month cost, in the category it cost it.
+
+        Not income, which is the thing it was entered as before this kind existed and the
+        reason a cancelled order was counted twice: the month claimed 10.993 of extra
+        earnings while the order it undid sat untouched in Shopping. It is also not
+        counted as a purchase — a refund is not a thing you bought, and `entries` is what
+        tells one weekly shop from thirty coffees.
+      */
+      expense -= value;
+      const id = entry.category_id ?? UNCATEGORIZED_CATEGORY_ID;
+      spentBy.set(id, (spentBy.get(id) ?? 0) - value);
+      if (!countBy.has(id)) countBy.set(id, 0);
     } else if (entry.kind === "income") {
       income += value;
     } else if (entry.kind === "saving") {

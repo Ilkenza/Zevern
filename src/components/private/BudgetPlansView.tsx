@@ -357,23 +357,34 @@ export function BudgetPlansView({
   );
 
   return (
-    <div className="pb-10">
-      <div className="mb-5 flex items-center justify-between gap-3">
-        <div>
-          <h1 className="font-display text-[22px] font-extrabold tracking-[-0.5px] text-ink">
+    /*
+      The same head and the same column as every other private screen.
+
+      Budgets was the one screen built on its own: a 22px title with no kicker, the page
+      running the full width of a desk while its neighbours stop at 1200px, and the button
+      beside a sentence it squeezed into a column on a phone. Same kicker, same title,
+      same width, and the button takes the width of a phone like it does on Goals.
+    */
+    <div className="money-premium mx-auto max-w-300 pb-10">
+      <div className="money-page-head mb-5 flex flex-wrap items-end justify-between gap-5">
+        <div className="min-w-0">
+          <span className="money-page-kicker">Private · Budgets</span>
+          <h1 className="mt-2 font-display text-[32px] font-extrabold tracking-[-1.2px] text-ink sm:text-[38px]">
             Budgets
           </h1>
-          <p className="text-[12.5px] text-muted">
+          <p className="mt-1 max-w-md text-[13px] leading-5 text-muted">
             Each one keeps its own clock, so they do not all have to be months.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => setPanel({ mode: "new" })}
-          className={buttonClasses("primary", "shrink-0")}
-        >
-          <Plus className="h-4 w-4" /> New budget
-        </button>
+        <div className="money-page-actions">
+          <button
+            type="button"
+            onClick={() => setPanel({ mode: "new" })}
+            className={buttonClasses("primary", "money-premium-button")}
+          >
+            <Plus className="h-4 w-4" /> New budget
+          </button>
+        </div>
       </div>
 
       {lines.length === 0 ? (

@@ -1120,6 +1120,7 @@ export type Database = {
           rate: number
           receipt_no: string | null
           recurring_id: string | null
+          refund_of_id: string | null
           title: string | null
           to_account_id: string | null
           user_id: string
@@ -1144,6 +1145,7 @@ export type Database = {
           rate?: number
           receipt_no?: string | null
           recurring_id?: string | null
+          refund_of_id?: string | null
           title?: string | null
           to_account_id?: string | null
           user_id?: string
@@ -1168,6 +1170,7 @@ export type Database = {
           rate?: number
           receipt_no?: string | null
           recurring_id?: string | null
+          refund_of_id?: string | null
           title?: string | null
           to_account_id?: string | null
           user_id?: string
@@ -1195,6 +1198,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "money_transactions_fee_for_id_fkey"
+            columns: ["fee_for_id"]
+            isOneToOne: false
+            referencedRelation: "money_transactions"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "money_transactions_goal_id_fkey"
             columns: ["goal_id"]
             isOneToOne: false
@@ -1213,6 +1223,13 @@ export type Database = {
             columns: ["recurring_id"]
             isOneToOne: false
             referencedRelation: "money_recurring"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "money_transactions_refund_of_id_fkey"
+            columns: ["refund_of_id"]
+            isOneToOne: false
+            referencedRelation: "money_transactions"
             referencedColumns: ["id"]
           },
           {
@@ -1528,6 +1545,27 @@ export type Database = {
           },
         ]
       }
+      seo_usage: {
+        Row: {
+          checks: number
+          day: string
+          last_at: string
+          user_id: string
+        }
+        Insert: {
+          checks?: number
+          day?: string
+          last_at?: string
+          user_id: string
+        }
+        Update: {
+          checks?: number
+          day?: string
+          last_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       service_items: {
         Row: {
           category: string | null
@@ -1647,6 +1685,7 @@ export type Database = {
     }
     Functions: {
       calendar_feed: { Args: { p_token: string }; Returns: Json }
+      claim_seo_check: { Args: never; Returns: number }
       delete_user: { Args: { p_confirm: string }; Returns: undefined }
       ext_add_lead: {
         Args: {

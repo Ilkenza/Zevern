@@ -80,6 +80,9 @@ export function RuleRow({ item, rates, today }: { item: RecurringRow; rates: Rat
       ? "paused"
       : whenLabel(daysBetween(today, item.next_on));
   const overdue = r.running && item.next_on < today;
+  const badged = Boolean(
+    item.variable || r.toGoal || item.loan || r.countdown || (!item.active && !r.settled),
+  );
 
   return (
     <div
@@ -97,8 +100,16 @@ export function RuleRow({ item, rates, today }: { item: RecurringRow; rates: Rat
         />
 
         <div className="min-w-0 flex-1">
-          <div className="flex items-start gap-2">
-            <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+          {/*
+            The badges are one group, so a phone can give them the whole width.
+
+            There the name shares its line with three 44px controls, and the badges in the
+            space left beside them broke one to a line — `Pays a debt` over `4 of 4 left`.
+            On a phone the group goes under the name and the controls both (see
+            `.rule-row-head`); on a desk it follows the name as before.
+          */}
+          <div className="rule-row-head flex items-start gap-2">
+            <div className="rule-row-title flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
               <span
                 className={cn(
                   "min-w-0 truncate text-[13.5px] font-semibold",
@@ -107,14 +118,18 @@ export function RuleRow({ item, rates, today }: { item: RecurringRow; rates: Rat
               >
                 {item.name}
               </span>
-              {item.variable && <Badge status="info">Variable</Badge>}
-              {r.toGoal && <Badge status="info">Into a goal</Badge>}
-              {/* A rule is never both — see `saveRecurring`, where a goal clears the debt. */}
-              {item.loan && <Badge status="active">Pays a debt</Badge>}
-              {r.countdown && <Badge status={r.countdown.status}>{r.countdown.label}</Badge>}
-              {!item.active && !r.settled && <Badge status="draft">Paused</Badge>}
+              {badged && (
+                <span className="rule-row-badges flex flex-wrap items-center gap-x-2 gap-y-1">
+                  {item.variable && <Badge status="info">Variable</Badge>}
+                  {r.toGoal && <Badge status="info">Into a goal</Badge>}
+                  {/* A rule is never both — see `saveRecurring`, where a goal clears the debt. */}
+                  {item.loan && <Badge status="active">Pays a debt</Badge>}
+                  {r.countdown && <Badge status={r.countdown.status}>{r.countdown.label}</Badge>}
+                  {!item.active && !r.settled && <Badge status="draft">Paused</Badge>}
+                </span>
+              )}
             </div>
-            <div className="ml-auto min-[760px]:hidden">{controls}</div>
+            <div className="rule-row-ctrls ml-auto min-[760px]:hidden">{controls}</div>
           </div>
 
           {/* The same clipped first dot as the timeline rows — the note is in `TimelineRow`. */}
@@ -148,9 +163,18 @@ export function RuleRow({ item, rates, today }: { item: RecurringRow; rates: Rat
         </div>
       </div>
 
-      <div className="flex items-baseline justify-between gap-2 min-[760px]:justify-end">
+      {/*
+        On a phone each figure is its label over its value, in two halves.
+
+        Label and value used to sit side by side in each half, and 155px does not hold
+        `What you pay` and `1.216 RSD/m` on one line: both broke in two, the label into
+        `What you / pay` and the figure into `1.216 / RSD/m`, four ragged columns across
+        the card. Stacked, each half is two short lines that never break. The first half
+        starts where the name does, past the colour mark, so the row keeps one left edge.
+      */}
+      <div className="flex flex-col items-start gap-0.5 pl-4 min-[760px]:flex-row min-[760px]:items-baseline min-[760px]:justify-end min-[760px]:gap-2 min-[760px]:pl-0">
         <span className={cn(caps, "min-[760px]:hidden")}>What you pay</span>
-        <div className="text-right">
+        <div className="whitespace-nowrap min-[760px]:text-right">
           {r.charged === null ? (
             <span className="text-[12.5px] text-faint">changes</span>
           ) : (
@@ -176,9 +200,9 @@ export function RuleRow({ item, rates, today }: { item: RecurringRow; rates: Rat
         </div>
       </div>
 
-      <div className="flex items-baseline justify-between gap-2 min-[760px]:justify-end">
+      <div className="flex flex-col items-start gap-0.5 min-[760px]:flex-row min-[760px]:items-baseline min-[760px]:justify-end min-[760px]:gap-2">
         <span className={cn(caps, "min-[760px]:hidden")}>Next due</span>
-        <div className="text-right">
+        <div className="whitespace-nowrap min-[760px]:text-right">
           <div
             className={cn(
               "mono text-[12.5px]",

@@ -127,12 +127,14 @@ export function DebtsView({ debts, panel }: { debts: LoanLine[]; panel: DebtsPan
             counts as income or spending anywhere in Zevern.
           </p>
         </div>
-        <Link
-          href="/private/debts?new=1"
-          className={buttonClasses("primary", "money-premium-button")}
-        >
-          <Plus className="h-4 w-4" /> New debt
-        </Link>
+        <div className="money-page-actions">
+          <Link
+            href="/private/debts?new=1"
+            className={buttonClasses("primary", "money-premium-button")}
+          >
+            <Plus className="h-4 w-4" /> New debt
+          </Link>
+        </div>
       </div>
 
       <div className="debt-totals">
@@ -244,11 +246,16 @@ export function DebtsView({ debts, panel }: { debts: LoanLine[]; panel: DebtsPan
                         {lent ? "Owed to you" : "You owe"}
                         {" · since "}
                         <span className="mono">{debt.opened_on}</span>
+                        {/*
+                          The instalment is one fact and never breaks inside itself. On a
+                          phone it takes its own line — it used to wrap wherever the width
+                          ran out, which was between `30.776` and `RSD`.
+                        */}
                         {debt.instalment && debt.instalmentsLeft != null && (
-                          <>
-                            {" · "}
+                          <span className="debt-row-plan-line">
+                            <span className="debt-row-plan-dot">{" · "}</span>
                             {fmt(debt.instalment)} × {debt.instalmentsLeft} left
-                          </>
+                          </span>
                         )}
                         {done && (
                           <>
@@ -272,6 +279,11 @@ export function DebtsView({ debts, panel }: { debts: LoanLine[]; panel: DebtsPan
                         once. So the payment leads, and `Close it' keeps its place beside
                         the Reopen that undoes it — which is the reason closing lives on
                         this screen and not on the summary panel.
+
+                        The payment says so in words. It was a bare `+`, which on a debt
+                        could as well mean "another debt" — an icon is only enough when
+                        nobody could read it two ways. The two actions that are words come
+                        first; the pencil and the bin close the row, at its right edge.
                       */}
                       {!done && (
                         <Link
@@ -286,25 +298,23 @@ export function DebtsView({ debts, panel }: { debts: LoanLine[]; panel: DebtsPan
                             which is the whole reason that kind exists.
                           */
                           href={`/private/money?new=${lent ? "loan_in" : "expense"}&loan=${debt.id}`}
+                          /* The name read out starts with the word on the button, so a
+                             spoken "Repayment" or "Payment" finds it. */
                           aria-label={
                             lent
-                              ? `Record what ${debt.name} paid back`
-                              : `Add a payment against ${debt.name}`
+                              ? `Repayment from ${debt.name}`
+                              : `Payment against ${debt.name}`
                           }
                           title={lent ? "Record a repayment" : "Add payment"}
-                          className="zv-rowctrl zv-rowctrl-sm"
+                          className={buttonClasses(
+                            "secondary",
+                            "debt-row-act shrink-0 px-2.5 py-1 text-[11.5px]",
+                          )}
                         >
-                          <Plus className="h-3.25 w-3.25" />
+                          <Plus className="h-3.5 w-3.5" aria-hidden />
+                          {lent ? "Repayment" : "Payment"}
                         </Link>
                       )}
-                      <Link
-                        href={`/private/debts?edit=${debt.id}`}
-                        aria-label={`Edit ${debt.name}`}
-                        title="Edit"
-                        className="zv-rowctrl zv-rowctrl-sm"
-                      >
-                        <Pencil className="h-3.25 w-3.25" />
-                      </Link>
                       <button
                         type="button"
                         onClick={() => settle(debt.id, !done)}
@@ -316,7 +326,7 @@ export function DebtsView({ debts, panel }: { debts: LoanLine[]; panel: DebtsPan
                         }
                         className={buttonClasses(
                           "secondary",
-                          "shrink-0 px-2.5 py-1 text-[11.5px] disabled:opacity-50",
+                          "debt-row-act shrink-0 px-2.5 py-1 text-[11.5px] disabled:opacity-50",
                         )}
                       >
                         {done ? (
@@ -331,6 +341,14 @@ export function DebtsView({ debts, panel }: { debts: LoanLine[]; panel: DebtsPan
                           </>
                         )}
                       </button>
+                      <Link
+                        href={`/private/debts?edit=${debt.id}`}
+                        aria-label={`Edit ${debt.name}`}
+                        title="Edit"
+                        className="debt-row-edit zv-rowctrl zv-rowctrl-sm"
+                      >
+                        <Pencil className="h-3.25 w-3.25" />
+                      </Link>
                       {/*
                         Deleting forgets the debt and keeps the movements: `loan_id` is
                         `on delete set null`, so what is lost is the fact that they

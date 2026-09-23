@@ -88,6 +88,69 @@ const LINK_KEYS: Partial<Record<RestoreTable, [string, string]>> = {
   money_budget_accounts: ["budget_id", "account_id"],
 };
 
+/**
+ * The columns by which a row can point at another row of its own table.
+ *
+ * `money_transactions` is the only one, and it does it twice: a transfer's fee points at
+ * the transfer, and a refund points at the purchase it undoes. Both are ordinary
+ * foreign keys, which means Postgres wants the row being pointed at to exist first —
+ * and the export is ordered by `id`, which for random uuids is no order at all.
+ *
+ * So a restore could stop halfway through the ledger with a foreign-key error, on a file
+ * that was a perfectly good backup, for no reason a reader could act on. It never showed
+ * because a chunk is five hundred rows and both links are rare, which is the worst kind
+ * of latent fault: it waits for the account with enough entries to need two chunks and
+ * one cash-machine fee that lands in the wrong one.
+ */
+const SELF_LINKS: Partial<Record<RestoreTable, string[]>> = {
+  money_transactions: ["fee_for_id", "refund_of_id"],
+};
+
+/**
+ * Rows reordered so that anything pointed at comes before whatever points at it.
+ *
+ * Only rows being inserted now can block anything: one pointing at a row already in the
+ * database is free to go in the first pass, which is the common case by far. A cycle —
+ * two rows naming each other, which nothing in this app writes — cannot be ordered at
+ * all, so it is passed through as it stands and the database gives the answer.
+ */
+export function selfLinkOrder(rows: ExportRow[], columns: string[]): ExportRow[] {
+  if (columns.length === 0 || rows.length < 2) return rows;
+
+  const here = new Set(rows.map((row) => String(row.id ?? "")));
+  const placed = new Set<string>();
+  const out: ExportRow[] = [];
+  let rest = rows;
+
+  while (rest.length > 0) {
+    const ready: ExportRow[] = [];
+    const waiting: ExportRow[] = [];
+    for (const row of rest) {
+      const id = String(row.id ?? "");
+      const blocked = columns.some((column) => {
+        const target = row[column];
+        return (
+          typeof target === "string" &&
+          target !== "" &&
+          target !== id &&
+          here.has(target) &&
+          !placed.has(target)
+        );
+      });
+      (blocked ? waiting : ready).push(row);
+    }
+    if (ready.length === 0) {
+      out.push(...waiting);
+      break;
+    }
+    for (const row of ready) placed.add(String(row.id ?? ""));
+    out.push(...ready);
+    rest = waiting;
+  }
+
+  return out;
+}
+
 /** A file this size is not a backup of this account. */
 export const MAX_BYTES = 12 * 1024 * 1024;
 /** Nor is one this long. Sixteen thousand ledger rows is years; fifty thousand is a mistake. */
@@ -424,8 +487,12 @@ export async function commitRestore(
     if ("error" in pending) return { added, tables, error: pending.error };
     if (pending.add.length === 0) continue;
 
-    for (let i = 0; i < pending.add.length; i += CHUNK) {
-      const slice = pending.add.slice(i, i + CHUNK);
+    // Parents before children inside the table as well as between tables — see
+    // `selfLinkOrder`, which is the fee and the refund pointing at rows of their own kind.
+    const queue = SELF_LINKS[table] ? selfLinkOrder(pending.add, SELF_LINKS[table]) : pending.add;
+
+    for (let i = 0; i < queue.length; i += CHUNK) {
+      const slice = queue.slice(i, i + CHUNK);
       const { error } = await supabase.from(table).insert(slice);
       if (error) {
         console.error(`restore insert ${table}:`, error.message);

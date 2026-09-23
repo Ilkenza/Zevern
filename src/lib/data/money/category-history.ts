@@ -12,7 +12,7 @@ import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { userId } from "@/lib/supabase/current-user";
 import { todayISO } from "@/lib/format";
-import { monthRange, shiftMonth, UNCATEGORIZED_CATEGORY_ID } from "@/lib/money";
+import { isRefund, monthRange, shiftMonth, SPEND_KINDS, UNCATEGORIZED_CATEGORY_ID } from "@/lib/money";
 import type { TransactionRow } from "@/lib/types";
 import { TX_SELECT } from "./core";
 import { ReadFailed } from "@/lib/data/must";
@@ -85,7 +85,7 @@ export const getCategoryHistory = cache(
       for spending — an income with no category is not money that needs filing.
     */
     if (categoryId === UNCATEGORIZED_CATEGORY_ID) {
-      query = query.is("category_id", null).eq("kind", "expense");
+      query = query.is("category_id", null).in("kind", [...SPEND_KINDS]);
     } else {
       query = query.eq("category_id", categoryId);
     }
@@ -108,8 +108,20 @@ export const getCategoryHistory = cache(
       */
       const key = row.occurred_on.slice(0, 7);
       const at = totals.get(key) ?? { spent: 0, entries: 0 };
-      at.spent += Number(row.amount_rsd) || 0;
-      at.entries += 1;
+      /*
+        A refund is the one row here that goes the other way, and it is not an entry.
+
+        The rows are whatever names this category, which for a spending category is
+        purchases and the money that came back off them. Counting a refund as a purchase
+        would make "twelve entries" out of six shops and six returns, and adding it to
+        the bar would draw a month that cost twice what it did.
+      */
+      if (isRefund(row.kind)) {
+        at.spent -= Number(row.amount_rsd) || 0;
+      } else {
+        at.spent += Number(row.amount_rsd) || 0;
+        at.entries += 1;
+      }
       totals.set(key, at);
     }
 

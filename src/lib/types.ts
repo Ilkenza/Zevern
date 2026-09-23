@@ -97,6 +97,15 @@ export type TransactionRow = MoneyTransaction & {
   */
   fee?: { id: string; amount: number | null } | null;
   /*
+    How much of this purchase has come back, in RSD.
+
+    Attached by `withRefunds` after the read, like the fee above, and for the same
+    reason — this table cannot be embedded in itself. Present on a purchase that has
+    been refunded, absent everywhere else, which is why it is read through `refundedOf`:
+    absent means none, and none is not the same as a zero somebody typed.
+  */
+  refunded?: number | null;
+  /*
     What was in the bag.
 
     Declared here rather than taken from the generated database types, because the

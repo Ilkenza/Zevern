@@ -293,6 +293,36 @@ account has not got one. Never refuse a save because the category is missing —
 older than this feature has no `Bank fees` in its seed, and the honest outcome is the
 charge filed correctly, not a transfer that will not save.
 
+## Money that came back is a `refund`, never an income
+
+A refund is a purchase undone. It lands on the account like money arriving and it is
+**not** earnings: it comes off the category the purchase went on to, with a minus. Filed
+as income — which is what a seeded `Refund` income category used to invite — a cancelled
+order left the month claiming the spending *and* the earnings, and the screen reported two
+monitors for somebody who owns one. That is the bug this kind exists for.
+
+Spending is therefore two kinds, not one. `SPEND_KINDS` is what a query asks for and
+`spentBy(kind, amount)` is what the sum does with the answer; both are in `@/lib/money`.
+Anywhere you are about to write `kind === "expense"` to mean "spending", use them instead
+— the month summary, the day strip, the six-month trend, the category history, the
+per-category typical month, the everyday-spending basis and the budgets all go through
+one of the two. A budget reads refunds because `BUDGET_KINDS` names them beside
+`contributionOf`, which returns them negative for a ceiling and positive for a savings
+budget.
+
+The link is optional and `refund_of_id` carries it. With one, the form fills itself from
+the purchase, the ledger prints what came back under the purchase's own figure, and
+`saveTransaction` holds the refund to what is left — earlier refunds summed, the entry
+being edited left out. Without one it is still a refund; a bank reversing a charge refunds
+nothing anybody wrote down. Read what has come back through `refundedOf`, and what is
+still refundable through `refundRoom`; `withRefunds` attaches the figure after the read,
+for the same PostgREST reason the fee above has `withFees`.
+
+A refund may also name a goal being paid off or a debt, because that is money going back
+off one: `goalKinds(true)` and `weighLoanMove` both read it as the reversal `income`
+used to be, and the older income rows still mean what they meant. It never names a goal
+being saved up — money into a pot is not spending undone.
+
 ## A phone is 390px wide, and nothing here scrolls sideways
 
 `html, body { overflow-x: clip }` is the page guard. It means a child that is too wide is
@@ -320,3 +350,24 @@ not scrollable on a phone — it is cut off, silently. So "it fits" has to be ch
   hides whichever dot lands at the start of a line.
 - **A grid of form controls** places every control by name below its breakpoint. Letting
   seven controls fall into two tracks in order is how `Plazma mix zel` and `N` happened.
+
+### Touch, and the screens that follow the same shape
+
+- **A phone has no hover.** Anything that only appears on `:hover` — the box around a
+  quiet field in Setup, a title, a dimmed control — needs a `@media (hover: none)`
+  answer, or on a phone it never appears at all. Setup's saved rows draw their field
+  boxes there; the eye and the star on an account carry their word on the button.
+- **Row controls are 44×44 on a touch screen** (`@media (pointer: coarse)` in
+  `globals.css`); the glyph stays the size it was. Where they sit on a title line, the
+  line keeps its height with negative block margins (`.goal-card-controls`,
+  `.rule-row-ctrls`), so the name stays centred on its icons. Check a new row of
+  controls at 390px with three of them — it is 136px before anything else fits.
+- **A Private page head** is `money-page-head` with the kicker, the title and the lede,
+  and its buttons in `money-page-actions`: side by side on a desk, equal halves across the
+  full width on a phone. No page gets its own padding on the head — one left edge.
+- **A toolbar over a list** fills every row on a phone: search alone, the selects in
+  equal shares, the order control wider because it carries its arrow.
+- **Checking a phone layout in a headless browser**: capture it with a viewport as tall
+  as the page, not Playwright's `fullPage`. The full-page capture drops the touch
+  emulation while it draws, so every `hover: none` and `pointer: coarse` rule is missing
+  from the picture even though the page reported them on.

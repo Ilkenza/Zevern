@@ -10,9 +10,23 @@ describe("which entries belong to a goal", () => {
   });
 
   it("feeds a paying-off goal from what it cost, and reads income as that coming back", () => {
-    expect(goalKinds(true)).toEqual(["expense", "income"]);
+    expect(goalKinds(true)).toEqual(["expense", "income", "refund"]);
     expect(movesToward("expense", true)).toBe(true);
     expect(movesToward("income", true)).toBe(false);
+  });
+
+  /*
+    Money coming back off a goal being paid off is a `refund` now and used to be an
+    `income`, so both have to move it back — an entry written last month still means
+    what it meant when it was written.
+  */
+  it("reads a refund as a payment coming back, the same as the income it replaced", () => {
+    expect(goalKinds(true)).toContain("refund");
+    expect(movesToward("refund", true)).toBe(false);
+    expect(GOAL_MOVE_KINDS).toContain("refund");
+    // A goal being saved up is not fed or emptied by one: a refund is spending undone,
+    // and spending is not how money gets into a pot.
+    expect(goalKinds(false)).not.toContain("refund");
   });
 
   /*

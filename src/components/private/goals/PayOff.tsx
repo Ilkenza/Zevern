@@ -77,7 +77,16 @@ export function PayOff({
       action={submit}
       className="goal-move-panel border-t border-line-soft bg-white/[0.02] py-4 pr-4 pl-5"
     >
-      <input type="hidden" name="kind" value={refunding ? "income" : "expense"} />
+      {/*
+        Money going back off a goal is a refund, not income.
+
+        It was written as an `income` because that was the only kind that meant "money
+        arrived", and it made a month read as earnings: pay 10.000 off a debt, hand
+        3.000 of it back, and the app said 10.000 was spent and 3.000 was earned. A
+        refund says the truth in one row — 3.000 of that payment did not happen — and
+        `weighLoanMove` and `goalKinds` both read it as the reversal it always was.
+      */}
+      <input type="hidden" name="kind" value={refunding ? "refund" : "expense"} />
       {/*
         Where the payment is filed, and never in two places.
 

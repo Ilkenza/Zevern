@@ -48,6 +48,7 @@ import {
   daysLeftInMonth,
   monthProgress,
   monthRange,
+  refundedOf,
   shiftMonth,
   shortMonthLabel,
   UNCATEGORIZED_CATEGORY_ID,
@@ -235,9 +236,19 @@ export default async function PrivateOverviewPage({
     Entries with no price yet are left out rather than sorted as zero: an unpriced row is
     a thing whose size is unknown, and ranking it last states the opposite.
   */
+  /*
+    What each purchase cost after what came back off it.
+
+    A cancelled order is not one of the eight things that decided a month, and it would
+    otherwise sit at the top of this list for ever: the row is real, the money went, and
+    it all came back a week later. Netted, a part refund keeps its place at the size it
+    actually was, and a full one drops out.
+  */
   const biggest = past
     .filter((t) => t.kind === "expense" && t.amount_rsd !== null)
-    .sort((a, b) => (Number(b.amount_rsd) || 0) - (Number(a.amount_rsd) || 0))
+    .map((t) => ({ tx: t, net: (Number(t.amount_rsd) || 0) - refundedOf(t) }))
+    .filter((row) => row.net > 0)
+    .sort((a, b) => b.net - a.net)
     .slice(0, 8);
 
   /*
@@ -1160,7 +1171,7 @@ export default async function PrivateOverviewPage({
           {biggest.length > 0 && (
             <Panel title="The biggest of them">
               <div className="past-list">
-                {biggest.map((tx) => (
+                {biggest.map(({ tx, net }) => (
                   <Link
                     key={tx.id}
                     href={`/private/money?month=${month}&edit=${tx.id}`}
@@ -1175,7 +1186,8 @@ export default async function PrivateOverviewPage({
                         <span className="past-row-cat">{tx.category.name}</span>
                       )}
                     </span>
-                    <span className="mono past-row-amount">{fmt(Number(tx.amount_rsd) || 0)}</span>
+                    {/* What it cost in the end — see `biggest`, where the refunds come off. */}
+                    <span className="mono past-row-amount">{fmt(net)}</span>
                   </Link>
                 ))}
               </div>

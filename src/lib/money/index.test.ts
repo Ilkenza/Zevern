@@ -14,8 +14,11 @@ import {
   monthRange,
   nextDate,
   rateFor,
+  refundedOf,
+  refundRoom,
   shiftMonth,
   shortMonthLabel,
+  spentBy,
   toRsd,
 } from "./index";
 
@@ -345,6 +348,56 @@ describe("every currency formatter lets the amount break", () => {
       formatMoney(1234.5, "EUR"),
     ]) {
       expect(printed).not.toContain(" ");
+    }
+  });
+});
+
+/*
+  What is left to refund on a purchase.
+
+  The figure the form offers and the figure the server judges against are worked out
+  from the same two numbers, and they have to agree — offered more than the server will
+  accept, the field fills itself with a figure that is then refused.
+*/
+describe("refundRoom", () => {
+  it("is the whole purchase until something has come back", () => {
+    expect(refundRoom({ amount: 10993, rate: 1 })).toBe(10993);
+  });
+
+  it("is what is left once part of it has", () => {
+    expect(refundRoom({ amount: 10993, rate: 1, refunded: 9295 })).toBe(1698);
+  });
+
+  it("is nought rather than a negative when the whole of it is back", () => {
+    expect(refundRoom({ amount: 500, rate: 1, refunded: 900 })).toBe(0);
+  });
+
+  it("answers in the currency the purchase was made in", () => {
+    // €120 booked at 117 dinars; 5.850 dinars back is €50 of it.
+    expect(refundRoom({ amount: 120, rate: 117, refunded: 5850 })).toBe(70);
+  });
+
+  it("has nothing to say about a purchase logged without a price", () => {
+    expect(refundRoom({ amount: null, rate: 1 })).toBeNull();
+  });
+
+  it("reads an absent figure as nothing having come back", () => {
+    expect(refundedOf({})).toBe(0);
+    expect(refundedOf({ refunded: null })).toBe(0);
+    expect(refundedOf({ refunded: 250 })).toBe(250);
+  });
+});
+
+/* Spending is the two kinds that make it, and nothing else touches it. */
+describe("spentBy", () => {
+  it("adds a purchase and subtracts a refund", () => {
+    expect(spentBy("expense", 1000)).toBe(1000);
+    expect(spentBy("refund", 1000)).toBe(-1000);
+  });
+
+  it("is nought for everything that is not spending", () => {
+    for (const kind of ["income", "transfer", "saving", "withdraw", "loan_in", "loan_out", "correction"]) {
+      expect(spentBy(kind, 1000)).toBe(0);
     }
   });
 });

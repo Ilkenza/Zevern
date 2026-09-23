@@ -153,7 +153,8 @@ export function UpcomingView(props: UpcomingViewProps) {
             </h1>
             <p className="upcoming-blurb">{BLURB[props.view]}</p>
           </div>
-          <div className="flex shrink-0 flex-wrap gap-2">
+          {/* Beside the title on a desk; the full width, shared, on a phone. */}
+          <div className="money-page-actions">
             {props.view === "timeline" && (
               <Link href={NEW_PLAN_HREF} className={buttonClasses("primary", "money-premium-button")}>
                 <Plus className="h-4 w-4" />

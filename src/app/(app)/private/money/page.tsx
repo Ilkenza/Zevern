@@ -31,6 +31,8 @@ export default async function MoneyPage({
     cat?: string;
     /** Which debt a new entry pays — the debts panels link straight in. */
     loan?: string;
+    /** Which purchase a new refund is against — `Money came back` links straight in. */
+    of?: string;
   }>;
 }) {
   const params = await searchParams;
@@ -125,10 +127,29 @@ export default async function MoneyPage({
     */
     const onDebt =
       params.loan && loans.some((l) => l.id === params.loan) ? params.loan : undefined;
-    panel = { mode: "new", kind: params.new, loanId: onDebt };
+    /*
+      The purchase a refund is against, read here so the form opens already knowing it.
+
+      Read rather than trusted: `getTransaction` is scoped to the signed-in profile, so
+      an id from somebody else's ledger comes back as nothing and the form opens as an
+      ordinary refund. A row that is not a purchase is dropped for the same reason the
+      server refuses one — money does not come back off a transfer.
+    */
+    const bought =
+      params.new === "refund" && params.of ? await getTransaction(params.of) : null;
+    panel = {
+      mode: "new",
+      kind: params.new,
+      loanId: onDebt,
+      refundOf: bought?.kind === "expense" ? bought : undefined,
+    };
   } else if (params.edit) {
     const tx = await getTransaction(params.edit);
-    if (tx) panel = { mode: "edit", tx };
+    /* A refund being edited shows the purchase it names, the same as when it was made. */
+    const against = tx?.kind === "refund" && tx.refund_of_id
+      ? await getTransaction(tx.refund_of_id)
+      : null;
+    if (tx) panel = { mode: "edit", tx, refundOf: against ?? undefined };
   }
 
   return (

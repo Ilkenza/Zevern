@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+import { Undo2 } from "lucide-react";
 import { useActionState, useEffect, useState } from "react";
 import { saveTransaction, deleteTransaction, type MoneyState } from "@/app/(app)/private/actions";
 import { Field } from "@/components/ui/Field";
@@ -10,9 +12,9 @@ import type { ScannedReceipt } from "@/lib/money/receipt";
 import { itemsArePriced, itemsTotal, parseItems } from "@/lib/money/items";
 import { fillFromPick, fillFromTyping, type Fill } from "@/lib/money/known";
 import { Select } from "@/components/ui/Select";
-import { Button } from "@/components/ui/Button";
+import { Button, buttonClasses } from "@/components/ui/Button";
 import { DeleteButton } from "@/components/ui/DeleteButton";
-import { canFileInto, CURRENCY_OPTIONS, feeOf, isGoalKind, isLoanKind, isPayingKind, NEW_LOAN, rateFor, TX_KIND_ALL, TX_KIND_OPTIONS, type Rates } from "@/lib/money";
+import { canFileInto, CURRENCY_OPTIONS, feeOf, isGoalKind, isLoanKind, isPayingKind, isRefund, NEW_LOAN, rateFor, refundedOf, refundRoom, TX_KIND_ALL, TX_KIND_OPTIONS, type Rates } from "@/lib/money";
 import { cn } from "@/lib/utils";
 import type {
   LoanLine,
@@ -57,6 +59,7 @@ export type TxFormData = {
 const TITLE_LABEL: Record<string, string> = {
   expense: "What did you buy?",
   income: "Where is it from?",
+  refund: "What came back?",
   transfer: "What is this move?",
   saving: "What is this for?",
   withdraw: "What is it going on?",
@@ -77,6 +80,7 @@ const TITLE_LABEL: Record<string, string> = {
 const TITLE_HINT: Record<string, string> = {
   expense: "Shop, bill, ticket…",
   income: "Client, invoice, gift…",
+  refund: "The order, the shop, the ticket…",
   loan_out: "Marko, Ana, the neighbour…",
   loan_in: "Marko, Ana, the bank…",
 };
@@ -86,6 +90,8 @@ export function TransactionForm({
   data,
   defaultKind = "expense",
   presetLoanId,
+  refundOf,
+  refundHref,
   returnTo,
   onSaved,
 }: {
@@ -94,6 +100,24 @@ export function TransactionForm({
   defaultKind?: string;
   /** A debt chosen before the form opened — a debt row links straight in to pay it. */
   presetLoanId?: string;
+  /**
+   * The purchase this refund is against.
+   *
+   * Set two ways: a purchase was opened and `Money came back` pressed, or a refund that
+   * already names one is being edited. It fills the form — the category it was filed in,
+   * the account it was paid from, the budget it came out of, what it cost — because
+   * every one of those answers is already written down and asking for them again is how
+   * a refund ends up in a different category from the purchase it undoes.
+   */
+  refundOf?: TransactionRow;
+  /**
+   * Where `Money came back` goes, on a purchase being edited.
+   *
+   * A link rather than a mode of this form, and the address is the caller's because the
+   * ledger's own — which month, which filter — is what you come back to afterwards. The
+   * form opens again as a new refund with this purchase named at the top of it.
+   */
+  refundHref?: string;
   returnTo?: "quick";
   onSaved?: () => void;
 }) {
@@ -108,12 +132,27 @@ export function TransactionForm({
     The category is held rather than defaulted, so picking a thing off the shopping list
     can fill it. Keyed off the entry being edited, like every other default here.
   */
-  const [categoryId, setCategoryId] = useState(tx?.category_id ?? "");
-  const [budgetId, setBudgetId] = useState<string[]>(tx?.budget_id ? [tx.budget_id] : []);
-  const [currency, setCurrency] = useState(tx?.currency ?? fallback);
+  /*
+    A new refund opens as the purchase it undoes: same category, same budget, same money.
+
+    Only when there is no entry being edited — a saved refund answers for itself, even
+    where it differs from the purchase, because somebody typed the difference.
+  */
+  const back = tx ? null : (refundOf ?? null);
+  const [categoryId, setCategoryId] = useState(tx?.category_id ?? back?.category_id ?? "");
+  const [budgetId, setBudgetId] = useState<string[]>(
+    tx?.budget_id ? [tx.budget_id] : back?.budget_id ? [back.budget_id] : [],
+  );
+  const [currency, setCurrency] = useState(tx?.currency ?? back?.currency ?? fallback);
   // `tx.amount` is null on an entry logged without a price, and `String(null)` is the
   // word "null" — which is what the field would have opened with.
-  const [amount, setAmount] = useState(tx?.amount == null ? "" : String(tx.amount));
+  const [amount, setAmount] = useState(() => {
+    if (tx?.amount != null) return String(tx.amount);
+    if (tx) return "";
+    // What is left of the purchase, which is the whole of it until part has come back.
+    const room = back ? refundRoom(back) : null;
+    return room && room > 0 ? String(room) : "";
+  });
   /*
     What the move cost on top of what moved — a cash machine that is not your bank's.
 
@@ -216,7 +255,7 @@ export function TransactionForm({
     list unless somebody says so, and `null` means nobody has said yet, so the name answers
     for itself.
   */
-  const [title, setTitle] = useState(tx?.title ?? "");
+  const [title, setTitle] = useState(tx?.title ?? back?.title ?? "");
   const [keepTitle, setKeepTitle] = useState<boolean | null>(null);
   const [itemsSum, setItemsSum] = useState(() => itemsTotal(initialItems));
   const [itemCount, setItemCount] = useState(initialItems.length);
@@ -355,7 +394,11 @@ export function TransactionForm({
   const payingGoals = goals.filter((g) => g.direction === "expense");
   const savingGoals = goals.filter((g) => g.direction !== "expense");
   const goalPool =
-    kind === "income" ? goals : kind === "expense" ? payingGoals : savingGoals;
+    kind === "income"
+      ? goals
+      : kind === "expense" || kind === "refund"
+        ? payingGoals
+        : savingGoals;
   /*
     With both kinds of goal in one list the name alone stops being enough — `Letovanje
     2027` and `Laptop instalments` look identical in a dropdown and do opposite things to
@@ -437,6 +480,39 @@ export function TransactionForm({
             </button>
           ))}
         </div>
+
+        {/*
+          What the money is coming back off, when the refund names a purchase.
+
+          Shown rather than assumed. Everything under it is already filled in from that
+          purchase — the category, the account, the budget, the figure — and a form that
+          fills four fields from a row you cannot see is a form you have to audit. The
+          line says which purchase, what it cost, and what has come back before, which is
+          also the ceiling the server will hold this to.
+        */}
+        {kind === "refund" && refundOf && (
+          <>
+            <input type="hidden" name="refund_of_id" value={refundOf.id} />
+            <div className="tx-refund-of">
+              <p className="tx-scan-line">
+                <span className="tx-scan-shop">
+                  {refundOf.title ?? refundOf.category?.name ?? "That purchase"}
+                </span>
+                <span className="tx-scan-dot">·</span>
+                <span>{formatDate(refundOf.occurred_on)}</span>
+                <span className="tx-scan-dot">·</span>
+                <span className="mono">{fmt(Number(refundOf.amount_rsd) || 0)}</span>
+              </p>
+              <p className="tx-scan-sub">
+                {refundedOf(refundOf) > 0
+                  ? `${fmt(refundedOf(refundOf))} has already come back, so ${fmt(
+                      Math.max(0, (Number(refundOf.amount_rsd) || 0) - refundedOf(refundOf)),
+                    )} is left.`
+                  : "Nothing has come back off it yet."}
+              </p>
+            </div>
+          </>
+        )}
 
         {/*
           The amount is optional on a purchase and required on everything else.
@@ -747,7 +823,7 @@ export function TransactionForm({
                       : "Account"
           }
           name="account_id"
-          defaultValue={tx?.account_id ?? fromDefault}
+          defaultValue={tx?.account_id ?? back?.account_id ?? fromDefault}
           placeholder={accountOptions.length ? "No account" : "No accounts yet"}
           options={accountOptions}
           help={
@@ -818,9 +894,9 @@ export function TransactionForm({
           </div>
         )}
 
-        {(kind === "expense" || kind === "income") && (
+        {(kind === "expense" || kind === "income" || kind === "refund") && (
           <Select
-            label="Category"
+            label={kind === "refund" ? "Off which category" : "Category"}
             name="category_id"
             /*
               Held rather than defaulted, because picking a thing off the list fills this
@@ -831,6 +907,11 @@ export function TransactionForm({
             onChange={(e) => setCategoryId(e.target.value)}
             placeholder={categoryOptions.length ? "No category" : "No categories yet"}
             options={categoryOptions}
+            help={
+              isRefund(kind)
+                ? "It comes off this category the same way the purchase went on to it — and it is not counted as income."
+                : undefined
+            }
           />
         )}
 
@@ -859,10 +940,16 @@ export function TransactionForm({
         */}
         {isPayingKind(kind) && goalPool.length > 0 && (
           <Select
-            label={kind === "income" ? "Goal" : "Towards"}
+            label={kind === "income" ? "Goal" : kind === "refund" ? "Off which goal" : "Towards"}
             name="goal_id"
-            defaultValue={tx?.goal_id ?? ""}
-            placeholder={kind === "income" ? "Not tied to a goal" : "Not towards a goal"}
+            defaultValue={tx?.goal_id ?? back?.goal_id ?? ""}
+            placeholder={
+              kind === "income"
+                ? "Not tied to a goal"
+                : kind === "refund"
+                  ? "Not off a goal"
+                  : "Not towards a goal"
+            }
             options={goalOptions}
             help={
               kind === "income"
@@ -897,7 +984,8 @@ export function TransactionForm({
           is "nothing" is not a question, it is furniture.
         */}
         {(isLoanKind(kind) ||
-          ((kind === "expense" || kind === "income") && loanOptions.length > 0)) && (
+          ((kind === "expense" || kind === "income" || kind === "refund") &&
+            loanOptions.length > 0)) && (
           <Select
             /*
               "Which debt" asked the wrong man a fair question.
@@ -918,9 +1006,11 @@ export function TransactionForm({
                 ? "Pays off"
                 : kind === "income"
                   ? "Repays"
-                  : kind === "loan_out"
-                    ? "Who is it with"
-                    : "Which debt"
+                  : kind === "refund"
+                    ? "Off which debt"
+                    : kind === "loan_out"
+                      ? "Who is it with"
+                      : "Which debt"
             }
             name="loan_id"
             value={loanChoice}
@@ -930,17 +1020,21 @@ export function TransactionForm({
                 ? "Nothing — an ordinary expense"
                 : kind === "income"
                   ? "Nothing — ordinary income"
-                  : kind === "loan_out"
-                    ? "Pick who, or add somebody new"
-                    : "Pick one, or add a new one"
+                  : kind === "refund"
+                    ? "Nothing — an ordinary refund"
+                    : kind === "loan_out"
+                      ? "Pick who, or add somebody new"
+                      : "Pick one, or add a new one"
             }
             options={loanOptions}
             help={
               kind === "expense"
                 ? "Set this on an instalment and the debt falls by itself."
-                : kind === "income"
-                  ? "Somebody paying you back, or a payment of yours that came back."
-                  : kind === "loan_out"
+                : kind === "refund"
+                  ? "Only for an instalment that came back — the debt goes back up by the same amount."
+                  : kind === "income"
+                    ? "Somebody paying you back, or a payment of yours that came back."
+                    : kind === "loan_out"
                     ? "The money leaves the account, but it is not spending — it comes back. Somebody new? Pick ＋ Somebody new and name them below."
                     : /*
                         Once the debt is named, the form can say which of the two things
@@ -1074,7 +1168,22 @@ export function TransactionForm({
       </form>
 
       {tx && (
-        <div className="mt-4 border-t border-line pt-4">
+        <div className="tx-form-foot mt-4 border-t border-line pt-4">
+          {/*
+            Money back, offered where the purchase is.
+
+            This is the half of the feature that decides whether the other half is ever
+            used. Money comes back and the reflex is to write down what arrived, which is
+            a form that says Income at the top of it — so the offer has to be on the
+            purchase itself, at the moment you are looking at the thing that was
+            cancelled. Only on a purchase: nothing else here can be refunded.
+          */}
+          {refundHref && tx.kind === "expense" && (
+            <Link href={refundHref} className={buttonClasses("secondary", "tx-form-back")}>
+              <Undo2 className="h-3.5 w-3.5" aria-hidden />
+              Money came back
+            </Link>
+          )}
           <DeleteButton
             action={deleteTransaction.bind(null, tx.id)}
             label="Delete entry"

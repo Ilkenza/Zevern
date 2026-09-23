@@ -6,7 +6,7 @@ import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { userId } from "@/lib/supabase/current-user";
 import { todayISO } from "@/lib/format";
-import { monthKey, monthRange, UNCATEGORIZED_CATEGORY_ID } from "@/lib/money";
+import { monthKey, monthRange, SPEND_KINDS, spentBy, UNCATEGORIZED_CATEGORY_ID } from "@/lib/money";
 import { sumEntries } from "@/lib/money/summary";
 import type { TransactionRow } from "@/lib/types";
 import { readAll, TX_SELECT } from "./core";
@@ -49,6 +49,49 @@ async function withFees(
   }
 
   return rows.map((r) => (r.kind === "transfer" ? { ...r, fee: fees.get(r.id) ?? null } : r));
+}
+
+/**
+ * Hang on each purchase how much of it has come back, from the refunds pointing at it.
+ *
+ * The same second read as the fees above, and for the same reason: PostgREST refuses to
+ * embed this table in itself. It is worth the request. Without it a cancelled order and
+ * the money returning are two rows in a list that never mention each other — you scroll
+ * past 10.993 spent at a shop that refunded you a week later and the page says nothing,
+ * which is how the order came to be entered twice in the first place.
+ *
+ * Summed rather than listed, because the question a row asks is how much of it is left
+ * standing: a part refund of a two-item order is the ordinary case.
+ *
+ * A failed read throws. The refund form reads its ceiling off this figure, and a form
+ * that believed nothing had come back would let the same purchase be refunded twice.
+ */
+async function withRefunds(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  uid: string,
+  rows: TransactionRow[],
+): Promise<TransactionRow[]> {
+  const bought = rows.filter((r) => r.kind === "expense").map((r) => r.id);
+  if (bought.length === 0) return rows;
+
+  const back = new Map<string, number>();
+  const CHUNK = 150;
+  for (let i = 0; i < bought.length; i += CHUNK) {
+    const { data, error } = await supabase
+      .from("money_transactions")
+      .select("refund_of_id, amount_rsd")
+      .eq("user_id", uid)
+      .eq("kind", "refund")
+      .in("refund_of_id", bought.slice(i, i + CHUNK));
+    if (error) throw new ReadFailed("what came back off your purchases", error.message);
+    for (const r of data ?? []) {
+      if (!r.refund_of_id) continue;
+      back.set(r.refund_of_id, (back.get(r.refund_of_id) ?? 0) + (Number(r.amount_rsd) || 0));
+    }
+  }
+
+  if (back.size === 0) return rows;
+  return rows.map((r) => (back.has(r.id) ? { ...r, refunded: back.get(r.id) ?? 0 } : r));
 }
 
 export type TxFilter = {
@@ -109,7 +152,7 @@ export async function getTransactions(filter: TxFilter = {}): Promise<Transactio
       const none = wanted.includes(UNCATEGORIZED_CATEGORY_ID);
       const real = wanted.filter((id) => id !== UNCATEGORIZED_CATEGORY_ID);
       if (none && real.length === 0) {
-        q = q.is("category_id", null).eq("kind", "expense");
+        q = q.is("category_id", null).in("kind", [...SPEND_KINDS]);
       } else if (!none) {
         q = q.in("category_id", [...real]);
       } else {
@@ -125,7 +168,7 @@ export async function getTransactions(filter: TxFilter = {}): Promise<Transactio
           never what that option meant.
         */
         q = q.or(
-          `category_id.in.(${real.join(",")}),and(category_id.is.null,kind.eq.expense)`,
+          `category_id.in.(${real.join(",")}),and(category_id.is.null,kind.in.(${SPEND_KINDS.join(",")}))`,
         );
       }
     }
@@ -157,7 +200,7 @@ export async function getTransactions(filter: TxFilter = {}): Promise<Transactio
   if (filter.limit) {
     const { data, error } = await build().limit(filter.limit);
     if (error) throw new ReadFailed("your entries", error.message);
-    return withFees(supabase, uid, (data ?? []) as TransactionRow[]);
+    return withRefunds(supabase, uid, await withFees(supabase, uid, (data ?? []) as TransactionRow[]));
   }
 
   /*
@@ -173,7 +216,7 @@ export async function getTransactions(filter: TxFilter = {}): Promise<Transactio
     (from, to) => build().range(from, to),
     "your entries",
   )) as TransactionRow[];
-  return withFees(supabase, uid, all);
+  return withRefunds(supabase, uid, await withFees(supabase, uid, all));
 }
 
 /**
@@ -215,7 +258,7 @@ export async function getTransaction(id: string): Promise<TransactionRow | null>
     .maybeSingle();
   if (error) throw new ReadFailed("this entry", error.message);
   if (!data) return null;
-  const [row] = await withFees(supabase, uid, [data as TransactionRow]);
+  const [row] = await withRefunds(supabase, uid, await withFees(supabase, uid, [data as TransactionRow]));
   return row;
 }
 
@@ -382,15 +425,18 @@ export async function getExpenseTrend(
         .eq("user_id", uid)
         .gte("occurred_on", start)
         .lt("occurred_on", stop)
-        .eq("kind", "expense")
+        .in("kind", [...SPEND_KINDS])
         .order("id")
         .range(lo, hi),
     "the spending trend",
   );
 
+  /* A bar is what the month cost, so money that came back in it comes off the bar. */
   for (const r of data ?? []) {
     const key = String(r.occurred_on).slice(0, 7);
-    if (totals.has(key)) totals.set(key, (totals.get(key) ?? 0) + (Number(r.amount_rsd) || 0));
+    if (totals.has(key)) {
+      totals.set(key, (totals.get(key) ?? 0) + spentBy(r.kind, Number(r.amount_rsd) || 0));
+    }
   }
   return [...totals].map(([month, expense]) => ({ month, expense }));
 }
@@ -429,16 +475,23 @@ export async function getDailySpend(month: string): Promise<DaySpend[]> {
 
   const { data, error } = await supabase
     .from("money_transactions")
-    .select("occurred_on, amount_rsd")
+    .select("occurred_on, amount_rsd, kind")
     .eq("user_id", uid)
-    .eq("kind", "expense")
+    .in("kind", [...SPEND_KINDS])
     .gte("occurred_on", from)
     .lte("occurred_on", to);
   if (error) throw new ReadFailed("what you spent day by day", error.message);
 
+  /*
+    A refund lands on the day the money arrived, which is where the bank put it, and it
+    can take a day below nought — a Tuesday with one small purchase and a cancelled order
+    coming back genuinely cost less than nothing. The strip draws from zero up, so a
+    negative day reads as an empty one there; the month's total, which is the figure
+    anybody checks, still adds up to the same number as every other screen.
+  */
   for (const r of data ?? []) {
     const i = Number(String(r.occurred_on).slice(8, 10)) - 1;
-    if (i >= 0 && i < blank.length) blank[i].expense += Number(r.amount_rsd) || 0;
+    if (i >= 0 && i < blank.length) blank[i].expense += spentBy(r.kind, Number(r.amount_rsd) || 0);
   }
   return blank;
 }

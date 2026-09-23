@@ -6,7 +6,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { userId } from "@/lib/supabase/current-user";
 import { todayISO } from "@/lib/format";
-import { monthKey, monthRange, shiftMonth } from "@/lib/money";
+import { monthKey, monthRange, shiftMonth, SPEND_KINDS, spentBy } from "@/lib/money";
 import { capFor, median, occurrencesFor } from "@/lib/money/occurrences";
 import type { BudgetLine } from "@/lib/types";
 import {
@@ -144,27 +144,40 @@ export async function getBudgetLines(month = monthKey()): Promise<BudgetLine[]> 
     // is being used. Paged now, while the fix is a change of shape rather than a bug
     // report about a bar chart that quietly stopped counting one of its months.
     uid
-      ? readAll<{ category_id: string | null; amount_rsd: number | string | null; occurred_on: string }>(
+      ? readAll<{
+          category_id: string | null;
+          amount_rsd: number | string | null;
+          occurred_on: string;
+          kind: string;
+        }>(
           (lo, hi) =>
             supabase
               .from("money_transactions")
-              .select("category_id, amount_rsd, occurred_on")
+              .select("category_id, amount_rsd, occurred_on, kind")
               .eq("user_id", uid)
-              .eq("kind", "expense")
+              .in("kind", [...SPEND_KINDS])
               .gte("occurred_on", from)
               .lte("occurred_on", to)
               .order("id")
               .range(lo, hi),
           "what each category cost in the months before",
         )
-      : Promise.resolve([] as { category_id: string | null; amount_rsd: number | string | null; occurred_on: string }[]),
+      : Promise.resolve(
+          [] as {
+            category_id: string | null;
+            amount_rsd: number | string | null;
+            occurred_on: string;
+            kind: string;
+          }[],
+        ),
     uid
       ? fixedByCategory(supabase, uid, month)
       : Promise.resolve({ paid: new Map<string, number>(), due: new Map<string, number>() }),
   ]);
 
-  const spentBy = new Map(summary.byCategory.map((c) => [c.id, c.spent]));
-  const countBy = new Map(summary.byCategory.map((c) => [c.id, c.entries]));
+  // Named for what they hold, and not `spentBy`, which is the arithmetic imported above.
+  const spentByCategory = new Map(summary.byCategory.map((c) => [c.id, c.spent]));
+  const countByCategory = new Map(summary.byCategory.map((c) => [c.id, c.entries]));
 
   // category -> month -> total
   const byCategoryMonth = new Map<string, Map<string, number>>();
@@ -172,7 +185,8 @@ export async function getBudgetLines(month = monthKey()): Promise<BudgetLine[]> 
     if (!row.category_id) continue;
     const key = row.occurred_on.slice(0, 7);
     const months = byCategoryMonth.get(row.category_id) ?? new Map<string, number>();
-    months.set(key, (months.get(key) ?? 0) + (Number(row.amount_rsd) || 0));
+    /* What the month cost this category — refunds included, with their minus. */
+    months.set(key, (months.get(key) ?? 0) + spentBy(row.kind, Number(row.amount_rsd) || 0));
     byCategoryMonth.set(row.category_id, months);
   }
 
@@ -189,12 +203,12 @@ export async function getBudgetLines(month = monthKey()): Promise<BudgetLine[]> 
       return {
         category,
         limit: caps[category.id]?.limit ?? 0,
-        spent: spentBy.get(category.id) ?? 0,
-        counted: caps[category.id]?.counted ?? spentBy.get(category.id) ?? 0,
+        spent: spentByCategory.get(category.id) ?? 0,
+        counted: caps[category.id]?.counted ?? spentByCategory.get(category.id) ?? 0,
         typical,
         fixedPaid: Math.round(fixed.paid.get(category.id) ?? 0),
         fixedDue: Math.round(fixed.due.get(category.id) ?? 0),
-        entries: countBy.get(category.id) ?? 0,
+        entries: countByCategory.get(category.id) ?? 0,
       };
     });
 }

@@ -91,7 +91,8 @@ export function Topbar({
       <button
         onClick={onMenu}
         aria-label="Open menu"
-        className="zv-press rounded-ctrl p-1.5 text-muted hover:bg-white/4 hover:text-ink lg:hidden"
+        /* 44px under a finger — the same rule as the row controls, see `pointer: coarse`. */
+        className="zv-press rounded-ctrl p-1.5 text-muted hover:bg-white/4 hover:text-ink pointer-coarse:p-3 lg:hidden"
       >
         <Menu className="h-5 w-5" />
       </button>

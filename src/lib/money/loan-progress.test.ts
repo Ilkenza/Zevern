@@ -127,3 +127,30 @@ describe("loanClosure", () => {
     expect(loanClosure({ before: 100, after: 0.004, settled: false })).toBe("close");
   });
 });
+
+/*
+  An instalment that came back.
+
+  Rare and real: a bank reverses a charge, a shop cancels the thing the credit was taken
+  for. It is the movement `income` against a debt has always been, and now has a word —
+  so both have to weigh the same, or a debt would quietly go on saying it had been paid.
+*/
+describe("a refund against a debt", () => {
+  it("takes a repayment back off a debt you owe", () => {
+    expect(weighLoanMove("borrowed", "refund")).toBe(-1);
+    expect(weighLoanMove("borrowed", "income")).toBe(-1);
+  });
+
+  it("takes money back off a debt somebody owes you", () => {
+    expect(weighLoanMove("lent", "refund")).toBe(1);
+  });
+
+  it("never drives what has been settled below nothing", () => {
+    expect(
+      settledOf("borrowed", [
+        { kind: "expense", amount: 1000 },
+        { kind: "refund", amount: 4000 },
+      ]),
+    ).toBe(0);
+  });
+});

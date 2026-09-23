@@ -60,9 +60,11 @@ function DefaultStar({ account }: { account: AccountBalance }) {
           ? "Every form starts on this account"
           : `Start every form on ${account.name} instead`
       }
-      className={cn("zv-rowctrl", on && "zv-rowctrl-on")}
+      className={cn("zv-rowctrl setup-toggle", on && "zv-rowctrl-on")}
     >
       <Star className={cn("h-3.75 w-3.75", on && "fill-current")} />
+      {/* A phone has no pointer to hover for the title, so the word is on the button. */}
+      <span className="setup-toggle-word">Default</span>
     </button>
   );
 }
@@ -93,9 +95,10 @@ function OverviewEye({
       aria-pressed={on}
       aria-label={on ? `Hide ${account.name} from Overview` : `Show ${account.name} on Overview`}
       title={on ? "Shown on Overview — click to hide" : "Show on Overview — up to two accounts"}
-      className={cn("zv-rowctrl", on && "zv-rowctrl-on")}
+      className={cn("zv-rowctrl setup-toggle", on && "zv-rowctrl-on")}
     >
       {on ? <Eye className="h-3.75 w-3.75" /> : <EyeOff className="h-3.75 w-3.75" />}
+      <span className="setup-toggle-word">Overview</span>
     </button>
   );
 }
@@ -438,27 +441,36 @@ export function AccountRow({ account, arrived }: { account?: AccountBalance; arr
             </Button>
           </div>
         ) : (
-          <div className="flex items-center justify-end gap-3">
+          /*
+            The whole width on a phone, in two groups: the two switches on the left, where
+            the name and the fields start, and save and delete at the right edge.
+
+            This cell took one of the two phone columns and pushed its buttons to that
+            column's right, so they stood in the middle of the row, lined up with nothing.
+          */
+          <div className="col-span-2 flex items-center gap-3 min-[720px]:col-span-1 min-[720px]:justify-end">
             <OverviewEye account={account} onError={setOverviewError} />
             <DefaultStar account={account} />
-            {/* Only while there is something to save — see `useRowCommit`. */}
-            {(commit.dirty || pending) && (
-              <Button
-                type="submit"
-                variant="secondary"
-                className="money-premium-button w-21 px-3 py-1.5 text-[12.5px]"
-                disabled={pending}
-              >
-                <SwapLabel pending={pending} idle="Save" busy="Saving…" />
-              </Button>
-            )}
-            <RowDelete
-              onDelete={async () => {
-                await deleteAccount(account.id);
-              }}
-              label={`Delete ${account.name}`}
-              onLeaving={setLeaving}
-            />
+            <div className="ml-auto flex items-center gap-3 min-[720px]:ml-0">
+              {/* Only while there is something to save — see `useRowCommit`. */}
+              {(commit.dirty || pending) && (
+                <Button
+                  type="submit"
+                  variant="secondary"
+                  className="money-premium-button w-21 px-3 py-1.5 text-[12.5px]"
+                  disabled={pending}
+                >
+                  <SwapLabel pending={pending} idle="Save" busy="Saving…" />
+                </Button>
+              )}
+              <RowDelete
+                onDelete={async () => {
+                  await deleteAccount(account.id);
+                }}
+                label={`Delete ${account.name}`}
+                onLeaving={setLeaving}
+              />
+            </div>
           </div>
         )}
       </div>

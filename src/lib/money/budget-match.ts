@@ -7,6 +7,17 @@
  * believed.
  */
 
+/**
+ * Every kind `contributionOf` can read, so a query fetches exactly what the rule below
+ * knows what to do with.
+ *
+ * It exists because the two have to be kept in step and were not: the reads asked for
+ * expenses and incomes, and a `refund` — which is spending in reverse and belongs in
+ * every ceiling the purchase counted against — never reached the arithmetic at all. A
+ * budget would have gone on saying a cancelled order had eaten its room.
+ */
+export const BUDGET_KINDS = ["expense", "income", "refund"] as const;
+
 export type BudgetMatchPlan = {
   id: string;
   /** "all" sweeps up matching entries; "added" counts only what carries its id. */
@@ -83,12 +94,20 @@ export function contributionOf(
     income?". The query above this function happens to fetch nothing else, so it never
     showed on a screen; it would have the first time anyone passed it a wider set.
   */
-  if (row.kind !== "expense" && row.kind !== "income") return null;
+  if (row.kind !== "expense" && row.kind !== "income" && row.kind !== "refund") return null;
 
   const value = Number(row.amount_rsd) || 0;
 
-  if (plan.kind === "savings") return row.kind === "income" ? value : -value;
-  return row.kind === "expense" ? value : null;
+  /*
+    A refund is the purchase undone, so it counts wherever the purchase counted and with
+    the sign turned round: it gives a ceiling its room back, and it leaves a savings
+    budget better off by exactly the spending that did not happen. Sending it through as
+    income would be the same lie in a different column — a budget that measures what is
+    left over would read a returned monitor as a month where more was earned.
+  */
+  if (plan.kind === "savings") return row.kind === "expense" ? -value : value;
+  if (row.kind === "income") return null;
+  return row.kind === "refund" ? -value : value;
 }
 
 /**
@@ -112,11 +131,12 @@ export function contributionOf(
  * into a goal, lending — is not spending or earning at all, and no budget reads it.
  */
 export function canFileInto(rowKind: string, planKind: string): boolean {
-  if (rowKind !== "expense" && rowKind !== "income") return false;
+  if (rowKind !== "expense" && rowKind !== "income" && rowKind !== "refund") return false;
   if (planKind === "savings") return true;
-  return rowKind === "expense";
+  // A ceiling reads spending, which a refund is a part of — the negative part. Filing
+  // one into the budget the purchase came out of is how the trip gets its money back.
+  return rowKind !== "income";
 }
-
 
 
 

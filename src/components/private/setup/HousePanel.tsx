@@ -14,7 +14,7 @@ import { standingOf, STANDING_LABEL, type Standing } from "@/lib/money/stock";
 import { formatDate, todayISO } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { MoneyItem, StockLine } from "@/lib/types";
-import { AddCaption, RowError, SwapLabel, field, rowMotion } from "./kit";
+import { AddCaption, RowError, SwapLabel, caps, field, rowMotion } from "./kit";
 
 /**
  * What is in the house, and the two things that can happen to it.
@@ -257,43 +257,58 @@ function AddStock({ items }: { items: MoneyItem[] }) {
     /* Fields shut while it saves — see `.is-saving` in the stylesheet for why. */
     <form action={formAction} className={cn("house-add", pending && "is-saving")}>
       <AddCaption>Put something in the house</AddCaption>
+      {/*
+        Every box says what it wants.
+
+        On a desk the four sit on one line and read as a sentence — thing, how many, when,
+        Add — so the words stay out of the way there. On a phone they stack, and a box
+        holding `1` under another holding a date is a riddle: how many what, and is that
+        the day it was bought or the day it goes off? The words are always in the markup
+        for a screen reader, and on a phone they are on the screen too.
+      */}
       <div className="house-add-in">
-        <select
-          name="item_id"
-          required
-          disabled={pending}
-          aria-label="What it is"
-          className={cn(field, "scheme-dark min-w-0")}
-        >
-          <option value="" className="bg-surface">
-            Pick a thing…
-          </option>
-          {items.map((item) => (
-            <option key={item.id} value={item.id} className="bg-surface">
-              {item.name}
+        <label className="house-add-field house-add-what">
+          <span className={cn(caps, "house-add-cap")}>What</span>
+          <select
+            name="item_id"
+            required
+            disabled={pending}
+            className={cn(field, "scheme-dark w-full min-w-0")}
+          >
+            <option value="" className="bg-surface">
+              Pick a thing…
             </option>
-          ))}
-        </select>
-        <input
-          name="qty"
-          defaultValue="1"
-          inputMode="numeric"
-          readOnly={pending}
-          aria-label="How many"
-          className={cn(field, "text-right")}
-        />
-        <input
-          name="bought_on"
-          type="date"
-          defaultValue={todayISO()}
-          readOnly={pending}
-          aria-label="When it was bought"
-          className={cn(field, "scheme-dark")}
-        />
+            {items.map((item) => (
+              <option key={item.id} value={item.id} className="bg-surface">
+                {item.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="house-add-field">
+          <span className={cn(caps, "house-add-cap")}>How many</span>
+          <input
+            name="qty"
+            defaultValue="1"
+            inputMode="numeric"
+            readOnly={pending}
+            className={cn(field, "w-full min-w-0 text-right")}
+          />
+        </label>
+        <label className="house-add-field">
+          <span className={cn(caps, "house-add-cap")}>Bought on</span>
+          <input
+            name="bought_on"
+            type="date"
+            defaultValue={todayISO()}
+            readOnly={pending}
+            className={cn(field, "scheme-dark w-full min-w-0")}
+          />
+        </label>
         <Button
           type="submit"
           variant="primary"
-          className="money-premium-button w-full px-3 py-1.5 text-[12.5px]"
+          className="house-add-go money-premium-button w-full px-3 py-1.5 text-[12.5px]"
           disabled={pending}
         >
           <SwapLabel pending={pending} idle="Add" busy="Adding…" />

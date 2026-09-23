@@ -20,7 +20,7 @@ import {
   type BudgetWindow,
 } from "@/lib/money/budget-periods";
 import { amountAt, type AmountChange } from "@/lib/money/budget-amounts";
-import { contributionOf } from "@/lib/money/budget-match";
+import { BUDGET_KINDS, contributionOf } from "@/lib/money/budget-match";
 import { boostFor, type Boost } from "@/lib/money/budget-boosts";
 import type { BudgetPlanLine, MoneyBudgetBoost, MoneyBudgetPlan } from "@/lib/types";
 import { ReadFailed } from "@/lib/data/must";
@@ -182,7 +182,7 @@ export const getBudgetPlanLines = cache(async (on?: string): Promise<BudgetPlanL
         .from("money_transactions")
         .select("kind, amount_rsd, category_id, account_id, budget_id, occurred_on")
         .eq("user_id", uid)
-        .in("kind", ["expense", "income"])
+        .in("kind", [...BUDGET_KINDS])
         .gte("occurred_on", from)
         .lte("occurred_on", to)
         .order("id")
@@ -221,7 +221,8 @@ export const getBudgetPlanLines = cache(async (on?: string): Promise<BudgetPlanL
       const contribution = contributionOf(plan, row, cats, accs);
       if (contribution === null) continue;
       used += contribution;
-      entries += 1;
+      /* Money coming back is not a thing bought, and this count is of things bought. */
+      if (row.kind !== "refund") entries += 1;
 
       if (plan.membership === "all" && plan.kind === "expense" && row.budget_id) {
         filed += contribution;
@@ -540,7 +541,7 @@ export const getBudgetHistories = cache(
           .from("money_transactions")
           .select("kind, amount_rsd, category_id, account_id, budget_id, occurred_on")
           .eq("user_id", uid)
-          .in("kind", ["expense", "income"])
+          .in("kind", [...BUDGET_KINDS])
           .gte("occurred_on", from)
           .lte("occurred_on", to)
           .order("id")
@@ -686,7 +687,7 @@ export async function getBudgetEntries(
         "id, kind, amount_rsd, category_id, account_id, budget_id, occurred_on, title, category:money_categories(name), budget:money_budget_plans!money_transactions_budget_id_fkey(name)",
       )
       .eq("user_id", uid)
-      .in("kind", ["expense", "income"]);
+      .in("kind", [...BUDGET_KINDS]);
     if (window.from) q = q.gte("occurred_on", window.from);
     if (window.to) q = q.lte("occurred_on", window.to);
     return q

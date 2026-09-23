@@ -932,13 +932,15 @@ export function TasksView({
           </h1>
           <p className={cn("task-summary", lateCount > 0 && "task-summary-late")}>{summary}</p>
         </div>
-        <Link
-          href={`${basePath}?new=1`}
-          className={buttonClasses("primary", "money-premium-button")}
-        >
-          <Plus className="h-4 w-4" />
-          New task
-        </Link>
+        <div className="money-page-actions">
+          <Link
+            href={`${basePath}?new=1`}
+            className={buttonClasses("primary", "money-premium-button")}
+          >
+            <Plus className="h-4 w-4" />
+            New task
+          </Link>
+        </div>
       </div>
 
       {tasks.length === 0 ? (

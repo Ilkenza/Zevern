@@ -222,6 +222,7 @@ export const TX_KINDS = [
   "loan_out",
   "loan_in",
   "correction",
+  "refund",
 ] as const;
 export type TxKind = (typeof TX_KINDS)[number];
 
@@ -237,13 +238,42 @@ export function isGoalKind(kind: string): boolean {
 /**
  * The kinds that move a goal being paid off rather than one being saved up.
  *
- * An expense clears it and an income reverses that, and neither reserves anything —
- * the money left the account when it was spent. Kept next to `isGoalKind` because the
- * pair is the whole rule: these two lists must never overlap, or an entry would count
- * on both sides of the same question.
+ * An expense clears it, and a refund — or an income, which is what a refund was written
+ * as before there was a kind for it — reverses that. None of them reserves anything: the
+ * money left the account when it was spent. Kept next to `isGoalKind` because the pair is
+ * the whole rule: these two lists must never overlap, or an entry would count on both
+ * sides of the same question.
  */
 export function isPayingKind(kind: string): boolean {
-  return kind === "expense" || kind === "income";
+  return kind === "expense" || kind === "income" || kind === "refund";
+}
+
+/**
+ * Spending, as the two kinds that make it: a purchase adds to it, a refund takes it
+ * back off.
+ *
+ * Every figure in this app that says what something cost is built from these two, and
+ * each one used to be written as `kind === "expense"` — eleven places, each of which
+ * would have carried on answering the old question after a refund existed. A screen that
+ * counted a cancelled order as spending and the money coming back as earnings said a
+ * month cost 10.993 more than it did and that the same 10.993 had been earned, and both
+ * halves of that looked like ordinary rows.
+ *
+ * `SPEND_KINDS` is what a query asks for; `spentBy` is what the sum does with what comes
+ * back. A kind this list does not name contributes nothing — a transfer is not spending,
+ * and neither is money put aside.
+ */
+export const SPEND_KINDS = ["expense", "refund"] as const;
+
+export function isRefund(kind: string): boolean {
+  return kind === "refund";
+}
+
+/** What one entry does to a spending total: a purchase adds, a refund subtracts. */
+export function spentBy(kind: string, amount: number): number {
+  if (kind === "expense") return amount;
+  if (kind === "refund") return -amount;
+  return 0;
 }
 
 /**
@@ -278,9 +308,12 @@ export function isLoanKind(kind: string): boolean {
 /**
  * What the entry form offers when you are making a new one.
  *
- * Five, and five is the number the row of buttons was drawn for. Two loan kinds went in
- * and two goal kinds came out to make room, which is not a trade — it is a duplicate
- * being dropped.
+ * Six. Two loan kinds went in and two goal kinds came out to make room, which is not a
+ * trade — it is a duplicate being dropped; `Refund` is the one addition, and it is here
+ * because the alternative is worse. Money comes back and the only honest place to look
+ * for it is the same row every other movement is picked from — offered anywhere else, it
+ * is found by the people who already know it exists, and everybody else files it as
+ * income and reads a month that never happened.
  *
  * Putting money aside already has a better home: the form inside each goal's own card,
  * where the goal is chosen by opening it rather than found again in a second dropdown.
@@ -300,6 +333,7 @@ export type { BudgetMatchPlan, BudgetMatchRow } from "./budget-match";
 export const TX_KIND_OPTIONS: { value: TxKind; label: string }[] = [
   { value: "expense", label: "Expense" },
   { value: "income", label: "Income" },
+  { value: "refund", label: "Refund" },
   { value: "transfer", label: "Transfer" },
   { value: "loan_out", label: "Lent out" },
   { value: "loan_in", label: "Borrowed" },
@@ -519,6 +553,42 @@ export function feeOf(row: { fee?: { amount: number | null } | null }): number {
   return Number(row.fee?.amount ?? 0) || 0;
 }
 
+/**
+ * How much of a purchase has already come back, in RSD. Absent means none.
+ *
+ * Read through a function for the same reason the fee is: `withRefunds` only attaches
+ * the figure to the rows that have one, so "no refunds" arrives as an absent key rather
+ * than a zero — and every caller that treated the two differently would be a place a
+ * refunded purchase looked untouched.
+ */
+export function refundedOf(row: { refunded?: number | null }): number {
+  return Number(row.refunded ?? 0) || 0;
+}
+
+/**
+ * What is left to refund on a purchase, in the purchase's own currency.
+ *
+ * In its own currency because that is what the form types in: a €120 keyboard refunded
+ * in euros is `120`, not the dinars it happened to convert to. What has already come
+ * back is held in dinars, so it is divided back through the rate the purchase itself
+ * was booked at — the same rate the server will use to judge the ceiling, so the figure
+ * offered here and the figure refused there cannot disagree.
+ *
+ * `null` for a purchase logged without a price: there is no ceiling to state, and
+ * stating nought would refuse every refund of it.
+ */
+export function refundRoom(purchase: {
+  amount: number | string | null;
+  rate?: number | string | null;
+  refunded?: number | null;
+}): number | null {
+  const paid = Number(purchase.amount);
+  if (!Number.isFinite(paid) || paid <= 0) return null;
+  const rate = Number(purchase.rate) || 1;
+  const back = refundedOf(purchase) / (rate > 0 ? rate : 1);
+  return Math.max(0, Math.round((paid - back) * 100) / 100);
+}
+
 export const DEFAULT_CATEGORIES: { name: string; kind: "expense" | "income"; color: string }[] = [
   { name: "Groceries", kind: "expense", color: "#8fb85f" },
   { name: "Eating out", kind: "expense", color: "#d6885b" },
@@ -557,11 +627,15 @@ export const DEFAULT_CATEGORIES: { name: string; kind: "expense" | "income"; col
   { name: "Freelance", kind: "income", color: "#c9c4bb" },
   { name: "Gift", kind: "income", color: "#a98bd6" },
   /*
-    Money coming back is income, not a negative expense. A returned jumper entered as
-    `Shopping −4.000` makes the month's shopping figure a net of two different facts and
-    hides both of them; as income it stays a thing that happened.
+    No `Refund` here, and that is the point of the `refund` kind.
+
+    A new account used to be seeded with one, as an income category, and it taught the
+    mistake it was made for: money back for a cancelled order went in as earnings while
+    the order stayed in Shopping, so one monitor was bought twice according to a screen
+    whose whole job is to say what a month cost. Money coming back is not a kind of
+    income with a category of its own — it is the purchase, undone, in the purchase's
+    own category.
   */
-  { name: "Refund", kind: "income", color: "#6fae8a" },
 ];
 
 /* ------------------------------------------------------------- the month's net */

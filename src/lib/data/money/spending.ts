@@ -6,7 +6,7 @@
 import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { userId } from "@/lib/supabase/current-user";
-import { monthKey, monthRange, shiftMonth } from "@/lib/money";
+import { monthKey, monthRange, shiftMonth, spentBy } from "@/lib/money";
 import { PER_MONTH, feedsGoal, median, perMonth } from "@/lib/money/occurrences";
 import type { SpendingBasis } from "@/lib/types";
 import {
@@ -122,10 +122,17 @@ async function everydayByMonth(
     // A month with entries of any kind is a month that was actually being used; one
     // with none is a month with no data, which is not the same as a month of zero.
     active.add(month);
-    if (row.kind !== "expense") continue;
+    /*
+      Spending, which is purchases less what came back. A refund carries no
+      `recurring_id` and settles no plan, so it is always everyday money returning —
+      and leaving it out would have kept a cancelled order inside the figure the whole
+      forecast is built on.
+    */
+    const moved = spentBy(row.kind, Number(row.amount_rsd) || 0);
+    if (moved === 0) continue;
     if (row.recurring_id != null) continue;
     if (fromPlan.has(row.id)) continue;
-    spent.set(month, (spent.get(month) ?? 0) + (Number(row.amount_rsd) || 0));
+    spent.set(month, (spent.get(month) ?? 0) + moved);
   }
 
   return { spent, active };

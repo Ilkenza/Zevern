@@ -108,6 +108,16 @@ export const getAccountBalances = cache(async (): Promise<AccountBalance[]> => {
       if (r.goal_id && open.has(r.goal_id)) add(claimed, r.account_id, value);
     } else if (r.kind === "withdraw") {
       if (r.goal_id && open.has(r.goal_id)) add(claimed, r.account_id, -value);
+    } else if (r.kind === "refund") {
+      /*
+        Money back is money on the account, whatever it says about the month.
+
+        It needs naming here for the same reason `loan_in` does: the fall-through below
+        treats anything it does not recognise as money leaving, so a refund would have
+        taken the amount off the balance a second time — the account short by twice what
+        came back, on the one screen that is checked against a bank app.
+      */
+      add(delta, r.account_id, value);
     } else if (r.kind === "loan_in") {
       /*
         Money arriving from a debt is money on the account like any other — a credit

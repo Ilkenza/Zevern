@@ -104,3 +104,44 @@ describe("sumEntries", () => {
     expect(whole.net).toBe(halves[0].net + halves[1].net);
   });
 });
+
+/*
+  Money that came back.
+
+  The whole of the bug this kind was made for is in these four assertions: a refund has
+  to come off what the month cost, in the category it cost it, and it must not touch
+  income or the count of things bought. Entered as income — which is what it was before
+  there was a word for it — a cancelled order left the month claiming both the spending
+  and the earnings, and a screen whose one job is to say what a month cost reported two
+  monitors for a person who owns one.
+*/
+describe("a refund", () => {
+  it("comes off spending rather than adding to income", () => {
+    const totals = sumEntries([e("expense", 10993, "shopping"), e("refund", 10993, "shopping")]);
+    expect(totals.expense).toBe(0);
+    expect(totals.income).toBe(0);
+    expect(totals.net).toBe(0);
+  });
+
+  it("comes off the category it was filed in", () => {
+    const totals = sumEntries([
+      e("expense", 10993, "shopping"),
+      e("expense", 2000, "food"),
+      e("refund", 10993, "shopping"),
+    ]);
+    expect(totals.byCategory).toContainEqual({ id: "shopping", spent: 0, entries: 1 });
+    expect(totals.byCategory).toContainEqual({ id: "food", spent: 2000, entries: 1 });
+  });
+
+  it("is not a purchase, so it never raises the count", () => {
+    const totals = sumEntries([e("refund", 500, "shopping")]);
+    expect(totals.byCategory).toEqual([{ id: "shopping", spent: -500, entries: 0 }]);
+  });
+
+  it("with no category goes where uncategorised spending goes", () => {
+    const totals = sumEntries([e("expense", 900, null), e("refund", 400, null)]);
+    expect(totals.byCategory).toEqual([
+      { id: UNCATEGORIZED_CATEGORY_ID, spent: 500, entries: 1 },
+    ]);
+  });
+});

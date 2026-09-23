@@ -1442,8 +1442,13 @@ body::after {
 
 .budget-note.is-ok { color: var(--color-ok); }
 
+/*
+  No side padding on a phone. The head had sixteen pixels of its own on each side, so the
+  kicker, the title and the buttons under it started sixteen pixels to the right of the
+  search box, the panels and the cards below — two left edges on one screen.
+*/
 @media (max-width: 640px) {
-  .money-page-head { min-height: 0; padding: 16px 16px; }
+  .money-page-head { min-height: 0; padding: 0; }
   .money-premium::before { right: -150px; opacity: 0.7; }
 }
 
@@ -4613,6 +4618,20 @@ a.past-row:hover .past-row-name { color: var(--color-gold-hi); }
 .zv-pick-said { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .zv-pick-chevron { flex: none; color: var(--color-faint); }
 
+/*
+  In a toolbar the picker sits in a grid with selects, and the selects draw their own
+  chevron: 10 by 6, in the muted grey, 15px in from the edge. The picker's was 7 by 3.5
+  and in the faint grey, so four controls of one bar pointed down in two different
+  hands. Same size, same grey, same place — drawn at 20px, the negative margins keep
+  the button the height it was and put the tip where the select's is.
+*/
+.zv-toolbar .zv-pick-chevron {
+  width: 20px;
+  height: 20px;
+  margin: -3px -1px -3px 0;
+  color: var(--color-muted);
+}
+
 .zv-pick-button.is-on {
   border-color: color-mix(in srgb, var(--color-gold) 38%, transparent);
   background: var(--color-active-bg);
@@ -6105,8 +6124,20 @@ a.breakdown-row-on:hover { background: rgba(217, 164, 65, 0.2); }
   not `flex-wrap`, because equal columns keep the second row's segments the same width as
   the first's — a wrapped flex row would leave two wide segments under three narrow ones.
 */
+/*
+  The kinds, three to a row.
+
+  The template said three and the row drew all of them side by side, because `.zv-seg`
+  above flows in columns: with `grid-auto-flow: column` the fourth item does not wrap, it
+  makes a fourth column. Five kinds in a 399px panel were 61px each and the sixth turned
+  that into 47px with `Expense` two pixels wider than the box it was painted in. Flowing
+  in rows is what the three columns were for, and the panel is 399px wide on a desk as
+  well, so the split is the same on both — a phone layout nobody thought to check on a
+  screen that is not one.
+*/
 .zv-seg.is-kinds {
   display: grid;
+  grid-auto-flow: row;
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
@@ -6114,10 +6145,6 @@ a.breakdown-row-on:hover { background: rgba(217, 164, 65, 0.2); }
   padding-inline: 4px;
   font-size: 12px;
   font-weight: 700;
-}
-
-@media (min-width: 400px) {
-  .zv-seg.is-kinds { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 }
 
 /*
@@ -6571,6 +6598,43 @@ a.breakdown-row-on:hover { background: rgba(217, 164, 65, 0.2); }
   color: var(--color-muted);
   font-size: 11.5px;
   line-height: 1.45;
+}
+
+/*
+  The foot of the entry form: what else can be done to this entry.
+
+  Two acts of different weight on one line — money coming back, and deleting the row —
+  so they sit at opposite ends of it rather than stacked, where the second would read as
+  the more obvious of the two. On a phone they wrap and keep their order: the reversible
+  one first.
+*/
+.tx-form-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.tx-form-back {
+  padding: 0.4rem 0.75rem;
+  font-size: 12.5px;
+}
+
+/*
+  The purchase a refund is against, at the top of the refund form.
+
+  Drawn as the receipt panel above it is, and deliberately: both say the same kind of
+  thing — "this is what the form has been filled in from" — and two treatments for one
+  idea is two things to learn. Quieter ground, because a receipt has just been read and
+  this is a row that has been sitting in the ledger for a week.
+*/
+.tx-refund-of {
+  margin-bottom: 0.875rem;
+  padding: 10px 12px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-ctrl);
+  background: rgba(255, 255, 255, 0.025);
 }
 
 /*
@@ -9439,6 +9503,19 @@ a.month-bar:focus-visible .month-bar-track {
 }
 
 /*
+  What came back off a purchase, said on the purchase's own line.
+
+  Not a status colour: nothing is wrong with a refunded order, and a red or green word
+  in a meta line reads as a warning or a win. It is the fact that the row above it is no
+  longer the whole story, so it is drawn a step up from the rest of the line and no
+  further.
+*/
+.money-row-back {
+  color: var(--color-muted);
+  white-space: nowrap;
+}
+
+/*
   The overlap between a category budget and a trip, on the Overview strip.
 
   Same shape as the raise note above it and a step quieter, because it is context rather
@@ -11719,4 +11796,304 @@ input[type="time"]:focus::-webkit-calendar-picker-indicator {
   color: var(--color-ink);
   font-variant-numeric: tabular-nums;
   font-weight: 700;
+}
+
+
+/* ==========================================================================
+   Phones: the screens he marked.
+
+   Each block names the screen and what was wrong on it. Everything here is scoped to a
+   phone width or to a touch screen; a desk renders exactly as it did.
+   ========================================================================== */
+
+/*
+  The page's own buttons — Add, New budget, New debt, Plan a purchase and New recurring.
+
+  On a desk they sit at the right of the title, as before. On a phone they take the full
+  width and share it equally: one button is one full row, two are two halves. They used to
+  wrap under the title at whatever width their words gave them, so one screen had a small
+  button stranded at the left and the next had two that stopped short of the edge.
+*/
+.money-page-actions {
+  display: flex;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+@media (max-width: 640px) {
+  .money-page-actions {
+    display: grid;
+    flex: 1 1 100%;
+    grid-auto-columns: minmax(0, 1fr);
+    grid-auto-flow: column;
+  }
+
+  .money-page-actions > * { justify-content: center; }
+}
+
+/* Money: the month switcher on the left of the row, Add at its right end. */
+.money-head-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+/*
+  The toolbar over a list, on a phone (Money, Budgets, Goals, Tasks).
+
+  The controls wrapped at their own widths, so every row stopped at a different place and
+  the right edge was ragged under a search box that ran the full width. Now each row is
+  filled edge to edge: the search takes a row, the selects share rows in equal parts, and
+  the order control asks for more room than a filter because it carries its arrow button.
+  At 390px that is two selects to a row on Money, and a filter beside the order on Budgets
+  and Goals.
+*/
+@media (max-width: 559.98px) {
+  .zv-toolbar:not(.is-in-panel) > * {
+    flex: 1 1 7.5rem;
+    min-width: 0;
+  }
+
+  .zv-toolbar:not(.is-in-panel) > .zv-toolbar-find,
+  .zv-toolbar:not(.is-in-panel) > .zv-range,
+  .zv-toolbar:not(.is-in-panel) > .zv-toolbar-count {
+    flex-basis: 100%;
+  }
+
+  .zv-toolbar:not(.is-in-panel) > .zv-toolbar-order {
+    flex: 1.5 1 12.5rem;
+  }
+
+  /* The group grew and the select inside it did not, which left an empty strip after the
+     arrow button. The field takes the slack; the button stays a square at the end. */
+  .zv-toolbar:not(.is-in-panel) > .zv-toolbar-order > select {
+    flex: 1 1 auto;
+  }
+}
+
+/*
+  Debts: the payment and closing are words, the pencil and the bin close the row.
+
+  On a phone the actions have the row to themselves, starting under the name rather than
+  bunched at the right: the two word buttons first, the two icons pushed to the far edge.
+  The instalment takes its own line there, so `30.776 RSD × 4 left` never breaks inside.
+*/
+.debt-row-plan-line { white-space: nowrap; }
+
+@media (max-width: 620px) {
+  .debt-row-do {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+  .debt-row-edit { margin-left: auto; }
+  .debt-row-plan-line { display: block; }
+  .debt-row-plan-dot { display: none; }
+
+  /*
+    The two word buttons at the size the row can hold.
+
+    They asked for 11.5px and 10px of padding and got the base button's 13.5px and 16px,
+    because the class list does not merge and the base size is the one that wins. On a
+    desk there is room for that. At 390px `Repayment`, `Close it` and two 44px icons
+    came to 342px in a 316px row, so the bin hung off the card. At 12.5px with 12px of
+    padding the four fit with room to spare; on a narrower phone than that, the icons
+    wrap under the words rather than leave the card.
+  */
+  .debt-row-act {
+    gap: 6px;
+    padding-inline: 12px;
+    font-size: 12.5px;
+  }
+}
+
+/*
+  Setup, accounts: the two switches say what they are on a phone.
+
+  On a desk the eye and the star have their titles on hover. A phone has no hover, so the
+  word goes on the button and the button grows to hold it.
+*/
+.setup-toggle-word { display: none; }
+
+@media (max-width: 719.98px) {
+  .zv-rowctrl.setup-toggle {
+    width: auto;
+    gap: 6px;
+    padding: 0 12px;
+  }
+
+  .setup-toggle-word {
+    display: inline;
+    font-size: 12px;
+    font-weight: 600;
+  }
+}
+
+/*
+  Upcoming, repeats: on a phone the name and the controls share the first line, and the
+  badges take the full width under both. The title block stops being a box of its own
+  so its two parts can sit in the row's grid — see the note in `RuleRow`.
+*/
+@media (max-width: 759.98px) {
+  .rule-row-head {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    column-gap: 8px;
+    row-gap: 4px;
+  }
+
+  .rule-row-title { display: contents; }
+  .rule-row-ctrls { grid-column: 2; grid-row: 1; }
+  .rule-row-badges { grid-column: 1 / -1; }
+}
+
+/*
+  Setup, accounts: the word Balance on the line of the figure it names.
+
+  On a phone the word sits left and the figure right, with the two notes under the
+  figure. Centred against all three lines, the word landed beside `started with` and
+  read as that note's label. On the figure's baseline it labels the figure.
+*/
+@media (max-width: 719.98px) {
+  .setup-bal { align-items: baseline; }
+}
+
+/*
+  Setup, in the house: the form's words, shown on a phone and kept for screen readers on
+  a desk, where the four boxes read as one line.
+*/
+.house-add-field {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+@media (max-width: 619.98px) {
+  .house-add-in { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .house-add-what,
+  .house-add-go { grid-column: 1 / -1; }
+}
+
+/*
+  The date box on an iPhone.
+
+  Safari there draws a date field as its own native control, sized to what it holds and
+  with the date centred in it, so it came out narrower than the boxes above and below it
+  whatever width it was given. Taking the native drawing away (the picker still opens on
+  a tap) lets it take the column's width and start its text at the left edge like the
+  rest. The minimum height holds the box open when the date is cleared — an empty one
+  collapses there. The rule is read only by iOS Safari, which is the only browser that
+  needs it.
+*/
+@supports (-webkit-touch-callout: none) {
+  .house-add-field input[type="date"] {
+    -webkit-appearance: none;
+    appearance: none;
+    display: block;
+    width: 100%;
+    min-width: 0;
+    min-height: 2.125rem;
+  }
+
+  .house-add-field input[type="date"]::-webkit-date-and-time-value {
+    text-align: left;
+  }
+}
+
+@media (min-width: 620px) {
+  .house-add-cap {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+
+/*
+  A touch screen has no hover, so nothing may wait for one.
+
+  The saved rows in Setup keep their boxes hidden until the pointer arrives — right on a
+  desk, where the pointer is always somewhere. On a phone it never arrives, so the price,
+  the currency and the category floated as bare words with a chevron a screen-width away
+  and nothing said they could be changed. Here they wear the same box as every other
+  field in the app. The two small notes under a balance are light enough to miss on a
+  phone in daylight, so they take the muted grey the hover would have given them.
+*/
+@media (hover: none) {
+  .setup-row-premium.is-quiet input,
+  .setup-row-premium.is-quiet select {
+    border-color: var(--color-line);
+    background-color: rgba(255, 255, 255, 0.035);
+  }
+
+  .setup-bal-note,
+  .setup-bal-fix { color: var(--color-muted); }
+}
+
+/*
+  Fingers, not pointers: 44 by 44, the size a fingertip can hit without aiming.
+
+  The pause, pencil, bin, star and eye at the end of rows were 30px (24px in the dense
+  timeline and debt rows), and the bin on a Setup row 27px. That is fine for a mouse and
+  a guess for a thumb, next to a neighbour that deletes things. The glyphs stay the same
+  size; the target around them grows. The count in a house row is a figure in a sentence,
+  so it grows invisibly instead, reaching past its own text.
+*/
+@media (pointer: coarse) {
+  .zv-rowctrl,
+  .zv-rowctrl-sm {
+    width: 44px;
+    height: 44px;
+    border-radius: 11px;
+  }
+
+  .zv-rowctrl.setup-toggle { width: auto; }
+
+  /*
+    The bigger targets, without the bigger title rows.
+
+    At 44px the controls at the end of a goal's or a rule's name line stood taller than
+    the line: the name sat high beside its own icons, and every card grew by the
+    difference. Negative margins give the height back — the target is still 44px, the
+    row is laid out at the size it was drawn for — and put the icons' centre on the
+    centre of the name.
+  */
+  .goal-card-controls,
+  .rule-row-ctrls {
+    margin-block: -12px;
+  }
+
+  .zv-row-delete {
+    display: inline-flex;
+    min-width: 44px;
+    min-height: 44px;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .zv-row-delete-confirm { min-height: 44px; }
+
+  .task-edit {
+    min-width: 44px;
+    min-height: 44px;
+    justify-content: center;
+  }
+
+  .debt-row-act { min-height: 40px; }
+
+  .house-count {
+    position: relative;
+  }
+
+  .house-count::after {
+    content: "";
+    position: absolute;
+    inset: -12px -10px;
+  }
 }

@@ -28,8 +28,10 @@ import {
   UNCATEGORIZED_CATEGORY_ID,
   formatAmount,
   monthLabel,
+  refundedOf,
   shiftMonth,
   shortMonthLabel,
+  spentBy,
 } from "@/lib/money";
 import { useMoney } from "@/lib/money/currency";
 import { cn } from "@/lib/utils";
@@ -42,14 +44,23 @@ import { SpendBreakdown } from "./SpendBreakdown";
 import type { AccountBalance, MonthSummary } from "@/lib/data/money";
 
 export type MoneyPanel =
-  | { mode: "new"; kind: string; loanId?: string }
-  | { mode: "edit"; tx: TransactionRow }
+  | { mode: "new"; kind: string; loanId?: string; refundOf?: TransactionRow }
+  | { mode: "edit"; tx: TransactionRow; refundOf?: TransactionRow }
   | null;
 
 /** → into a goal, ← back out of one: the arrow says which way, not whether. */
 const SIGN: Record<string, string> = {
   expense: "−",
   income: "+",
+  /*
+    A plus, because the money arrived — and the tone below says it is not earnings.
+
+    The alternative was an arrow of its own, and an arrow would be the ledger answering
+    a question it is not asked: the column says which way the money went, and a refund
+    went the way income goes. What it *means* is a different sentence, and the row has
+    one — the category it comes off, printed under the name.
+  */
+  refund: "+",
   saving: "→",
   withdraw: "←",
   transfer: "⇄",
@@ -75,6 +86,9 @@ const SIGN: Record<string, string> = {
 const TONE: Record<string, string> = {
   expense: "text-spend",
   income: "text-ok",
+  // Neither the green of money earned nor the red of money spent: this is spending
+  // taken back, so it is drawn in the colour of the thing it undoes, a shade quieter.
+  refund: "text-muted",
   saving: "text-held",
   withdraw: "text-muted",
   transfer: "text-faint",
@@ -151,9 +165,11 @@ function Ledger({
       {grouped ? (
         days.map((day) => {
           const dayRows = visible.filter((t) => t.occurred_on === day);
-          const dayTotal = dayRows
-            .filter((t) => t.kind === "expense")
-            .reduce((sum, t) => sum + (Number(t.amount_rsd) || 0), 0);
+          /* What the day cost: bought less returned, the same sum the month is made of. */
+          const dayTotal = dayRows.reduce(
+            (sum, t) => sum + spentBy(t.kind, Number(t.amount_rsd) || 0),
+            0,
+          );
           return (
             <div key={day} className="money-day">
               <div className="money-day-head flex items-center justify-between border-b border-line-soft px-4 py-2">
@@ -258,6 +274,9 @@ function Row({
   */
   const items = tx.items ?? [];
   const [openItems, setOpenItems] = useState(false);
+  /* What has come back off this purchase, and whether that is the whole of it. */
+  const refunded = refundedOf(tx);
+  const allBack = refunded > 0 && refunded + 0.005 >= (Number(tx.amount_rsd) || 0);
 
   const movement =
     tx.kind === "saving" ? "Put aside" : tx.kind === "withdraw" ? "Taken back out" : null;
@@ -335,6 +354,7 @@ function Row({
               )}
               {tx.note && label !== tx.note ? ` · ${tx.note}` : ""}
             </span>
+
             {items.length > 0 && (
               <span className="shrink-0 whitespace-pre">
                 {" · "}
@@ -370,6 +390,24 @@ function Row({
                   {formatAmount(Number(tx.amount), tx.currency)}
                 </div>
               )}
+              {/*
+                What came back off this purchase, under the figure it changes.
+
+                Without it a cancelled order and the money returning are two rows that
+                never mention each other: you scroll past 10.993 spent at a shop that
+                refunded you a week later and the page says nothing, which is how the
+                order came to be written down twice.
+
+                Under the amount rather than in the line of details, because that line
+                truncates and on a phone it is cut at the account — the ellipsis ate the
+                one fact on the row that changes what the figure beside it means. Here it
+                is beside that figure and nothing can push it off.
+              */}
+              {refunded > 0 && (
+                <div className="money-row-back mono text-[11px]">
+                  {allBack ? "refunded" : `${fmt(refunded)} back`}
+                </div>
+              )}
             </>
           )}
         </div>
@@ -399,7 +437,17 @@ function Row({
           <DeleteButton
             compact
             label="Delete entry"
-            confirmText="Delete this entry? Balances and the totals above are recalculated without it."
+            /*
+              A purchase with money back against it says so before it goes. The refund is
+              its own row and stays — rightly, the money did come back — but it is then a
+              refund of nothing, taking dinars off a category with no purchase behind it.
+              Better said here than found next month in a figure that will not add up.
+            */
+            confirmText={
+              refunded > 0
+                ? `Delete this entry? ${fmt(refunded)} of it came back, and that refund stays in the ledger on its own — taking that much off ${tx.category?.name ?? "the category"} with nothing left to explain it.`
+                : "Delete this entry? Balances and the totals above are recalculated without it."
+            }
             action={async () => {
               setRemoving(true);
               const result = await removeTransaction(tx.id);
@@ -450,6 +498,7 @@ function Row({
 const KIND_LABEL: Record<string, string> = {
   expense: "Spent",
   income: "Came in",
+  refund: "Came back",
   saving: "Into a goal",
   withdraw: "Out of a goal",
   transfer: "Moved",
@@ -803,7 +852,7 @@ export function MoneyView({
 
   return (
     <div className="money-premium mx-auto max-w-300">
-      <div className="money-page-head mb-5 flex flex-wrap items-end justify-between gap-3">
+      <div className="money-page-head mb-5">
         <div className="min-w-0">
           <span className="money-page-kicker">Private · Money</span>
           <h1 className="mt-2 font-display text-[32px] font-extrabold tracking-[-1.2px] text-ink sm:text-[38px]">
@@ -818,6 +867,17 @@ export function MoneyView({
                 ? "Chosen dates"
                 : (RANGE_OPTIONS.find((o) => o.value === range)?.label ?? "Money")}
           </h1>
+        </div>
+        {/*
+          The switcher and Add share a row.
+
+          Add used to be the head's second column, and on a phone the column wrapped under
+          the switcher into a row of its own: one small button with a screen's width of
+          nothing beside it. Here it takes the right end of the switcher's row on every
+          screen — which on a desk is the same place it always sat, the bottom right of the
+          head — and the phone gets its row back.
+        */}
+        <div className="money-head-bar">
           {/*
             A span says which days it turned out to be.
 
@@ -826,7 +886,7 @@ export function MoneyView({
             dates. `All time` has no ends to print, so it prints what it has.
           */}
           {range !== "month" && (
-            <div className="money-month-nav mt-3">
+            <div className="money-month-nav">
               <span className="money-month-span">
                 {spanFrom || spanTo
                   ? `${spanFrom || "the beginning"} → ${spanTo || "today"}`
@@ -842,7 +902,7 @@ export function MoneyView({
             The month you are on is the heading above, so the switcher does not repeat
             it — it names where each step lands instead.
           */}
-          <div className="money-month-nav mt-3" hidden={range !== "month"}>
+          <div className="money-month-nav" hidden={range !== "month"}>
             <Link
               href={`/private/money?month=${prevMonth}`}
               aria-label={`Go to ${monthLabel(prevMonth)}`}
@@ -870,30 +930,30 @@ export function MoneyView({
               </Link>
             )}
           </div>
+          {/*
+            Nothing can be recorded without an account to record it against, so with none
+            the button stops offering a form and starts pointing at the one thing that
+            has to happen first. A form that cannot be submitted is not an empty state —
+            it is a dead end with a cursor in it.
+          */}
+          {data.accounts.length === 0 ? (
+            <Link
+              href="/private/setup#setup-accounts"
+              className={buttonClasses("primary", "money-premium-button")}
+            >
+              <Plus className="h-4 w-4" />
+              Add an account
+            </Link>
+          ) : (
+            <Link
+              href={`${base}&new=expense`}
+              className={buttonClasses("primary", "money-premium-button")}
+            >
+              <Plus className="h-4 w-4" />
+              Add
+            </Link>
+          )}
         </div>
-        {/*
-          Nothing can be recorded without an account to record it against, so with none
-          the button stops offering a form and starts pointing at the one thing that
-          has to happen first. A form that cannot be submitted is not an empty state —
-          it is a dead end with a cursor in it.
-        */}
-        {data.accounts.length === 0 ? (
-          <Link
-            href="/private/setup#setup-accounts"
-            className={buttonClasses("primary", "money-premium-button")}
-          >
-            <Plus className="h-4 w-4" />
-            Add an account
-          </Link>
-        ) : (
-          <Link
-            href={`${base}&new=expense`}
-            className={buttonClasses("primary", "money-premium-button")}
-          >
-            <Plus className="h-4 w-4" />
-            Add
-          </Link>
-        )}
       </div>
 
 
@@ -1234,6 +1294,10 @@ export function MoneyView({
           tx={panel?.mode === "edit" ? panel.tx : undefined}
           defaultKind={panel?.mode === "new" ? panel.kind : "expense"}
           presetLoanId={panel?.mode === "new" ? panel.loanId : undefined}
+          refundOf={panel?.refundOf}
+          refundHref={
+            panel?.mode === "edit" ? `${base}&new=refund&of=${panel.tx.id}` : undefined
+          }
           data={data}
         />
       </SlideOver>

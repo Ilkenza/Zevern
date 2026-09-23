@@ -287,7 +287,8 @@ export async function saveTransaction(_prev: MoneyState, formData: FormData): Pr
 
   // Only the links the kind actually keeps are worth checking — the rest are dropped.
   const toAccount = kind === "transfer" ? toAccountId : null;
-  const category = kind === "expense" || kind === "income" ? categoryId : null;
+  const category =
+    kind === "expense" || kind === "income" || kind === "refund" ? categoryId : null;
   /*
     Four kinds may name a goal, and which four depends on the goal.
 
@@ -311,7 +312,9 @@ export async function saveTransaction(_prev: MoneyState, formData: FormData): Pr
     given kind pays a debt down, takes a payment back, or is the entry that opened it.
   */
   const loan =
-    isLoanKind(kind) || kind === "expense" || kind === "income" ? loanId : null;
+    isLoanKind(kind) || kind === "expense" || kind === "income" || kind === "refund"
+      ? loanId
+      : null;
 
   const [ownsAccount, ownsToAccount, ownsCategory, ownsGoal, ownsLoan] = await Promise.all([
     ownsMoneyRow(supabase, "money_accounts", accountId, uid),
@@ -346,7 +349,7 @@ export async function saveTransaction(_prev: MoneyState, formData: FormData): Pr
     if (!goalKinds(goalPaying).includes(kind))
       return {
         error: goalPaying
-          ? "That goal is being paid off — put an expense towards it, or income to reverse one."
+          ? "That goal is being paid off — put an expense towards it, or a refund to reverse one."
           : "That goal is being saved up — set money aside against it, or file income straight into it.",
       };
   }
@@ -354,6 +357,66 @@ export async function saveTransaction(_prev: MoneyState, formData: FormData): Pr
   // amount_rsd is generated in the database as round(amount * rate, 2); worked out the
   // same way here so the check and the stored figure cannot disagree.
   const amountRsd = amount === null ? 0 : Math.round(amount * rate * 100) / 100;
+
+  /*
+    The purchase this refund undoes, when it names one.
+
+    Optional — a bank reversing a charge refunds nothing anybody wrote down — and checked
+    rather than trusted, like every other id that arrives from a browser. It has to be
+    this profile's, and it has to be a purchase: a refund pointing at another refund
+    would be money going round in a circle, and one pointing at a transfer would take
+    spending off a category the transfer never touched.
+
+    The ceiling is the second half. Nothing in the database stops ten refunds of 10.993
+    against an order that cost 10.993, and the arithmetic would obey them — a category
+    would go 100.000 into the negative and read as money earned by shopping. What has
+    already come back is summed here and the entry being edited is left out of that sum,
+    so raising a refund from 5.000 to 6.000 answers for the 6.000 and not for both.
+
+    A purchase logged without a price has no ceiling to hold, and that is left alone: the
+    figure that would be judged does not exist yet.
+  */
+  let refundOf: string | null = null;
+  if (kind === "refund") {
+    const wanted = String(formData.get("refund_of_id") ?? "").trim() || null;
+    if (wanted) {
+      const { data: bought, error: boughtError } = await supabase
+        .from("money_transactions")
+        .select("id, kind, amount_rsd")
+        .eq("id", wanted)
+        .eq("user_id", uid)
+        .maybeSingle();
+      if (boughtError) return { error: unreadable("the purchase this refunds") };
+      if (!bought) return { error: "That purchase is not on your profile." };
+      if (bought.kind !== "expense")
+        return { error: "A refund can only be against a purchase." };
+      refundOf = bought.id;
+
+      const paid = Number(bought.amount_rsd) || 0;
+      if (paid > 0) {
+        const { data: already, error: alreadyError } = await supabase
+          .from("money_transactions")
+          .select("id, amount_rsd")
+          .eq("user_id", uid)
+          .eq("kind", "refund")
+          .eq("refund_of_id", refundOf);
+        if (alreadyError)
+          return { error: unreadable("what has already come back off that purchase") };
+        const back = (already ?? [])
+          .filter((r) => r.id !== id)
+          .reduce((sum, r) => sum + (Number(r.amount_rsd) || 0), 0);
+        if (back + amountRsd > paid + PENNY) {
+          const room = Math.max(0, Math.round((paid - back) * 100) / 100);
+          return {
+            error:
+              room > 0
+                ? `That purchase cost ${fmt(paid)} and ${fmt(back)} has already come back, so ${fmt(room)} is left to refund.`
+                : `All ${fmt(paid)} of that purchase has already come back.`,
+          };
+        }
+      }
+    }
+  }
 
   /*
     A deposit cannot reserve money the account does not have free.
@@ -501,6 +564,15 @@ export async function saveTransaction(_prev: MoneyState, formData: FormData): Pr
     // instead of two that every read would have to treat the same.
     items: items.length > 0 ? items : null,
     receipt_no: receiptNo,
+    /*
+      Always written, including as `null`.
+
+      Left out of the payload, an edit that turned a refund into an expense would keep
+      the link — and the database refuses that outright, so the save would fail with a
+      constraint name where an explanation belongs. Cleared here, the entry simply stops
+      being a refund of anything.
+    */
+    refund_of_id: refundOf,
   };
 
   /*

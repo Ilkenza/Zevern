@@ -43,6 +43,8 @@ const SIGN: Record<string, string> = {
   withdraw: "←",
   transfer: "⇄",
   expense: "−",
+  /* Money that came back off this category — the same mark the ledger gives it. */
+  refund: "+",
 };
 
 export function CategoryHistoryPanel({
@@ -392,6 +394,5 @@ function EntryRow({
     </li>
   );
 }
-
 
 

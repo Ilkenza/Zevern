@@ -19,17 +19,19 @@ export type GoalMove = { kind: string; amount: number };
  * so `free to spend` is unchanged, which is the truth of it.
  *
  * A goal being **paid off** is fed by money that has already gone: an ordinary `expense`
- * that names it, and an `income` that names it is that payment coming back.
+ * that names it, and a `refund` that names it is that payment coming back. `income` is
+ * kept on that list because it is what a payment coming back was written as before the
+ * refund kind existed, and an entry made then still means what it meant then.
  *
  * The two lists overlap on `income` and that is not a conflict — a goal runs one way or
  * the other, never both, so an entry is read once.
  */
 export function goalKinds(paying: boolean): readonly string[] {
-  return paying ? ["expense", "income"] : ["saving", "withdraw", "income"];
+  return paying ? ["expense", "income", "refund"] : ["saving", "withdraw", "income"];
 }
 
 /** Every kind either of the two lists can contain — what the query has to fetch. */
-export const GOAL_MOVE_KINDS = ["saving", "withdraw", "expense", "income"] as const;
+export const GOAL_MOVE_KINDS = ["saving", "withdraw", "expense", "income", "refund"] as const;
 
 /** Whether this entry moves the goal closer to its target rather than back from it. */
 export function movesToward(kind: string, paying: boolean): boolean {

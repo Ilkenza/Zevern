@@ -180,3 +180,37 @@ describe("a savings budget against money filed elsewhere", () => {
   });
 });
 
+
+/*
+  A refund is the purchase undone, so every budget reads it exactly where it read the
+  purchase and with the sign turned round. Sent through as income it would have been
+  invisible to a ceiling and a windfall to a savings budget — the same wrong answer in
+  two different columns.
+*/
+describe("a refund", () => {
+  it("gives a ceiling back the room the purchase took", () => {
+    expect(contributionOf(plan(), row({ kind: "refund" }))).toBe(-1000);
+  });
+
+  it("leaves a savings budget better off by the spending that did not happen", () => {
+    expect(contributionOf(plan({ kind: "savings" }), row({ kind: "refund" }))).toBe(1000);
+  });
+
+  it("counts in a budget kept by hand when it was filed there", () => {
+    expect(
+      contributionOf(plan({ membership: "added" }), row({ kind: "refund", budget_id: "b1" })),
+    ).toBe(-1000);
+  });
+
+  it("obeys the same category and account filters a purchase does", () => {
+    expect(
+      contributionOf(plan(), row({ kind: "refund" }), new Set(["c2"]), undefined),
+    ).toBeNull();
+  });
+
+  it("can be filed into either kind of budget, unlike income", () => {
+    expect(canFileInto("refund", "expense")).toBe(true);
+    expect(canFileInto("refund", "savings")).toBe(true);
+    expect(canFileInto("income", "expense")).toBe(false);
+  });
+});

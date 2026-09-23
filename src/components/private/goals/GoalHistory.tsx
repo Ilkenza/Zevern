@@ -5,6 +5,7 @@ import { ChevronDown, ChevronUp, History } from "lucide-react";
 import { removeTransaction } from "@/app/(app)/private/actions";
 import { DeleteButton } from "@/components/ui/DeleteButton";
 
+import { movesToward } from "@/lib/money/goal-progress";
 import { useMoney } from "@/lib/money/currency";
 import { cn } from "@/lib/utils";
 import type { GoalEntry, GoalLine } from "@/lib/types";
@@ -13,10 +14,28 @@ import type { GoalEntry, GoalLine } from "@/lib/types";
  * One movement, in the goal's own words. The account is named because that is the
  * question the run of deposits is usually asked to settle — which pocket it came from.
  */
-function EntryRow({ entry, goalName }: { entry: GoalEntry; goalName: string }) {
+function EntryRow({
+  entry,
+  goalName,
+  paying,
+}: {
+  entry: GoalEntry;
+  goalName: string;
+  paying: boolean;
+}) {
   const { fmt } = useMoney();
   const [error, setError] = useState<string | null>(null);
-  const out = entry.kind === "withdraw";
+  /*
+    Which way this one moved the goal, asked of the same function the figures are worked
+    out with.
+
+    It used to be "is it a withdrawal", which is the only way back out of a goal that
+    holds money and not the only way back off one being paid off: a payment coming
+    back — an `income` then, a `refund` now — drew a `+` in the run under a figure it
+    had just made smaller.
+  */
+  const out = !movesToward(entry.kind, paying);
+  const word = paying ? (out ? "refund" : "payment") : out ? "withdrawal" : "deposit";
 
   return (
     <div className="border-b border-line-soft py-1.5 last:border-b-0">
@@ -34,7 +53,7 @@ function EntryRow({ entry, goalName }: { entry: GoalEntry; goalName: string }) {
         </span>
         <DeleteButton
           compact
-          label={`Delete this ${out ? "withdrawal" : "deposit"}`}
+          label={`Delete this ${word}`}
           confirmText={`Remove ${fmt(entry.amount)} of ${entry.occurred_on} from ${goalName}? The entry leaves the ledger and every balance is worked out without it.`}
           action={async () => {
             const result = await removeTransaction(entry.id);
@@ -59,9 +78,7 @@ export function GoalHistory({ goal }: { goal: GoalLine }) {
   if (goal.movements === 0) return null;
 
   // The entries that moved it toward its target, whichever kind those are for it.
-  const deposits = goal.entries.filter((e) =>
-    goal.paying ? e.kind === "expense" : e.kind === "saving",
-  ).length;
+  const deposits = goal.entries.filter((e) => movesToward(e.kind, goal.paying)).length;
   const shown = goal.entries.length;
 
   return (
@@ -92,7 +109,7 @@ export function GoalHistory({ goal }: { goal: GoalLine }) {
       {open && (
         <div className="goal-history-content mt-1">
           {goal.entries.map((entry) => (
-            <EntryRow key={entry.id} entry={entry} goalName={goal.name} />
+            <EntryRow key={entry.id} entry={entry} goalName={goal.name} paying={goal.paying} />
           ))}
           <p className="pt-2 text-[11px] text-faint">
             {shown < goal.movements

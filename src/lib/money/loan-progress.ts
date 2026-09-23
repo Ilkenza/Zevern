@@ -82,14 +82,16 @@ export function weighLoanMove(direction: string, kind: string): -1 | 0 | 1 {
   // The debt was opened by money going the way the debt itself goes: out of the account
   // when you lend, into it when you borrow.
   if (kind === (lent ? "loan_out" : "loan_in")) return 0;
-  const moneyIn = kind === "loan_in" || kind === "income";
+  // A refund of an instalment is that instalment coming back, which is the same movement
+  // an `income` against a debt has always been and is now the word for it.
+  const moneyIn = kind === "loan_in" || kind === "income" || kind === "refund";
   // Lent money comes back to you; borrowed money goes away from you.
   if (lent) return moneyIn ? 1 : -1;
   return moneyIn ? -1 : 1;
 }
 
 /** The only kinds `saveTransaction` lets carry a `loan_id`. */
-const MOVES = new Set(["loan_in", "loan_out", "expense", "income"]);
+const MOVES = new Set(["loan_in", "loan_out", "expense", "income", "refund"]);
 
 /**
  * What has been paid against the debt so far.
